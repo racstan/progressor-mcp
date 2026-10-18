@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "progressor-own-plan",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/dashboard.mjs", "."],
+      "port": 4800
+    }
+  ]
+}
