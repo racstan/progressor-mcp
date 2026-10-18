@@ -6,3 +6,4 @@ export { startDashboard, dashboardApi, DEFAULT_PORT, type Dashboard, type Dashbo
 export { buildGoalGraph, withoutDetours, type GoalGraph, type GraphNode, type GraphEdge } from "./dashboard/graph.js";
 export { copyAsPrompt, type PromptSubject } from "./dashboard/prompt.js";
 export { editorUrl, parseCodeRef, EDITORS } from "./dashboard/editor.js";
+export { registerProject, listProjects, defaultRegistryFile, projectEntry, type ProjectEntry } from "./dashboard/registry.js";

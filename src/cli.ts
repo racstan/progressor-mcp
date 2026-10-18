@@ -52,5 +52,5 @@ await createServer(project, { dashboard }).connect(new StdioServerTransport());
 console.error(`progressor: serving ${project.root} as Session ${project.session.id}`);
 if (dashboard)
   console.error(
-    `progressor: dashboard at ${dashboard.url}${dashboard.role === "shared" ? " (served by another Session on this project)" : ""}`,
+    `progressor: dashboard at ${dashboard.url}${dashboard.role === "shared" ? " (the dashboard is served by another Progressor process)" : ""}`,
   );

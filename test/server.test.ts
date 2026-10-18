@@ -1,16 +1,14 @@
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Project } from "../src/project.js";
 import { createServer } from "../src/server.js";
+import { tempDir } from "./tmp.js";
 
 let client: Client;
 
 beforeEach(async () => {
-  const root = mkdtempSync(join(tmpdir(), "progressor-"));
+  const root = tempDir("progressor-");
   const project = new Project({ root, session: { id: "s-a", pid: process.pid } });
   const server = createServer(project);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
@@ -119,7 +117,7 @@ describe("the MCP server", () => {
   });
 
   it("tells the Agent where the Developer can open the dashboard", async () => {
-    const root = mkdtempSync(join(tmpdir(), "progressor-"));
+    const root = tempDir("progressor-");
     const project = new Project({ root, session: { id: "s-a", pid: process.pid } });
     let refreshed = 0;
     const server = createServer(project, {

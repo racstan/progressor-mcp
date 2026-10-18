@@ -1,19 +1,27 @@
-// The dashboard's web server: the built UI plus a read-only JSON API over the progress record, with
-// server-sent events when files under .progressor/ change. It runs inside the MCP server process
-// (ADR 0001) and binds to the loopback interface only.
+// The dashboard's web server: one address (localhost:4747) for every project that runs Progressor
+// (ADR 0001). Whichever Progressor process holds the port is the hub: it serves the built UI and a
+// read-only JSON API for each project in the per-user registry, reading that project's .progressor/
+// markdown straight from disk, and pushes server-sent events when those files change. It binds to
+// the loopback interface only.
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
-import { basename, extname, join, normalize, resolve, sep } from "node:path";
-import { PROGRESSOR_DIR, type Project, ROADMAP_FILE, processIsAlive } from "../project.js";
+import { extname, join, normalize, resolve, sep } from "node:path";
+import { PROGRESSOR_DIR, Project, ROADMAP_FILE, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
+import { type ProjectEntry, defaultRegistryFile, listProjects, registerProject } from "./registry.js";
 import { watchProgress } from "./watch.js";
 
 export const DEFAULT_PORT = 4747;
 const HOST = "127.0.0.1";
+/** Bumped when the hub's API changes, so a hub from an older version is not shared. */
+const HUB_VERSION = 1;
 
 export interface DashboardOptions {
+  /** This Session's project; it is added to the registry. */
   project: Project;
+  /** The registry of projects; `~/.progressor/projects.json` unless set (see registry.ts). */
+  registryFile?: string;
   /** The port to try first; the next ones are tried when it is taken by something else. */
   port?: number;
   /** Folder of the built UI. */
@@ -22,14 +30,17 @@ export interface DashboardOptions {
   editor?: string;
   /** How many ports to try before giving up. */
   attempts?: number;
+  /** How often the hub re-reads the registry, for projects it was not told about. */
+  rescanMs?: number;
 }
 
 export interface Dashboard {
-  /** Where the Developer opens the dashboard, served by this process or by another Session's. */
+  /** Where the Developer opens this Session's project on the dashboard. */
   readonly url: string;
-  /** "serving" when this process serves it, "shared" when another Session on this project does. */
+  /** "serving" when this process is the hub, "shared" when another Progressor process is. */
   readonly role: "serving" | "shared";
-  /** For a shared dashboard: if the Session serving it has gone, start serving it here. */
+  readonly project: ProjectEntry;
+  /** If the hub has gone, become the hub. */
   refresh(): Promise<void>;
   close(): Promise<void>;
 }
@@ -46,13 +57,8 @@ const MIME: Record<string, string> = {
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
 
-const sameFolder = (a: string, b: string) => {
-  const norm = (p: string) => resolve(p).replace(/[\\/]+$/, "");
-  return process.platform === "win32" ? norm(a).toLowerCase() === norm(b).toLowerCase() : norm(a) === norm(b);
-};
-
-/** The JSON views the page reads. Each call re-reads the markdown, which is the source of truth. */
-export function dashboardApi(project: Project, editor: string) {
+/** The JSON views of one project. Each call re-reads the markdown, which is the source of truth. */
+export function dashboardApi(project: Project) {
   const roadmapFile = `${PROGRESSOR_DIR}/${ROADMAP_FILE}`;
   const goalSummary = (goalId: string) => {
     const goal = project.roadmap().goal(goalId);
@@ -69,10 +75,10 @@ export function dashboardApi(project: Project, editor: string) {
     return { ...goal, planFile: project.planFilePath(goalId), done, total };
   };
   return {
-    info: () => ({ app: "progressor", version: VERSION, root: project.root, name: basename(resolve(project.root)), editor }),
     roadmap: () => {
       const roadmap = project.roadmap();
       return {
+        root: project.root,
         file: roadmapFile,
         goals: roadmap.goals.map((g) => goalSummary(g.id)!),
         sessions: roadmap.goals
@@ -105,42 +111,6 @@ function isLocalHost(req: IncomingMessage): boolean {
   return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
 }
 
-function createHandler(project: Project, uiDir: string | undefined, editor: string, clients: Set<ServerResponse>) {
-  const api = dashboardApi(project, editor);
-  return (req: IncomingMessage, res: ServerResponse) => {
-    if (!isLocalHost(req)) return json(res, 403, { error: "The dashboard only answers on localhost." });
-    if (req.method !== "GET" && req.method !== "HEAD") return json(res, 405, { error: "The dashboard is view-only." });
-    const url = new URL(`http://localhost${req.url ?? "/"}`);
-    const path = url.pathname;
-    try {
-      if (path === "/api/info") return json(res, 200, api.info());
-      if (path === "/api/roadmap") return json(res, 200, api.roadmap());
-      if (path.startsWith("/api/goals/")) {
-        const found = api.goal(decodeURIComponent(path.slice("/api/goals/".length)));
-        return found ? json(res, 200, found) : json(res, 404, { error: "No such Goal." });
-      }
-      if (path === "/api/item") {
-        try {
-          return json(res, 200, api.item(url.searchParams.get("ref") ?? ""));
-        } catch (e) {
-          return json(res, 404, { error: (e as Error).message });
-        }
-      }
-      if (path === "/api/events") {
-        res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
-        res.write("retry: 2000\n: connected\n\n");
-        clients.add(res);
-        req.on("close", () => clients.delete(res));
-        return;
-      }
-      if (path.startsWith("/api/")) return json(res, 404, { error: "No such endpoint." });
-      return serveStatic(res, uiDir, path);
-    } catch (e) {
-      return json(res, 500, { error: (e as Error).message });
-    }
-  };
-}
-
 function serveStatic(res: ServerResponse, uiDir: string | undefined, path: string): void {
   if (!uiDir || !existsSync(join(uiDir, "index.html"))) {
     res.writeHead(503, { "content-type": "text/plain; charset=utf-8" });
@@ -152,6 +122,97 @@ function serveStatic(res: ServerResponse, uiDir: string | undefined, path: strin
   if (!file.startsWith(base + sep) || !existsSync(file) || !statSync(file).isFile()) file = join(base, "index.html");
   res.writeHead(200, { "content-type": MIME[extname(file)] ?? "application/octet-stream", "cache-control": "no-cache" });
   res.end(readFileSync(file));
+}
+
+/** The hub: serves every registered project, and watches each one's .progressor/ folder. */
+class Hub {
+  private readonly clients = new Set<ServerResponse>();
+  private readonly projects = new Map<string, { api: ReturnType<typeof dashboardApi>; stop: () => void }>();
+  private readonly timer: NodeJS.Timeout;
+
+  constructor(
+    private readonly registryFile: string,
+    private readonly uiDir: string | undefined,
+    private readonly editor: string,
+    rescanMs: number,
+  ) {
+    this.sync();
+    this.timer = setInterval(() => this.sync(), rescanMs);
+    this.timer.unref();
+  }
+
+  private send(event: string, data: unknown): void {
+    const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const c of this.clients) c.write(message);
+  }
+
+  /** Re-reads the registry: starts watching new projects and stops watching vanished ones. */
+  sync(): ProjectEntry[] {
+    const entries = listProjects(this.registryFile);
+    let changed = false;
+    for (const [id, p] of this.projects)
+      if (!entries.some((e) => e.id === id)) {
+        p.stop();
+        this.projects.delete(id);
+        changed = true;
+      }
+    for (const entry of entries)
+      if (!this.projects.has(entry.id)) {
+        const project = new Project({ root: entry.root, session: { id: "dashboard", pid: process.pid } });
+        const stop = watchProgress(entry.root, (files) => this.send("change", { project: entry.id, files }));
+        this.projects.set(entry.id, { api: dashboardApi(project), stop });
+        changed = true;
+      }
+    if (changed) this.send("projects", entries);
+    return entries;
+  }
+
+  handle = (req: IncomingMessage, res: ServerResponse): void => {
+    if (!isLocalHost(req)) return json(res, 403, { error: "The dashboard only answers on localhost." });
+    if (req.method !== "GET" && req.method !== "HEAD") return json(res, 405, { error: "The dashboard is view-only." });
+    const url = new URL(`http://localhost${req.url ?? "/"}`);
+    const path = url.pathname;
+    try {
+      if (path === "/api/info") return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, editor: this.editor });
+      if (path === "/api/projects") return json(res, 200, this.sync());
+      if (path === "/api/events") {
+        res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
+        res.write("retry: 2000\n: connected\n\n");
+        this.clients.add(res);
+        req.on("close", () => this.clients.delete(res));
+        return;
+      }
+      const m = /^\/api\/projects\/([^/]+)\/(roadmap|goals\/([^/]+)|item)$/.exec(path);
+      if (m) {
+        const id = decodeURIComponent(m[1]!);
+        if (!this.projects.has(id)) this.sync();
+        const api = this.projects.get(id)?.api;
+        if (!api) return json(res, 404, { error: "No such project on the dashboard." });
+        if (m[2] === "roadmap") return json(res, 200, api.roadmap());
+        if (m[2] === "item") {
+          try {
+            return json(res, 200, api.item(url.searchParams.get("ref") ?? ""));
+          } catch (e) {
+            return json(res, 404, { error: (e as Error).message });
+          }
+        }
+        const found = api.goal(decodeURIComponent(m[3]!));
+        return found ? json(res, 200, found) : json(res, 404, { error: "No such Goal." });
+      }
+      if (path.startsWith("/api/")) return json(res, 404, { error: "No such endpoint." });
+      return serveStatic(res, this.uiDir, path);
+    } catch (e) {
+      return json(res, 500, { error: (e as Error).message });
+    }
+  };
+
+  close(): void {
+    clearInterval(this.timer);
+    for (const p of this.projects.values()) p.stop();
+    this.projects.clear();
+    for (const c of this.clients) c.end();
+    this.clients.clear();
+  }
 }
 
 /** Listens on a port: "ok", "in use" (something may be serving there) or "unavailable" (reserved). */
@@ -173,53 +234,46 @@ function listen(server: Server, port: number): Promise<"ok" | "in use" | "unavai
   });
 }
 
-/** Asks whatever listens on a port whether it is Progressor's dashboard, and for which project. */
-async function probe(port: number): Promise<{ root: string } | undefined> {
+/** Whether a port is held by a Progressor hub this version can share. */
+async function isHub(port: number): Promise<boolean> {
   try {
     const res = await fetch(`http://${HOST}:${port}/api/info`, { signal: AbortSignal.timeout(1500) });
-    const info = (await res.json()) as { app?: string; root?: string };
-    return info.app === "progressor" && typeof info.root === "string" ? { root: info.root } : undefined;
+    const info = (await res.json()) as { app?: string; hub?: number };
+    return info.app === "progressor" && info.hub === HUB_VERSION;
   } catch {
-    return undefined;
+    return false;
   }
 }
 
-const urlOf = (port: number) => `http://localhost:${port}/`;
-
 /**
- * Starts the dashboard for a project. The first Session to start serves it; a Session that finds
- * the project already served shares that URL instead. A port held by anything else (another
- * project's dashboard, an unrelated program) is skipped for the next one.
+ * Joins the dashboard: registers this Session's project and serves every registered project from
+ * the first free port starting at 4747, or, when a Progressor hub already holds it, shares that.
+ * Ports held by anything else are skipped for the next one.
  */
 export async function startDashboard(options: DashboardOptions): Promise<Dashboard> {
-  const { project, uiDir, editor = DEFAULT_EDITOR, attempts = 20 } = options;
+  const { project, uiDir, editor = DEFAULT_EDITOR, attempts = 20, rescanMs = 5000 } = options;
+  const registryFile = options.registryFile ?? defaultRegistryFile();
   const firstPort = options.port ?? DEFAULT_PORT;
-  const clients = new Set<ServerResponse>();
+  const entry = registerProject(project.root, registryFile);
   let server: Server | undefined;
-  let stopWatching: (() => void) | undefined;
+  let hub: Hub | undefined;
   let port = firstPort;
   let role: "serving" | "shared" = "shared";
 
-  const broadcast = (files: string[]) => {
-    const data = `event: change\ndata: ${JSON.stringify({ files })}\n\n`;
-    for (const c of clients) c.write(data);
-  };
-
   const claimPort = async (): Promise<void> => {
     for (let p = firstPort; p < firstPort + attempts; p++) {
-      const candidate = createServer(createHandler(project, uiDir, editor, clients));
-      const result = await listen(candidate, p);
+      const http = createServer();
+      const result = await listen(http, p);
       if (result === "ok") {
-        server = candidate;
-        port = p;
-        role = "serving";
-        stopWatching = watchProgress(project.root, broadcast);
+        hub = new Hub(registryFile, uiDir, editor, rescanMs);
+        http.on("request", hub.handle);
+        [server, port, role] = [http, p, "serving"];
         return;
       }
-      const other = result === "in use" ? await probe(p) : undefined;
-      if (other && sameFolder(other.root, project.root)) {
-        port = p;
-        role = "shared";
+      if (result === "in use" && (await isHub(p))) {
+        [port, role] = [p, "shared"];
+        // Tell the hub about this project now, rather than at its next rescan.
+        await fetch(`http://${HOST}:${p}/api/projects`, { signal: AbortSignal.timeout(1500) }).catch(() => undefined);
         return;
       }
     }
@@ -230,20 +284,19 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
 
   return {
     get url() {
-      return urlOf(port);
+      return `http://localhost:${port}/?project=${encodeURIComponent(entry.id)}`;
     },
     get role() {
       return role;
     },
+    project: entry,
     async refresh() {
       if (role === "serving") return;
-      const other = await probe(port);
-      if (!other || !sameFolder(other.root, project.root)) await claimPort();
+      if (!(await isHub(port))) await claimPort();
     },
     async close() {
-      stopWatching?.();
-      for (const c of clients) c.end();
-      clients.clear();
+      hub?.close();
+      hub = undefined;
       if (server) {
         const s = server;
         server = undefined;
@@ -255,7 +308,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
 }
 
 export type DashboardApi = ReturnType<typeof dashboardApi>;
-export type InfoView = ReturnType<DashboardApi["info"]>;
+export type InfoView = { app: "progressor"; hub: number; version: string; editor: string };
 export type RoadmapView = ReturnType<DashboardApi["roadmap"]>;
 export type GoalView = NonNullable<ReturnType<DashboardApi["goal"]>>;
 export type GoalSummary = GoalView["goal"];

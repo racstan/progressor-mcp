@@ -1,8 +1,8 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Project } from "../src/project.js";
+import { tempDir } from "./tmp.js";
 
 let root: string;
 const alive = new Set<number>();
@@ -16,7 +16,7 @@ function session(id: string, pid: number): Project {
 const read = (path: string) => readFileSync(join(root, ".progressor", path), "utf8");
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), "progressor-"));
+  root = tempDir("progressor-");
   alive.clear();
 });
 
