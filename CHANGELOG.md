@@ -2,6 +2,11 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## Unreleased
+
+- Dashboard: the Goal on screen stays on screen when it finishes, instead of jumping to the next planned Goal.
+- package.json links to the GitHub repository; the README has a demo.
+
 ## 0.2.0 · Workspaces, Settings and finished Goals
 
 Also includes the status hooks below: 0.1.2 was never published on its own.

@@ -3,6 +3,14 @@
   "version": "0.2.0",
   "description": "An MCP server that keeps an AI Agent and the Developer focused on their Goals across context compression and distractions.",
   "author": "Rachit Asthana",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/racstan/progressor-mcp.git"
+  },
+  "homepage": "https://github.com/racstan/progressor-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/racstan/progressor-mcp/issues"
+  },
   "type": "module",
   "bin": {
     "progressor-mcp": "dist/cli.js"

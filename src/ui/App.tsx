@@ -145,9 +145,16 @@ export function App() {
     if (roadmapIsProjects && !visited) setSeen(seenOnFirstVisit(goals));
   }, [roadmapIsProjects, visited, goals, setSeen]);
   const grouped = groupGoals(goals, { finished: finished ?? "review", seen: visited ? seen : seenOnFirstVisit(goals), hidden });
+  // Without a pick, the Goal on screen stays on screen as the plan changes (a Goal that finishes
+  // while you watch it does not jump to the next one); the default is chosen once per project.
+  const shownBefore = useRef<{ project: string | undefined; goal: string | undefined }>({ project: undefined, goal: undefined });
+  const kept = shownBefore.current.project === projectId ? shownBefore.current.goal : undefined;
   const effectiveGoal = picked && goals.some((g) => g.id === picked)
     ? picked
-    : defaultGoal([...grouped.open, ...grouped.done]) ?? goals[0]?.id;
+    : kept && goals.some((g) => g.id === kept)
+      ? kept
+      : defaultGoal([...grouped.open, ...grouped.done]) ?? goals[0]?.id;
+  if (roadmapIsProjects) shownBefore.current = { project: projectId, goal: effectiveGoal };
   useEffect(() => setGoalId(effectiveGoal), [effectiveGoal]);
   const hideGoal = (id: string, hide: boolean) => {
     setHidden(hide ? [...hidden.filter((h) => h !== id), id] : hidden.filter((h) => h !== id));

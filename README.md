@@ -1,5 +1,11 @@
 # Progressor
 
+[![npm](https://img.shields.io/npm/v/progressor-mcp)](https://www.npmjs.com/package/progressor-mcp) [![Test](https://github.com/racstan/progressor-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/racstan/progressor-mcp/actions/workflows/test.yml) [![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
+
+![An Agent works through "Ship OAuth login": Tasks tick off, a Detour branches off and merges back, a second Detour recalibrates the plan, and the Goal finishes, all live on the dashboard](docs/media/demo.gif)
+
+<sub>The dashboard follows an Agent through a Goal: Tasks tick off, a Detour is merged back, another one recalibrates the plan, and a stop is opened to copy it as a prompt. [Watch as video](docs/media/demo.mp4).</sub>
+
 Progressor keeps an AI coding Agent and you, the Developer, focused on the same Goal across long sessions, context compression and distractions. It is an [MCP](https://modelcontextprotocol.io) server: your Agent's app starts it, and the Agent uses its tools to keep a live record of what is planned, what is done, and what came up along the way.
 
 The record is plain markdown inside your project, in `.progressor/`, so it is readable, diffable and travels with the repo. See [GLOSSARY.md](GLOSSARY.md) for the words used here and [docs/markdown-format.md](docs/markdown-format.md) for the file format.

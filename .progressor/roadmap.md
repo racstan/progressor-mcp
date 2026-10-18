@@ -11,7 +11,8 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
 - [/] [Release 0.2.0](goals/release-0-2-0.md) ^release-0-2-0
 - [ ] [Automatic drift detection](goals/drift-detection.md) ^drift-detection
 - [ ] [One-command setup](goals/one-command-setup.md) ^one-command-setup
-- [ ] [Public GitHub repo and launch](goals/github-launch.md) ^github-launch
+- [/] [Public GitHub repo and launch](goals/github-launch.md) ^github-launch
+- [ ] [Slash commands in chat](goals/slash-commands.md) ^slash-commands
 
 ## Ideas
 
@@ -20,6 +21,7 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
 - Shared dashboards for teams ^i2
 - Statistics: how often work drifts and how long Tasks take ^i3
 - A /progressor MCP prompt that shows the status on demand ^i4
+  - promoted to: progressor://slash-commands
 - Import existing markdown plans (TODO.md, checklists) into Goals and Tasks ^i5
   - note: Start with GitHub-style checklists, headings as Goals; init --import <file> with a preview, original file untouched
 - Cheaper get_status: send only what changed since the Session's last call ^i6
