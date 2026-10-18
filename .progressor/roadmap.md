@@ -5,7 +5,7 @@ Progressor's own plan, kept with Progressor. Version 0.1.0 is published. Each Go
 ## Goals
 
 - [x] [0.1.1 · Dashboard fixes](goals/v0-1-1.md) ^v0-1-1
-- [ ] [0.1.2 · Status hooks for Claude Code](goals/v0-1-2.md) ^v0-1-2
+- [/] [0.1.2 · Status hooks for Claude Code](goals/v0-1-2.md) ^v0-1-2
 - [ ] [0.1.3 · Automatic drift detection](goals/v0-1-3.md) ^v0-1-3
 - [ ] [0.1.4 · One-command setup](goals/v0-1-4.md) ^v0-1-4
 - [ ] [0.1.5 · Public GitHub repo and launch](goals/v0-1-5.md) ^v0-1-5

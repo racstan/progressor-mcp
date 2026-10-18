@@ -32,6 +32,15 @@ export interface Status {
   goals: Goal[];
 }
 
+export interface ProjectOverview {
+  /** Goals held by a running Session. */
+  active: Status[];
+  /** Goals started earlier and not held by a running Session. */
+  paused: Status[];
+  planned: Goal[];
+  standingInstructions: StandingInstruction[];
+}
+
 export type FoundItem =
   | { kind: "goal"; ref: string; file: string; line: number; item: Goal; planFile: string }
   | { kind: "task"; ref: string; file: string; line: number; item: Task }
@@ -349,7 +358,26 @@ export class Project {
 
   status(): Status {
     const roadmap = this.roadmap();
-    const goal = this.claimedGoal(roadmap);
+    return this.goalStatus(this.claimedGoal(roadmap), roadmap);
+  }
+
+  /**
+   * Every started Goal, split into the ones a running Session holds and the ones left part-way, for
+   * readers that are not a Session themselves, such as the Claude Code hooks.
+   */
+  overview(): ProjectOverview {
+    const roadmap = this.roadmap();
+    const held = (g: Goal) => g.status === "active" && g.claim !== undefined && (g.claim.pid === undefined || this.isAlive(g.claim.pid));
+    const started = roadmap.goals.filter((g) => g.status === "active" || g.status === "paused");
+    return {
+      active: started.filter(held).map((g) => this.goalStatus(g, roadmap)),
+      paused: started.filter((g) => !held(g)).map((g) => this.goalStatus(g, roadmap)),
+      planned: roadmap.goals.filter((g) => g.status === "planned"),
+      standingInstructions: roadmap.standingInstructions,
+    };
+  }
+
+  private goalStatus(goal: Goal | undefined, roadmap: Roadmap): Status {
     const common = { standingInstructions: roadmap.standingInstructions, goals: roadmap.goals };
     if (!goal)
       return {
