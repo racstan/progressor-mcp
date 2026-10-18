@@ -1,19 +1,11 @@
-/* Progressor dashboard: design A (Metro map). Colours are tokens, redefined for dark mode. */
+/* Progressor dashboard: design A (Metro map). Colours are tokens; light is the default, dark is the
+   Developer's choice (data-theme="dark"), whatever the operating system prefers. */
 :root {
   --bg: #f6f5fb; --panel: #ffffff; --panel2: #f0eef8; --ink: #1d1b2e; --muted: #6b6886; --line: #e3e0ef;
   --accent: #6d5efc; --done: #17a673; --detour: #e0650f; --faded: #bdbacc; --on-accent: #fff;
   --lane0: #6d5efc; --lane1: #d9409a; --lane2: #0e9fb5; --lane3: #7a9a1c;
   --shadow: 0 6px 24px rgba(40, 30, 90, .08);
   color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0e0d16; --panel: #181725; --panel2: #201f31; --ink: #ecebf7; --muted: #9a97b6; --line: #2b2942;
-    --accent: #8d81ff; --done: #3ccf95; --detour: #ff9a52; --faded: #4a4864; --on-accent: #fff;
-    --lane0: #8d81ff; --lane1: #ff6bbd; --lane2: #3fd0e6; --lane3: #b5d65a;
-    --shadow: 0 6px 24px rgba(0, 0, 0, .4);
-    color-scheme: dark;
-  }
 }
 :root[data-theme="dark"] {
   --bg: #0e0d16; --panel: #181725; --panel2: #201f31; --ink: #ecebf7; --muted: #9a97b6; --line: #2b2942;
@@ -38,6 +30,12 @@ button, select { font: inherit; color: inherit; cursor: pointer; }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--line); font-size: 12px; color: var(--muted); white-space: nowrap; }
 button.chip:hover { border-color: var(--accent); }
 .chip b { color: var(--ink); }
+.nav .chip { max-width: 300px; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; min-width: 0; }
+.nav > :not(.chip) { flex-shrink: 0; }
+@media (max-width: 1180px) {
+  .logo small, .nav .label { display: none; }
+  .nav .chip { max-width: 220px; }
+}
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--done); display: inline-block; flex: none; }
 .dot.warn { background: var(--detour); }
 .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); background: none; border: none; padding: 4px; white-space: nowrap; }
@@ -75,6 +73,28 @@ button.chip:hover { border-color: var(--accent); }
 .card { display: block; width: 100%; text-align: left; padding: 9px 11px; border-radius: 10px; background: var(--panel2); margin-bottom: 8px; font-size: 13px; border: 1px solid transparent; }
 .card:hover { border-color: var(--line); }
 .card small { color: var(--muted); display: block; font-size: 11px; }
+
+/* project switcher and the path of the project a Roadmap comes from */
+.path { display: block; font: 11.5px/1.4 ui-monospace, "Cascadia Code", Consolas, monospace; color: var(--muted); overflow-wrap: anywhere; }
+.roadmap-path { margin: -4px 0 12px; }
+.project { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; width: 100%; text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); }
+.project .t { font-weight: 600; }
+.project .path { grid-column: 1 / -1; }
+.project .chev { color: var(--muted); }
+.project.current:not(:disabled):hover { border-color: var(--accent); }
+.project:disabled { cursor: default; color: inherit; }
+.project-list { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
+.project-list .project { background: none; border-color: transparent; }
+.project-list .project:hover { background: var(--panel2); }
+.project-list .project[aria-selected="true"] { border-color: var(--accent); }
+
+/* navbar menu: Standing Instructions and parked Ideas */
+.menu-btn.on { border-color: var(--accent); color: var(--accent); }
+.menu-btn .count { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 9px; background: var(--line); color: var(--ink); font-size: 11px; text-align: center; }
+.menu-panel { position: fixed; top: 58px; right: 16px; z-index: 40; width: 360px; max-width: calc(100vw - 20px); max-height: calc(100vh - 76px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 14px; }
+.menu-panel h3 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.menu-panel section + section { margin-top: 18px; }
+.menu-panel .empty { font-size: 13px; color: var(--muted); margin: 0; }
 
 /* main area */
 .main { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { DEFAULT_EDITOR, EDITORS, editorUrl, parseCodeRef } from "../dashboard/editor.js";
 import { type DetourNode, type GoalGraph, type TaskNode, withoutDetours } from "../dashboard/graph.js";
 import { type PromptSubject, copyAsPrompt } from "../dashboard/prompt.js";
-import { type GoalView, type RoadmapView, useProgress, useStored } from "./data.js";
+import { type GoalView, type RoadmapView, useDashboard, useStored } from "./data.js";
 import { STATUS_LABEL } from "./geometry.js";
 import { MetroMap } from "./MetroMap.js";
 
@@ -59,22 +59,37 @@ function useToast() {
   return [show, node] as const;
 }
 
-function isDark(theme: Theme | undefined) {
-  return theme ? theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-}
+/** Light unless the Developer picked dark; the operating system's setting is not followed. */
+const isDark = (theme: Theme | undefined) => theme === "dark";
+
+const projectFromUrl = () => new URLSearchParams(location.search).get("project") ?? undefined;
 
 export function App() {
+  const [pickedProject, setPickedProject] = useState<string | undefined>(projectFromUrl);
   const [picked, setPicked] = useState<string | undefined>(goalFromHash);
   const [detours, setDetours] = useState(true);
   const [theme, setTheme] = useStored<Theme>("progressor.theme", undefined);
   const [collapsed, setCollapsed] = useStored<"1">("progressor.sidebar-collapsed", undefined);
   const [editorChoice, setEditorChoice] = useStored<string>("progressor.editor", undefined);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
   // What the popover shows, by ID, so it follows live updates to that item.
   const [selected, setSelected] = useState<{ kind: "node" | "idea" | "standing instruction"; key: string; at: { x: number; y: number } }>();
   const [toast, toastNode] = useToast();
 
+  const [projectId, setProjectId] = useState<string | undefined>(pickedProject);
   const [goalId, setGoalId] = useState<string | undefined>(picked);
-  const { info, roadmap, goal, connection, error } = useProgress(goalId);
+  const { info, projects, roadmap, goal, connection, error } = useDashboard(projectId, goalId);
+  const project = projects?.find((p) => p.id === projectId);
+  // Without a project in the address, show the first one; an unknown one is reported, never swapped.
+  const effectiveProject = pickedProject ?? projects?.[0]?.id;
+  useEffect(() => {
+    setProjectId(effectiveProject);
+    // keep the shown project in the address, so a reload or a bookmark comes back to it
+    if (effectiveProject && !projectFromUrl())
+      history.replaceState(null, "", `?project=${encodeURIComponent(effectiveProject)}${location.hash}`);
+  }, [effectiveProject]);
+
   const goals = roadmap?.goals ?? [];
   const effectiveGoal = picked && goals.some((g) => g.id === picked) ? picked : defaultGoal(goals);
   useEffect(() => setGoalId(effectiveGoal), [effectiveGoal]);
@@ -83,15 +98,34 @@ export function App() {
   const shownGoal = goal && goal.goal.id === effectiveGoal ? goal : undefined;
 
   useEffect(() => {
-    const onHash = () => setPicked(goalFromHash());
-    addEventListener("hashchange", onHash);
-    return () => removeEventListener("hashchange", onHash);
+    const onNavigate = () => {
+      setPickedProject(projectFromUrl());
+      setPicked(goalFromHash());
+    };
+    addEventListener("hashchange", onNavigate);
+    addEventListener("popstate", onNavigate);
+    return () => {
+      removeEventListener("hashchange", onNavigate);
+      removeEventListener("popstate", onNavigate);
+    };
   }, []);
+  const closeDrawerOnNarrow = () => {
+    if (matchMedia("(max-width: 720px)").matches) setCollapsed("1"); // the sidebar is a drawer over the map there
+  };
   const pickGoal = (id: string) => {
     setSelected(undefined);
-    history.replaceState(null, "", `#/goal/${encodeURIComponent(id)}`);
+    history.replaceState(null, "", `${location.search}#/goal/${encodeURIComponent(id)}`);
     setPicked(id);
-    if (matchMedia("(max-width: 720px)").matches) setCollapsed("1"); // the sidebar is a drawer over the map there
+    closeDrawerOnNarrow();
+  };
+  const pickProject = (id: string) => {
+    setSelected(undefined);
+    setSwitcherOpen(false);
+    setMenuOpen(false);
+    history.pushState(null, "", `?project=${encodeURIComponent(id)}`);
+    setPickedProject(id);
+    setPicked(undefined);
+    closeDrawerOnNarrow();
   };
 
   useLayoutEffect(() => {
@@ -100,13 +134,17 @@ export function App() {
   }, [theme]);
 
   useEffect(() => {
-    document.title = shownGoal ? `${shownGoal.goal.title} · Progressor` : info ? `${info.name} · Progressor` : "Progressor";
-  }, [shownGoal, info]);
+    document.title = [shownGoal?.goal.title, project?.name, "Progressor"].filter(Boolean).join(" · ");
+  }, [shownGoal, project]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as Element).closest?.("input, textarea, select, [contenteditable]")) return;
-      if (e.key === "Escape") setSelected(undefined);
+      if (e.key === "Escape") {
+        setSelected(undefined);
+        setMenuOpen(false);
+        setSwitcherOpen(false);
+      }
       if (e.key === "[" && !e.ctrlKey && !e.metaKey) setCollapsed(collapsed ? undefined : "1");
     };
     addEventListener("keydown", onKey);
@@ -115,7 +153,7 @@ export function App() {
 
   // "Open in file" is a real link to the editor's URL, so hovering shows where it goes.
   const fileLink: FileLink = (path, line) => ({
-    href: info ? editorUrl({ editor, root: info.root, path, line }) : undefined,
+    href: roadmap ? editorUrl({ editor, root: roadmap.root, path, line }) : undefined,
     onClick: () => toast(`Opening ${path}${line ? `:${line}` : ""} in ${editorName(editor)}…`),
   });
   const copy = async (text: string) => {
@@ -158,30 +196,41 @@ export function App() {
     return s ? `Session ${s.session}${s.running ? "" : " (ended)"}` : (GOAL_STATUS[g.status] ?? g.status);
   };
   const goalTitle = (id: string) => goals.find((g) => g.id === id)?.title ?? id;
+  const instructions = roadmap?.standingInstructions ?? [];
+  const ideas = roadmap?.ideas.filter((i) => !i.promotedTo) ?? [];
+  const select = (kind: "idea" | "standing instruction", key: string) => (e: React.MouseEvent) =>
+    setSelected({ kind, key, at: { x: e.clientX, y: e.clientY } });
 
   return (
     <>
       <header className="nav">
         <div className="logo">
           <i aria-hidden="true" />
-          Progressor {info && <small className="hide-narrow">{info.name}</small>}
+          Progressor {project && <small className="hide-narrow">{project.name}</small>}
         </div>
-        {sessionChips.length === 0 ? (
-          <span className="chip hide-narrow">No Session is working on a Goal</span>
-        ) : (
-          sessionChips.map((s) => (
-            <button key={s.session} className="chip" onClick={() => pickGoal(s.goal)}
-              title={s.running ? `Show ${goalTitle(s.goal)}` : "This Session's process has ended; the next Session to claim the Goal takes it over"}>
-              <span className={`dot ${s.running ? "" : "warn"}`} />
-              Session <b>{s.session}</b>{s.running ? "" : " (ended)"} · {goalTitle(s.goal)}
-            </button>
-          ))
-        )}
+        {roadmap &&
+          (sessionChips.length === 0 ? (
+            <span className="chip hide-narrow">No Session is working on a Goal</span>
+          ) : (
+            sessionChips.map((s) => (
+              <button key={s.session} className="chip" onClick={() => pickGoal(s.goal)}
+                title={s.running ? `Show ${goalTitle(s.goal)}` : "This Session's process has ended; the next Session to claim the Goal takes it over"}>
+                <span className={`dot ${s.running ? "" : "warn"}`} />
+                Session <b>{s.session}</b>{s.running ? "" : " (ended)"} · {goalTitle(s.goal)}
+              </button>
+            ))
+          ))}
         <span className="sp" />
         <span className="chip" title={connection === "live" ? "Updates as the markdown changes" : "Lost the connection to the Progressor server"}>
           <span className={`dot ${connection === "live" ? "" : "warn"}`} />
           {connection === "live" ? "Live" : connection === "connecting" ? "Connecting…" : "Reconnecting…"}
         </span>
+        {roadmap && (
+          <button className={`iconbtn menu-btn ${menuOpen ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={menuOpen}
+            title="Rules & Ideas: your Standing Instructions and the parked Ideas" aria-label="Rules & Ideas" onClick={() => setMenuOpen(!menuOpen)}>
+            📌<span className="label"> Rules &amp; Ideas</span> <span className="count">{instructions.length + ideas.length}</span>
+          </button>
+        )}
         <button className="toggle" role="switch" aria-checked={detours} onClick={() => {
           setDetours(!detours);
           toast(`${detours ? "Hiding" : "Showing"} Detours in this view.`);
@@ -190,7 +239,7 @@ export function App() {
           Detours
         </button>
         <label className="picker-label hide-narrow">
-          Open in
+          <span className="label">Open in</span>
           <select className="picker" value={editor} onChange={(e) => setEditorChoice(e.target.value === info?.editor ? undefined : e.target.value)}>
             {info?.editor && !EDITORS.includes(info.editor) && <option value={info.editor}>Custom (PROGRESSOR_EDITOR)</option>}
             {EDITORS.filter((e) => e !== "jetbrains").map((e) => (
@@ -205,16 +254,59 @@ export function App() {
         </button>
       </header>
 
+      {menuOpen && roadmap && (
+        <MenuPanel onClose={() => setMenuOpen(false)}>
+          <section>
+            <h3>Standing Instructions</h3>
+            {instructions.length === 0 && <p className="empty">None yet. They are lasting rules you give the Agent, such as "ask me before recalibrating".</p>}
+            {instructions.map((s, i) => (
+              <button key={s.id ?? i} className="card" onClick={select("standing instruction", keyOf(s))}>
+                📌 {s.text}
+              </button>
+            ))}
+          </section>
+          <section>
+            <h3>Parked Ideas</h3>
+            {ideas.length === 0 && <p className="empty">None parked.</p>}
+            {ideas.map((idea, i) => (
+              <button key={idea.id ?? i} className="card" onClick={select("idea", keyOf(idea))}>
+                💡 {idea.title}
+                {idea.notes[0] && <small>{idea.notes[0]}</small>}
+              </button>
+            ))}
+          </section>
+        </MenuPanel>
+      )}
+
       <div className={`layout ${collapsed ? "collapsed" : ""}`}>
-        <aside className="side" aria-label="Roadmap">
+        <aside className="side" aria-label="Project and Roadmap">
           <button className="col-btn" title="Collapse or expand the sidebar ( [ )" aria-label={collapsed ? "Expand the sidebar" : "Collapse the sidebar"} aria-expanded={!collapsed}
             onClick={() => setCollapsed(collapsed ? undefined : "1")}>
             {collapsed ? "»" : "«"}
           </button>
           <button className="vlabel" onClick={() => setCollapsed(undefined)}>Roadmap</button>
+          <section className="switcher">
+            <h3>Project</h3>
+            <button className="project current" title={project?.root} aria-haspopup="listbox" aria-expanded={switcherOpen}
+              disabled={(projects?.length ?? 0) < 2 && !!project} onClick={() => setSwitcherOpen(!switcherOpen)}>
+              <span className="t">{project?.name ?? (projects ? "Choose a project" : "Loading…")}</span>
+              {(projects?.length ?? 0) > 1 && <span className="chev" aria-hidden="true">{switcherOpen ? "▴" : "▾"}</span>}
+            </button>
+            {switcherOpen && (
+              <div className="project-list" role="listbox" aria-label="Projects">
+                {projects?.map((p) => (
+                  <button key={p.id} className="project" role="option" aria-selected={p.id === projectId} onClick={() => pickProject(p.id)}>
+                    <span className="t">{p.name}</span>
+                    <span className="path">{p.root}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
           <section>
             <h3>Roadmap</h3>
-            {goals.length === 0 && <p className="empty">No Goals yet.</p>}
+            {roadmap && <p className="path roadmap-path" title="The project folder this Roadmap comes from">{roadmap.root}</p>}
+            {roadmap && goals.length === 0 && <p className="empty">No Goals yet.</p>}
             {goals.map((g) => {
               const pct = g.total ? Math.round((100 * g.done) / g.total) : 0;
               return (
@@ -229,32 +321,23 @@ export function App() {
               );
             })}
           </section>
-          <section>
-            <h3>Standing Instructions</h3>
-            {(roadmap?.standingInstructions.length ?? 0) === 0 && <p className="empty">None yet.</p>}
-            {roadmap?.standingInstructions.map((s, i) => (
-              <button key={s.id ?? i} className="card" onClick={(e) => setSelected({ kind: "standing instruction", key: keyOf(s), at: { x: e.clientX, y: e.clientY } })}>
-                📌 {s.text}
-              </button>
-            ))}
-          </section>
-          <section>
-            <h3>Parked Ideas</h3>
-            {roadmap?.ideas.filter((i) => !i.promotedTo).length === 0 && <p className="empty">None parked.</p>}
-            {roadmap?.ideas
-              .filter((i) => !i.promotedTo)
-              .map((idea, i) => (
-                <button key={idea.id ?? i} className="card" onClick={(e) => setSelected({ kind: "idea", key: keyOf(idea), at: { x: e.clientX, y: e.clientY } })}>
-                  💡 {idea.title}
-                  {idea.notes[0] && <small>{idea.notes[0]}</small>}
-                </button>
-              ))}
-          </section>
         </aside>
 
         <main className="main">
-          {error && !roadmap ? (
+          {error && !projects ? (
             <div className="placeholder"><h2>Can't reach Progressor</h2>{error}</div>
+          ) : !projects ? (
+            <div className="placeholder">Loading…</div>
+          ) : projects.length === 0 ? (
+            <div className="placeholder">
+              <h2>No projects yet</h2>
+              A project appears here once an Agent using Progressor has added a Goal to it, which creates its <code>.progressor/</code> folder.
+            </div>
+          ) : roadmap === null || (roadmap === undefined && !project && projectId) ? (
+            <div className="placeholder">
+              <h2>No progress record for this project yet</h2>
+              It appears once the Agent adds a Goal (<code>add_goal</code>). Pick another project from the sidebar meanwhile.
+            </div>
           ) : !roadmap ? (
             <div className="placeholder">Loading…</div>
           ) : goals.length === 0 ? (
@@ -274,7 +357,7 @@ export function App() {
               ) : (
                 <MetroMap
                   graph={graph}
-                  viewKey={`${shownGoal.goal.id}:${detours}`}
+                  viewKey={`${projectId}:${shownGoal.goal.id}:${detours}`}
                   focusId={focus(shownGoal.graph, detours)}
                   onOpen={(node, at) => setSelected({ kind: "node", key: node.id, at })}
                 />
@@ -296,6 +379,23 @@ export function App() {
       )}
       {toastNode}
     </>
+  );
+}
+
+/** The navbar's Rules & Ideas panel: read-only lists; each item opens the usual popover. */
+function MenuPanel({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  useEffect(() => {
+    const away = (e: PointerEvent) => {
+      const t = e.target as Element;
+      if (!t.closest(".menu-panel") && !t.closest(".menu-btn") && !t.closest(".pop")) onClose();
+    };
+    addEventListener("pointerdown", away);
+    return () => removeEventListener("pointerdown", away);
+  }, [onClose]);
+  return (
+    <div className="menu-panel" role="dialog" aria-label="Standing Instructions and parked Ideas">
+      {children}
+    </div>
   );
 }
 

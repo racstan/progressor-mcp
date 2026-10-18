@@ -32,14 +32,14 @@ Every item has a ref such as `progressor://ship-oauth-login/t2` that you can pas
 
 ## The dashboard
 
-While your Agent's app is running Progressor, open **http://localhost:4747/** in a browser. The Agent also gets the address in every `get_status` (a `Dashboard:` line) and can tell you, and the server prints it to its log. It is served by the same process as the MCP tools, so there is nothing else to install or start.
+While your Agent's app is running Progressor, open **http://localhost:4747/** in a browser. It is one dashboard for every project you use Progressor in: pick the project in the sidebar. Each `get_status` ends with a `Dashboard:` line that links straight to that conversation's project (`http://localhost:4747/?project=<id>`), so the Agent can hand it to you; the server prints it to its log too. It is served by the same process as the MCP tools, so there is nothing else to install or start.
 
-The dashboard shows the selected Goal as a metro map: Tasks are stops on a line, Detours are orange branches labelled with how they ended (Merge back, Returned, Recalibrated or open), and Tasks dropped by a Recalibration stay on the old line, faded. A banner shows what is happening now: the current Task, or the open Detour and where it branched from. The sidebar lists the Roadmap with each Goal's progress, your Standing Instructions and the parked Ideas. The page updates by itself as the markdown changes.
+The dashboard shows the selected Goal as a metro map: Tasks are stops on a line, Detours are orange branches labelled with how they ended (Merge back, Returned, Recalibrated or open), and Tasks dropped by a Recalibration stay on the old line, faded. A banner shows what is happening now: the current Task, or the open Detour and where it branched from. The sidebar has the project switcher (each project's name and folder) and the Roadmap with each Goal's progress, under the full path of the project folder it comes from. Your Standing Instructions and the parked Ideas are in the **📌 Rules & Ideas** menu in the top bar. Only one project is shown at a time, with the Sessions working in it, and the page updates by itself as its markdown changes.
 
 - **Zoom** with the mouse wheel or the + / − buttons, **pan** by dragging the background, and **fit** the whole map with ⤢. Stops can be dragged; they spring back when you let go.
 - Click any stop, Idea or Standing Instruction for **Copy as prompt**: a self-describing text (what it is, its status, its `progressor://` ref, file and line, its Goal, where it branched from, its Reason, its neighbours and the code it touches) to paste into your Agent chat.
 - **Open in file** opens the Plan File at the item's line, or the code a Task touches, in your editor.
-- The **Detours** switch hides the Detours from the view only; `[` collapses the sidebar; the sun / moon button switches between light and dark.
+- The **Detours** switch hides the Detours from the view only; `[` collapses the sidebar. The dashboard starts in light mode; the sun / moon button switches to dark, and the browser remembers the choice.
 
 The dashboard is view-only: you change the plan by talking to the Agent.
 
@@ -57,9 +57,11 @@ claude mcp add progressor -e PROGRESSOR_EDITOR=cursor -- npx -y progressor-mcp
 | `idea` (or `jetbrains`), `webstorm`, `pycharm`, `phpstorm`, `goland`, `rider`, `rubymine`, `clion`, `rustrover` | the file in the open project, through [JetBrains Toolbox](https://www.jetbrains.com/toolbox-app/) |
 | a URL template, such as `myeditor://open?file={path}&line={line}`                   | anything else: `{path}` is the full path, `{relPath}` the path inside the project, `{project}` the folder name and `{line}` the line |
 
-### Ports and several Sessions
+### One dashboard for every project
 
-The dashboard listens on `127.0.0.1` only, port 4747 by default (`PROGRESSOR_PORT` changes it). When several Agent conversations work on the same project, the first one serves the dashboard and the others point to it; if that one ends, the next `get_status` from another conversation takes over. A port used by another project's dashboard, or by another program, is skipped for the next free one. Set `PROGRESSOR_DASHBOARD=off` to run without the dashboard.
+Every Progressor server adds its project folder to a per-user list, `~/.progressor/projects.json` (`PROGRESSOR_REGISTRY` points it elsewhere). Whichever Progressor process holds the port serves every project on that list, reading each project's `.progressor/` files straight from disk; the others link to it. If that process ends, the next Progressor server to start, or the next `get_status` from one already running, takes over. Projects whose folder or `.progressor/` has gone are not shown. To take a project off the list, delete its entry from the file.
+
+The dashboard listens on `127.0.0.1` only, port 4747 by default (`PROGRESSOR_PORT` changes it). A port held by another program is skipped for the next free one. Set `PROGRESSOR_DASHBOARD=off` to run without the dashboard.
 
 ## Example
 
@@ -114,10 +116,10 @@ npm test
 npm run build
 ```
 
-`npm run build` compiles the server to `dist/` and bundles the dashboard (React, in `src/ui/`) into `dist/ui/`; `node dist/cli.js` starts the server on stdio. To try the dashboard without an MCP client, serve it for a project folder (by default the sample in `test/fixtures/sample-project`):
+`npm run build` compiles the server to `dist/` and bundles the dashboard (React, in `src/ui/`) into `dist/ui/`; `node dist/cli.js` starts the server on stdio. To try the dashboard without an MCP client, serve it for one or more project folders (by default the sample in `test/fixtures/sample-project`). It runs on port 4800 with a throwaway project list, so it never takes the real dashboard's place:
 
 ```bash
 node scripts/dashboard.mjs test/fixtures/sample-project
 ```
 
-`npm run dev:ui` rebuilds the page on every change; reload the browser to see it. The server side of the dashboard is in `src/dashboard/`: the HTTP server and API (`http.ts`), the file watcher (`watch.ts`), and the pure logic shared with the page: the metro map layout (`graph.ts`), the Copy-as-prompt text (`prompt.ts`) and the editor links (`editor.ts`).
+`npm run dev:ui` rebuilds the page on every change; reload the browser to see it. The server side of the dashboard is in `src/dashboard/`: the HTTP server and API (`http.ts`), the project list (`registry.ts`), the file watcher (`watch.ts`), and the pure logic shared with the page: the metro map layout (`graph.ts`), the Copy-as-prompt text (`prompt.ts`) and the editor links (`editor.ts`).

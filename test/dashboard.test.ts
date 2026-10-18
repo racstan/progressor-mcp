@@ -1,18 +1,29 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { request } from "node:http";
-import { tmpdir } from "node:os";
+import { appendFileSync, writeFileSync } from "node:fs";
+import { createServer as createHttpServer, request } from "node:http";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type Dashboard, startDashboard } from "../src/dashboard/http.js";
+import { type ProjectEntry, projectEntry } from "../src/dashboard/registry.js";
 import { Project } from "../src/project.js";
+import { tempDir } from "./tmp.js";
 
-let root: string;
+let registry: string;
 let agent: Project;
+let billing: Project;
 const open: Dashboard[] = [];
+const closers: (() => void)[] = [];
 const freePort = () => 20000 + Math.floor(Math.random() * 20000);
 
-async function start(options: Partial<Parameters<typeof startDashboard>[0]> = {}): Promise<Dashboard> {
-  const d = await startDashboard({ project: agent, port: freePort(), ...options });
+/** A project folder with a Goal in it, as an Agent would leave it. */
+function projectWith(title: string, sessionId: string): Project {
+  const p = new Project({ root: tempDir("progressor-dash-"), session: { id: sessionId, pid: process.pid } });
+  const goal = p.addGoal(title, [{ title: "First" }, { title: "Second" }]);
+  p.claimGoal(goal.id);
+  return p;
+}
+
+async function start(project: Project, options: { port?: number; uiDir?: string; editor?: string } = {}): Promise<Dashboard> {
+  const d = await startDashboard({ project, registryFile: registry, port: options.port ?? freePort(), ...options });
   open.push(d);
   return d;
 }
@@ -22,9 +33,11 @@ async function get(d: Dashboard, path: string) {
   return { status: res.status, body: (await res.json()) as any };
 }
 
+const entry = (p: Project): ProjectEntry => projectEntry(p.root);
+
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), "progressor-dash-"));
-  agent = new Project({ root, session: { id: "s-a", pid: process.pid } });
+  registry = join(tempDir("progressor-registry-"), "projects.json");
+  agent = new Project({ root: tempDir("progressor-dash-"), session: { id: "s-a", pid: process.pid } });
   const goal = agent.addGoal("Ship OAuth login", [{ title: "Add the /login route" }, { title: "Handle the callback" }]);
   agent.claimGoal(goal.id);
   agent.startTask("t1");
@@ -34,16 +47,43 @@ beforeEach(() => {
   agent.addGoal("Billing");
   agent.recordIdea("Remember-me checkbox", "From the Developer");
   agent.addStandingInstruction("Ask me before recalibrating");
+  billing = projectWith("Billing page", "s-b");
 });
 
 afterEach(async () => {
+  closers.splice(0).forEach((c) => c());
   await Promise.all(open.splice(0).map((d) => d.close()));
 });
 
-describe("the dashboard API", () => {
+describe("one dashboard for every project", () => {
+  it("lists the registered projects and links each Session to its own one", async () => {
+    const port = freePort();
+    const d = await start(agent, { port });
+    const other = await start(billing, { port });
+    expect(d.url).toBe(`http://localhost:${port}/?project=${entry(agent).id}`);
+    expect(other.url).toBe(`http://localhost:${port}/?project=${entry(billing).id}`);
+    expect(other.role).toBe("shared");
+    const { body } = await get(d, "/api/projects");
+    expect(body.map((p: ProjectEntry) => p.root).sort()).toEqual([agent.root, billing.root].sort());
+  });
+
+  it("keeps each project's Roadmap, Sessions and items to itself", async () => {
+    const d = await start(agent);
+    await start(billing, { port: Number(new URL(d.url).port) });
+    const mine = (await get(d, `/api/projects/${entry(agent).id}/roadmap`)).body;
+    const theirs = (await get(d, `/api/projects/${entry(billing).id}/roadmap`)).body;
+    expect(mine.root).toBe(agent.root);
+    expect(mine.goals.map((g: any) => g.id)).toEqual(["ship-oauth-login", "billing"]);
+    expect(mine.sessions.map((s: any) => s.session)).toEqual(["s-a"]);
+    expect(theirs.root).toBe(billing.root);
+    expect(theirs.goals.map((g: any) => g.id)).toEqual(["billing-page"]);
+    expect(theirs.sessions.map((s: any) => s.session)).toEqual(["s-b"]);
+    expect((await get(d, "/api/projects/nope-123456/roadmap")).status).toBe(404);
+  });
+
   it("serves the Roadmap with each Goal's progress, the Sessions, Ideas and Standing Instructions", async () => {
-    const d = await start();
-    const { status, body } = await get(d, "/api/roadmap");
+    const d = await start(agent);
+    const { status, body } = await get(d, `/api/projects/${entry(agent).id}/roadmap`);
     expect(status).toBe(200);
     expect(body.file).toBe(".progressor/roadmap.md");
     expect(body.goals.map((g: any) => [g.id, g.status, g.done, g.total, g.planFile])).toEqual([
@@ -58,8 +98,9 @@ describe("the dashboard API", () => {
   });
 
   it("serves a Goal's metro map", async () => {
-    const d = await start();
-    const { status, body } = await get(d, "/api/goals/ship-oauth-login");
+    const d = await start(agent);
+    const base = `/api/projects/${entry(agent).id}`;
+    const { status, body } = await get(d, `${base}/goals/ship-oauth-login`);
     expect(status).toBe(200);
     expect(body.goal).toMatchObject({ id: "ship-oauth-login", title: "Ship OAuth login", planFile: ".progressor/goals/ship-oauth-login.md" });
     expect(body.graph.nodes.map((n: any) => `${n.id}@${n.step},${n.lane}`)).toEqual(["t1@0,0", "t2@1,0", "d1@2,1"]);
@@ -67,59 +108,79 @@ describe("the dashboard API", () => {
       { from: "t1", to: "t2", kind: "plan" },
       { from: "t2", to: "d1", kind: "detour" },
     ]);
-    expect((await get(d, "/api/goals/nope")).status).toBe(404);
+    expect((await get(d, `${base}/goals/nope`)).status).toBe(404);
   });
 
   it("looks up any item by its ref", async () => {
-    const d = await start();
-    const { body } = await get(d, `/api/item?ref=${encodeURIComponent("progressor://ship-oauth-login/t1")}`);
+    const d = await start(agent);
+    const base = `/api/projects/${entry(agent).id}`;
+    const { body } = await get(d, `${base}/item?ref=${encodeURIComponent("progressor://ship-oauth-login/t1")}`);
     expect(body).toMatchObject({ kind: "task", file: ".progressor/goals/ship-oauth-login.md", item: { title: "Add the /login route" } });
-    const missing = await get(d, `/api/item?ref=${encodeURIComponent("progressor://ship-oauth-login/t9")}`);
+    const missing = await get(d, `${base}/item?ref=${encodeURIComponent("progressor://ship-oauth-login/t9")}`);
     expect(missing).toEqual({ status: 404, body: { error: "No item progressor://ship-oauth-login/t9." } });
   });
 
-  it("tells the page which project it shows and which editor opens files", async () => {
-    const d = await start({ editor: "cursor" });
-    const { body } = await get(d, "/api/info");
-    expect(body).toMatchObject({ app: "progressor", root, name: root.split(/[\\/]/).pop(), editor: "cursor" });
+  it("tells the page which editor opens files", async () => {
+    const d = await start(agent, { editor: "cursor" });
+    expect((await get(d, "/api/info")).body).toMatchObject({ app: "progressor", hub: 1, editor: "cursor" });
   });
+});
 
-  it("pushes an event to the page when a file under .progressor/ changes", async () => {
-    const d = await start();
-    const res = await fetch(new URL("api/events", d.url));
+describe("live updates", () => {
+  async function events(d: Dashboard) {
+    const res = await fetch(new URL("/api/events", d.url));
     expect(res.headers.get("content-type")).toBe("text/event-stream");
     const reader = res.body!.pipeThrough(new TextDecoderStream()).getReader();
+    closers.push(() => void reader.cancel());
     let seen = "";
-    const readUntil = async (text: string) => {
+    const until = async (text: string) => {
       while (!seen.includes(text)) seen += (await reader.read()).value ?? "";
+      return seen;
     };
-    await readUntil(": connected");
-    await new Promise((r) => setTimeout(r, 300)); // let the watcher settle
+    await until(": connected");
+    await new Promise((r) => setTimeout(r, 300)); // let the watchers settle
+    seen = "";
+    return until;
+  }
+
+  it("says which project changed when a file under its .progressor/ changes", async () => {
+    const d = await start(agent);
+    const until = await events(d);
     agent.addTasks([{ title: "Add logout" }]);
-    await readUntil("ship-oauth-login.md");
-    expect(seen).toMatch(/event: change\ndata: .*goals\/ship-oauth-login\.md/);
-    await reader.cancel();
+    expect(await until("ship-oauth-login.md")).toContain(`"project":"${entry(agent).id}"`);
   });
 
+  it("starts watching a project as soon as its first Session joins the dashboard", async () => {
+    const d = await start(agent);
+    const until = await events(d);
+    await start(billing, { port: Number(new URL(d.url).port) });
+    expect(await until("event: projects")).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 300));
+    appendFileSync(join(billing.root, ".progressor", "goals", "billing-page.md"), "- [ ] Third ^t3\n");
+    expect(await until("billing-page.md")).toContain(`"project":"${entry(billing).id}"`);
+  });
+});
+
+describe("the page", () => {
   it("serves the built page, and the page for any other path so links into it work", async () => {
-    const ui = mkdtempSync(join(tmpdir(), "progressor-ui-"));
+    const ui = tempDir("progressor-ui-");
     writeFileSync(join(ui, "index.html"), "<!doctype html><title>Progressor</title>");
     writeFileSync(join(ui, "app.js"), "console.log(1)");
-    const d = await start({ uiDir: ui });
+    const d = await start(agent, { uiDir: ui });
     const page = await fetch(d.url);
     expect(page.headers.get("content-type")).toMatch(/text\/html/);
     expect(await page.text()).toContain("<title>Progressor</title>");
-    expect(await (await fetch(new URL("app.js", d.url))).text()).toBe("console.log(1)");
-    expect(await (await fetch(new URL("goals/x", d.url))).text()).toContain("<title>Progressor</title>");
-    expect((await fetch(new URL("../../etc/passwd", d.url))).status).toBe(200); // resolves to the page, never outside
+    expect(await (await fetch(new URL("/app.js", d.url))).text()).toBe("console.log(1)");
+    expect(await (await fetch(new URL("/goals/x", d.url))).text()).toContain("<title>Progressor</title>");
+    expect((await fetch(new URL("/../../etc/passwd", d.url))).status).toBe(200); // resolves to the page, never outside
   });
 
   it("is view-only and answers only requests addressed to localhost", async () => {
-    const d = await start();
-    expect((await fetch(new URL("api/roadmap", d.url), { method: "POST" })).status).toBe(405);
+    const d = await start(agent);
+    expect((await fetch(new URL("/api/projects", d.url), { method: "POST" })).status).toBe(405);
     const port = new URL(d.url).port;
     const rebound = await new Promise<number>((done) => {
-      request({ host: "127.0.0.1", port, path: "/api/roadmap", headers: { host: `evil.example:${port}` } }, (res) =>
+      request({ host: "127.0.0.1", port, path: "/api/projects", headers: { host: `evil.example:${port}` } }, (res) =>
         done(res.statusCode ?? 0),
       ).end();
     });
@@ -127,34 +188,27 @@ describe("the dashboard API", () => {
   });
 });
 
-describe("several Sessions on one machine", () => {
-  it("lets the first Session serve the dashboard and the others share its URL", async () => {
+describe("who serves the dashboard", () => {
+  it("takes over serving when the process that served it has gone, for every project", async () => {
     const port = freePort();
-    const first = await start({ port });
-    const second = await start({ port, project: new Project({ root, session: { id: "s-b", pid: 1 } }) });
-    expect(first.role).toBe("serving");
-    expect(first.url).toBe(`http://localhost:${port}/`);
-    expect(second.role).toBe("shared");
-    expect(second.url).toBe(first.url);
-  });
-
-  it("moves to the next port when another project's dashboard has this one", async () => {
-    const port = freePort();
-    await start({ port });
-    const elsewhere = new Project({ root: mkdtempSync(join(tmpdir(), "progressor-other-")), session: { id: "s-c", pid: 1 } });
-    const other = await start({ port, project: elsewhere });
-    expect(other.role).toBe("serving");
-    expect(other.url).toBe(`http://localhost:${port + 1}/`);
-  });
-
-  it("takes over serving when the Session that served it has gone", async () => {
-    const port = freePort();
-    const first = await start({ port });
-    const second = await start({ port, project: new Project({ root, session: { id: "s-b", pid: 1 } }) });
+    const first = await start(agent, { port });
+    const second = await start(billing, { port });
     await first.close();
     await second.refresh();
     expect(second.role).toBe("serving");
-    expect(second.url).toBe(`http://localhost:${port}/`);
-    expect((await get(second, "/api/info")).body.app).toBe("progressor");
+    expect(second.url).toBe(`http://localhost:${port}/?project=${entry(billing).id}`);
+    const { body } = await get(second, "/api/projects");
+    expect(body.map((p: ProjectEntry) => p.id).sort()).toEqual([entry(agent).id, entry(billing).id].sort());
+  });
+
+  it("moves to the next port when something else holds this one", async () => {
+    const port = freePort();
+    // an older, one-project Progressor dashboard: it answers, but is not the shared one
+    const old = createHttpServer((_, res) => res.end(JSON.stringify({ app: "progressor", root: "/elsewhere" })));
+    await new Promise<void>((done) => old.listen(port, "127.0.0.1", done));
+    closers.push(() => old.close());
+    const d = await start(agent, { port });
+    expect(d.role).toBe("serving");
+    expect(d.url).toBe(`http://localhost:${port + 1}/?project=${entry(agent).id}`);
   });
 });

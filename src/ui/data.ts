@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GoalView, InfoView, RoadmapView } from "../dashboard/http.js";
+import type { ProjectEntry } from "../dashboard/registry.js";
 
-export type { GoalView, InfoView, RoadmapView };
+export type { GoalView, InfoView, ProjectEntry, RoadmapView };
 export type Connection = "connecting" | "live" | "reconnecting";
 
 async function getJson<T>(path: string): Promise<T | undefined> {
@@ -12,47 +13,77 @@ async function getJson<T>(path: string): Promise<T | undefined> {
 }
 
 /**
- * The progress record as the page sees it: the project, the Roadmap and the selected Goal's map.
- * Everything is fetched again whenever the server reports that a file under .progressor/ changed.
+ * What the page shows: the registered projects, and for the selected project its Roadmap and the
+ * selected Goal's map. Everything is fetched again when the server reports a change: to the list
+ * of projects, or to a file under the selected project's .progressor/.
  */
-export function useProgress(goalId: string | undefined) {
+export function useDashboard(projectId: string | undefined, goalId: string | undefined) {
   const [info, setInfo] = useState<InfoView>();
-  const [roadmap, setRoadmap] = useState<RoadmapView>();
+  const [projects, setProjects] = useState<ProjectEntry[]>();
+  const [roadmap, setRoadmap] = useState<RoadmapView | null>();
   const [goal, setGoal] = useState<GoalView | null>();
   const [connection, setConnection] = useState<Connection>("connecting");
   const [error, setError] = useState<string>();
-  const goalRef = useRef(goalId);
-  goalRef.current = goalId;
+  const selection = useRef({ projectId, goalId });
+  selection.current = { projectId, goalId };
 
-  const load = useCallback(async () => {
+  const loadProjects = useCallback(async () => {
     try {
-      const [i, r] = await Promise.all([getJson<InfoView>("/api/info"), getJson<RoadmapView>("/api/roadmap")]);
+      const [i, p] = await Promise.all([getJson<InfoView>("/api/info"), getJson<ProjectEntry[]>("/api/projects")]);
       setInfo(i);
-      setRoadmap(r);
-      const id = goalRef.current;
-      setGoal(id ? ((await getJson<GoalView>(`/api/goals/${encodeURIComponent(id)}`)) ?? null) : null);
+      setProjects(p ?? []);
       setError(undefined);
     } catch (e) {
       setError((e as Error).message);
     }
   }, []);
 
+  const loadProject = useCallback(async () => {
+    const { projectId: id, goalId: goal } = selection.current;
+    if (!id) return;
+    try {
+      const base = `/api/projects/${encodeURIComponent(id)}`;
+      const r = await getJson<RoadmapView>(`${base}/roadmap`);
+      if (selection.current.projectId !== id) return; // the Developer switched project meanwhile
+      setRoadmap(r ?? null);
+      const g = r && goal ? await getJson<GoalView>(`${base}/goals/${encodeURIComponent(goal)}`) : undefined;
+      if (selection.current.projectId === id) setGoal(g ?? null);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, []);
+
   useEffect(() => {
-    void load();
-  }, [load, goalId]);
+    void loadProjects();
+  }, [loadProjects]);
+
+  useEffect(() => {
+    setRoadmap(undefined);
+    setGoal(undefined);
+  }, [projectId]);
+
+  useEffect(() => {
+    void loadProject();
+  }, [loadProject, projectId, goalId]);
 
   useEffect(() => {
     const events = new EventSource("/api/events");
     events.onopen = () => {
       setConnection("live");
-      void load(); // catch up on anything missed while disconnected
+      // catch up on anything missed while disconnected
+      void loadProjects();
+      void loadProject();
     };
     events.onerror = () => setConnection("reconnecting");
-    events.addEventListener("change", () => void load());
+    events.addEventListener("projects", () => void loadProjects());
+    events.addEventListener("change", (e) => {
+      const { project } = JSON.parse((e as MessageEvent<string>).data) as { project: string };
+      if (project === selection.current.projectId) void loadProject();
+    });
     return () => events.close();
-  }, [load]);
+  }, [loadProjects, loadProject]);
 
-  return { info, roadmap, goal, connection, error };
+  return { info, projects, roadmap, goal, connection, error };
 }
 
 /** A value kept in localStorage, for per-browser conveniences (theme, sidebar, editor). */
