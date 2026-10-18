@@ -117,4 +117,21 @@ describe("the MCP server", () => {
     expect(result.isError).toBe(true);
     expect(result.text).toMatch(/claim a Goal first/);
   });
+
+  it("tells the Agent where the Developer can open the dashboard", async () => {
+    const root = mkdtempSync(join(tmpdir(), "progressor-"));
+    const project = new Project({ root, session: { id: "s-a", pid: process.pid } });
+    let refreshed = 0;
+    const server = createServer(project, {
+      dashboard: { url: "http://localhost:4747/", refresh: async () => void refreshed++ },
+    });
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    const withDashboard = new Client({ name: "test", version: "0" });
+    await Promise.all([server.connect(serverSide), withDashboard.connect(clientSide)]);
+    const result = (await withDashboard.callTool({ name: "get_status", arguments: {} })) as { content: { text: string }[] };
+    expect(result.content[0]!.text.split("\n").at(-1)).toBe(
+      "Dashboard: http://localhost:4747/ (tell the Developer they can follow progress there)",
+    );
+    expect(refreshed).toBe(1);
+  });
 });
