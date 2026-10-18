@@ -227,7 +227,6 @@ export function App() {
     const s = sessionChips.find((x) => x.goal === g.id);
     return s ? `Session ${s.session}${s.running ? "" : " (ended)"}` : (GOAL_STATUS[g.status] ?? g.status);
   };
-  const goalTitle = (id: string) => goals.find((g) => g.id === id)?.title ?? id;
   const instructions = roadmap?.standingInstructions ?? [];
   const ideas = roadmap?.ideas.filter((i) => !i.promotedTo) ?? [];
   const select = (kind: "idea" | "standing instruction", key: string) => (e: React.MouseEvent) =>
@@ -238,20 +237,8 @@ export function App() {
       <header className="nav">
         <div className="logo">
           <i aria-hidden="true" />
-          Progressor {project && <small className="hide-narrow">{project.name}</small>}
+          Progressor
         </div>
-        {roadmap &&
-          (sessionChips.length === 0 ? (
-            <span className="chip hide-narrow">No Session is working on a Goal</span>
-          ) : (
-            sessionChips.map((s) => (
-              <button key={s.session} className="chip" onClick={() => pickGoal(s.goal)}
-                title={s.running ? `Show ${goalTitle(s.goal)}` : "This Session's process has ended; the next Session to claim the Goal takes it over"}>
-                <span className={`dot ${s.running ? "" : "warn"}`} />
-                Session <b>{s.session}</b>{s.running ? "" : " (ended)"} · {goalTitle(s.goal)}
-              </button>
-            ))
-          ))}
         <span className="sp" />
         <span className="chip" title={connection === "live" ? "Updates as the markdown changes" : "Lost the connection to the Progressor server"}>
           <span className={`dot ${connection === "live" ? "" : "warn"}`} />
@@ -259,8 +246,8 @@ export function App() {
         </span>
         {roadmap && (
           <button className={`iconbtn menu-btn ${menuOpen ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={menuOpen}
-            title="Rules & Ideas: your Standing Instructions and the parked Ideas" aria-label="Rules & Ideas" onClick={() => setMenuOpen(!menuOpen)}>
-            📌<span className="label"> Rules &amp; Ideas</span> <span className="count">{instructions.length + ideas.length}</span>
+            title="Help: your Standing Instructions, the parked Ideas and how to support Progressor" aria-label="Help" onClick={() => setMenuOpen(!menuOpen)}>
+            ❓<span className="label"> Help</span>
           </button>
         )}
         <div className="views" role="radiogroup" aria-label="View">
@@ -315,6 +302,15 @@ export function App() {
               </button>
             ))}
           </section>
+          {SUPPORT_URL && (
+            <section>
+              <h3>Support Progressor</h3>
+              <a className="card support" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
+                ☕ Buy me a coffee
+                <small>Progressor is free and open source. If it keeps you on track, a coffee keeps it going.</small>
+              </a>
+            </section>
+          )}
         </MenuPanel>
       )}
 
@@ -431,7 +427,10 @@ export function App() {
   );
 }
 
-/** The navbar's Rules & Ideas panel: read-only lists; each item opens the usual popover. */
+/** The Developer's Buy Me a Coffee page, shown in the Help panel; the section is hidden while it is empty. */
+const SUPPORT_URL = "";
+
+/** The navbar's Help panel: read-only Standing Instructions and Ideas (each opens the usual popover), and support. */
 function MenuPanel({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   useEffect(() => {
     const away = (e: PointerEvent) => {
@@ -442,7 +441,7 @@ function MenuPanel({ children, onClose }: { children: React.ReactNode; onClose: 
     return () => removeEventListener("pointerdown", away);
   }, [onClose]);
   return (
-    <div className="menu-panel" role="dialog" aria-label="Standing Instructions and parked Ideas">
+    <div className="menu-panel" role="dialog" aria-label="Help">
       {children}
     </div>
   );
