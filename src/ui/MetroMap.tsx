@@ -3,6 +3,7 @@ import type { EdgeKind, GoalGraph, GraphNode } from "../dashboard/graph.js";
 import { type Orientation, type Point, STATUS_LABEL, edgePath, edgeStyle, laneColor, positionOf, wrapLabel } from "./geometry.js";
 import { type PanZoom, type View, panZoom } from "./panZoom.js";
 import { type BandEdge, rubberBand } from "./rubberBand.js";
+import { plainText } from "./text.js";
 
 /** Zoom and pan per Goal (and view and Detours setting) survive live updates and switching back and forth. */
 const views = new Map<string, View>();
@@ -206,7 +207,7 @@ function Stop({ node: n, at, vertical, onKey }: { node: GraphNode; at: Point; ve
         }
       }}
     >
-      <title>{n.kind === "task" && n.summary ? `${label}\n${n.summary}` : label}</title>
+      <title>{n.kind === "task" && n.summary ? `${label}\n${plainText(n.summary)}` : label}</title>
       {shape}
       <text x={textX} y={titleY} textAnchor={anchor} fontSize={13} fontWeight={active ? 700 : 500} textDecoration={dropped ? "line-through" : undefined}>
         {lines.map((l, i) => (

@@ -1,6 +1,6 @@
 {
   "name": "progressor-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An MCP server that keeps an AI Agent and the Developer focused on their Goals across context compression and distractions.",
   "author": "Rachit Asthana",
   "type": "module",

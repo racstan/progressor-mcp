@@ -6,6 +6,8 @@ import { type GoalView, type RoadmapView, useDashboard, useStored } from "./data
 import { STATUS_LABEL } from "./geometry.js";
 import { Checklist } from "./Checklist.js";
 import { MetroMap } from "./MetroMap.js";
+import { RichText } from "./RichText.js";
+import { plainText } from "./text.js";
 import { VIEWS, VIEW_LABELS, type View, pickView } from "./views.js";
 
 type Goal = RoadmapView["goals"][number];
@@ -342,9 +344,14 @@ export function App() {
             )}
           </section>
           <section>
-            <h3>Roadmap</h3>
+            <h3>
+              Roadmap
+              {roadmap && <span className="count">{goals.length} {goals.length === 1 ? "Goal" : "Goals"}</span>}
+            </h3>
             {roadmap && <p className="path roadmap-path" title="The project folder this Roadmap comes from">{roadmap.root}</p>}
             {roadmap && goals.length === 0 && <p className="empty">No Goals yet.</p>}
+            {/* One Roadmap, many Goals: the Goals hang off a single rail so they read as parts of one plan. */}
+            <div className="goals">
             {goals.map((g) => {
               const pct = g.total ? Math.round((100 * g.done) / g.total) : 0;
               return (
@@ -358,6 +365,7 @@ export function App() {
                 </button>
               );
             })}
+            </div>
           </section>
         </aside>
 
@@ -475,7 +483,7 @@ function Banner({ view, detours, status, planLink, onCopy }: {
             <div><b>On a Detour:</b> {open.title}</div>
             <div className="k">
               {from ? `Branched off "${from.title}". ` : ""}
-              {open.reason ? `Reason: ${open.reason}` : ""}
+              {open.reason ? `Reason: ${plainText(open.reason)}` : ""}
             </div>
           </>
         ) : (
@@ -581,8 +589,8 @@ function Popover({ subject, at, onClose, fileLink, onCopy }: {
       <button className="x" aria-label="Close" onClick={onClose}>✕</button>
       <h4>{d.title}</h4>
       <div className="meta">{d.meta}</div>
-      {d.summary && <p className="summary">{d.summary}</p>}
-      {d.reason && <p className="reason">{d.reason}</p>}
+      {d.summary && <RichText className="summary" text={d.summary} />}
+      {d.reason && <RichText className="reason" text={d.reason} />}
       <div className="locs">
         {d.locations.map((l) => (
           <a key={l.label} {...fileLink(l.path, l.line)}>
