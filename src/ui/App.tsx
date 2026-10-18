@@ -428,7 +428,7 @@ export function App() {
 }
 
 /** The Developer's Buy Me a Coffee page, shown in the Help panel; the section is hidden while it is empty. */
-const SUPPORT_URL = "";
+const SUPPORT_URL = "https://buymeacoffee.com/rachitasthana";
 
 /** The navbar's Help panel: read-only Standing Instructions and Ideas (each opens the usual popover), and support. */
 function MenuPanel({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
