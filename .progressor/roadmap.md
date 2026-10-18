@@ -1,14 +1,14 @@
 # Roadmap
 
-Progressor's own plan, kept with Progressor. Version 0.1.1 is published and 0.1.2 is waiting to be published. From here on, Goals are features; a release Goal bundles several finished features into one version.
+Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 was never published, and its changes ship in 0.2.0. From here on, Goals are features; a release Goal bundles several finished features into one version.
 
 ## Goals
 
 - [x] [0.1.1 · Dashboard fixes](goals/v0-1-1.md) ^v0-1-1
-- [/] [0.1.2 · Status hooks for Claude Code](goals/v0-1-2.md) ^v0-1-2
+- [x] [0.1.2 · Status hooks for Claude Code](goals/v0-1-2.md) ^v0-1-2
 - [x] [Settings and finished Goals](goals/settings-and-finished-goals.md) ^settings-and-finished-goals
 - [x] [Workspaces](goals/workspaces.md) ^workspaces
-- [ ] [Release 0.2.0](goals/release-0-2-0.md) ^release-0-2-0
+- [/] [Release 0.2.0](goals/release-0-2-0.md) ^release-0-2-0
 - [ ] [Automatic drift detection](goals/drift-detection.md) ^drift-detection
 - [ ] [One-command setup](goals/one-command-setup.md) ^one-command-setup
 - [ ] [Public GitHub repo and launch](goals/github-launch.md) ^github-launch
