@@ -1,6 +1,7 @@
 // The dashboard's web server: one address (localhost:4747) for every project that runs Progressor
 // (ADR 0001). Whichever Progressor process holds the port is the hub: it serves the built UI and a
-// read-only JSON API for each project in the per-user registry, reading that project's .progressor/
+// read-only JSON API for each project in the per-user registry or found in one of its Workspaces,
+// reading that project's .progressor/
 // markdown straight from disk, and pushes server-sent events when those files change. It binds to
 // the loopback interface only.
 import { existsSync, readFileSync, statSync } from "node:fs";
@@ -9,17 +10,20 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { PROGRESSOR_DIR, Project, ROADMAP_FILE, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
-import { type ProjectEntry, defaultRegistryFile, listProjects, registerProject } from "./registry.js";
+import { type ProjectEntry, type WorkspaceEntry, addWorkspace, defaultRegistryFile, listWorkspaces, registerProject } from "./registry.js";
 import { watchProgress } from "./watch.js";
+import { allProjects, findProjects } from "./workspace.js";
 
 export const DEFAULT_PORT = 4747;
 const HOST = "127.0.0.1";
 /** Bumped when the hub's API changes, so a hub from an older version is not shared. */
-const HUB_VERSION = 1;
+const HUB_VERSION = 2;
 
 export interface DashboardOptions {
-  /** This Session's project; it is added to the registry. */
-  project: Project;
+  /** This Session's project; it is added to the registry. Absent when only a Workspace is opened. */
+  project?: Project;
+  /** A folder to remember as a Workspace and open the dashboard on. */
+  workspace?: string;
   /** The registry of projects; `~/.progressor/projects.json` unless set (see registry.ts). */
   registryFile?: string;
   /** The port to try first; the next ones are tried when it is taken by something else. */
@@ -32,6 +36,8 @@ export interface DashboardOptions {
   attempts?: number;
   /** How often the hub re-reads the registry, for projects it was not told about. */
   rescanMs?: number;
+  /** How long a Workspace's scan for projects is reused before the folder is scanned again. */
+  workspaceScanMs?: number;
 }
 
 export interface Dashboard {
@@ -39,7 +45,7 @@ export interface Dashboard {
   readonly url: string;
   /** "serving" when this process is the hub, "shared" when another Progressor process is. */
   readonly role: "serving" | "shared";
-  readonly project: ProjectEntry;
+  readonly project: ProjectEntry | undefined;
   /** If the hub has gone, become the hub. */
   refresh(): Promise<void>;
   close(): Promise<void>;
@@ -129,12 +135,15 @@ class Hub {
   private readonly clients = new Set<ServerResponse>();
   private readonly projects = new Map<string, { api: ReturnType<typeof dashboardApi>; stop: () => void }>();
   private readonly timer: NodeJS.Timeout;
+  private readonly scans = new Map<string, { at: number; roots: string[] }>();
+  private entries: ProjectEntry[] = [];
 
   constructor(
     private readonly registryFile: string,
     private readonly uiDir: string | undefined,
     private readonly editor: string,
     rescanMs: number,
+    private readonly workspaceScanMs: number,
   ) {
     this.sync();
     this.timer = setInterval(() => this.sync(), rescanMs);
@@ -146,9 +155,21 @@ class Hub {
     for (const c of this.clients) c.write(message);
   }
 
-  /** Re-reads the registry: starts watching new projects and stops watching vanished ones. */
-  sync(): ProjectEntry[] {
-    const entries = listProjects(this.registryFile);
+  /** A Workspace's projects, from the last scan while it is recent, so big folders are not walked on every request. */
+  private scan = (root: string, force: boolean): string[] => {
+    const last = this.scans.get(root);
+    if (last && !force && Date.now() - last.at < this.workspaceScanMs) return last.roots;
+    const roots = findProjects(root);
+    this.scans.set(root, { at: Date.now(), roots });
+    return roots;
+  };
+
+  /**
+   * Re-reads the registry and the Workspaces: starts watching new projects and stops watching
+   * vanished ones. `force` scans the Workspaces' folders again even if they were scanned recently.
+   */
+  sync(force = false): ProjectEntry[] {
+    const entries = allProjects(this.registryFile, (root) => this.scan(root, force));
     let changed = false;
     for (const [id, p] of this.projects)
       if (!entries.some((e) => e.id === id)) {
@@ -163,8 +184,25 @@ class Hub {
         this.projects.set(entry.id, { api: dashboardApi(project), stop });
         changed = true;
       }
+    // a project that moved into or out of a Workspace changes the list too
+    if (!changed && JSON.stringify(entries) !== JSON.stringify(this.entries)) changed = true;
+    this.entries = entries;
     if (changed) this.send("projects", entries);
     return entries;
+  }
+
+  /** Every project with its Goals' progress, for the overview page. */
+  overview() {
+    return this.sync().map((entry) => {
+      const api = this.projects.get(entry.id)?.api;
+      let goals: { id: string; title: string; status: string; done: number; total: number }[] = [];
+      try {
+        goals = (api?.roadmap().goals ?? []).map(({ id, title, status, done, total }) => ({ id, title, status, done, total }));
+      } catch {
+        // a Roadmap that cannot be read shows as a project with no Goals
+      }
+      return { ...entry, goals };
+    });
   }
 
   handle = (req: IncomingMessage, res: ServerResponse): void => {
@@ -174,7 +212,9 @@ class Hub {
     const path = url.pathname;
     try {
       if (path === "/api/info") return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, editor: this.editor });
-      if (path === "/api/projects") return json(res, 200, this.sync());
+      if (path === "/api/projects") return json(res, 200, this.sync(url.searchParams.has("rescan")));
+      if (path === "/api/workspaces") return json(res, 200, listWorkspaces(this.registryFile));
+      if (path === "/api/overview") return json(res, 200, this.overview());
       if (path === "/api/events") {
         res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
         res.write("retry: 2000\n: connected\n\n");
@@ -216,7 +256,7 @@ class Hub {
 }
 
 /** Listens on a port: "ok", "in use" (something may be serving there) or "unavailable" (reserved). */
-function listen(server: Server, port: number): Promise<"ok" | "in use" | "unavailable"> {
+function listen(server: Server, port: number, host = HOST): Promise<"ok" | "in use" | "unavailable"> {
   return new Promise((done, fail) => {
     const onError = (e: NodeJS.ErrnoException) => {
       server.off("listening", onListening);
@@ -230,7 +270,7 @@ function listen(server: Server, port: number): Promise<"ok" | "in use" | "unavai
     };
     server.once("error", onError);
     server.once("listening", onListening);
-    server.listen(port, HOST);
+    server.listen(port, host);
   });
 }
 
@@ -251,11 +291,14 @@ async function isHub(port: number): Promise<boolean> {
  * Ports held by anything else are skipped for the next one.
  */
 export async function startDashboard(options: DashboardOptions): Promise<Dashboard> {
-  const { project, uiDir, editor = DEFAULT_EDITOR, attempts = 20, rescanMs = 5000 } = options;
+  const { project, uiDir, editor = DEFAULT_EDITOR, attempts = 20, rescanMs = 5000, workspaceScanMs = 300_000 } = options;
   const registryFile = options.registryFile ?? defaultRegistryFile();
   const firstPort = options.port ?? DEFAULT_PORT;
-  const entry = registerProject(project.root, registryFile);
-  let server: Server | undefined;
+  const entry = project && registerProject(project.root, registryFile);
+  const workspace: WorkspaceEntry | undefined = options.workspace ? addWorkspace(options.workspace, registryFile) : undefined;
+  // The hub listens on IPv4 loopback, and on IPv6 loopback too where there is one: browsers try
+  // "localhost" as ::1 first, and waiting for that to fail slowed every new connection.
+  let servers: Server[] = [];
   let hub: Hub | undefined;
   let port = firstPort;
   let role: "serving" | "shared" = "shared";
@@ -265,15 +308,22 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
       const http = createServer();
       const result = await listen(http, p);
       if (result === "ok") {
-        hub = new Hub(registryFile, uiDir, editor, rescanMs);
+        hub = new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs);
         http.on("request", hub.handle);
-        [server, port, role] = [http, p, "serving"];
+        [servers, port, role] = [[http], p, "serving"];
+        const ipv6 = createServer();
+        if ((await listen(ipv6, p, "::1").catch(() => "unavailable")) === "ok") {
+          ipv6.on("request", hub.handle);
+          servers.push(ipv6);
+        }
         return;
       }
       if (result === "in use" && (await isHub(p))) {
         [port, role] = [p, "shared"];
-        // Tell the hub about this project now, rather than at its next rescan.
-        await fetch(`http://${HOST}:${p}/api/projects`, { signal: AbortSignal.timeout(1500) }).catch(() => undefined);
+        // Tell the hub about this project now, rather than at its next rescan; a new Workspace is scanned straight away.
+        await fetch(`http://${HOST}:${p}/api/projects${workspace ? "?rescan" : ""}`, { signal: AbortSignal.timeout(workspace ? 30_000 : 1500) }).catch(
+          () => undefined,
+        );
         return;
       }
     }
@@ -284,7 +334,9 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
 
   return {
     get url() {
-      return `http://localhost:${port}/?project=${encodeURIComponent(entry.id)}`;
+      const base = `http://localhost:${port}/`;
+      if (entry) return `${base}?project=${encodeURIComponent(entry.id)}`;
+      return workspace ? `${base}?workspace=${encodeURIComponent(workspace.id)}` : base;
     },
     get role() {
       return role;
@@ -297,12 +349,14 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
     async close() {
       hub?.close();
       hub = undefined;
-      if (server) {
-        const s = server;
-        server = undefined;
-        s.closeAllConnections();
-        await new Promise<void>((done) => s.close(() => done()));
-      }
+      const closing = servers;
+      servers = [];
+      await Promise.all(
+        closing.map((s) => {
+          s.closeAllConnections();
+          return new Promise<void>((done) => s.close(() => done()));
+        }),
+      );
     },
   };
 }
@@ -312,3 +366,4 @@ export type InfoView = { app: "progressor"; hub: number; version: string; editor
 export type RoadmapView = ReturnType<DashboardApi["roadmap"]>;
 export type GoalView = NonNullable<ReturnType<DashboardApi["goal"]>>;
 export type GoalSummary = GoalView["goal"];
+export type OverviewView = ReturnType<Hub["overview"]>;

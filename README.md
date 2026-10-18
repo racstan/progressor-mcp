@@ -95,7 +95,21 @@ claude mcp add progressor -e PROGRESSOR_EDITOR=cursor -- npx -y progressor-mcp
 
 Every Progressor server adds its project folder to a per-user list, `~/.progressor/projects.json` (`PROGRESSOR_REGISTRY` points it elsewhere). Whichever Progressor process holds the port serves every project on that list, reading each project's `.progressor/` files straight from disk; the others link to it. If that process ends, the next Progressor server to start, or the next `get_status` from one already running, takes over. Projects whose folder or `.progressor/` has gone are not shown. To take a project off the list, delete its entry from the file.
 
-The dashboard listens on `127.0.0.1` only, port 4747 by default (`PROGRESSOR_PORT` changes it). A port held by another program is skipped for the next free one. Set `PROGRESSOR_DASHBOARD=off` to run without the dashboard.
+The dashboard listens on the loopback address only (`127.0.0.1`, and `::1` where there is IPv6), port 4747 by default (`PROGRESSOR_PORT` changes it). A port held by another program is skipped for the next free one. Set `PROGRESSOR_DASHBOARD=off` to run without the dashboard.
+
+### Workspaces: every project in a folder
+
+If your projects live under one folder, open the dashboard on it from anywhere, with no Agent running:
+
+```bash
+progressor-mcp dashboard C:\Programming
+```
+
+Progressor looks through that folder and its subfolders for projects: folders with a `.progressor/roadmap.md`. It skips `node_modules`, `.git`, build output and other hidden or dependency folders, and goes 5 levels deep. Nothing is created or changed; a folder only becomes a project once an Agent adds a Goal in it. The dashboard opens in your browser on an overview of that Workspace, with each project's Goals in progress, how far along they are, and a green note when a Goal has finished since you last looked. Click a project or a Goal to open it.
+
+The folder is remembered as a Workspace in `~/.progressor/workspaces.json`, so the dashboard keeps showing its projects, grouped under it in the project switcher, even when it is started by an Agent later. New projects in a Workspace show up within a few minutes, or straight away when you run the command again. `progressor-mcp dashboard --forget <folder>` stops showing a Workspace; `--no-open` prints the address without opening the browser. Without a folder, the command uses the current one.
+
+When the dashboard shows more than one project, its start page is the overview of them all (**🗂 All projects** in the switcher).
 
 ## Example
 

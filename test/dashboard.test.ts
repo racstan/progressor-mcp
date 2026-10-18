@@ -1,4 +1,4 @@
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { createServer as createHttpServer, request } from "node:http";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -22,7 +22,10 @@ function projectWith(title: string, sessionId: string): Project {
   return p;
 }
 
-async function start(project: Project, options: { port?: number; uiDir?: string; editor?: string } = {}): Promise<Dashboard> {
+async function start(
+  project: Project | undefined,
+  options: { port?: number; uiDir?: string; editor?: string; workspace?: string } = {},
+): Promise<Dashboard> {
   const d = await startDashboard({ project, registryFile: registry, port: options.port ?? freePort(), ...options });
   open.push(d);
   return d;
@@ -53,6 +56,59 @@ beforeEach(() => {
 afterEach(async () => {
   closers.splice(0).forEach((c) => c());
   await Promise.all(open.splice(0).map((d) => d.close()));
+});
+
+describe("Workspaces", () => {
+  /** A Workspace folder holding two projects (one nested), and a plain folder. */
+  function workspace(): { root: string; shop: Project; api: Project } {
+    const root = tempDir("progressor-ws-");
+    const at = (dir: string, title: string) => {
+      const p = new Project({ root: join(root, dir), session: { id: "s-x", pid: process.pid } });
+      p.addGoal(title, [{ title: "One" }]);
+      return p;
+    };
+    mkdirSync(join(root, "notes"));
+    return { root, shop: at("shop", "Checkout"), api: at("clients/acme/api", "Rate limits") };
+  }
+
+  it("opens on a Workspace without an Agent, serving every project found in it", async () => {
+    const ws = workspace();
+    const d = await start(undefined, { workspace: ws.root });
+    const id = projectEntry(ws.root).id;
+    expect(d.url).toBe(`http://localhost:${new URL(d.url).port}/?workspace=${id}`);
+    expect(d.project).toBeUndefined();
+
+    const projects = (await get(d, "/api/projects")).body as ProjectEntry[];
+    expect(projects.map((p) => [p.name, p.workspace])).toEqual([["api", id], ["shop", id]]);
+    expect((await get(d, "/api/workspaces")).body).toEqual([{ id, name: projectEntry(ws.root).name, root: ws.root }]);
+    expect((await get(d, `/api/projects/${projectEntry(ws.shop.root).id}/roadmap`)).body.goals[0].title).toBe("Checkout");
+  });
+
+  it("gives every project's Goals and progress in one overview, the Agent's projects included", async () => {
+    const ws = workspace();
+    const d = await start(agent, { workspace: ws.root });
+    const overview = (await get(d, "/api/overview")).body as any[];
+    expect(overview.map((p) => p.name).sort()).toEqual(["api", projectEntry(agent.root).name, "shop"].sort());
+    const mine = overview.find((p) => p.root === agent.root);
+    expect(mine.workspace).toBeUndefined();
+    expect(mine.goals.map((g: any) => [g.id, g.status, g.done, g.total])).toEqual([
+      ["ship-oauth-login", "active", 1, 2],
+      ["billing", "planned", 0, 0],
+    ]);
+  });
+
+  it("finds a project added to a Workspace when asked to rescan, and a Workspace opened through a running hub", async () => {
+    const ws = workspace();
+    const d = await start(agent);
+    const port = Number(new URL(d.url).port);
+    const shared = await start(undefined, { port, workspace: ws.root });
+    expect(shared.role).toBe("shared");
+    expect((await get(d, "/api/projects")).body.map((p: ProjectEntry) => p.name)).toContain("shop");
+
+    new Project({ root: join(ws.root, "notes"), session: { id: "s-y", pid: process.pid } }).addGoal("Write it up");
+    expect((await get(d, "/api/projects")).body.map((p: ProjectEntry) => p.name)).not.toContain("notes");
+    expect((await get(d, "/api/projects?rescan")).body.map((p: ProjectEntry) => p.name)).toContain("notes");
+  });
 });
 
 describe("one dashboard for every project", () => {
@@ -122,7 +178,7 @@ describe("one dashboard for every project", () => {
 
   it("tells the page which editor opens files", async () => {
     const d = await start(agent, { editor: "cursor" });
-    expect((await get(d, "/api/info")).body).toMatchObject({ app: "progressor", hub: 1, editor: "cursor" });
+    expect((await get(d, "/api/info")).body).toMatchObject({ app: "progressor", hub: 2, editor: "cursor" });
   });
 });
 

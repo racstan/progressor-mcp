@@ -2,7 +2,15 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { defaultRegistryFile, listProjects, registerProject } from "../src/dashboard/registry.js";
+import {
+  addWorkspace,
+  defaultRegistryFile,
+  forgetWorkspace,
+  listProjects,
+  listWorkspaces,
+  projectEntry,
+  registerProject,
+} from "../src/dashboard/registry.js";
 import { tempDir } from "./tmp.js";
 
 let registry: string;
@@ -45,6 +53,27 @@ describe("the project registry", () => {
     registerProject(noRecord, registry);
     registerProject(join(tempDir("progressor-reg-"), "deleted"), registry);
     expect(listProjects(registry).map((p) => p.name)).toEqual([alpha.name, zed.name]);
+  });
+
+  it("remembers Workspaces once each, alongside the projects, and forgets them on request", () => {
+    const p = registerProject(project("app"), registry);
+    const folder = tempDir("progressor-reg-");
+    const ws = addWorkspace(folder, registry);
+    expect(addWorkspace(folder, registry)).toEqual(ws);
+    expect(ws.id).toBe(projectEntry(folder).id);
+    registerProject(project("other"), registry);
+
+    expect(listWorkspaces(registry)).toEqual([ws]);
+    expect(listProjects(registry)).toContainEqual(p);
+    expect(forgetWorkspace(folder, registry)).toBe(true);
+    expect(forgetWorkspace(folder, registry)).toBe(false);
+    expect(listWorkspaces(registry)).toEqual([]);
+    expect(listProjects(registry)).toHaveLength(2);
+  });
+
+  it("hides a Workspace whose folder is gone", () => {
+    addWorkspace(join(tempDir("progressor-reg-"), "deleted"), registry);
+    expect(listWorkspaces(registry)).toEqual([]);
   });
 
   it("starts over when the registry file is missing or unreadable", () => {

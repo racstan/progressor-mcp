@@ -2,14 +2,16 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { DEFAULT_EDITOR, EDITORS, editorUrl, parseCodeRef } from "../dashboard/editor.js";
 import { type DetourNode, type GoalGraph, type TaskNode, withoutDetours } from "../dashboard/graph.js";
 import { type PromptSubject, copyAsPrompt } from "../dashboard/prompt.js";
-import { type GoalView, type RoadmapView, useDashboard, useStored, useStoredJson } from "./data.js";
+import { type GoalView, type RoadmapView, useDashboard, useOverview, useStored, useStoredJson } from "./data.js";
 import { STATUS_LABEL } from "./geometry.js";
 import { Checklist } from "./Checklist.js";
 import { type Finished, type Seen, doneMark, groupGoals, seenOnFirstVisit } from "./goalList.js";
 import { MetroMap } from "./MetroMap.js";
+import { Overview } from "./Overview.js";
 import { RichText } from "./RichText.js";
 import { plainText } from "./text.js";
 import { VIEWS, VIEW_LABELS, type View, pickView } from "./views.js";
+import { groupByWorkspace, placeIn } from "./workspaces.js";
 
 type Goal = RoadmapView["goals"][number];
 type Theme = "light" | "dark" | "system";
@@ -69,6 +71,7 @@ const isDark = (theme: Theme | undefined) =>
   theme === "dark" || (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
 
 const projectFromUrl = () => new URLSearchParams(location.search).get("project") ?? undefined;
+const workspaceFromUrl = () => new URLSearchParams(location.search).get("workspace") ?? undefined;
 
 /** Changes some of the address's parameters (project, view), keeping the others and the Goal in the hash. */
 function setParams(changes: Record<string, string | undefined>, how: "push" | "replace" = "replace") {
@@ -87,6 +90,7 @@ const VIEW_SHORT: Record<View, string> = { horizontal: "Across", vertical: "Down
 
 export function App() {
   const [pickedProject, setPickedProject] = useState<string | undefined>(projectFromUrl);
+  const [pickedWorkspace, setPickedWorkspace] = useState<string | undefined>(workspaceFromUrl);
   const [picked, setPicked] = useState<string | undefined>(goalFromHash);
   const [detours, setDetours] = useState(true);
   const [theme, setTheme] = useStored<Theme>("progressor.theme", undefined);
@@ -118,10 +122,13 @@ export function App() {
 
   const [projectId, setProjectId] = useState<string | undefined>(pickedProject);
   const [goalId, setGoalId] = useState<string | undefined>(picked);
-  const { info, projects, roadmap, goal, connection, error } = useDashboard(projectId, goalId);
+  const { info, projects, workspaces, roadmap, goal, connection, error } = useDashboard(projectId, goalId);
   const project = projects?.find((p) => p.id === projectId);
-  // Without a project in the address, show the first one; an unknown one is reported, never swapped.
-  const effectiveProject = pickedProject ?? projects?.[0]?.id;
+  // Without a project in the address: the only project, or the overview of them all (or of the
+  // Workspace in the address). An unknown project is reported, never swapped.
+  const showOverview = !pickedProject && !!projects && (projects.length > 1 || !!pickedWorkspace);
+  const overview = useOverview(showOverview);
+  const effectiveProject = pickedProject ?? (projects?.length === 1 && !pickedWorkspace ? projects[0]!.id : undefined);
   useEffect(() => {
     setProjectId(effectiveProject);
     // keep the shown project in the address, so a reload or a bookmark comes back to it
@@ -163,6 +170,7 @@ export function App() {
   useEffect(() => {
     const onNavigate = () => {
       setPickedProject(projectFromUrl());
+      setPickedWorkspace(workspaceFromUrl());
       setPicked(goalFromHash());
       setView(pickView(location.search, undefined));
     };
@@ -182,14 +190,23 @@ export function App() {
     setPicked(id);
     closeDrawerOnNarrow();
   };
-  const pickProject = (id: string) => {
+  const pickProject = (id: string, goalId?: string) => {
     setSelected(undefined);
     setSwitcherOpen(false);
     setMenuOpen(false);
-    setParams({ project: id }, "push");
+    setParams({ project: id, workspace: undefined }, "push");
+    if (goalId) history.replaceState(null, "", `${location.search}#/goal/${encodeURIComponent(goalId)}`);
     setPickedProject(id);
-    setPicked(undefined);
+    setPicked(goalId);
     closeDrawerOnNarrow();
+  };
+  const showAll = () => {
+    setSelected(undefined);
+    setSwitcherOpen(false);
+    setParams({ project: undefined, workspace: undefined }, "push");
+    setPickedProject(undefined);
+    setPickedWorkspace(undefined);
+    setPicked(undefined);
   };
 
   const [dark, setDark] = useState(() => isDark(theme));
@@ -207,8 +224,9 @@ export function App() {
   }, [theme]);
 
   useEffect(() => {
-    document.title = [shownGoal?.goal.title, project?.name, "Progressor"].filter(Boolean).join(" · ");
-  }, [shownGoal, project]);
+    const where = showOverview ? (workspaces?.find((w) => w.id === pickedWorkspace)?.name ?? "All projects") : undefined;
+    document.title = [shownGoal?.goal.title, project?.name, where, "Progressor"].filter(Boolean).join(" · ");
+  }, [shownGoal, project, showOverview, workspaces, pickedWorkspace]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -439,21 +457,32 @@ export function App() {
             <h3>Project</h3>
             <button className="project current" title={project?.root} aria-haspopup="listbox" aria-expanded={switcherOpen}
               disabled={(projects?.length ?? 0) < 2 && !!project} onClick={() => setSwitcherOpen(!switcherOpen)}>
-              <span className="t">{project?.name ?? (projects ? "Choose a project" : "Loading…")}</span>
+              <span className="t">{project?.name ?? (showOverview ? "🗂 All projects" : projects ? "Choose a project" : "Loading…")}</span>
               {(projects?.length ?? 0) > 1 && <span className="chev" aria-hidden="true">{switcherOpen ? "▴" : "▾"}</span>}
             </button>
             {switcherOpen && (
               <div className="project-list" role="listbox" aria-label="Projects">
-                {projects?.map((p) => (
-                  <button key={p.id} className="project" role="option" aria-selected={p.id === projectId} onClick={() => pickProject(p.id)}>
-                    <span className="t">{p.name}</span>
-                    <span className="path">{p.root}</span>
-                  </button>
+                <button className="project" role="option" aria-selected={showOverview} onClick={showAll}>
+                  <span className="t">🗂 All projects</span>
+                  <span className="path">Every project at a glance</span>
+                </button>
+                {groupByWorkspace(projects ?? [], workspaces ?? []).map((g) => (
+                  <div key={g.workspace?.id ?? "none"} role="group" aria-label={g.workspace?.name ?? "Other projects"}>
+                    {(workspaces?.length ?? 0) > 0 && (
+                      <div className="ws-head" title={g.workspace?.root}>{g.workspace ? g.workspace.name : "Other projects"}</div>
+                    )}
+                    {g.projects.map((p) => (
+                      <button key={p.id} className="project" role="option" aria-selected={p.id === projectId} onClick={() => pickProject(p.id)}>
+                        <span className="t">{p.name}</span>
+                        <span className="path">{placeIn(p.root, g.workspace)}</span>
+                      </button>
+                    ))}
+                  </div>
                 ))}
               </div>
             )}
           </section>
-          <section>
+          {!showOverview && <section>
             <h3>
               Roadmap
               {roadmap && <span className="count">{goals.length} {goals.length === 1 ? "Goal" : "Goals"}</span>}
@@ -478,7 +507,7 @@ export function App() {
                 {showHidden && <div className="goals hidden-goals">{grouped.hidden.map(goalButton)}</div>}
               </div>
             )}
-          </section>
+          </section>}
         </aside>
 
         <main className="main">
@@ -490,7 +519,11 @@ export function App() {
             <div className="placeholder">
               <h2>No projects yet</h2>
               A project appears here once an Agent using Progressor has added a Goal to it, which creates its <code>.progressor/</code> folder.
+              To see every project in a folder, run <code>progressor-mcp dashboard &lt;folder&gt;</code>.
             </div>
+          ) : showOverview ? (
+            <Overview overview={overview} workspaces={workspaces ?? []} only={pickedWorkspace} finishedWaits={finished !== "auto"}
+              onOpen={pickProject} onShowAll={showAll} />
           ) : roadmap === null || (roadmap === undefined && !project && projectId) ? (
             <div className="placeholder">
               <h2>No progress record for this project yet</h2>

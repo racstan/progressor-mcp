@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GoalView, InfoView, RoadmapView } from "../dashboard/http.js";
-import type { ProjectEntry } from "../dashboard/registry.js";
+import type { GoalView, InfoView, OverviewView, RoadmapView } from "../dashboard/http.js";
+import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
 
-export type { GoalView, InfoView, ProjectEntry, RoadmapView };
+export type { GoalView, InfoView, OverviewView, ProjectEntry, RoadmapView, WorkspaceEntry };
 export type Connection = "connecting" | "live" | "reconnecting";
 
 async function getJson<T>(path: string): Promise<T | undefined> {
@@ -20,6 +20,7 @@ async function getJson<T>(path: string): Promise<T | undefined> {
 export function useDashboard(projectId: string | undefined, goalId: string | undefined) {
   const [info, setInfo] = useState<InfoView>();
   const [projects, setProjects] = useState<ProjectEntry[]>();
+  const [workspaces, setWorkspaces] = useState<WorkspaceEntry[]>();
   const [roadmap, setRoadmap] = useState<RoadmapView | null>();
   const [goal, setGoal] = useState<GoalView | null>();
   const [connection, setConnection] = useState<Connection>("connecting");
@@ -29,9 +30,14 @@ export function useDashboard(projectId: string | undefined, goalId: string | und
 
   const loadProjects = useCallback(async () => {
     try {
-      const [i, p] = await Promise.all([getJson<InfoView>("/api/info"), getJson<ProjectEntry[]>("/api/projects")]);
+      const [i, p, w] = await Promise.all([
+        getJson<InfoView>("/api/info"),
+        getJson<ProjectEntry[]>("/api/projects"),
+        getJson<WorkspaceEntry[]>("/api/workspaces"),
+      ]);
       setInfo(i);
       setProjects(p ?? []);
+      setWorkspaces(w ?? []);
       setError(undefined);
     } catch (e) {
       setError((e as Error).message);
@@ -83,10 +89,32 @@ export function useDashboard(projectId: string | undefined, goalId: string | und
     return () => events.close();
   }, [loadProjects, loadProject]);
 
-  return { info, projects, roadmap, goal, connection, error };
+  return { info, projects, workspaces, roadmap, goal, connection, error };
 }
 
-const readJson = <T,>(key: string | undefined): T | undefined => {
+/** Every project's Goals for the overview page, fetched again whenever any project changes. */
+export function useOverview(enabled: boolean): OverviewView | undefined {
+  const [overview, setOverview] = useState<OverviewView>();
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    const load = () =>
+      getJson<OverviewView>("/api/overview")
+        .then((o) => alive && setOverview(o ?? []))
+        .catch(() => undefined);
+    void load();
+    const events = new EventSource("/api/events");
+    events.addEventListener("projects", load);
+    events.addEventListener("change", load);
+    return () => {
+      alive = false;
+      events.close();
+    };
+  }, [enabled]);
+  return overview;
+}
+
+export const readJson = <T,>(key: string | undefined): T | undefined => {
   try {
     const text = key ? localStorage.getItem(key) : null;
     return text ? (JSON.parse(text) as T) : undefined;
