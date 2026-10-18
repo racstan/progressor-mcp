@@ -30,6 +30,37 @@ You steer by talking to the Agent; it is the only writer of the `.progressor/` f
 
 Every item has a ref such as `progressor://ship-oauth-login/t2` that you can paste into the chat; the Agent looks it up with `get_item`.
 
+## The dashboard
+
+While your Agent's app is running Progressor, open **http://localhost:4747/** in a browser. The Agent also gets the address in every `get_status` (a `Dashboard:` line) and can tell you, and the server prints it to its log. It is served by the same process as the MCP tools, so there is nothing else to install or start.
+
+The dashboard shows the selected Goal as a metro map: Tasks are stops on a line, Detours are orange branches labelled with how they ended (Merge back, Returned, Recalibrated or open), and Tasks dropped by a Recalibration stay on the old line, faded. A banner shows what is happening now: the current Task, or the open Detour and where it branched from. The sidebar lists the Roadmap with each Goal's progress, your Standing Instructions and the parked Ideas. The page updates by itself as the markdown changes.
+
+- **Zoom** with the mouse wheel or the + / − buttons, **pan** by dragging the background, and **fit** the whole map with ⤢. Stops can be dragged; they spring back when you let go.
+- Click any stop, Idea or Standing Instruction for **Copy as prompt**: a self-describing text (what it is, its status, its `progressor://` ref, file and line, its Goal, where it branched from, its Reason, its neighbours and the code it touches) to paste into your Agent chat.
+- **Open in file** opens the Plan File at the item's line, or the code a Task touches, in your editor.
+- The **Detours** switch hides the Detours from the view only; `[` collapses the sidebar; the sun / moon button switches between light and dark.
+
+The dashboard is view-only: you change the plan by talking to the Agent.
+
+### Choosing the editor
+
+"Open in file" uses VS Code by default. Pick another editor from the **Open in** menu in the dashboard (remembered in that browser), or set it for the project with `PROGRESSOR_EDITOR` in the MCP server's environment:
+
+```bash
+claude mcp add progressor -e PROGRESSOR_EDITOR=cursor -- npx -y progressor-mcp
+```
+
+| `PROGRESSOR_EDITOR`                                                                 | Opens                                     |
+| ----------------------------------------------------------------------------------- | ----------------------------------------- |
+| `vscode` (default), `vscode-insiders`, `vscodium`, `cursor`, `windsurf`, `zed`       | the file at the line, by its full path     |
+| `idea` (or `jetbrains`), `webstorm`, `pycharm`, `phpstorm`, `goland`, `rider`, `rubymine`, `clion`, `rustrover` | the file in the open project, through [JetBrains Toolbox](https://www.jetbrains.com/toolbox-app/) |
+| a URL template, such as `myeditor://open?file={path}&line={line}`                   | anything else: `{path}` is the full path, `{relPath}` the path inside the project, `{project}` the folder name and `{line}` the line |
+
+### Ports and several Sessions
+
+The dashboard listens on `127.0.0.1` only, port 4747 by default (`PROGRESSOR_PORT` changes it). When several Agent conversations work on the same project, the first one serves the dashboard and the others point to it; if that one ends, the next `get_status` from another conversation takes over. A port used by another project's dashboard, or by another program, is skipped for the next free one. Set `PROGRESSOR_DASHBOARD=off` to run without the dashboard.
+
 ## Example
 
 ```markdown
@@ -83,4 +114,10 @@ npm test
 npm run build
 ```
 
-`npm run build` compiles to `dist/`; `node dist/cli.js` starts the server on stdio. The web dashboard described in [ADR 0001](docs/adr/0001-mcp-server-hosts-the-dashboard.md) is not built yet.
+`npm run build` compiles the server to `dist/` and bundles the dashboard (React, in `src/ui/`) into `dist/ui/`; `node dist/cli.js` starts the server on stdio. To try the dashboard without an MCP client, serve it for a project folder (by default the sample in `test/fixtures/sample-project`):
+
+```bash
+node scripts/dashboard.mjs test/fixtures/sample-project
+```
+
+`npm run dev:ui` rebuilds the page on every change; reload the browser to see it. The server side of the dashboard is in `src/dashboard/`: the HTTP server and API (`http.ts`), the file watcher (`watch.ts`), and the pure logic shared with the page: the metro map layout (`graph.ts`), the Copy-as-prompt text (`prompt.ts`) and the editor links (`editor.ts`).

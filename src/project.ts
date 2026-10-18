@@ -42,7 +42,7 @@ export type FoundItem =
 export const PROGRESSOR_DIR = ".progressor";
 export const ROADMAP_FILE = "roadmap.md";
 
-function processIsAlive(pid: number): boolean {
+export function processIsAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;

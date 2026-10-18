@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod";
+import type { Dashboard } from "./dashboard/http.js";
 import type { Detour, Task } from "./planFile.js";
 import type { DetourEnding, FoundItem, Project, Status } from "./project.js";
 import type { Goal } from "./roadmap.js";
@@ -116,9 +117,15 @@ function respond(body: () => string) {
   }
 }
 
-export function createServer(project: Project): McpServer {
+export interface ServerOptions {
+  /** The dashboard, so get_status can say where the Developer can open it. */
+  dashboard?: Pick<Dashboard, "url" | "refresh">;
+}
+
+export function createServer(project: Project, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: "progressor", version: VERSION }, { instructions: INSTRUCTIONS });
   const status = () => formatStatus(project.status());
+  const { dashboard } = options;
 
   server.registerTool(
     "get_status",
@@ -128,7 +135,13 @@ export function createServer(project: Project): McpServer {
         "Compact summary of this Session's Goal, current Task, open Detour, next Task and the Developer's Standing Instructions. Call it at the start of every conversation and after context compression.",
       annotations: { readOnlyHint: true },
     },
-    () => respond(status),
+    async () => {
+      // The Session serving the dashboard may have ended; if so, this one takes over.
+      await dashboard?.refresh().catch(() => undefined);
+      return respond(() =>
+        [status(), ...(dashboard ? [`Dashboard: ${dashboard.url} (tell the Developer they can follow progress there)`] : [])].join("\n"),
+      );
+    },
   );
 
   server.registerTool(
