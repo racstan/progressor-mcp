@@ -15,6 +15,9 @@ interface NodeBase {
 export interface TaskNode extends NodeBase {
   kind: "task";
   status: TaskStatus;
+  /** One or two sentences on the fix or change the Task makes. */
+  summary: string | undefined;
+  /** The files the Task touches. */
   code: string[];
   addedBy: string | undefined;
   droppedBy: string | undefined;
@@ -78,6 +81,7 @@ export function buildGoalGraph(plan: { tasks: Task[]; detours: Detour[] }): Goal
     title: t.title,
     status: t.status,
     line: t.line,
+    summary: t.summary,
     code: t.code,
     addedBy: t.addedBy,
     droppedBy: t.droppedBy,

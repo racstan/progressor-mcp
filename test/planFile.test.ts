@@ -120,3 +120,61 @@ describe("Plan Files edited by hand", () => {
     expect(lines[4]).toBe("* [X]   Add the /login route   ^t1");
   });
 });
+
+describe("Task summaries", () => {
+  const withSummary = `# Ship OAuth login
+
+## Tasks
+
+- [x] Fix callback redirect loop ^t1
+  - summary: Callback re-sets the session cookie on every hit; only set it after token exchange.
+  - code: \`src/auth/callback.ts\`
+  - code: \`src/auth/session.ts:42\`
+- [ ] Add logout ^t2
+`;
+
+  it("reads a Task's summary alongside its title and files", () => {
+    const [fix, logout] = parsePlanFile(withSummary, "g").tasks;
+    expect(fix).toMatchObject({
+      title: "Fix callback redirect loop",
+      summary: "Callback re-sets the session cookie on every hit; only set it after token exchange.",
+      code: ["src/auth/callback.ts", "src/auth/session.ts:42"],
+    });
+    expect(logout!.summary).toBeUndefined();
+    expect(parsePlanFile(withSummary, "g").toString()).toBe(withSummary);
+  });
+
+  it("writes a new Task's summary under its title, before its files", () => {
+    const plan = parsePlanFile(withSummary, "g");
+    plan.addTasks([{ title: "Store tokens server-side", summary: "Keep tokens out of cookies.", code: ["src/auth/store.ts"] }]);
+    expect(plan.toString().split("\n").slice(9, 12)).toEqual([
+      "- [ ] Store tokens server-side ^t3",
+      "  - summary: Keep tokens out of cookies.",
+      "  - code: `src/auth/store.ts`",
+    ]);
+  });
+
+  it("updates a Task's title, summary and files, keeping its other details and every other line", () => {
+    const handEdited = withSummary.replace("- [ ] Add logout ^t2", "* [ ]  Add logout   ^t2\n  - added by: ^d1\n  - owner: me");
+    const plan = parsePlanFile(handEdited, "g");
+    plan.updateTask("t2", { title: "Add a logout route", summary: "Clears the session cookie.", code: ["src/routes/logout.ts"] });
+    expect(plan.toString()).toBe(
+      handEdited.replace(
+        "* [ ]  Add logout   ^t2\n  - added by: ^d1\n  - owner: me",
+        "- [ ] Add a logout route ^t2\n  - summary: Clears the session cookie.\n  - code: `src/routes/logout.ts`\n  - added by: ^d1\n  - owner: me",
+      ),
+    );
+    plan.updateTask("t1", { summary: "Only set the cookie after token exchange." });
+    expect(plan.task("t1")).toMatchObject({
+      title: "Fix callback redirect loop",
+      summary: "Only set the cookie after token exchange.",
+      code: ["src/auth/callback.ts", "src/auth/session.ts:42"],
+    });
+  });
+
+  it("keeps a summary on one line, however it was given", () => {
+    const plan = parsePlanFile(withSummary, "g");
+    plan.updateTask("t2", { summary: "  Clears the cookie.\n  Then redirects home.  " });
+    expect(plan.task("t2")!.summary).toBe("Clears the cookie. Then redirects home.");
+  });
+});

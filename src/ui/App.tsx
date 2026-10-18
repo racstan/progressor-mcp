@@ -4,7 +4,9 @@ import { type DetourNode, type GoalGraph, type TaskNode, withoutDetours } from "
 import { type PromptSubject, copyAsPrompt } from "../dashboard/prompt.js";
 import { type GoalView, type RoadmapView, useDashboard, useStored } from "./data.js";
 import { STATUS_LABEL } from "./geometry.js";
+import { Checklist } from "./Checklist.js";
 import { MetroMap } from "./MetroMap.js";
+import { VIEWS, VIEW_LABELS, type View, pickView } from "./views.js";
 
 type Goal = RoadmapView["goals"][number];
 type Theme = "light" | "dark";
@@ -64,12 +66,39 @@ const isDark = (theme: Theme | undefined) => theme === "dark";
 
 const projectFromUrl = () => new URLSearchParams(location.search).get("project") ?? undefined;
 
+/** Changes some of the address's parameters (project, view), keeping the others and the Goal in the hash. */
+function setParams(changes: Record<string, string | undefined>, how: "push" | "replace" = "replace") {
+  const params = new URLSearchParams(location.search);
+  for (const [k, v] of Object.entries(changes)) {
+    if (v === undefined) params.delete(k);
+    else params.set(k, v);
+  }
+  const url = `?${params.toString()}${how === "push" ? "" : location.hash}`;
+  if (how === "push") history.pushState(null, "", url);
+  else history.replaceState(null, "", url);
+}
+
+const VIEW_ICONS: Record<View, string> = { horizontal: "⇢", vertical: "⇣", checklist: "☰" };
+
 export function App() {
   const [pickedProject, setPickedProject] = useState<string | undefined>(projectFromUrl);
   const [picked, setPicked] = useState<string | undefined>(goalFromHash);
   const [detours, setDetours] = useState(true);
   const [theme, setTheme] = useStored<Theme>("progressor.theme", undefined);
   const [collapsed, setCollapsed] = useStored<"1">("progressor.sidebar-collapsed", undefined);
+  const [storedView, setStoredView] = useStored<View>("progressor.view", undefined);
+  const [view, setView] = useState<View>(() => pickView(location.search, storedView));
+  const chooseView = (v: View) => {
+    setView(v);
+    setStoredView(v);
+    setSelected(undefined);
+    setParams({ view: v === "horizontal" ? undefined : v });
+  };
+  useEffect(() => {
+    // a view remembered by this browser goes into the address too, so the link shows the same thing
+    if (view !== "horizontal" && !new URLSearchParams(location.search).get("view")) setParams({ view });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [editorChoice, setEditorChoice] = useStored<string>("progressor.editor", undefined);
   const [menuOpen, setMenuOpen] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -87,7 +116,7 @@ export function App() {
     setProjectId(effectiveProject);
     // keep the shown project in the address, so a reload or a bookmark comes back to it
     if (effectiveProject && !projectFromUrl())
-      history.replaceState(null, "", `?project=${encodeURIComponent(effectiveProject)}${location.hash}`);
+      setParams({ project: effectiveProject });
   }, [effectiveProject]);
 
   const goals = roadmap?.goals ?? [];
@@ -101,6 +130,7 @@ export function App() {
     const onNavigate = () => {
       setPickedProject(projectFromUrl());
       setPicked(goalFromHash());
+      setView(pickView(location.search, undefined));
     };
     addEventListener("hashchange", onNavigate);
     addEventListener("popstate", onNavigate);
@@ -122,7 +152,7 @@ export function App() {
     setSelected(undefined);
     setSwitcherOpen(false);
     setMenuOpen(false);
-    history.pushState(null, "", `?project=${encodeURIComponent(id)}`);
+    setParams({ project: id }, "push");
     setPickedProject(id);
     setPicked(undefined);
     closeDrawerOnNarrow();
@@ -231,6 +261,14 @@ export function App() {
             📌<span className="label"> Rules &amp; Ideas</span> <span className="count">{instructions.length + ideas.length}</span>
           </button>
         )}
+        <div className="views" role="radiogroup" aria-label="View">
+          {VIEWS.map((v) => (
+            <button key={v} role="radio" aria-checked={view === v} title={VIEW_LABELS[v]} aria-label={VIEW_LABELS[v]} onClick={() => chooseView(v)}>
+              <span aria-hidden="true">{VIEW_ICONS[v]}</span>
+              <span className="label">{v === "checklist" ? "List" : v === "horizontal" ? "Across" : "Down"}</span>
+            </button>
+          ))}
+        </div>
         <button className="toggle" role="switch" aria-checked={detours} onClick={() => {
           setDetours(!detours);
           toast(`${detours ? "Hiding" : "Showing"} Detours in this view.`);
@@ -354,21 +392,24 @@ export function App() {
                 onCopy={() => copy(copyAsPrompt({ kind: "goal", goal: shownGoal.goal, graph: shownGoal.graph }))} />
               {graph.nodes.length === 0 ? (
                 <div className="placeholder"><h2>No Tasks yet</h2>The Agent adds Tasks with <code>add_tasks</code>.</div>
+              ) : view === "checklist" ? (
+                <Checklist graph={graph} fileLink={fileLink} onOpen={(node, at) => setSelected({ kind: "node", key: node.id, at })} />
               ) : (
                 <MetroMap
                   graph={graph}
-                  viewKey={`${projectId}:${shownGoal.goal.id}:${detours}`}
+                  orientation={view}
+                  viewKey={`${projectId}:${shownGoal.goal.id}:${view}:${detours}`}
                   focusId={focus(shownGoal.graph, detours)}
                   onOpen={(node, at) => setSelected({ kind: "node", key: node.id, at })}
                 />
               )}
-              <div className="legend" aria-hidden="true">
+              {view !== "checklist" && graph.nodes.length > 0 && <div className="legend" aria-hidden="true">
                 <span>━ plan</span>
                 <span style={{ color: "var(--detour)" }}>┈ Detour</span>
                 <span style={{ color: "var(--faded)" }}>┅ dropped</span>
                 <span>◆ Detour stop</span>
-                <span>drag a stop · scroll to zoom</span>
-              </div>
+                <span>{view === "vertical" ? "drag a stop · scroll to move · Ctrl+scroll to zoom" : "drag a stop · scroll to zoom"}</span>
+              </div>}
             </>
           )}
         </main>
@@ -464,7 +505,7 @@ interface Location {
   label: string;
 }
 
-function describe(subject: PromptSubject): { title: string; meta: string; reason?: string; locations: Location[] } {
+function describe(subject: PromptSubject): { title: string; meta: string; summary?: string; reason?: string; locations: Location[] } {
   switch (subject.kind) {
     case "node": {
       const { node: n, goal } = subject;
@@ -473,7 +514,13 @@ function describe(subject: PromptSubject): { title: string; meta: string; reason
         return { title: n.title, meta: `Detour ${n.id} · ${STATUS_LABEL[n.status]}`, reason: n.reason, locations: [main] };
       const code = n.code.map((c) => ({ ...parseCodeRef(c), label: `↳ ${c}` }));
       const extra = n.fromDetour ? " · added from a Detour" : n.addedBy ? ` · added by ${n.addedBy}` : "";
-      return { title: n.title, meta: `Task ${n.id} · ${STATUS_LABEL[n.status]}${extra}`, reason: n.status === "dropped" ? n.reason : undefined, locations: [main, ...code] };
+      return {
+        title: n.title,
+        meta: `Task ${n.id} · ${STATUS_LABEL[n.status]}${extra}`,
+        summary: n.summary,
+        reason: n.status === "dropped" ? n.reason : undefined,
+        locations: [main, ...code],
+      };
     }
     case "goal":
       return {
@@ -534,6 +581,7 @@ function Popover({ subject, at, onClose, fileLink, onCopy }: {
       <button className="x" aria-label="Close" onClick={onClose}>✕</button>
       <h4>{d.title}</h4>
       <div className="meta">{d.meta}</div>
+      {d.summary && <p className="summary">{d.summary}</p>}
       {d.reason && <p className="reason">{d.reason}</p>}
       <div className="locs">
         {d.locations.map((l) => (

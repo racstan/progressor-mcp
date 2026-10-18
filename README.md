@@ -16,7 +16,7 @@ Any other MCP client can run the same command over stdio: `npx -y progressor-mcp
 
 ## How it works
 
-1. **Goals** live on the Roadmap, `.progressor/roadmap.md`. Each Goal has a **Plan File**, `.progressor/goals/<goal>.md`, with its **Tasks**.
+1. **Goals** live on the Roadmap, `.progressor/roadmap.md`. Each Goal has a **Plan File**, `.progressor/goals/<goal>.md`, with its **Tasks**. Every Task has a short title, the files it touches and a one-to-two-line summary of the fix or change it makes.
 2. Each Agent conversation is a **Session**. A Session **claims** one Goal, so two conversations never work on the same Goal at once. When the conversation ends, the Claim is released and the Goal is paused until a Session claims it again.
 3. At the start of a conversation, and after its context has been compressed, the Agent calls `get_status` to see the Goal, the current Task, any open Detour, the next Task and your Standing Instructions.
 4. When the Agent has to do something that is not the current Task, it declares a **Detour** with a Reason instead of drifting silently. It ends the Detour in one of three ways:
@@ -34,10 +34,16 @@ Every item has a ref such as `progressor://ship-oauth-login/t2` that you can pas
 
 While your Agent's app is running Progressor, open **http://localhost:4747/** in a browser. It is one dashboard for every project you use Progressor in: pick the project in the sidebar. Each `get_status` ends with a `Dashboard:` line that links straight to that conversation's project (`http://localhost:4747/?project=<id>`), so the Agent can hand it to you; the server prints it to its log too. It is served by the same process as the MCP tools, so there is nothing else to install or start.
 
-The dashboard shows the selected Goal as a metro map: Tasks are stops on a line, Detours are orange branches labelled with how they ended (Merge back, Returned, Recalibrated or open), and Tasks dropped by a Recalibration stay on the old line, faded. A banner shows what is happening now: the current Task, or the open Detour and where it branched from. The sidebar has the project switcher (each project's name and folder) and the Roadmap with each Goal's progress, under the full path of the project folder it comes from. Your Standing Instructions and the parked Ideas are in the **📌 Rules & Ideas** menu in the top bar. Only one project is shown at a time, with the Sessions working in it, and the page updates by itself as its markdown changes.
+The dashboard shows the selected Goal in one of three views, picked in the top bar (⇢ Across, ⇣ Down, ☰ List). The view is remembered by your browser and kept in the address (`&view=vertical`, `&view=checklist`), so a link shows the same thing:
+
+- **Metro, horizontal** (the default): a metro map running left to right.
+- **Metro, vertical**: the same map running top to bottom, so a long plan scrolls down. The mouse wheel scrolls it; Ctrl + wheel (or a pinch) zooms.
+- **Checklist**: the Tasks as a list in plan order, each with its files and summary, and each Detour indented under the Task it branched from with how it ended and its Reason.
+
+On the maps, Tasks are stops on a line with their files as small chips, Detours are orange branches labelled with how they ended (Merge back, Returned, Recalibrated or open), and Tasks dropped by a Recalibration stay on the old line, faded. A banner shows what is happening now: the current Task, or the open Detour and where it branched from. The sidebar has the project switcher (each project's name and folder) and the Roadmap with each Goal's progress, under the full path of the project folder it comes from. Your Standing Instructions and the parked Ideas are in the **📌 Rules & Ideas** menu in the top bar. Only one project is shown at a time, with the Sessions working in it, and the page updates by itself as its markdown changes.
 
 - **Zoom** with the mouse wheel or the + / − buttons, **pan** by dragging the background, and **fit** the whole map with ⤢. Stops can be dragged; they spring back when you let go.
-- Click any stop, Idea or Standing Instruction for **Copy as prompt**: a self-describing text (what it is, its status, its `progressor://` ref, file and line, its Goal, where it branched from, its Reason, its neighbours and the code it touches) to paste into your Agent chat.
+- Click any Task, Detour, Idea or Standing Instruction for its details (a Task's summary, a Detour's Reason) and **Copy as prompt**: a self-describing text (what it is, its status, its `progressor://` ref, file and line, its Goal, its summary, where it branched from, its Reason, its neighbours and the files it touches) to paste into your Agent chat.
 - **Open in file** opens the Plan File at the item's line, or the code a Task touches, in your editor.
 - The **Detours** switch hides the Detours from the view only; `[` collapses the sidebar. The dashboard starts in light mode; the sun / moon button switches to dark, and the browser remembers the choice.
 
@@ -71,8 +77,12 @@ The dashboard listens on `127.0.0.1` only, port 4747 by default (`PROGRESSOR_POR
 ## Tasks
 
 - [x] Add the /login route ^t1
+  - summary: Serve the login page and redirect to the provider with the client ID and state.
   - code: `src/routes/login.ts`
-- [/] Handle the OAuth callback ^t2
+- [/] Fix callback redirect loop ^t2
+  - summary: Callback re-sets the session cookie on every hit; only set it after token exchange.
+  - code: `src/auth/callback.ts`
+  - code: `src/auth/session.ts:42`
 - [ ] Add logout ^t3
 
 ## Detour: Fix flaky token refresh ^d1
@@ -92,9 +102,10 @@ The dashboard listens on `127.0.0.1` only, port 4747 by default (`PROGRESSOR_POR
 | `claim_goal`               | Claims a Goal for this Session (pausing any other it held).                  |
 | `release_goal`             | Releases the Claim; the Goal is paused.                                      |
 | `complete_goal`            | Marks the claimed Goal done.                                                 |
-| `add_tasks`                | Appends Tasks to the claimed Goal.                                           |
+| `add_tasks`                | Appends Tasks (title, files and summary) to the claimed Goal.                |
 | `start_task`               | Marks a Task in progress (one at a time).                                    |
-| `complete_task`            | Marks a Task done, recording the code paths it touched.                      |
+| `update_task`              | Changes a Task's title, summary or files.                                    |
+| `complete_task`            | Marks a Task done, recording the files it touched and its final summary.     |
 | `drop_task`                | Drops a Task with a reason.                                                  |
 | `start_detour`             | Declares a Detour, with a Reason, branching from the current Task.           |
 | `end_detour`               | Ends the open Detour: merge back, return or recalibrate.                     |

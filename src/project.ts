@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { type Detour, type NewTask, type PlanFile, type Task, newPlanFile, parsePlanFile } from "./planFile.js";
+import { type Detour, type NewTask, type PlanFile, type Task, type TaskChanges, newPlanFile, parsePlanFile } from "./planFile.js";
 import { type Goal, type Idea, ROADMAP_REF, type Roadmap, type StandingInstruction, parseRoadmap } from "./roadmap.js";
 
 export interface SessionIdentity {
@@ -204,11 +204,22 @@ export class Project {
     return plan.task(id)!;
   }
 
-  completeTask(id: string, code: string[] = []): Task {
+  /** Changes a Task's title, summary or files (which replace the old ones). */
+  updateTask(id: string, changes: TaskChanges): Task {
+    const { plan } = this.requireClaim();
+    this.taskIn(plan, id);
+    plan.updateTask(id, changes);
+    this.savePlan(plan);
+    return plan.task(id)!;
+  }
+
+  /** Marks a Task done, adding the files it touched and, optionally, the summary of what it changed. */
+  completeTask(id: string, code: string[] = [], summary?: string): Task {
     const { plan } = this.requireClaim();
     this.taskIn(plan, id);
     plan.setTaskStatus(id, "done");
     if (code.length > 0) plan.addCode(id, code);
+    if (summary?.trim()) plan.updateTask(id, { summary });
     this.savePlan(plan);
     return plan.task(id)!;
   }

@@ -19,7 +19,11 @@ export interface PanZoom {
 const MIN = 0.2;
 const MAX = 3;
 
-export function panZoom(svg: SVGSVGElement, content: SVGGElement, view: View): PanZoom {
+/**
+ * `wheel`: "zoom" zooms with the mouse wheel; "scroll" moves the map with it (for a long map that
+ * runs down the page) and zooms only with Ctrl or a trackpad pinch.
+ */
+export function panZoom(svg: SVGSVGElement, content: SVGGElement, view: View, wheelMode: "zoom" | "scroll" = "zoom"): PanZoom {
   const apply = () => content.setAttribute("transform", `translate(${view.tx},${view.ty}) scale(${view.s})`);
   const zoomAt = (k: number, mx: number, my: number) => {
     const s = Math.min(MAX, Math.max(MIN, view.s * k));
@@ -36,6 +40,12 @@ export function panZoom(svg: SVGSVGElement, content: SVGGElement, view: View): P
   const wheel = (e: WheelEvent) => {
     e.preventDefault();
     const r = svg.getBoundingClientRect();
+    if (wheelMode === "scroll" && !e.ctrlKey && !e.metaKey) {
+      view.tx -= e.shiftKey ? e.deltaY : e.deltaX;
+      view.ty -= e.shiftKey ? 0 : e.deltaY;
+      apply();
+      return;
+    }
     zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
   };
   let pan: { x: number; y: number; tx: number; ty: number; id: number } | undefined;

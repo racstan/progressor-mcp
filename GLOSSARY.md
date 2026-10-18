@@ -41,7 +41,7 @@ The markdown file that holds one Goal's Tasks and Detours, and the place every o
 _Avoid_: Audit file, progress file, todo file
 
 **Task**:
-A planned step toward a Goal.
+A planned step toward a Goal, with a short title, the files it touches and a summary of the change it makes.
 _Avoid_: Todo, item, step, ticket
 
 **Detour**:

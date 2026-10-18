@@ -5,17 +5,34 @@ export interface Point {
   y: number;
 }
 
+/** Which way the metro map runs: plan left to right with branches below, or top to bottom with branches to the right. */
+export type Orientation = "horizontal" | "vertical";
+
 export const STEP_X = 180;
 export const LANE_Y = 120;
+/** The vertical map needs room beside each stop for its label, and less between stops. */
+export const LANE_X_VERTICAL = 260;
+export const STEP_Y_VERTICAL = 120;
 
-export const positionOf = (n: Pick<GraphNode, "step" | "lane">): Point => ({ x: n.step * STEP_X, y: n.lane * LANE_Y });
+export const positionOf = (n: Pick<GraphNode, "step" | "lane">, orientation: Orientation = "horizontal"): Point =>
+  orientation === "vertical"
+    ? { x: n.lane * LANE_X_VERTICAL, y: n.step * STEP_Y_VERTICAL }
+    : { x: n.step * STEP_X, y: n.lane * LANE_Y };
 
 export const laneColor = (lane: number) => `var(--lane${lane % 4})`;
 
-/** Lines run left to right; a Return (or a merge that rejoins behind) loops back into its Task from below. */
-export function edgePath(p: Point, q: Point, kind: EdgeKind): string {
-  if (kind === "return" || (kind === "merge" && q.x <= p.x))
-    return `M${p.x},${p.y} C${p.x + 90},${p.y} ${q.x + 40},${q.y + 80} ${q.x + 6},${q.y + 18}`;
+/**
+ * Lines run along the plan; a Return (or a merge that rejoins behind) loops back into its Task from
+ * the branch side.
+ */
+export function edgePath(p: Point, q: Point, kind: EdgeKind, orientation: Orientation = "horizontal"): string {
+  const back = kind === "return" || (kind === "merge" && (orientation === "vertical" ? q.y <= p.y : q.x <= p.x));
+  if (orientation === "vertical") {
+    if (back) return `M${p.x},${p.y} C${p.x},${p.y + 90} ${q.x + 80},${q.y + 40} ${q.x + 18},${q.y + 6}`;
+    const my = (p.y + q.y) / 2;
+    return `M${p.x},${p.y} C${p.x},${my} ${q.x},${my} ${q.x},${q.y}`;
+  }
+  if (back) return `M${p.x},${p.y} C${p.x + 90},${p.y} ${q.x + 40},${q.y + 80} ${q.x + 6},${q.y + 18}`;
   const mx = (p.x + q.x) / 2;
   return `M${p.x},${p.y} C${mx},${p.y} ${mx},${q.y} ${q.x},${q.y}`;
 }
