@@ -19,5 +19,7 @@ Goal: people can find the source and trust the package.
   - code: `README.md`
   - code: `docs/media/demo.gif`
   - code: `docs/media/demo.mp4`
-- [ ] List Progressor in MCP server directories ^t6
-  - summary: Submit it to the main MCP server directories once the repo, demo and a release exist.
+- [/] List Progressor in MCP server directories ^t6
+  - summary: Official MCP Registry as io.github.racstan/progressor-mcp (mcpName and server.json ship in 0.2.1; the Developer publishes with mcp-publisher), a PR to punkpeye/awesome-mcp-servers (https://github.com/punkpeye/awesome-mcp-servers/pull/16893), and the web forms at mcp.so and PulseMCP, which the Developer submits. Glama lists it by itself; claim it there.
+  - code: `server.json`
+  - code: `package.json`
