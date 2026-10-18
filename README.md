@@ -14,11 +14,37 @@ claude mcp add progressor -- npx -y progressor-mcp
 
 Any other MCP client can run the same command over stdio: `npx -y progressor-mcp`. Progressor needs Node 22 or later. It keeps its files in the folder the client starts it in; set `PROGRESSOR_ROOT` to use another folder.
 
+### Claude Code hooks (recommended)
+
+An Agent can forget to call `get_status`, especially after its context has been compressed. With Claude Code you can take that out of its hands: two hooks put the plan in front of the Agent automatically.
+
+- **At session start, on resume and after compaction**, the Agent gets the full status: the Goal, the current Task and its summary, any open Detour, the next Task and your Standing Instructions.
+- **On every message**, it gets one line, such as `[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Next: t3 End-to-end tests`. The line is left out when no Goal is being worked on.
+
+The hooks run on every message, so install Progressor once, globally, for a fast start:
+
+```bash
+npm install -g progressor-mcp
+```
+
+Then add this to `.claude/settings.json` in your project (or to `~/.claude/settings.json` for every project). If the file already has a `hooks` section, add these two entries to it:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "progressor-mcp hook session-start" }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "progressor-mcp hook prompt" }] }]
+  }
+}
+```
+
+The hook reads `.progressor/` straight from disk, so it needs no running server, and it prints nothing in projects that don't use Progressor. It never blocks or fails a message: if anything goes wrong, it stays silent. Without a global install, use `npx -y progressor-mcp hook ...` as the command instead; it works the same, just a little slower.
+
 ## How it works
 
 1. **Goals** live on the Roadmap, `.progressor/roadmap.md`. Each Goal has a **Plan File**, `.progressor/goals/<goal>.md`, with its **Tasks**. Every Task has a short title, the files it touches and a one-to-two-line summary of the fix or change it makes.
 2. Each Agent conversation is a **Session**. A Session **claims** one Goal, so two conversations never work on the same Goal at once. When the conversation ends, the Claim is released and the Goal is paused until a Session claims it again.
-3. At the start of a conversation, and after its context has been compressed, the Agent calls `get_status` to see the Goal, the current Task, any open Detour, the next Task and your Standing Instructions.
+3. At the start of a conversation, and after its context has been compressed, the Agent calls `get_status` to see the Goal, the current Task, any open Detour, the next Task and your Standing Instructions. With the [Claude Code hooks](#claude-code-hooks-recommended), it is handed this status automatically.
 4. When the Agent has to do something that is not the current Task, it declares a **Detour** with a Reason instead of drifting silently. It ends the Detour in one of three ways:
    - **Merge back**: a small fix, done; the plan is unchanged.
    - **Return**: back to the plan, optionally adding the Detour's intended work as new Tasks at the end.
@@ -40,7 +66,7 @@ The dashboard shows the selected Goal in one of three views, picked in the top b
 - **Metro, vertical**: the same map running top to bottom, so a long plan scrolls down. The mouse wheel scrolls it; Ctrl + wheel (or a pinch) zooms.
 - **Checklist**: the Tasks as a list in plan order, each with its files and summary, and each Detour indented under the Task it branched from with how it ended and its Reason.
 
-On the maps, Tasks are stops on a line with their files as small chips, Detours are orange branches labelled with how they ended (Merge back, Returned, Recalibrated or open), and Tasks dropped by a Recalibration stay on the old line, faded. A banner shows what is happening now: the current Task, or the open Detour and where it branched from. The sidebar has the project switcher (each project's name and folder) and the Roadmap with each Goal's progress, under the full path of the project folder it comes from. Your Standing Instructions and the parked Ideas are in the **📌 Rules & Ideas** menu in the top bar. Only one project is shown at a time, with the Sessions working in it, and the page updates by itself as its markdown changes.
+On the maps, Tasks are stops on a line with their files as small chips, Detours are orange branches labelled with how they ended (Merge back, Returned, Recalibrated or open), and Tasks dropped by a Recalibration stay on the old line, faded. A banner shows what is happening now: the current Task, or the open Detour and where it branched from. The sidebar has the project switcher (each project's name and folder) and the Roadmap with each Goal's progress, under the full path of the project folder it comes from. Your Standing Instructions and the parked Ideas are in the **❓ Help** menu in the top bar. Only one project is shown at a time, and the page updates by itself as its markdown changes.
 
 - **Zoom** with the mouse wheel or the + / − buttons, **pan** by dragging the background, and **fit** the whole map with ⤢. Stops can be dragged; they spring back when you let go.
 - Click any Task, Detour, Idea or Standing Instruction for its details (a Task's summary, a Detour's Reason) and **Copy as prompt**: a self-describing text (what it is, its status, its `progressor://` ref, file and line, its Goal, its summary, where it branched from, its Reason, its neighbours and the files it touches) to paste into your Agent chat.
@@ -134,6 +160,10 @@ node scripts/dashboard.mjs test/fixtures/sample-project
 ```
 
 `npm run dev:ui` rebuilds the page on every change; reload the browser to see it. The server side of the dashboard is in `src/dashboard/`: the HTTP server and API (`http.ts`), the project list (`registry.ts`), the file watcher (`watch.ts`), and the pure logic shared with the page: the metro map layout (`graph.ts`), the Copy-as-prompt text (`prompt.ts`) and the editor links (`editor.ts`).
+
+## Support
+
+Progressor is free and open source. If it keeps you on track, you can [buy me a coffee](https://buymeacoffee.com/rachitasthana). The link is also in the dashboard's Help menu.
 
 ## License
 
