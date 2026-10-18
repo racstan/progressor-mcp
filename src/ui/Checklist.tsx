@@ -1,5 +1,6 @@
 import type { DetourNode, GoalGraph, GraphNode, TaskNode } from "../dashboard/graph.js";
 import { STATUS_LABEL } from "./geometry.js";
+import { RichText } from "./RichText.js";
 import { checklistRows } from "./views.js";
 
 type FileLink = (path: string, line?: number) => { href: string | undefined; onClick: () => void };
@@ -53,7 +54,7 @@ function TaskLine({ task: t, fileLink, onOpen }: { task: TaskNode; fileLink: Fil
       </div>
       {(t.code.length > 0 || t.summary) && (
         <div className="detail">
-          {t.summary && <p className="summary">{t.summary}</p>}
+          {t.summary && <RichText className="summary" text={t.summary} />}
           {t.code.length > 0 && (
             <div className="file-chips">
               {t.code.map((c) => {
@@ -85,7 +86,7 @@ function DetourBlock({ detour: d, onOpen }: { detour: DetourNode; onOpen: (e: Re
         <span className="tag">{d.id}</span>
         <span className="tag ending">{STATUS_LABEL[d.status]}</span>
       </div>
-      {d.reason && <p className="reason">{d.reason}</p>}
+      {d.reason && <RichText className="reason" text={d.reason} />}
     </li>
   );
 }

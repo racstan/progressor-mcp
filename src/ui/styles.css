@@ -60,6 +60,8 @@ button.chip:hover { border-color: var(--accent); }
 .layout.collapsed .vlabel { display: block; }
 .side h3 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); display: flex; justify-content: space-between; }
 .side h3 + * { margin-top: 0; }
+.side h3 .count { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--ink); background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; }
+.goals { border-left: 2px solid var(--line); margin-left: 4px; padding-left: 8px; }
 .side section + section { margin-top: 22px; }
 .side .empty { font-size: 13px; color: var(--muted); }
 .goal { display: block; width: 100%; text-align: left; padding: 10px 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid transparent; background: none; }
@@ -132,6 +134,7 @@ button.chip:hover { border-color: var(--accent); }
 .checklist .row.loose .detours { margin-left: 0; }
 .checklist .detour .reason { margin: 4px 0 0 26px; }
 .pop .summary { font-size: 13px; margin: 6px 0; }
+.summary code, .reason code { font: .92em ui-monospace, "Cascadia Code", Consolas, monospace; background: var(--panel2); border: 1px solid var(--line); border-radius: 5px; padding: 0 4px; overflow-wrap: anywhere; }
 
 /* main area */
 .main { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
