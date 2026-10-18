@@ -44,6 +44,7 @@ describe("the MCP server", () => {
         "release_goal",
         "start_detour",
         "start_task",
+        "update_task",
       ].sort(),
     );
     const instructions = client.getInstructions() ?? "";
@@ -108,6 +109,41 @@ describe("the MCP server", () => {
     expect(text).toContain("Task t1: Add route");
     expect(text).toContain(".progressor/goals/login.md:5");
     expect(text).toContain("src/login.ts:12");
+  });
+
+  it("gives every Task a title, files and a summary of its change, and shows them back", async () => {
+    await call("add_goal", {
+      title: "Login",
+      tasks: [
+        { title: "Fix callback redirect loop", summary: "Stop re-setting the cookie.", code: ["src/auth/callback.ts"] },
+        { title: "Add logout", summary: "Clear the session cookie and redirect home." },
+      ],
+    });
+    await call("claim_goal", { goal: "login" });
+    await call("start_task", { task: "t1" });
+    const updated = await call("update_task", {
+      task: "t1",
+      summary: "Callback re-sets the session cookie on every hit; only set it after token exchange.",
+      code: ["src/auth/callback.ts", "src/auth/session.ts:42"],
+    });
+    expect(updated.isError).toBe(false);
+
+    const status = (await call("get_status")).text.split("\n");
+    expect(status.slice(3, 7)).toEqual([
+      "Current Task: t1 Fix callback redirect loop (.progressor/goals/login.md:5)",
+      "  Summary: Callback re-sets the session cookie on every hit; only set it after token exchange.",
+      "Next Task: t2 Add logout",
+      "  Summary: Clear the session cookie and redirect home.",
+    ]);
+    const item = (await call("get_item", { ref: "progressor://login/t1" })).text;
+    expect(item).toContain("Summary: Callback re-sets the session cookie on every hit; only set it after token exchange.");
+    expect(item).toContain("Code: src/auth/callback.ts, src/auth/session.ts:42");
+
+    await call("complete_task", { task: "t1", summary: "Only set the cookie after token exchange." });
+    expect((await call("get_item", { ref: "progressor://login/t1" })).text).toContain(
+      "Summary: Only set the cookie after token exchange.",
+    );
+    expect(client.getInstructions()).toMatch(/summary/);
   });
 
   it("reports domain errors as tool errors", async () => {

@@ -96,6 +96,43 @@ button.chip:hover { border-color: var(--accent); }
 .menu-panel section + section { margin-top: 18px; }
 .menu-panel .empty { font-size: 13px; color: var(--muted); margin: 0; }
 
+/* view switcher: metro across, metro down, checklist */
+.views { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; flex-shrink: 0; }
+.views button { border: none; background: var(--panel2); padding: 4px 9px; font-size: 13px; color: var(--muted); display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
+.views button + button { border-left: 1px solid var(--line); }
+.views button[aria-checked="true"] { background: var(--accent); color: var(--on-accent); }
+
+/* file chips on the map */
+.map .chip-bg { fill: var(--panel2); stroke: var(--line); }
+.map .chip-text { fill: var(--muted); font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+
+/* checklist view */
+.checklist-wrap { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px 24px; }
+.checklist { list-style: none; margin: 0 auto; padding: 0; max-width: 860px; }
+.checklist .row { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.checklist .row.in-progress { background: color-mix(in srgb, var(--accent) 9%, transparent); border-radius: 10px; }
+.checklist .line { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.checklist .mark { width: 18px; flex: none; text-align: center; font-weight: 700; color: var(--muted); }
+.checklist .mark.done { color: var(--done); }
+.checklist .mark.in-progress { color: var(--accent); }
+.checklist .mark.detour { color: var(--detour); }
+.checklist .title { border: none; background: none; padding: 0; text-align: left; font-weight: 600; font-size: 14.5px; }
+.checklist .title:hover { color: var(--accent); text-decoration: underline; }
+.checklist .tag { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; }
+.checklist .tag.now { color: var(--accent); border-color: currentColor; }
+.checklist .tag.detour, .checklist .tag.ending { color: var(--detour); border-color: currentColor; }
+.checklist .row.dropped > .line .title, .checklist .row.dropped .summary { text-decoration: line-through; }
+.checklist .row.dropped > .line, .checklist .row.dropped > .detail { opacity: .55; }
+.checklist .detail { margin: 4px 0 0 26px; }
+.checklist .summary { margin: 0 0 6px; font-size: 13px; color: var(--ink); }
+.file-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.file-chip { font: 11.5px ui-monospace, "Cascadia Code", Consolas, monospace; color: var(--muted); background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; text-decoration: none; }
+.file-chip:hover { color: var(--accent); border-color: var(--accent); }
+.checklist .detours { list-style: none; margin: 8px 0 2px 26px; padding: 0 0 0 12px; border-left: 3px dashed var(--detour); display: flex; flex-direction: column; gap: 8px; }
+.checklist .row.loose .detours { margin-left: 0; }
+.checklist .detour .reason { margin: 4px 0 0 26px; }
+.pop .summary { font-size: 13px; margin: 6px 0; }
+
 /* main area */
 .main { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .banner { margin: 14px 16px 0; padding: 12px 16px; border-radius: 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;

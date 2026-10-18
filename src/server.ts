@@ -12,7 +12,8 @@ export const INSTRUCTIONS = `Progressor keeps you and the Developer focused on t
 
 - At the start of every conversation, and again after your context has been compressed or summarised, call get_status before doing anything else. It tells you the Goal you are working on, the current Task, any open Detour, the next Task and the Developer's Standing Instructions. Follow the Standing Instructions.
 - If no Goal is claimed, claim the one the Developer wants to work on (claim_goal), or add it (add_goal) with a Task list.
-- Mark Tasks as you go: start_task before working on one, complete_task when it is done (pass the code paths you touched), drop_task when it is no longer needed.
+- Give every Task a short title (a few words), the files it touches, and a summary: one or two sentences on the fix or change it makes, such as "Callback re-sets the session cookie on every hit; only set it after token exchange." Set them when you add Tasks, and keep them true with update_task as you learn more.
+- Mark Tasks as you go: start_task before working on one, complete_task when it is done (pass the files you touched and, if it changed, the final summary), drop_task when it is no longer needed.
 - When the work you are about to do is not the current Task (fixing something unrelated, a prerequisite you discovered, a rethink of the plan), declare a Detour with start_detour and a Reason before doing it. Never drift away from the plan silently.
 - End the Detour with end_detour: "merge back" for a small fix that leaves the plan as it is, "return" to go back to the plan (optionally appending Tasks for the Detour's intended work), or "recalibrate" to replace the remaining Tasks with a new list.
 - When a feature or improvement comes up that is not needed now, park it with record_idea instead of doing it.
@@ -20,8 +21,12 @@ export const INSTRUCTIONS = `Progressor keeps you and the Developer focused on t
 - Refs like progressor://<goal>/<item> can be looked up with get_item.`;
 
 const taskInput = z.object({
-  title: z.string().min(1).describe("What the Task does, as a short imperative sentence."),
-  code: z.array(z.string()).optional().describe("Code paths the Task touches, optionally with :line."),
+  title: z.string().min(1).describe("A short title for the Task, a few words, such as 'Fix callback redirect loop'."),
+  summary: z
+    .string()
+    .optional()
+    .describe("One or two sentences on the fix or change the Task makes, such as 'Callback re-sets the session cookie on every hit; only set it after token exchange.'"),
+  code: z.array(z.string()).optional().describe("Files the Task touches, optionally with :line."),
 });
 
 function goalLine(g: Goal): string {
@@ -31,6 +36,8 @@ function goalLine(g: Goal): string {
 function taskLine(t: Task): string {
   return `${t.id} ${t.title}`;
 }
+
+const summaryLine = (t: Task | undefined) => (t?.summary ? [`  Summary: ${t.summary}`] : []);
 
 export function formatStatus(s: Status): string {
   const instructions =
@@ -52,10 +59,12 @@ export function formatStatus(s: Status): string {
     s.currentTask
       ? `Current Task: ${taskLine(s.currentTask)} (${s.planFile}:${s.currentTask.line})`
       : "Current Task: none (start one with start_task)",
+    ...summaryLine(s.currentTask),
     ...(d
       ? [`Open Detour: ${d.id} ${d.title}${d.branchedFrom ? `, branched from ${d.branchedFrom}` : ""}. Reason: ${d.reason ?? "none given"}`]
       : []),
     s.nextTask ? `Next Task: ${taskLine(s.nextTask)}` : "Next Task: none; every Task is done or dropped",
+    ...summaryLine(s.nextTask),
     ...instructions,
   ].join("\n");
 }
@@ -83,6 +92,7 @@ export function formatItem(found: FoundItem): string {
         `Task ${t.id}: ${t.title} (${t.status})`,
         `Ref: ${found.ref}`,
         `Plan File: ${where}`,
+        ...(t.summary ? [`Summary: ${t.summary}`] : []),
         ...(t.code.length > 0 ? [`Code: ${t.code.join(", ")}`] : []),
         ...(t.addedBy ? [`Added by Detour ${t.addedBy}`] : []),
         ...(t.droppedBy ? [`Dropped by Detour ${t.droppedBy}`] : []),
@@ -252,16 +262,37 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     "complete_task",
     {
       title: "Complete Task",
-      description: "Mark a Task done, recording the code paths it touched.",
+      description: "Mark a Task done, recording the files it touched and, if it changed, the final summary of what it did.",
       inputSchema: {
         task: z.string().describe("The Task ID, such as 't3'."),
-        code: z.array(z.string()).optional().describe("Code paths the Task touched, optionally with :line."),
+        code: z.array(z.string()).optional().describe("Files the Task touched, optionally with :line; added to the ones it has."),
+        summary: taskInput.shape.summary,
       },
     },
-    ({ task, code }) =>
+    ({ task, code, summary }) =>
       respond(() => {
-        project.completeTask(task, code ?? []);
+        project.completeTask(task, code ?? [], summary);
         return status();
+      }),
+  );
+
+  server.registerTool(
+    "update_task",
+    {
+      title: "Update Task",
+      description:
+        "Change a Task's title, summary or files, for instance when the fix turns out different from the plan. Leaves its status alone.",
+      inputSchema: {
+        task: z.string().describe("The Task ID, such as 't3'."),
+        title: taskInput.shape.title.optional(),
+        summary: taskInput.shape.summary,
+        code: z.array(z.string()).optional().describe("The Task's files, optionally with :line; replaces the ones it has."),
+      },
+    },
+    ({ task, title, summary, code }) =>
+      respond(() => {
+        const t = project.updateTask(task, { title, summary, code });
+        return formatItem(project.getItem(t.ref!));
       }),
   );
 

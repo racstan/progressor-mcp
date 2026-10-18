@@ -26,6 +26,7 @@ const lookUp = (where: string, ref: string | undefined) =>
   ref ? `${where} (or call get_item with ${ref})` : where;
 const readFirst = (where: string, ref: string | undefined) => `Read ${lookUp(where, ref)} before acting on it.`;
 
+const summaryOf = (t: TaskNode) => (t.summary ? [`  Summary: ${t.summary}`] : []);
 const tasksOf = (graph: GoalGraph) =>
   graph.nodes.filter((n): n is TaskNode => n.kind === "task").sort((a, b) => a.line - b.line);
 const detoursOf = (graph: GoalGraph) => graph.nodes.filter((n): n is DetourNode => n.kind === "detour");
@@ -36,10 +37,12 @@ function describeTask(t: TaskNode, goal: PromptGoal, graph: GoalGraph): string[]
   const detour = (id: string) => detoursOf(graph).find((d) => d.id === id);
   const lines: string[] = [];
   if (t.status === "dropped") {
+    if (t.summary) lines.push(`Summary: ${t.summary}`);
     if (t.droppedBy) lines.push(`Dropped by: ${detourLabel(detour(t.droppedBy), t.droppedBy)}`);
     if (t.reason) lines.push(`Reason: ${t.reason}`);
     lines.push("This Task is no longer part of the plan. Do not work on it.");
   } else {
+    if (t.summary) lines.push(`Summary: ${t.summary}`);
     const live = tasksOf(graph).filter((x) => x.status !== "dropped");
     const k = live.findIndex((x) => x.id === t.id);
     const neighbour = (x: TaskNode) => `${x.id} ${quote(x.title)} (${x.status}, line ${x.line})`;
@@ -102,13 +105,13 @@ export function copyAsPrompt(subject: PromptSubject): string {
         `Location: .progressor/roadmap.md:${goal.line}`,
         `Plan File: ${goal.planFile}`,
         `Progress: ${live.filter((t) => t.status === "done").length} of ${live.length} Tasks done`,
-        ...(current ? [`Current Task: ${current.id} ${quote(current.title)} (line ${current.line})`] : []),
+        ...(current ? [`Current Task: ${current.id} ${quote(current.title)} (line ${current.line})`, ...summaryOf(current)] : []),
         ...(open
           ? [
               `Open Detour: ${open.id} ${quote(open.title)} (line ${open.line})${open.branchedFrom ? `, branched from ${open.branchedFrom}` : ""}. Reason: ${open.reason ?? "none given"}`,
             ]
           : []),
-        ...(next ? [`Next Task: ${next.id} ${quote(next.title)} (line ${next.line})`] : []),
+        ...(next ? [`Next Task: ${next.id} ${quote(next.title)} (line ${next.line})`, ...summaryOf(next)] : []),
         "",
         readFirst(goal.planFile, goal.ref),
       ].join("\n");

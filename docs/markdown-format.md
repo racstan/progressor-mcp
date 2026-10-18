@@ -39,8 +39,12 @@ The files are written by the Agent through Progressor's tools, but they are ordi
 ## Tasks
 
 - [x] Add the /login route ^t1
+  - summary: Serve the login page and redirect to the provider with the client ID and state.
   - code: `src/routes/login.ts`
-- [/] Handle the OAuth callback ^t2
+- [/] Fix callback redirect loop ^t2
+  - summary: Callback re-sets the session cookie on every hit; only set it after token exchange.
+  - code: `src/auth/callback.ts`
+  - code: `src/auth/session.ts:42`
 - [-] Store tokens in cookies ^t3
   - dropped by: ^d1
 - [ ] Store tokens server-side ^t4
@@ -71,6 +75,12 @@ IDs are never reused within a file: a new ID is one more than the highest number
 
 Every item also has a line number: the 1-based line of its item line (for a Detour, its heading). Line numbers are not stored; they come from parsing, so they always point at the right place even after hand edits.
 
+## Tasks: title, files and summary
+
+Every Task has three parts. Its **title** is the item line: a few words, such as "Fix callback redirect loop". Its **files** are its `code` lines. Its **summary** is a `summary` line: one or two sentences on the fix or change it makes. The title is required; files and summary are optional, so a Task typed by hand as a single line is still valid. A summary is kept on one line: line breaks given to the tools become spaces.
+
+When Progressor writes a Task, its known details come first, in this order: `summary`, `code`, `added by`, `dropped by`, `reason`. Unknown details follow in the order they were in.
+
 ## Status markers
 
 Tasks and Goals are checklist lines. The character in the brackets is the status:
@@ -90,7 +100,8 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 
 | Under    | Key            | Meaning                                                                  |
 | -------- | -------------- | ------------------------------------------------------------------------ |
-| Task     | `code`         | A code path the Task touches, in backticks; may end in `:line`. Repeatable. |
+| Task     | `summary`      | One or two sentences on the fix or change the Task makes, on one line.   |
+| Task     | `code`         | A file the Task touches, in backticks; may end in `:line`. Repeatable.   |
 | Task     | `added by`     | The Detour whose Return or Recalibration added this Task (`^d1`).        |
 | Task     | `dropped by`   | The Detour whose Recalibration dropped this Task (`^d1`).                |
 | Task     | `reason`       | Why the Task was dropped, when dropped directly.                         |

@@ -65,6 +65,26 @@ describe("working through a Goal", () => {
     expect(read("goals/g.md")).toContain("- [ ] two ^t2\n  - code: `src/two.ts:3`\n");
   });
 
+  it("records a Task's title, files and summary, and updates them as the work goes", () => {
+    const agent = session("s-a", 100);
+    agent.addGoal("G", [{ title: "Fix callback redirect loop", summary: "Stop the loop.", code: ["src/auth/callback.ts"] }]);
+    agent.claimGoal("g");
+    agent.updateTask("t1", { summary: "Callback re-sets the session cookie on every hit; only set it after token exchange." });
+    agent.completeTask("t1", ["src/auth/session.ts:42"]);
+
+    expect(read("goals/g.md")).toContain(
+      "- [x] Fix callback redirect loop ^t1\n" +
+        "  - summary: Callback re-sets the session cookie on every hit; only set it after token exchange.\n" +
+        "  - code: `src/auth/callback.ts`\n" +
+        "  - code: `src/auth/session.ts:42`\n",
+    );
+    agent.completeTask("t1", [], "Only set the cookie after token exchange.");
+    expect(agent.status().goal && agent.getItem("progressor://g/t1").item).toMatchObject({
+      summary: "Only set the cookie after token exchange.",
+    });
+    expect(() => agent.updateTask("t9", { title: "x" })).toThrow(/No Task t9/);
+  });
+
   it("allows only one Task in progress", () => {
     const agent = session("s-a", 100);
     agent.addGoal("G", [{ title: "one" }, { title: "two" }]);

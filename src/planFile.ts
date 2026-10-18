@@ -26,6 +26,9 @@ export interface Task {
   title: string;
   status: TaskStatus;
   line: number;
+  /** One or two sentences on the fix or change the Task makes. */
+  summary: string | undefined;
+  /** The files the Task touches, each optionally with `:line`. */
   code: string[];
   addedBy: string | undefined;
   droppedBy: string | undefined;
@@ -64,7 +67,31 @@ const stripTicks = (v: string) => v.replace(/^`(.*)`$/, "$1");
 
 export interface NewTask {
   title: string;
+  summary?: string;
   code?: string[];
+}
+
+export interface TaskChanges {
+  title?: string;
+  /** An empty summary removes it. */
+  summary?: string;
+  /** Replaces the Task's files. */
+  code?: string[];
+}
+
+/** Known Task details come first, in this order, when a Task is rewritten; unknown ones follow as they were. */
+const DETAIL_ORDER = ["summary", "code", "added by", "dropped by", "reason"];
+const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
+
+function sortDetails(b: ItemBlock): void {
+  const rank = (c: ItemBlock["children"][number]) => {
+    const i = "key" in c ? DETAIL_ORDER.indexOf(c.key) : -1;
+    return i < 0 ? DETAIL_ORDER.length : i;
+  };
+  b.children = b.children
+    .map((c, i) => ({ c, i }))
+    .sort((x, y) => rank(x.c) - rank(y.c) || x.i - y.i)
+    .map((x) => x.c);
 }
 
 /** One Goal's Plan File: its Tasks and Detours. */
@@ -94,6 +121,7 @@ export class PlanFile {
       title: b.text,
       status: TASK_STATUS[b.marker!],
       line: b.line,
+      summary: getDetail(b, "summary"),
       code: getDetails(b, "code").map(stripTicks),
       addedBy: stripRef(getDetail(b, "added by")),
       droppedBy: stripRef(getDetail(b, "dropped by")),
@@ -176,7 +204,8 @@ export class PlanFile {
     const blocks = tasks.map((t) => {
       const id = nextId([...this.allIds(), ...ids], "t");
       ids.push(id);
-      const b = newItem({ marker: " ", text: t.title, id });
+      const b = newItem({ marker: " ", text: oneLine(t.title), id });
+      if (t.summary?.trim()) addDetail(b, "summary", oneLine(t.summary));
       for (const c of t.code ?? []) addDetail(b, "code", `\`${c}\``);
       if (addedBy) addDetail(b, "added by", `^${addedBy}`);
       return b;
@@ -187,6 +216,18 @@ export class PlanFile {
 
   setTaskStatus(id: string, status: TaskStatus): void {
     this.taskBlock(id).marker = TASK_MARKER[status];
+  }
+
+  /** Changes a Task's title, summary or files; everything else about it stays. */
+  updateTask(id: string, changes: TaskChanges): void {
+    const b = this.taskBlock(id);
+    if (changes.title?.trim()) b.text = oneLine(changes.title);
+    if (changes.summary !== undefined) setDetail(b, "summary", changes.summary.trim() ? oneLine(changes.summary) : undefined);
+    if (changes.code) {
+      b.children = b.children.filter((c) => !("key" in c && c.key === "code"));
+      for (const c of changes.code) addDetail(b, "code", `\`${c}\``);
+    }
+    sortDetails(b);
   }
 
   addCode(id: string, code: string[]): void {

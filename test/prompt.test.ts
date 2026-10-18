@@ -128,4 +128,34 @@ Location: .progressor/roadmap.md:25
 
 Read .progressor/roadmap.md:25 (or call get_item with progressor://roadmap/s1) before acting on it.`);
   });
+
+  it("says what a Task changes, in its own words and in the Goal's summary", () => {
+    const plan = `# Login
+
+## Tasks
+
+- [/] Fix callback redirect loop ^t1
+  - summary: Callback re-sets the session cookie on every hit; only set it after token exchange.
+  - code: \`src/auth/callback.ts\`
+- [ ] Add logout ^t2
+  - summary: Clear the session cookie and redirect home.
+`;
+    const g = buildGoalGraph(parsePlanFile(plan, "login"));
+    const fix = g.nodes.find((n) => n.id === "t1")!;
+    expect(copyAsPrompt({ kind: "node", node: fix, goal, graph: g })).toBe(`[Progressor] Task t1 "Fix callback redirect loop" (in progress)
+Ref: progressor://login/t1
+Location: .progressor/goals/login.md:5
+Goal: "Ship OAuth login" (progressor://login)
+Summary: Callback re-sets the session cookie on every hit; only set it after token exchange.
+Position: Task 1 of 2 in the plan
+Next: t2 "Add logout" (pending, line 8)
+References: src/auth/callback.ts
+
+Read .progressor/goals/login.md:5 (or call get_item with progressor://login/t1) before acting on it.`);
+    const summary = copyAsPrompt({ kind: "goal", goal, graph: g });
+    expect(summary).toContain(
+      'Current Task: t1 "Fix callback redirect loop" (line 5)\n  Summary: Callback re-sets the session cookie on every hit; only set it after token exchange.',
+    );
+    expect(summary).toContain('Next Task: t2 "Add logout" (line 8)\n  Summary: Clear the session cookie and redirect home.');
+  });
 });
