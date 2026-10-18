@@ -2,10 +2,11 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
-## Unreleased
+## 0.2.1
 
 - Dashboard: the Goal on screen stays on screen when it finishes, instead of jumping to the next planned Goal.
-- package.json links to the GitHub repository; the README has a demo.
+- The source is public at [github.com/racstan/progressor-mcp](https://github.com/racstan/progressor-mcp); the npm page links to it, and the README opens with a demo.
+- Listed in the official MCP Registry as `io.github.racstan/progressor-mcp` (`mcpName` in package.json, `server.json` in the repository).
 
 ## 0.2.0 · Workspaces, Settings and finished Goals
 

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.racstan/progressor-mcp",
+  "title": "Progressor",
+  "description": "Keeps an AI coding agent on its plan across context compression, with a live local dashboard.",
+  "repository": {
+    "url": "https://github.com/racstan/progressor-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/racstan/progressor-mcp#readme",
+  "version": "0.2.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "progressor-mcp",
+      "version": "0.2.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
