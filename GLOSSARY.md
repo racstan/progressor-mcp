@@ -26,6 +26,16 @@ _Avoid_: Thread, chat, instance, connection
 A Session's exclusive hold on a Goal while it works on it; released when the Session ends, leaving the Goal paused.
 _Avoid_: Lock, assignment
 
+### Places
+
+**Project**:
+A folder that has been initialized for Progressor, meaning it has its own `.progressor/` holding its Roadmap.
+_Avoid_: Repo, app, codebase
+
+**Workspace**:
+Any folder Progressor is pointed at, together with every Project found inside it.
+_Avoid_: Root, parent folder, monorepo, directory
+
 ### Planning
 
 **Roadmap**:

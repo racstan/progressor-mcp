@@ -1,14 +1,17 @@
 # Roadmap
 
-Progressor's own plan, kept with Progressor. Version 0.1.0 is published. Each Goal below is one small release: it ships one improvement and ends by publishing the next 0.1.x version.
+Progressor's own plan, kept with Progressor. Version 0.1.1 is published and 0.1.2 is waiting to be published. From here on, Goals are features; a release Goal bundles several finished features into one version.
 
 ## Goals
 
 - [x] [0.1.1 · Dashboard fixes](goals/v0-1-1.md) ^v0-1-1
 - [/] [0.1.2 · Status hooks for Claude Code](goals/v0-1-2.md) ^v0-1-2
-- [ ] [0.1.3 · Automatic drift detection](goals/v0-1-3.md) ^v0-1-3
-- [ ] [0.1.4 · One-command setup](goals/v0-1-4.md) ^v0-1-4
-- [ ] [0.1.5 · Public GitHub repo and launch](goals/v0-1-5.md) ^v0-1-5
+- [ ] [Settings and finished Goals](goals/settings-and-finished-goals.md) ^settings-and-finished-goals
+- [ ] [Workspaces](goals/workspaces.md) ^workspaces
+- [ ] [Release 0.2.0](goals/release-0-2-0.md) ^release-0-2-0
+- [ ] [Automatic drift detection](goals/drift-detection.md) ^drift-detection
+- [ ] [One-command setup](goals/one-command-setup.md) ^one-command-setup
+- [ ] [Public GitHub repo and launch](goals/github-launch.md) ^github-launch
 
 ## Ideas
 
@@ -29,4 +32,4 @@ Progressor's own plan, kept with Progressor. Version 0.1.0 is published. Each Go
 - Ask the Developer about product and UX decisions; make technical ones yourself and say what you chose ^s1
 - Merge finished, tested branches into main yourself; ask before pushing or publishing ^s2
 - Write tests first for anything with logic ^s3
-- Each Goal is one patch release (0.1.x) and ends with its release Tasks; the Developer runs npm publish with their one-time code ^s4
+- A release bundles several finished Goals into one version, through its own release Goal; the Developer runs npm publish with their one-time code ^s4

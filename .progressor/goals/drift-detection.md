@@ -1,4 +1,4 @@
-# 0.1.3 · Automatic drift detection
+# Automatic drift detection
 
 Goal: Detours get recorded even when the Agent doesn't notice it has drifted. When it edits a file that isn't part of the current Task, Progressor nudges it to declare a Detour or explain why the file belongs to the Task.
 
@@ -13,7 +13,7 @@ Goal: Detours get recorded even when the Agent doesn't notice it has drifted. Wh
   - code: `src/drift.ts`
   - code: `test/drift.test.ts`
 - [ ] PostToolUse hook for file edits ^t4
-  - summary: Fires after Edit, Write and MultiEdit, compares the edited file with the current Task's files and, when it's off-plan, adds the nudge as context for the Agent.
+  - summary: Fires after Edit and Write, compares the edited file with the current Task's files and, when it's off-plan, adds the nudge through additionalContext.
   - code: `src/hooks.ts`
   - code: `src/drift.ts`
 - [ ] Don't nag ^t5
@@ -24,13 +24,3 @@ Goal: Detours get recorded even when the Agent doesn't notice it has drifted. Wh
   - code: `src/server.ts`
 - [ ] Verify in a real Claude Code session ^t7
   - summary: Start a Task, have the Agent edit an unrelated file, and confirm it gets nudged once and records a Detour or updates the Task.
-- [ ] Changelog and version bump ^t8
-  - summary: Add the 0.1.3 entry to CHANGELOG.md, then npm version patch.
-  - code: `CHANGELOG.md`
-  - code: `package.json`
-- [ ] Dry run ^t9
-  - summary: npm publish --dry-run: tests pass and only dist, README and LICENSE are included.
-- [ ] Developer publishes with their one-time code ^t10
-  - summary: The Developer runs npm publish --otp=<code>; Claude never publishes on its own.
-- [ ] Verify the install from npm ^t11
-  - summary: Install the new version from the registry in a throwaway folder and check the server and hooks work.

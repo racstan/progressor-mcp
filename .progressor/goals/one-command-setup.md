@@ -1,13 +1,13 @@
-# 0.1.4 · One-command setup
+# One-command setup
 
-Goal: one command sets everything up in a project: the MCP server, the hooks, a note for the Agent and an empty Roadmap.
+Goal: one command initializes a Project: the MCP server, the hooks, a note for the Agent and an empty Roadmap.
 
 ## Tasks
 
 - [ ] Decide what init changes and whether it asks first ^t1
   - summary: Developer decision. Recommendation: init shows the list of changes (register the server, add hooks to .claude/settings.json, add a note to CLAUDE.md, create .progressor/roadmap.md) and asks once; --yes skips the question.
 - [ ] progressor-mcp init command ^t2
-  - summary: Runs the setup in the current project folder and prints what it did and how to open the dashboard.
+  - summary: Initializes the current folder as a Project and prints what it did and how to open the dashboard.
   - code: `src/cli.ts`
   - code: `src/init.ts`
 - [ ] Merge hooks into existing settings safely ^t3
@@ -25,13 +25,3 @@ Goal: one command sets everything up in a project: the MCP server, the hooks, a 
 - [ ] Rewrite the README setup section around init ^t7
   - summary: One command to start, with the manual steps kept below for other MCP apps.
   - code: `README.md`
-- [ ] Changelog and version bump ^t8
-  - summary: Add the 0.1.4 entry to CHANGELOG.md, then npm version patch.
-  - code: `CHANGELOG.md`
-  - code: `package.json`
-- [ ] Dry run ^t9
-  - summary: npm publish --dry-run: tests pass and only dist, README and LICENSE are included.
-- [ ] Developer publishes with their one-time code ^t10
-  - summary: The Developer runs npm publish --otp=<code>; Claude never publishes on its own.
-- [ ] Verify the install from npm ^t11
-  - summary: Install the new version from the registry in a throwaway folder and run init there end to end.
