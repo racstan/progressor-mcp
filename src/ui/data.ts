@@ -86,6 +86,37 @@ export function useDashboard(projectId: string | undefined, goalId: string | und
   return { info, projects, roadmap, goal, connection, error };
 }
 
+const readJson = <T,>(key: string | undefined): T | undefined => {
+  try {
+    const text = key ? localStorage.getItem(key) : null;
+    return text ? (JSON.parse(text) as T) : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/**
+ * A JSON value kept in localStorage under a key that can change (one per project), such as the
+ * Goals this browser hid. Also says whether anything was stored yet.
+ */
+export function useStoredJson<T>(key: string | undefined, fallback: T): [T, (v: T) => void, boolean] {
+  const [state, setState] = useState(() => ({ key, value: readJson<T>(key) }));
+  const value = state.key === key ? state.value : readJson<T>(key);
+  if (state.key !== key) setState({ key, value });
+  const set = useCallback(
+    (v: T) => {
+      setState({ key, value: v });
+      try {
+        if (key) localStorage.setItem(key, JSON.stringify(v));
+      } catch {
+        // storage can be unavailable (private windows); the choice then lasts for this page only
+      }
+    },
+    [key],
+  );
+  return [value ?? fallback, set, value !== undefined];
+}
+
 /** A value kept in localStorage, for per-browser conveniences (theme, sidebar, editor). */
 export function useStored<T extends string>(key: string, initial: T | undefined): [T | undefined, (v: T | undefined) => void] {
   const [value, setValue] = useState<T | undefined>(() => {

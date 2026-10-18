@@ -14,6 +14,7 @@ function session(id: string, pid: number): Project {
 }
 
 const read = (path: string) => readFileSync(join(root, ".progressor", path), "utf8");
+const write = (path: string, text: string) => writeFileSync(join(root, ".progressor", path), text);
 
 beforeEach(() => {
   root = tempDir("progressor-");
@@ -171,7 +172,25 @@ describe("Claims", () => {
     agent.completeGoal();
 
     expect(agent.roadmap().goal("login")!.status).toBe("done");
-    expect(() => agent.claimGoal("login")).toThrow(/already done/);
+  });
+
+  it("reopens a done Goal when it is claimed again, keeping its finished Tasks", () => {
+    const agent = session("s-a", 100);
+    agent.claimGoal("login");
+    agent.completeTask("t1");
+    agent.completeGoal();
+
+    agent.claimGoal("login");
+    expect(agent.roadmap().goal("login")!.status).toBe("active");
+    const [added] = agent.addTasks([{ title: "two" }]);
+    expect(agent.status().nextTask?.id).toBe(added!.id);
+    expect(agent.plan("login").task("t1")!.status).toBe("done");
+  });
+
+  it("refuses to claim a dropped Goal", () => {
+    const roadmap = read("roadmap.md").replace("- [ ] [Billing]", "- [-] [Billing]");
+    write("roadmap.md", roadmap);
+    expect(() => session("s-a", 100).claimGoal("billing")).toThrow(/dropped/);
   });
 });
 

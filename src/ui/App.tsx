@@ -2,16 +2,17 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { DEFAULT_EDITOR, EDITORS, editorUrl, parseCodeRef } from "../dashboard/editor.js";
 import { type DetourNode, type GoalGraph, type TaskNode, withoutDetours } from "../dashboard/graph.js";
 import { type PromptSubject, copyAsPrompt } from "../dashboard/prompt.js";
-import { type GoalView, type RoadmapView, useDashboard, useStored } from "./data.js";
+import { type GoalView, type RoadmapView, useDashboard, useStored, useStoredJson } from "./data.js";
 import { STATUS_LABEL } from "./geometry.js";
 import { Checklist } from "./Checklist.js";
+import { type Finished, type Seen, doneMark, groupGoals, seenOnFirstVisit } from "./goalList.js";
 import { MetroMap } from "./MetroMap.js";
 import { RichText } from "./RichText.js";
 import { plainText } from "./text.js";
 import { VIEWS, VIEW_LABELS, type View, pickView } from "./views.js";
 
 type Goal = RoadmapView["goals"][number];
-type Theme = "light" | "dark";
+type Theme = "light" | "dark" | "system";
 
 const EDITOR_NAMES: Record<string, string> = {
   vscode: "VS Code",
@@ -63,8 +64,9 @@ function useToast() {
   return [show, node] as const;
 }
 
-/** Light unless the Developer picked dark; the operating system's setting is not followed. */
-const isDark = (theme: Theme | undefined) => theme === "dark";
+/** Light unless the Developer picked dark, or picked "match system" and the operating system is dark. */
+const isDark = (theme: Theme | undefined) =>
+  theme === "dark" || (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
 
 const projectFromUrl = () => new URLSearchParams(location.search).get("project") ?? undefined;
 
@@ -81,6 +83,7 @@ function setParams(changes: Record<string, string | undefined>, how: "push" | "r
 }
 
 const VIEW_ICONS: Record<View, string> = { horizontal: "⇢", vertical: "⇣", checklist: "☰" };
+const VIEW_SHORT: Record<View, string> = { horizontal: "Across", vertical: "Down", checklist: "List" };
 
 export function App() {
   const [pickedProject, setPickedProject] = useState<string | undefined>(projectFromUrl);
@@ -88,11 +91,14 @@ export function App() {
   const [detours, setDetours] = useState(true);
   const [theme, setTheme] = useStored<Theme>("progressor.theme", undefined);
   const [collapsed, setCollapsed] = useStored<"1">("progressor.sidebar-collapsed", undefined);
-  const [storedView, setStoredView] = useStored<View>("progressor.view", undefined);
-  const [view, setView] = useState<View>(() => pickView(location.search, storedView));
+  // The default view is a setting; the navbar's view buttons only change what this page shows.
+  const [defaultView, setDefaultView] = useStored<View>("progressor.view", undefined);
+  const [view, setView] = useState<View>(() => pickView(location.search, defaultView));
+  const [finished, setFinished] = useStored<Finished>("progressor.finished", undefined);
+  const [showHidden, setShowHidden] = useStored<"1">("progressor.show-hidden", undefined);
+  const [doneOpen, setDoneOpen] = useStored<"1">("progressor.done-open", undefined);
   const chooseView = (v: View) => {
     setView(v);
-    setStoredView(v);
     setSelected(undefined);
     setParams({ view: v === "horizontal" ? undefined : v });
   };
@@ -103,6 +109,8 @@ export function App() {
   }, []);
   const [editorChoice, setEditorChoice] = useStored<string>("progressor.editor", undefined);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [goalMenu, setGoalMenu] = useState<{ id: string; at: { x: number; y: number } }>();
   const [switcherOpen, setSwitcherOpen] = useState(false);
   // What the popover shows, by ID, so it follows live updates to that item.
   const [selected, setSelected] = useState<{ kind: "node" | "idea" | "standing instruction"; key: string; at: { x: number; y: number } }>();
@@ -122,11 +130,35 @@ export function App() {
   }, [effectiveProject]);
 
   const goals = roadmap?.goals ?? [];
-  const effectiveGoal = picked && goals.some((g) => g.id === picked) ? picked : defaultGoal(goals);
+  // Hidden and seen Goals are this browser's view of one project.
+  const [hidden, setHidden] = useStoredJson<string[]>(projectId && `progressor.hidden.${projectId}`, []);
+  const [seen, setSeen, visited] = useStoredJson<Seen>(projectId && `progressor.seen.${projectId}`, {});
+  const roadmapIsProjects = !!roadmap && roadmap.root === project?.root;
+  useEffect(() => {
+    if (roadmapIsProjects && !visited) setSeen(seenOnFirstVisit(goals));
+  }, [roadmapIsProjects, visited, goals, setSeen]);
+  const grouped = groupGoals(goals, { finished: finished ?? "review", seen: visited ? seen : seenOnFirstVisit(goals), hidden });
+  const effectiveGoal = picked && goals.some((g) => g.id === picked)
+    ? picked
+    : defaultGoal([...grouped.open, ...grouped.done]) ?? goals[0]?.id;
   useEffect(() => setGoalId(effectiveGoal), [effectiveGoal]);
+  const hideGoal = (id: string, hide: boolean) => {
+    setHidden(hide ? [...hidden.filter((h) => h !== id), id] : hidden.filter((h) => h !== id));
+    setGoalMenu(undefined);
+    if (hide) toast("Hidden from this list; the plan is unchanged. Find it under Hidden, below the Roadmap.");
+  };
+  const markSeen = (g: Goal) => {
+    if (seen[g.id] !== doneMark(g)) setSeen({ ...seen, [g.id]: doneMark(g) });
+  };
 
   const editor = editorChoice ?? info?.editor ?? DEFAULT_EDITOR;
   const shownGoal = goal && goal.goal.id === effectiveGoal ? goal : undefined;
+  // Looking at a finished Goal is what the green dot asks for; after that it moves to Done.
+  const shownListed = goals.find((g) => g.id === shownGoal?.goal.id);
+  useEffect(() => {
+    if (shownListed?.status === "done" && visited) markSeen(shownListed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownListed?.id, shownListed?.status, shownListed?.done, shownListed?.total, visited]);
 
   useEffect(() => {
     const onNavigate = () => {
@@ -160,9 +192,18 @@ export function App() {
     closeDrawerOnNarrow();
   };
 
+  const [dark, setDark] = useState(() => isDark(theme));
   useLayoutEffect(() => {
-    if (theme) document.documentElement.dataset.theme = theme;
-    else delete document.documentElement.dataset.theme;
+    const apply = () => {
+      setDark(isDark(theme));
+      if (isDark(theme)) document.documentElement.dataset.theme = "dark";
+      else delete document.documentElement.dataset.theme;
+    };
+    apply();
+    if (theme !== "system") return;
+    const system = matchMedia("(prefers-color-scheme: dark)");
+    system.addEventListener("change", apply);
+    return () => system.removeEventListener("change", apply);
   }, [theme]);
 
   useEffect(() => {
@@ -175,6 +216,8 @@ export function App() {
       if (e.key === "Escape") {
         setSelected(undefined);
         setMenuOpen(false);
+        setSettingsOpen(false);
+        setGoalMenu(undefined);
         setSwitcherOpen(false);
       }
       if (e.key === "[" && !e.ctrlKey && !e.metaKey) setCollapsed(collapsed ? undefined : "1");
@@ -227,6 +270,32 @@ export function App() {
     const s = sessionChips.find((x) => x.goal === g.id);
     return s ? `Session ${s.session}${s.running ? "" : " (ended)"}` : (GOAL_STATUS[g.status] ?? g.status);
   };
+  // The Done group opens by itself while it holds the Goal on screen.
+  const doneShown = !!doneOpen || grouped.done.some((g) => g.id === effectiveGoal);
+  const goalButton = (g: Goal) => {
+    const pct = g.total ? Math.round((100 * g.done) / g.total) : 0;
+    const fresh = grouped.fresh.has(g.id);
+    return (
+      <button key={g.id} className={`goal ${g.status} ${fresh ? "fresh" : ""}`} aria-current={g.id === effectiveGoal}
+        title={fresh ? "Finished: open it to take a look" : "Right-click for more"}
+        onClick={() => pickGoal(g.id)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setGoalMenu({ id: g.id, at: { x: e.clientX, y: e.clientY } });
+        }}>
+        <div className="t">
+          {g.title}
+          {fresh && <span className="fresh-dot" role="img" aria-label="finished, not looked at yet" />}
+        </div>
+        <div className="bar"><i style={{ width: `${pct}%` }} /></div>
+        <div className="s">
+          <span>{sessionLabel(g)}</span>
+          <span>{g.total ? `${g.done}/${g.total} · ${pct}%` : "no Tasks"}</span>
+        </div>
+      </button>
+    );
+  };
+  const menuGoal = goalMenu && goals.find((g) => g.id === goalMenu.id);
   const instructions = roadmap?.standingInstructions ?? [];
   const ideas = roadmap?.ideas.filter((i) => !i.promotedTo) ?? [];
   const select = (kind: "idea" | "standing instruction", key: string) => (e: React.MouseEvent) =>
@@ -246,15 +315,25 @@ export function App() {
         </span>
         {roadmap && (
           <button className={`iconbtn menu-btn ${menuOpen ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={menuOpen}
-            title="Help: your Standing Instructions, the parked Ideas and how to support Progressor" aria-label="Help" onClick={() => setMenuOpen(!menuOpen)}>
+            title="Help: your Standing Instructions, the parked Ideas and how to support Progressor" aria-label="Help" onClick={() => {
+              setMenuOpen(!menuOpen);
+              setSettingsOpen(false);
+            }}>
             ❓<span className="label"> Help</span>
           </button>
         )}
+        <button className={`iconbtn menu-btn ${settingsOpen ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={settingsOpen}
+          title="Settings: default view, theme, editor and finished Goals" aria-label="Settings" onClick={() => {
+            setSettingsOpen(!settingsOpen);
+            setMenuOpen(false);
+          }}>
+          ⚙️<span className="label"> Settings</span>
+        </button>
         <div className="views" role="radiogroup" aria-label="View">
           {VIEWS.map((v) => (
             <button key={v} role="radio" aria-checked={view === v} title={VIEW_LABELS[v]} aria-label={VIEW_LABELS[v]} onClick={() => chooseView(v)}>
               <span aria-hidden="true">{VIEW_ICONS[v]}</span>
-              <span className="label">{v === "checklist" ? "List" : v === "horizontal" ? "Across" : "Down"}</span>
+              <span className="label">{VIEW_SHORT[v]}</span>
             </button>
           ))}
         </div>
@@ -265,24 +344,59 @@ export function App() {
           <span className="sw" />
           Detours
         </button>
-        <label className="picker-label hide-narrow">
-          <span className="label">Open in</span>
-          <select className="picker" value={editor} onChange={(e) => setEditorChoice(e.target.value === info?.editor ? undefined : e.target.value)}>
-            {info?.editor && !EDITORS.includes(info.editor) && <option value={info.editor}>Custom (PROGRESSOR_EDITOR)</option>}
-            {EDITORS.filter((e) => e !== "jetbrains").map((e) => (
-              <option key={e} value={e}>
-                {editorName(e)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button className="iconbtn" title="Switch between light and dark" aria-label="Switch between light and dark" onClick={() => setTheme(isDark(theme) ? "light" : "dark")}>
-          {isDark(theme) ? "☀️" : "🌙"}
+        <button className="iconbtn" title="Switch between light and dark" aria-label="Switch between light and dark" onClick={() => setTheme(dark ? "light" : "dark")}>
+          {dark ? "☀️" : "🌙"}
         </button>
       </header>
 
+      {settingsOpen && (
+        <MenuPanel label="Settings" onClose={() => setSettingsOpen(false)}>
+          <section>
+            <h3>Default view</h3>
+            <Choice value={defaultView ?? "horizontal"} onChange={(v) => setDefaultView(v === "horizontal" ? undefined : v)}
+              options={VIEWS.map((v) => ({ value: v, label: `${VIEW_ICONS[v]} ${VIEW_SHORT[v]}` }))} />
+            <p className="hint">What a Goal opens in. The buttons in the navbar change only the page you're on.</p>
+          </section>
+          <section>
+            <h3>Theme</h3>
+            <Choice value={theme ?? "light"} onChange={(t) => setTheme(t === "light" ? undefined : t)}
+              options={[{ value: "light", label: "☀️ Light" }, { value: "dark", label: "🌙 Dark" }, { value: "system", label: "💻 System" }]} />
+          </section>
+          <section>
+            <h3>Open files in</h3>
+            <select className="picker wide" aria-label="Open files in" value={editor} onChange={(e) => setEditorChoice(e.target.value === info?.editor ? undefined : e.target.value)}>
+              {info?.editor && !EDITORS.includes(info.editor) && <option value={info.editor}>Custom (PROGRESSOR_EDITOR)</option>}
+              {EDITORS.filter((e) => e !== "jetbrains").map((e) => (
+                <option key={e} value={e}>
+                  {editorName(e)}
+                </option>
+              ))}
+            </select>
+          </section>
+          <section>
+            <h3>Finished Goals</h3>
+            <label className="option">
+              <input type="radio" name="finished" checked={finished !== "auto"} onChange={() => setFinished(undefined)} />
+              <span><b>Wait for me to look</b><small>A finished Goal stays in the list with a green dot until you open it, then moves to Done.</small></span>
+            </label>
+            <label className="option">
+              <input type="radio" name="finished" checked={finished === "auto"} onChange={() => setFinished("auto")} />
+              <span><b>Move to Done straight away</b><small>Finished Goals go to the Done group below the Roadmap as soon as they finish.</small></span>
+            </label>
+          </section>
+          <section>
+            <h3>Hidden Goals</h3>
+            <label className="option">
+              <input type="checkbox" checked={!!showHidden} onChange={(e) => setShowHidden(e.target.checked ? "1" : undefined)} />
+              <span><b>Show hidden Goals</b><small>Right-click a Goal in the sidebar to hide it. Hiding only changes this list, never the plan.</small></span>
+            </label>
+          </section>
+          <p className="hint">Settings are saved in this browser.</p>
+        </MenuPanel>
+      )}
+
       {menuOpen && roadmap && (
-        <MenuPanel onClose={() => setMenuOpen(false)}>
+        <MenuPanel label="Help" onClose={() => setMenuOpen(false)}>
           <section>
             <h3>Standing Instructions</h3>
             {instructions.length === 0 && <p className="empty">None yet. They are lasting rules you give the Agent, such as "ask me before recalibrating".</p>}
@@ -347,21 +461,23 @@ export function App() {
             {roadmap && <p className="path roadmap-path" title="The project folder this Roadmap comes from">{roadmap.root}</p>}
             {roadmap && goals.length === 0 && <p className="empty">No Goals yet.</p>}
             {/* One Roadmap, many Goals: the Goals hang off a single rail so they read as parts of one plan. */}
-            <div className="goals">
-            {goals.map((g) => {
-              const pct = g.total ? Math.round((100 * g.done) / g.total) : 0;
-              return (
-                <button key={g.id} className={`goal ${g.status}`} aria-current={g.id === effectiveGoal} onClick={() => pickGoal(g.id)}>
-                  <div className="t">{g.title}</div>
-                  <div className="bar"><i style={{ width: `${pct}%` }} /></div>
-                  <div className="s">
-                    <span>{sessionLabel(g)}</span>
-                    <span>{g.total ? `${g.done}/${g.total} · ${pct}%` : "no Tasks"}</span>
-                  </div>
+            <div className="goals">{grouped.open.map(goalButton)}</div>
+            {grouped.done.length > 0 && (
+              <div className="group">
+                <button className="group-head" aria-expanded={doneShown} onClick={() => setDoneOpen(doneOpen ? undefined : "1")}>
+                  <span aria-hidden="true">{doneShown ? "▾" : "▸"}</span> Done <span className="count">{grouped.done.length}</span>
                 </button>
-              );
-            })}
-            </div>
+                {doneShown && <div className="goals">{grouped.done.map(goalButton)}</div>}
+              </div>
+            )}
+            {grouped.hidden.length > 0 && (
+              <div className="group">
+                <button className="group-head" aria-expanded={!!showHidden} onClick={() => setShowHidden(showHidden ? undefined : "1")}>
+                  <span aria-hidden="true">{showHidden ? "▾" : "▸"}</span> Hidden <span className="count">{grouped.hidden.length}</span>
+                </button>
+                {showHidden && <div className="goals hidden-goals">{grouped.hidden.map(goalButton)}</div>}
+              </div>
+            )}
           </section>
         </aside>
 
@@ -419,6 +535,25 @@ export function App() {
         </main>
       </div>
 
+      {goalMenu && menuGoal && (
+        <GoalMenu at={goalMenu.at} onClose={() => setGoalMenu(undefined)}>
+          <button role="menuitem" onClick={() => {
+            pickGoal(menuGoal.id);
+            setGoalMenu(undefined);
+          }}>Open</button>
+          {grouped.fresh.has(menuGoal.id) && (
+            <button role="menuitem" onClick={() => {
+              markSeen(menuGoal);
+              setGoalMenu(undefined);
+            }}>Move to Done</button>
+          )}
+          {hidden.includes(menuGoal.id) ? (
+            <button role="menuitem" onClick={() => hideGoal(menuGoal.id, false)}>Show in the list again</button>
+          ) : (
+            <button role="menuitem" onClick={() => hideGoal(menuGoal.id, true)}>Hide from the list</button>
+          )}
+        </GoalMenu>
+      )}
       {selected && subject && (
         <Popover subject={subject} at={selected.at} onClose={() => setSelected(undefined)} fileLink={fileLink} onCopy={copy} />
       )}
@@ -430,8 +565,8 @@ export function App() {
 /** The Developer's Buy Me a Coffee page, shown in the Help panel; the section is hidden while it is empty. */
 const SUPPORT_URL = "https://buymeacoffee.com/rachitasthana";
 
-/** The navbar's Help panel: read-only Standing Instructions and Ideas (each opens the usual popover), and support. */
-function MenuPanel({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+/** A panel that drops from the navbar: Help (Standing Instructions, Ideas, support) or Settings. */
+function MenuPanel({ label, children, onClose }: { label: string; children: React.ReactNode; onClose: () => void }) {
   useEffect(() => {
     const away = (e: PointerEvent) => {
       const t = e.target as Element;
@@ -441,7 +576,47 @@ function MenuPanel({ children, onClose }: { children: React.ReactNode; onClose: 
     return () => removeEventListener("pointerdown", away);
   }, [onClose]);
   return (
-    <div className="menu-panel" role="dialog" aria-label="Help">
+    <div className="menu-panel" role="dialog" aria-label={label}>
+      {children}
+    </div>
+  );
+}
+
+/** A row of mutually exclusive buttons, for a setting with a few short choices. */
+function Choice<T extends string>({ value, options, onChange }: {
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="views choice" role="radiogroup">
+      {options.map((o) => (
+        <button key={o.value} role="radio" aria-checked={value === o.value} onClick={() => onChange(o.value)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The right-click menu of a Goal in the sidebar. */
+function GoalMenu({ at, children, onClose }: { at: { x: number; y: number }; children: React.ReactNode; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ left: at.x, top: at.y });
+  useLayoutEffect(() => {
+    const el = ref.current!;
+    setPos({ left: Math.min(at.x, innerWidth - el.offsetWidth - 8), top: Math.min(at.y, innerHeight - el.offsetHeight - 8) });
+    el.querySelector("button")?.focus();
+  }, [at]);
+  useEffect(() => {
+    const away = (e: PointerEvent) => {
+      if (!(e.target as Element).closest(".goal-menu")) onClose();
+    };
+    addEventListener("pointerdown", away);
+    return () => removeEventListener("pointerdown", away);
+  }, [onClose]);
+  return (
+    <div ref={ref} className="goal-menu" role="menu" style={pos}>
       {children}
     </div>
   );

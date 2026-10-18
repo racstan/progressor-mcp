@@ -113,6 +113,9 @@ export function copyAsPrompt(subject: PromptSubject): string {
           : []),
         ...(next ? [`Next Task: ${next.id} ${quote(next.title)} (line ${next.line})`, ...summaryOf(next)] : []),
         "",
+        ...(goal.status === "done"
+          ? [`This Goal is done. If I ask for more work on it, reopen it with claim_goal (${goal.id}) and add the new Tasks with add_tasks.`]
+          : []),
         readFirst(goal.planFile, goal.ref),
       ].join("\n");
     }

@@ -100,6 +100,14 @@ Next Task: t5 "Session storage" (line 15)
 Read .progressor/goals/login.md (or call get_item with progressor://login) before acting on it.`);
   });
 
+  it("tells the Agent how to reopen a done Goal for work found in a review", () => {
+    const text = copyAsPrompt({ kind: "goal", goal: { ...goal, status: "done", claim: undefined }, graph });
+    expect(text).toContain(
+      "This Goal is done. If I ask for more work on it, reopen it with claim_goal (login) and add the new Tasks with add_tasks.",
+    );
+    expect(text.endsWith("before acting on it.")).toBe(true);
+  });
+
   it("marks an Idea as parked, so the Agent does not start building it", () => {
     expect(
       copyAsPrompt({

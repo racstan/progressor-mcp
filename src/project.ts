@@ -142,12 +142,15 @@ export class Project {
     return claim.pid === undefined || this.isAlive(claim.pid);
   }
 
-  /** Claims a Goal for this Session, releasing (pausing) any Goal it held before. */
+  /**
+   * Claims a Goal for this Session, releasing (pausing) any Goal it held before. Claiming a done Goal
+   * reopens it, so Tasks found in a later review join the same list; its finished Tasks stay done.
+   */
   claimGoal(goalId: string, options: { takeover?: boolean } = {}): Goal {
     const roadmap = this.roadmap();
     const goal = roadmap.goal(goalId);
     if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
-    if (goal.status === "done" || goal.status === "dropped") throw new Error(`Goal ${goalId} is already ${goal.status}.`);
+    if (goal.status === "dropped") throw new Error(`Goal ${goalId} is dropped; add a new Goal instead.`);
     if (this.claimIsLive(goal) && !options.takeover)
       throw new Error(
         `Goal ${goalId} is claimed by Session ${goal.claim!.session} (pid ${goal.claim!.pid ?? "unknown"}), which is still running. ` +

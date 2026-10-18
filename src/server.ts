@@ -11,7 +11,7 @@ const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", impor
 export const INSTRUCTIONS = `Progressor keeps you and the Developer focused on the same Goal across long sessions, context compression and distractions. The progress record is markdown in .progressor/ that only you change, through these tools; never edit those files directly.
 
 - At the start of every conversation, and again after your context has been compressed or summarised, call get_status before doing anything else. It tells you the Goal you are working on, the current Task, any open Detour, the next Task and the Developer's Standing Instructions. Follow the Standing Instructions.
-- If no Goal is claimed, claim the one the Developer wants to work on (claim_goal), or add it (add_goal) with a Task list.
+- If no Goal is claimed, claim the one the Developer wants to work on (claim_goal), or add it (add_goal) with a Task list. When the Developer finds more work in a Goal that is already done, claim it again to reopen it and add the new Tasks there.
 - Give every Task a short title (a few words), the files it touches, and a summary: one or two sentences on the fix or change it makes, such as "Callback re-sets the session cookie on every hit; only set it after token exchange." Set them when you add Tasks, and keep them true with update_task as you learn more.
 - Mark Tasks as you go: start_task before working on one, complete_task when it is done (pass the files you touched and, if it changed, the final summary), drop_task when it is no longer needed.
 - When the work you are about to do is not the current Task (fixing something unrelated, a prerequisite you discovered, a rethink of the plan), declare a Detour with start_detour and a Reason before doing it. Never drift away from the plan silently.
@@ -187,7 +187,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Claim Goal",
       description:
-        "Claim a Goal for this Session, so only this Session works on it. Releases (pauses) any Goal this Session held before. Fails if another running Session holds it.",
+        "Claim a Goal for this Session, so only this Session works on it. Releases (pauses) any Goal this Session held before. Fails if another running Session holds it. Claiming a done Goal reopens it: its finished Tasks stay done, and add_tasks adds the new work to the same list.",
       inputSchema: {
         goal: z.string().describe("The Goal ID, such as 'ship-oauth-login'."),
         takeover: z

@@ -1,5 +1,5 @@
 /* Progressor dashboard: design A (Metro map). Colours are tokens; light is the default, dark is the
-   Developer's choice (data-theme="dark"), whatever the operating system prefers. */
+   Developer's choice (data-theme="dark", set by the page, also when it follows the system). */
 :root {
   --bg: #f6f5fb; --panel: #ffffff; --panel2: #f0eef8; --ink: #1d1b2e; --muted: #6b6886; --line: #e3e0ef;
   --accent: #6d5efc; --done: #17a673; --detour: #e0650f; --faded: #bdbacc; --on-accent: #fff;
@@ -189,3 +189,29 @@ pre { font: 11.5px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; backg
   .banner .big { display: none; }
 }
 .card.support { text-decoration: none; color: var(--ink); }
+
+/* finished, hidden and grouped Goals in the sidebar */
+.goal.done .t { color: var(--done); }
+.goal.done .bar i { background: var(--done); }
+.goal.fresh { border-color: color-mix(in srgb, var(--done) 45%, transparent); background: color-mix(in srgb, var(--done) 8%, transparent); }
+.fresh-dot { display: inline-block; width: 8px; height: 8px; margin-left: 7px; vertical-align: middle; border-radius: 50%; background: var(--done); box-shadow: 0 0 0 0 var(--done); animation: fresh 1.8s ease-out infinite; }
+@keyframes fresh { 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .fresh-dot { animation: none; } }
+.group { margin-top: 10px; }
+.group-head { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: none; padding: 4px 2px; margin-bottom: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.group-head:hover { color: var(--ink); }
+.group-head .count { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--ink); background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; }
+.hidden-goals .goal { opacity: .6; }
+.goal-menu { position: fixed; z-index: 60; min-width: 190px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 5px; display: flex; flex-direction: column; }
+.goal-menu button { text-align: left; background: none; border: none; border-radius: 7px; padding: 7px 10px; font-size: 13px; }
+.goal-menu button:hover, .goal-menu button:focus-visible { background: var(--panel2); }
+
+/* Settings panel */
+.menu-panel .choice { display: flex; width: 100%; }
+.menu-panel .choice button { flex: 1; justify-content: center; padding: 6px 8px; }
+.menu-panel .picker.wide { width: 100%; padding: 6px 8px; }
+.menu-panel .hint { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+.option { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--panel2); margin-bottom: 8px; font-size: 13px; cursor: pointer; border: 1px solid transparent; }
+.option:has(input:checked) { border-color: var(--accent); }
+.option input { margin-top: 3px; accent-color: var(--accent); }
+.option small { display: block; color: var(--muted); font-size: 12px; }

@@ -6,7 +6,7 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published and 0.1.
 
 - [x] [0.1.1 · Dashboard fixes](goals/v0-1-1.md) ^v0-1-1
 - [/] [0.1.2 · Status hooks for Claude Code](goals/v0-1-2.md) ^v0-1-2
-- [ ] [Settings and finished Goals](goals/settings-and-finished-goals.md) ^settings-and-finished-goals
+- [x] [Settings and finished Goals](goals/settings-and-finished-goals.md) ^settings-and-finished-goals
 - [ ] [Workspaces](goals/workspaces.md) ^workspaces
 - [ ] [Release 0.2.0](goals/release-0-2-0.md) ^release-0-2-0
 - [ ] [Automatic drift detection](goals/drift-detection.md) ^drift-detection

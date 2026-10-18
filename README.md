@@ -71,13 +71,15 @@ On the maps, Tasks are stops on a line with their files as small chips, Detours 
 - **Zoom** with the mouse wheel or the + / − buttons, **pan** by dragging the background, and **fit** the whole map with ⤢. Stops can be dragged; they spring back when you let go.
 - Click any Task, Detour, Idea or Standing Instruction for its details (a Task's summary, a Detour's Reason) and **Copy as prompt**: a self-describing text (what it is, its status, its `progressor://` ref, file and line, its Goal, its summary, where it branched from, its Reason, its neighbours and the files it touches) to paste into your Agent chat.
 - **Open in file** opens the Plan File at the item's line, or the code a Task touches, in your editor.
-- The **Detours** switch hides the Detours from the view only; `[` collapses the sidebar. The dashboard starts in light mode; the sun / moon button switches to dark, and the browser remembers the choice.
+- The **Detours** switch hides the Detours from the view only; `[` collapses the sidebar. The sun / moon button switches between light and dark.
+- When a Goal is finished it turns green and gets a green dot in the sidebar until you open it; then it moves to the **Done** group at the bottom. Right-click a Goal to hide it from the list, or to move a finished one to Done without opening it.
+- **⚙️ Settings** sets the view a Goal opens in (Across, Down or List), the theme (light, dark or match the system), the editor for "Open in file", whether finished Goals wait for you or go to Done straight away, and whether hidden Goals are shown. Settings are saved in that browser.
 
-The dashboard is view-only: you change the plan by talking to the Agent.
+The dashboard is view-only: you change the plan by talking to the Agent. Hiding a Goal or moving it to Done changes only what your browser shows. To add work to a finished Goal, ask the Agent: claiming the Goal again reopens it, and the new Tasks join the same list.
 
 ### Choosing the editor
 
-"Open in file" uses VS Code by default. Pick another editor from the **Open in** menu in the dashboard (remembered in that browser), or set it for the project with `PROGRESSOR_EDITOR` in the MCP server's environment:
+"Open in file" uses VS Code by default. Pick another editor under **Open files in** in the dashboard's ⚙️ Settings (remembered in that browser), or set it for the project with `PROGRESSOR_EDITOR` in the MCP server's environment:
 
 ```bash
 claude mcp add progressor -e PROGRESSOR_EDITOR=cursor -- npx -y progressor-mcp
