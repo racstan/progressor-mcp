@@ -12,29 +12,50 @@ The record is plain markdown inside your project, in `.progressor/`, so it is re
 
 ## Install
 
-With Claude Code, install Progressor once and set your project up from its folder:
+### With Claude Code
 
-```bash
-npm install -g progressor-mcp
-progressor-mcp init
-```
+1. **Check Node.** Progressor needs Node 22 or later. `node --version` should print `v22` or higher; if not, install it from [nodejs.org](https://nodejs.org).
 
-`init` lists what it will change and asks once before doing it (`--yes` skips the question):
+2. **Install Progressor** once, for every project:
 
-- `.mcp.json`: registers the `progressor` MCP server for the project.
-- `.claude/settings.json`: adds the two [Claude Code hooks](#claude-code-hooks-recommended).
-- `CLAUDE.md`: adds a short note telling the Agent to use Progressor.
-- `.progressor/roadmap.md`: an empty Roadmap.
+   ```bash
+   npm install -g progressor-mcp
+   ```
 
-Running it again changes nothing; `progressor-mcp init --remove` takes the first three out again and leaves your `.progressor/` record alone. Restart Claude Code in the folder afterwards.
+3. **Set up your project.** In a terminal, go to the project folder and run:
 
-To only add the server, without the hooks or the note:
+   ```bash
+   progressor-mcp init
+   ```
+
+   It lists what it will change and asks once (`y` to go ahead; `--yes` skips the question):
+
+   - `.mcp.json`: registers the `progressor` MCP server for the project.
+   - `.claude/settings.json`: adds the two [Claude Code hooks](#claude-code-hooks-recommended).
+   - `CLAUDE.md`: adds a short note telling the Agent to use Progressor (anything already in the file is kept).
+   - `.progressor/roadmap.md`: an empty Roadmap.
+
+4. **Start Claude Code** in that folder (or restart it if it was already open). The first time, Claude Code asks whether to use the `progressor` server from `.mcp.json`: approve it.
+
+5. **Check that it works.** Type `/mcp` in Claude Code: `progressor` should be listed as connected. Then type `/mcp__progressor__status`; the Agent tells you there are no Goals yet.
+
+6. **Plan your first Goal.** Type `/mcp__progressor__plan` followed by what you want to build, for example `/mcp__progressor__plan add Google sign-in`. The Agent proposes a title, an Outcome and Tasks, and adds them once you say OK.
+
+7. **Watch it.** Open **http://localhost:4747/** while Claude Code is running, or run `progressor-mcp dashboard` to open it yourself (see [The dashboard](#the-dashboard)).
+
+To update later, run `npm install -g progressor-mcp@latest` and restart Claude Code. Running `init` again in a project changes nothing unless something is missing. To take Progressor out of a project, run `progressor-mcp init --remove`: it removes the server, the hooks and the note, and leaves your `.progressor/` record alone.
+
+The commands `init` writes suit the computer it ran on (on Windows the server is started through `cmd /c`). If you commit `.mcp.json` and teammates use another system, each of them runs `npm install -g progressor-mcp` and `progressor-mcp init` once in their copy.
+
+### Without the hooks, or with another MCP app
+
+To add only the server to Claude Code, with no install, hooks or note:
 
 ```bash
 claude mcp add progressor -- npx -y progressor-mcp
 ```
 
-Any other MCP client can run the same command over stdio: `npx -y progressor-mcp`. Progressor needs Node 22 or later. It keeps its files in the folder the client starts it in; set `PROGRESSOR_ROOT` to use another folder.
+Any other MCP client can run the same command over stdio: `npx -y progressor-mcp`. Progressor keeps its files in the folder the client starts it in; set `PROGRESSOR_ROOT` to use another folder.
 
 ### Claude Code hooks (recommended)
 
