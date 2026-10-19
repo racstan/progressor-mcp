@@ -1,0 +1,55 @@
+name: Report a problem
+description: Something in Progressor doesn't work, or setting it up went wrong.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. A few details below make it much quicker to fix.
+        Opened from the dashboard's Help menu, the version and system are already filled in.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead. Paste any error message.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen again
+      description: The steps, if you know them.
+      placeholder: |
+        1. Run `progressor-mcp init` in a new project
+        2. Start Claude Code
+        3. ...
+  - type: input
+    id: version
+    attributes:
+      label: Progressor version
+      description: "`progressor-mcp --version`, or the version at the bottom of the dashboard's Help menu."
+      placeholder: "0.4.0"
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Operating system and browser
+      placeholder: "Windows 11 · Chrome 141"
+  - type: dropdown
+    id: client
+    attributes:
+      label: Which app runs your Agent?
+      options:
+        - Claude Code (terminal)
+        - Claude Code (desktop app or IDE extension)
+        - Claude Desktop
+        - Cursor
+        - VS Code (Copilot)
+        - Windsurf
+        - Another MCP app
+  - type: textarea
+    id: logs
+    attributes:
+      label: Anything else
+      description: Screenshots, the output of `/mcp` in Claude Code, or the server log.

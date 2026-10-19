@@ -3,8 +3,12 @@
 // hook: it reads the hook's JSON on stdin, prints text for the Agent's context and exits.
 // `progressor-mcp dashboard [folder]` opens the dashboard on a Workspace with no Agent running.
 // `progressor-mcp init [folder]` sets a project up for Progressor and Claude Code.
+// `progressor-mcp --version` prints the version, for bug reports.
 // Each part is loaded only when needed, so the hook (which runs on every prompt) starts fast.
-if (process.argv[2] === "hook") {
+if (process.argv[2] === "--version" || process.argv[2] === "-v") {
+  const { readFileSync } = await import("node:fs");
+  console.log(JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version);
+} else if (process.argv[2] === "hook") {
   const { runHook } = await import("./hooks.js");
   let input = "";
   for await (const chunk of process.stdin) input += chunk;

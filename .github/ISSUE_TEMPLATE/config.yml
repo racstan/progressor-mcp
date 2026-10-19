@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Setup guide and troubleshooting
+    url: https://github.com/racstan/progressor-mcp#troubleshooting
+    about: Most setup problems have a quick fix listed here.

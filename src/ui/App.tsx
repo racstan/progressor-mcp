@@ -8,6 +8,7 @@ import { Checklist } from "./Checklist.js";
 import { type Finished, type Seen, doneMark, groupGoals, seenOnFirstVisit } from "./goalList.js";
 import { MetroMap } from "./MetroMap.js";
 import { Overview } from "./Overview.js";
+import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
 import { RichText } from "./RichText.js";
 import { type SearchHit, SearchBox } from "./Search.js";
 import { ServersPanel } from "./Servers.js";
@@ -366,16 +367,14 @@ export function App() {
           <span className={`dot ${connection === "live" ? "" : "warn"}`} />
           {connection === "live" ? "Live" : connection === "connecting" ? "Connecting…" : "Reconnecting…"}
         </span>
-        {roadmap && (
-          <button className={`iconbtn menu-btn ${menuOpen ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={menuOpen}
-            title="Help: your Standing Instructions, the parked Ideas and how to support Progressor" aria-label="Help" onClick={() => {
-              setMenuOpen(!menuOpen);
-              setSettingsOpen(false);
-              setServersOpen(false);
-            }}>
-            ❓<span className="label"> Help</span>
-          </button>
-        )}
+        <button className={`iconbtn menu-btn ${menuOpen ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={menuOpen}
+          title="Help: your Standing Instructions, the parked Ideas, reporting a problem and supporting Progressor" aria-label="Help" onClick={() => {
+            setMenuOpen(!menuOpen);
+            setSettingsOpen(false);
+            setServersOpen(false);
+          }}>
+          ❓<span className="label"> Help</span>
+        </button>
         <button className={`iconbtn menu-btn ${settingsOpen ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={settingsOpen}
           title="Settings: default view, theme, editor and finished Goals" aria-label="Settings" onClick={() => {
             setSettingsOpen(!settingsOpen);
@@ -466,9 +465,24 @@ export function App() {
         </MenuPanel>
       )}
 
-      {menuOpen && roadmap && (
+      {menuOpen && (
         <MenuPanel label="Help" onClose={() => setMenuOpen(false)}>
           <section>
+            <h3>Facing a problem?</h3>
+            <a className="card" href={issueUrl("bug", { version: info?.version, system: describeSystem(navigator.userAgent) })} target="_blank" rel="noopener noreferrer">
+              🐞 Report a problem
+              <small>Opens a GitHub issue with your Progressor version and system already filled in.</small>
+            </a>
+            <a className="card" href={issueUrl("idea", { version: info?.version })} target="_blank" rel="noopener noreferrer">
+              💬 Suggest an idea or share feedback
+              <small>What would make Progressor work better for you? Every suggestion is read.</small>
+            </a>
+            <p className="hint">
+              Someone may have hit it already: <a href={ISSUES_URL} target="_blank" rel="noopener noreferrer">see the open issues</a>
+              {info?.version && <> · Progressor {info.version}</>}
+            </p>
+          </section>
+          {roadmap && <section>
             <h3>Standing Instructions</h3>
             {instructions.length === 0 && <p className="empty">None yet. They are lasting rules you give the Agent, such as "ask me before recalibrating".</p>}
             {instructions.map((s, i) => (
@@ -476,8 +490,8 @@ export function App() {
                 📌 {s.text}
               </button>
             ))}
-          </section>
-          <section>
+          </section>}
+          {roadmap && <section>
             <h3>Parked Ideas</h3>
             {ideas.length === 0 && <p className="empty">None parked.</p>}
             {ideas.map((idea, i) => (
@@ -486,11 +500,11 @@ export function App() {
                 {idea.notes[0] && <small>{idea.notes[0]}</small>}
               </button>
             ))}
-          </section>
+          </section>}
           {SUPPORT_URL && (
             <section>
               <h3>Support Progressor</h3>
-              <a className="card support" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
+              <a className="card" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
                 ☕ Buy me a coffee
                 <small>Progressor is free and open source. If it keeps you on track, a coffee keeps it going.</small>
               </a>
@@ -644,7 +658,7 @@ export function App() {
 /** The Developer's Buy Me a Coffee page, shown in the Help panel; the section is hidden while it is empty. */
 const SUPPORT_URL = "https://buymeacoffee.com/rachitasthana";
 
-/** A panel that drops from the navbar: Help (Standing Instructions, Ideas, support) or Settings. */
+/** A panel that drops from the navbar: Help (Standing Instructions, Ideas, feedback, support) or Settings. */
 function MenuPanel({ label, children, onClose }: { label: string; children: React.ReactNode; onClose: () => void }) {
   useEffect(() => {
     const away = (e: PointerEvent) => {

@@ -1,0 +1,16 @@
+name: Suggest an idea or share feedback
+description: Something that would make Progressor work better for you, or anything you'd like to tell us.
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea or feedback
+      description: What would help, and what were you trying to do when you thought of it?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Progressor version
+      placeholder: "0.4.0"

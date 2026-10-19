@@ -27,6 +27,9 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: A 45-Task plan fits the screen in the Across view with readable labels and no overlapping chips, opening on the current Task.
 - [x] [Release 0.4.0](goals/release-0-4-0.md) ^release-0-4-0
   - outcome: progressor-mcp 0.4.0 with search, the flat project list and wrapped Across maps is on npm and in the MCP Registry, published by the release workflow.
+- [/] [Onboarding docs and feedback](goals/feedback.md) ^feedback
+  - outcome: A new user (or their Agent) can set Progressor up from the README alone, and anyone stuck can report a problem from the dashboard's Help menu in one click.
+  - claimed by: s-45742b (pid 15232) since 2026-10-19T12:47:28.892Z
 
 ## Ideas
 
