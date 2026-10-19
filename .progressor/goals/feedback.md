@@ -19,3 +19,10 @@
 - [x] README: For AI agents and help ^t4
   - summary: README opens with a For AI agents section (a copy-paste setup prompt and steps for Agents reading it), and gains Troubleshooting for the common setup failures and Feedback and help linking the issue forms.
   - code: `README.md`
+- [x] Buy me a coffee in Settings ^t5
+  - summary: The support link moves from the Help menu to the bottom of Settings.
+  - code: `src/ui/App.tsx`
+  - code: `README.md`
+- [x] Say where the dashboard lives ^t6
+  - summary: The demo caption and intro say the dashboard is an optional browser tab beside your editor, and that the Agent's work happens in the chat.
+  - code: `README.md`
