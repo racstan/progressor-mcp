@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GoalView, InfoView, OverviewView, RoadmapView, ServersView } from "../dashboard/http.js";
+import type { GoalView, InfoView, OverviewView, RoadmapView, SearchView, ServersView } from "../dashboard/http.js";
 import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
 
-export type { GoalView, InfoView, OverviewView, ProjectEntry, RoadmapView, ServersView, WorkspaceEntry };
+export type { GoalView, InfoView, OverviewView, ProjectEntry, RoadmapView, SearchView, ServersView, WorkspaceEntry };
 export type Connection = "connecting" | "live" | "reconnecting";
 
 async function getJson<T>(path: string): Promise<T | undefined> {
@@ -196,4 +196,24 @@ export function useServers(): [ServersView | "unsupported" | undefined, () => vo
 export async function stopServer(pid: number): Promise<void> {
   const res = await fetch(`/api/servers/${pid}/stop`, { method: "POST", headers: { "x-progressor": "stop" } });
   if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `${res.status}`);
+}
+
+/** Search results for what is typed, fetched a moment after typing stops; undefined while searching. */
+export function useSearch(query: string): SearchView | undefined {
+  const [hits, setHits] = useState<{ query: string; hits: SearchView }>();
+  const q = query.trim();
+  useEffect(() => {
+    if (!q) return;
+    let alive = true;
+    const timer = setTimeout(() => {
+      getJson<SearchView>(`/api/search?q=${encodeURIComponent(q)}`)
+        .then((h) => alive && setHits({ query: q, hits: h ?? [] }))
+        .catch(() => alive && setHits({ query: q, hits: [] }));
+    }, 120);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [q]);
+  return hits?.query === q ? hits.hits : undefined;
 }

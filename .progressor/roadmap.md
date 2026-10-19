@@ -21,6 +21,13 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: The dashboard lists every running Progressor process with its folder, memory and age, and stops any of them after a confirm; stopping the one that serves the dashboard hands it to another.
 - [x] [Release 0.3.1](goals/release-0-3-1.md) ^release-0-3-1
   - outcome: progressor-mcp 0.3.1 with the Servers panel is on npm and in the MCP Registry, published by the GitHub workflow alone.
+- [x] [Search and a flat project list](goals/search.md) ^search
+  - outcome: The overview and switcher list every project in one flat list, and a search box in the top bar finds projects, Goals, Tasks and Ideas across all projects as you type.
+- [x] [Across view for long plans](goals/across-wrap.md) ^across-wrap
+  - outcome: A 45-Task plan fits the screen in the Across view with readable labels and no overlapping chips, opening on the current Task.
+- [/] [Release 0.4.0](goals/release-0-4-0.md) ^release-0-4-0
+  - outcome: progressor-mcp 0.4.0 with search, the flat project list and wrapped Across maps is on npm and in the MCP Registry, published by the release workflow.
+  - claimed by: s-3e93c6 (pid 17812) since 2026-10-19T07:36:53.899Z
 
 ## Ideas
 

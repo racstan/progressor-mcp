@@ -11,6 +11,7 @@ import { PROGRESSOR_DIR, Project, ROADMAP_FILE, processIsAlive } from "../projec
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
 import { defaultServersDir, listServers, requestStop } from "../servers.js";
+import { type SearchableProject, search } from "./search.js";
 import {
   type ProjectEntry,
   type WorkspaceEntry,
@@ -234,6 +235,32 @@ class Hub {
     });
   }
 
+  /** Projects, Goals, Tasks and Ideas matching a search, across every project, read afresh. */
+  search(query: string) {
+    const projects: SearchableProject[] = this.sync().map((entry) => {
+      const api = this.projects.get(entry.id)?.api;
+      const base = { id: entry.id, name: entry.name, root: entry.root };
+      try {
+        const roadmap = api!.roadmap();
+        const tasksOf = (goalId: string) => {
+          try {
+            return (api!.goal(goalId)?.graph.nodes ?? []).flatMap((n) => (n.kind === "task" ? [{ id: n.id, title: n.title, status: n.status, summary: n.summary }] : []));
+          } catch {
+            return []; // a Plan File that cannot be read still lets its Goal be found
+          }
+        };
+        return {
+          ...base,
+          goals: roadmap.goals.map((g) => ({ id: g.id, title: g.title, status: g.status, outcome: g.outcome, tasks: tasksOf(g.id) })),
+          ideas: roadmap.ideas.filter((i) => !i.promotedTo).map((i) => ({ id: i.id, title: i.title, notes: i.notes })),
+        };
+      } catch {
+        return { ...base, goals: [], ideas: [] };
+      }
+    });
+    return search(projects, query);
+  }
+
   /** The running Progressor processes, with each one's project and the Goal its Session holds. */
   servers() {
     const entries = this.sync();
@@ -269,6 +296,7 @@ class Hub {
     if (req.method !== "GET" && req.method !== "HEAD") return json(res, 405, { error: "The dashboard is view-only." });
     try {
       if (path === "/api/servers") return json(res, 200, this.servers());
+      if (path === "/api/search") return json(res, 200, this.search(url.searchParams.get("q") ?? ""));
       if (path === "/api/info") return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, editor: this.editor, pid: process.pid });
       if (path === "/api/projects") return json(res, 200, this.sync(url.searchParams.has("rescan")));
       if (path === "/api/workspaces") return json(res, 200, listWorkspaces(this.registryFile));
@@ -441,3 +469,4 @@ export type GoalView = NonNullable<ReturnType<DashboardApi["goal"]>>;
 export type GoalSummary = GoalView["goal"];
 export type OverviewView = ReturnType<Hub["overview"]>;
 export type ServersView = ReturnType<Hub["servers"]>;
+export type SearchView = ReturnType<Hub["search"]>;

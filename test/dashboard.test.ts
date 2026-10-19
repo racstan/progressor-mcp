@@ -362,3 +362,19 @@ describe("handing the dashboard over", () => {
     expect((await get(second, "/api/projects")).status).toBe(200);
   });
 });
+
+describe("searching", () => {
+  it("finds Tasks, Goals and Ideas across every project on the dashboard", async () => {
+    const d = await start(agent);
+    registerProject(billing.root, registry);
+    const tasks = (await get(d, "/api/search?q=callback")).body;
+    expect(tasks).toEqual([
+      expect.objectContaining({ kind: "task", title: "Handle the callback", project: expect.objectContaining({ id: entry(agent).id }), goal: { id: "ship-oauth-login", title: "Ship OAuth login" } }),
+    ]);
+    expect((await get(d, "/api/search?q=billing")).body.map((h: any) => `${h.kind}:${h.title}`)).toEqual(
+      expect.arrayContaining(["goal:Billing", "goal:Billing page"]),
+    );
+    expect((await get(d, "/api/search?q=remember")).body.map((h: any) => h.kind)).toEqual(["idea"]);
+    expect((await get(d, "/api/search")).body).toEqual([]);
+  });
+});

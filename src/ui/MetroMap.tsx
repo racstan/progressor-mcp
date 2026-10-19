@@ -1,6 +1,6 @@
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { EdgeKind, GoalGraph, GraphNode } from "../dashboard/graph.js";
-import { type Orientation, type Point, STATUS_LABEL, edgePath, edgeStyle, laneColor, positionOf, wrapLabel } from "./geometry.js";
+import { type Orientation, type Point, STATUS_LABEL, chooseWrap, edgePath, edgeStyle, laneColor, positionOf, wrapLabel } from "./geometry.js";
 import { type PanZoom, type View, panZoom } from "./panZoom.js";
 import { type BandEdge, rubberBand } from "./rubberBand.js";
 import { plainText } from "./text.js";
@@ -17,16 +17,40 @@ interface Props {
   onOpen: (node: GraphNode, at: { x: number; y: number }) => void;
 }
 
-export function MetroMap({ graph, orientation, viewKey, focusId, onOpen }: Props) {
+export function MetroMap({ graph, orientation, viewKey: goalViewKey, focusId, onOpen }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement>(null);
   const pz = useRef<PanZoom>(undefined);
   const onOpenRef = useRef(onOpen);
   onOpenRef.current = onOpen;
 
+  // The map's size, in steps of 100px so small resizes do not re-wrap the plan.
+  const [box, setBox] = useState<{ width: number; height: number }>();
+  useLayoutEffect(() => {
+    const svg = svgRef.current!;
+    const measure = () => {
+      const r = svg.getBoundingClientRect();
+      const next = { width: Math.round(r.width / 100) * 100, height: Math.round(r.height / 100) * 100 };
+      if (next.width && next.height) setBox((b) => (b && b.width === next.width && b.height === next.height ? b : next));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, []);
+  // A long plan on the horizontal map wraps into rows that fit the screen.
+  const wrap = useMemo(() => {
+    if (orientation !== "horizontal" || !box) return undefined;
+    const steps = Math.max(0, ...graph.nodes.map((n) => n.step)) + 1;
+    const lanes = Math.max(0, ...graph.nodes.map((n) => n.lane)) + 1;
+    const w = chooseWrap(steps, lanes, box);
+    return w.columns < steps ? w : undefined;
+  }, [graph, orientation, box]);
+  const viewKey = `${goalViewKey}:${wrap?.columns ?? "line"}`;
+
   const byId = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph]);
-  const positions = useMemo(() => new Map(graph.nodes.map((n) => [n.id, positionOf(n, orientation)])), [graph, orientation]);
-  const path = useMemo(() => (p: Point, q: Point, kind: EdgeKind) => edgePath(p, q, kind, orientation), [orientation]);
+  const positions = useMemo(() => new Map(graph.nodes.map((n) => [n.id, positionOf(n, orientation, wrap)])), [graph, orientation, wrap]);
+  const path = useMemo(() => (p: Point, q: Point, kind: EdgeKind) => edgePath(p, q, kind, orientation, wrap), [orientation, wrap]);
   const edges = useMemo(
     () =>
       graph.edges
@@ -127,11 +151,18 @@ const chipWidth = (text: string) => Math.round(text.length * CHIP_FONT * 0.62 + 
 /** A file's chip label: its name (and line), not its whole path. */
 const chipText = (file: string) => file.replace(/\\/g, "/").split("/").pop() ?? file;
 
-/** Up to two small file chips in a row starting at (x, y), with "+N" for the rest; anchored left or centred. */
-function FileChips({ files, x, y, centred }: { files: string[]; x: number; y: number; centred: boolean }) {
+/** Longest chip label, so a chip fits between two stops. */
+const CHIP_CHARS = 22;
+const shorten = (label: string) => (label.length > CHIP_CHARS ? `${label.slice(0, CHIP_CHARS - 1)}…` : label);
+
+/**
+ * Small file chips in a row starting at (x, y), with "+N" for the rest; anchored left or centred.
+ * Under a stop on the horizontal map there is room for one, beside it on the vertical map for two.
+ */
+function FileChips({ files, x, y, centred, max }: { files: string[]; x: number; y: number; centred: boolean; max: number }) {
   if (files.length === 0) return null;
-  const labels = files.slice(0, 2).map(chipText);
-  if (files.length > 2) labels.push(`+${files.length - 2}`);
+  const labels = files.slice(0, max).map((f) => shorten(chipText(f)));
+  if (files.length > max) labels.push(`+${files.length - max}`);
   const widths = labels.map(chipWidth);
   const total = widths.reduce((a, b) => a + b, 0) + 4 * (labels.length - 1);
   let left = centred ? x - total / 2 : x;
@@ -216,7 +247,7 @@ function Stop({ node: n, at, vertical, onKey }: { node: GraphNode; at: Point; ve
           </tspan>
         ))}
       </text>
-      {n.kind === "task" && <FileChips files={n.code} x={textX} y={titleY + (lines.length - 1) * 15 + 7} centred={!vertical} />}
+      {n.kind === "task" && <FileChips files={n.code} x={textX} y={titleY + (lines.length - 1) * 15 + 7} centred={!vertical} max={vertical ? 2 : 1} />}
     </g>
   );
 }

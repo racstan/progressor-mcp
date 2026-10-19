@@ -101,12 +101,13 @@ While your Agent's app is running Progressor, open **http://localhost:4747/** in
 
 The dashboard shows the selected Goal in one of three views, picked in the top bar (⇢ Across, ⇣ Down, ☰ List). The view is remembered by your browser and kept in the address (`&view=vertical`, `&view=checklist`), so a link shows the same thing:
 
-- **Metro, horizontal** (the default): a metro map running left to right.
+- **Metro, horizontal** (the default): a metro map running left to right. A plan too long for the screen wraps onto rows that turn back and forth like a snake, so the whole Goal fits at a readable size.
 - **Metro, vertical**: the same map running top to bottom, so a long plan scrolls down. The mouse wheel scrolls it; Ctrl + wheel (or a pinch) zooms.
 - **Checklist**: the Tasks as a list in plan order, each with its files and summary, and each Detour indented under the Task it branched from with how it ended and its Reason.
 
-On the maps, Tasks are stops on a line with their files as small chips, Detours are orange branches labelled with how they ended (Merge back, Returned, Recalibrated or open), and Tasks dropped by a Recalibration stay on the old line, faded. A banner shows what is happening now: the current Task, or the open Detour and where it branched from. The sidebar has the project switcher (each project's name and folder) and the Roadmap with each Goal's progress, under the full path of the project folder it comes from. Your Standing Instructions and the parked Ideas are in the **❓ Help** menu in the top bar. Only one project is shown at a time, and the page updates by itself as its markdown changes.
+On the maps, Tasks are stops on a line with their files as small chips (the first file and "+n" on the horizontal map), Detours are orange branches labelled with how they ended (Merge back, Returned, Recalibrated or open), and Tasks dropped by a Recalibration stay on the old line, faded. A banner shows what is happening now: the current Task, or the open Detour and where it branched from. The sidebar has the project switcher (every project's name and folder, those with work in progress first) and the Roadmap with each Goal's progress, under the full path of the project folder it comes from. Your Standing Instructions and the parked Ideas are in the **❓ Help** menu in the top bar. Only one project is shown at a time, and the page updates by itself as its markdown changes.
 
+- **Search** with the box in the top bar (press `/` or Ctrl+K): as you type it lists the matching projects, Goals, Tasks and Ideas across every project, matching titles, Outcomes, summaries, notes and folders. Arrow keys and Enter, or a click, open a result: a Task opens on its Goal's map with its details. On the overview, the project cards narrow to the ones with results.
 - **Zoom** with the mouse wheel or the + / − buttons, **pan** by dragging the background, and **fit** the whole map with ⤢. Stops can be dragged; they spring back when you let go.
 - Click any Task, Detour, Idea or Standing Instruction for its details (a Task's summary, a Detour's Reason) and **Copy as prompt**: a self-describing text (what it is, its status, its `progressor://` ref, file and line, its Goal, its summary, where it branched from, its Reason, its neighbours and the files it touches) to paste into your Agent chat.
 - **Open in file** opens the Plan File at the item's line, or the code a Task touches, in your editor.
@@ -147,9 +148,9 @@ progressor-mcp dashboard C:\Programming
 
 Progressor looks through that folder and its subfolders for projects: folders with a `.progressor/roadmap.md`. It skips `node_modules`, `.git`, build output and other hidden or dependency folders, and goes 5 levels deep. Nothing is created or changed; a folder only becomes a project once an Agent adds a Goal in it. The dashboard opens in your browser on an overview of that Workspace, with each project's Goals in progress, how far along they are, and a green note when a Goal has finished since you last looked. Click a project or a Goal to open it.
 
-The folder is remembered as a Workspace in `~/.progressor/workspaces.json`, so the dashboard keeps showing its projects, grouped under it in the project switcher, even when it is started by an Agent later. New projects in a Workspace show up within a few minutes, or straight away when you run the command again. `progressor-mcp dashboard --forget <folder>` stops showing a Workspace; `--no-open` prints the address without opening the browser. Without a folder, the command uses the current one.
+The folder is remembered as a Workspace in `~/.progressor/workspaces.json`, so the dashboard keeps showing its projects even when it is started by an Agent later. New projects in a Workspace show up within a few minutes, or straight away when you run the command again. `progressor-mcp dashboard --forget <folder>` stops showing a Workspace; `--no-open` prints the address without opening the browser. Without a folder, the command uses the current one.
 
-When the dashboard shows more than one project, its start page is the overview of them all (**🗂 All projects** in the switcher).
+When the dashboard shows more than one project, its start page is the overview of them all (**🗂 All projects** in the switcher), one card per project, those with work in progress first.
 
 ### Slash commands
 

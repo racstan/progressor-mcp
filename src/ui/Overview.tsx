@@ -1,7 +1,7 @@
-import type { OverviewView, WorkspaceEntry } from "./data.js";
+import type { OverviewView, SearchView, WorkspaceEntry } from "./data.js";
 import { readJson } from "./data.js";
 import { type Seen, doneMark } from "./goalList.js";
-import { groupByWorkspace, placeIn } from "./workspaces.js";
+import { sortProjects } from "./projectList.js";
 
 type ProjectOverview = OverviewView[number];
 
@@ -12,19 +12,23 @@ function unseen(p: ProjectOverview, finishedWaits: boolean): number {
   return p.goals.filter((g) => g.status === "done" && seen[g.id] !== doneMark(g)).length;
 }
 
-/** Every project at a glance, grouped by Workspace: what is being worked on and how far along it is. */
-export function Overview({ overview, workspaces, only, finishedWaits, onOpen, onShowAll }: {
+/** Every project at a glance: what is being worked on and how far along it is. */
+export function Overview({ overview, workspaces, only, query, hits, finishedWaits, onOpen, onShowAll }: {
   overview: OverviewView | undefined;
   workspaces: WorkspaceEntry[];
   /** The Workspace the page was opened on, if any. */
   only: string | undefined;
+  /** The search typed in the top bar, and its results; the cards narrow to the projects with a result. */
+  query: string;
+  hits: SearchView | undefined;
   finishedWaits: boolean;
   onOpen: (projectId: string, goalId?: string) => void;
   onShowAll: () => void;
 }) {
   if (!overview) return <div className="placeholder">Loading…</div>;
-  const shown = only ? overview.filter((p) => p.workspace === only) : overview;
-  const groups = groupByWorkspace(shown, only ? workspaces.filter((w) => w.id === only) : workspaces);
+  const inWorkspace = only ? overview.filter((p) => p.workspace === only) : overview;
+  const found = query.trim() && hits ? new Set(hits.map((h) => h.project.id)) : undefined;
+  const shown = sortProjects(found ? inWorkspace.filter((p) => found.has(p.id)) : inWorkspace);
   const workspace = only ? workspaces.find((w) => w.id === only) : undefined;
   return (
     <div className="overview">
@@ -35,20 +39,15 @@ export function Overview({ overview, workspaces, only, finishedWaits, onOpen, on
           <button className="btn ghost" onClick={onShowAll}>Show all {overview.length} projects</button>
         )}
       </div>
-      {shown.length === 0 && (
+      {shown.length === 0 && inWorkspace.length > 0 && <p className="empty">No project matches “{query.trim()}”.</p>}
+      {inWorkspace.length === 0 && (
         <p className="empty">
           No projects here yet. A folder shows up once an Agent using Progressor adds a Goal in it, which creates its <code>.progressor/</code> folder.
         </p>
       )}
-      {groups.map((g) => (
-        <section key={g.workspace?.id ?? "none"}>
-          {!only && (
-            <h3>
-              {g.workspace ? <>🗂 {g.workspace.name} <span className="path">{g.workspace.root}</span></> : "Other projects"}
-            </h3>
-          )}
+      {shown.length > 0 && (
           <div className="project-cards">
-            {g.projects.map((p) => {
+            {shown.map((p) => {
               const working = p.goals.filter((x) => x.status === "active" || x.status === "paused");
               const planned = p.goals.filter((x) => x.status === "planned").length;
               const done = p.goals.filter((x) => x.status === "done").length;
@@ -62,7 +61,7 @@ export function Overview({ overview, workspaces, only, finishedWaits, onOpen, on
                         <span className="fresh-dot" aria-hidden="true" /> {fresh} finished
                       </span>
                     )}
-                    <span className="path">{placeIn(p.root, g.workspace)}</span>
+                    <span className="path">{p.root}</span>
                   </button>
                   {working.map((x) => {
                     const pct = x.total ? Math.round((100 * x.done) / x.total) : 0;
@@ -87,8 +86,7 @@ export function Overview({ overview, workspaces, only, finishedWaits, onOpen, on
               );
             })}
           </div>
-        </section>
-      ))}
+      )}
     </div>
   );
 }

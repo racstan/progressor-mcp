@@ -2,17 +2,18 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { DEFAULT_EDITOR, EDITORS, editorUrl, parseCodeRef } from "../dashboard/editor.js";
 import { type DetourNode, type GoalGraph, type TaskNode, withoutDetours } from "../dashboard/graph.js";
 import { type PromptSubject, copyAsPrompt } from "../dashboard/prompt.js";
-import { type GoalView, type RoadmapView, useDashboard, useOverview, useServers, useStored, useStoredJson } from "./data.js";
+import { type GoalView, type RoadmapView, useDashboard, useOverview, useSearch, useServers, useStored, useStoredJson } from "./data.js";
 import { STATUS_LABEL } from "./geometry.js";
 import { Checklist } from "./Checklist.js";
 import { type Finished, type Seen, doneMark, groupGoals, seenOnFirstVisit } from "./goalList.js";
 import { MetroMap } from "./MetroMap.js";
 import { Overview } from "./Overview.js";
 import { RichText } from "./RichText.js";
+import { type SearchHit, SearchBox } from "./Search.js";
 import { ServersPanel } from "./Servers.js";
 import { plainText } from "./text.js";
 import { VIEWS, VIEW_LABELS, type View, pickView } from "./views.js";
-import { groupByWorkspace, placeIn } from "./workspaces.js";
+import { sortProjects } from "./projectList.js";
 
 type Goal = RoadmapView["goals"][number];
 type Theme = "light" | "dark" | "system";
@@ -117,6 +118,10 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [serversOpen, setServersOpen] = useState(false);
   const [servers, reloadServers] = useServers();
+  const [query, setQuery] = useState("");
+  const hits = useSearch(query);
+  // A Task opened from the search: its popover opens once its Goal's map has loaded.
+  const [pendingTask, setPendingTask] = useState<{ goal: string; task: string }>();
   const [goalMenu, setGoalMenu] = useState<{ id: string; at: { x: number; y: number } }>();
   const [switcherOpen, setSwitcherOpen] = useState(false);
   // What the popover shows, by ID, so it follows live updates to that item.
@@ -218,6 +223,24 @@ export function App() {
     setPickedWorkspace(undefined);
     setPicked(undefined);
   };
+
+  const openHit = (hit: SearchHit) => {
+    if (hit.kind === "project") return pickProject(hit.project.id);
+    if (hit.kind === "goal") return pickProject(hit.project.id, hit.id);
+    if (hit.kind === "task" && hit.goal && hit.id) {
+      pickProject(hit.project.id, hit.goal.id);
+      return setPendingTask({ goal: hit.goal.id, task: hit.id });
+    }
+    // an Idea lives in the Help panel of its project
+    pickProject(hit.project.id);
+    setMenuOpen(true);
+  };
+  useEffect(() => {
+    if (!pendingTask || shownGoal?.goal.id !== pendingTask.goal) return;
+    if (shownGoal.graph.nodes.some((n) => n.id === pendingTask.task))
+      setSelected({ kind: "node", key: pendingTask.task, at: { x: innerWidth / 2, y: 180 } });
+    setPendingTask(undefined);
+  }, [pendingTask, shownGoal]);
 
   const [dark, setDark] = useState(() => isDark(theme));
   useLayoutEffect(() => {
@@ -337,6 +360,7 @@ export function App() {
           <i aria-hidden="true" />
           Progressor
         </div>
+        <SearchBox query={query} hits={hits} onChange={setQuery} onOpen={openHit} />
         <span className="sp" />
         <span className="chip" title={connection === "live" ? "Updates as the markdown changes" : "Lost the connection to the Progressor server"}>
           <span className={`dot ${connection === "live" ? "" : "warn"}`} />
@@ -495,18 +519,11 @@ export function App() {
                   <span className="t">🗂 All projects</span>
                   <span className="path">Every project at a glance</span>
                 </button>
-                {groupByWorkspace(projects ?? [], workspaces ?? []).map((g) => (
-                  <div key={g.workspace?.id ?? "none"} role="group" aria-label={g.workspace?.name ?? "Other projects"}>
-                    {(workspaces?.length ?? 0) > 0 && (
-                      <div className="ws-head" title={g.workspace?.root}>{g.workspace ? g.workspace.name : "Other projects"}</div>
-                    )}
-                    {g.projects.map((p) => (
-                      <button key={p.id} className="project" role="option" aria-selected={p.id === projectId} onClick={() => pickProject(p.id)}>
-                        <span className="t">{p.name}</span>
-                        <span className="path">{placeIn(p.root, g.workspace)}</span>
-                      </button>
-                    ))}
-                  </div>
+                {sortProjects(projects ?? []).map((p) => (
+                  <button key={p.id} className="project" role="option" aria-selected={p.id === projectId} onClick={() => pickProject(p.id)}>
+                    <span className="t">{p.name}</span>
+                    <span className="path">{p.root}</span>
+                  </button>
                 ))}
               </div>
             )}
@@ -551,7 +568,7 @@ export function App() {
               To see every project in a folder, run <code>progressor-mcp dashboard &lt;folder&gt;</code>.
             </div>
           ) : showOverview ? (
-            <Overview overview={overview} workspaces={workspaces ?? []} only={pickedWorkspace} finishedWaits={finished !== "auto"}
+            <Overview overview={overview} workspaces={workspaces ?? []} only={pickedWorkspace} query={query} hits={hits} finishedWaits={finished !== "auto"}
               onOpen={pickProject} onShowAll={showAll} />
           ) : roadmap === null || (roadmap === undefined && !project && projectId) ? (
             <div className="placeholder">

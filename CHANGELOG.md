@@ -2,7 +2,26 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
-## Unreleased
+## 0.4.0 · Search and long plans
+
+### Search
+
+- A search box in the top bar finds projects, Goals, Tasks and Ideas across every project as you type.
+  - It matches titles, Outcomes, Task summaries, Idea notes and folders.
+  - Press `/` or Ctrl+K to focus it.
+  - Arrow keys and Enter open a result; a Task opens on its Goal's map with its details.
+- The overview and the project switcher are one flat list of projects, those with work in progress first.
+  - The Workspace headings are gone, and every project shows its full folder instead of a path relative to its Workspace (which showed "." for a Workspace that is itself a project).
+  - Workspaces still decide which folders are scanned.
+- On the overview, the cards narrow to the projects matching the search.
+
+### Across view for long plans
+
+- A plan too long for the screen wraps onto rows that turn back and forth like a snake, so a 45-Task Goal fits at a readable size.
+- Detours branch and rejoin the right way on rows running in either direction.
+- Each stop shows one file chip plus "+n", and long file names are shortened, so chips no longer overlap.
+
+### Fixes
 
 - The Servers panel no longer stays on "Loading…" when the dashboard is still served by a Progressor from before 0.3.1. It now says so and how to close that process.
 - `/api/info` reports the process ID of the server serving the dashboard.
