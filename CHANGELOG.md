@@ -2,6 +2,17 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## Unreleased
+
+### Running servers in the dashboard
+
+- A **🖥 Servers** button in the top bar shows how many Progressor processes are running.
+- Its panel lists each one with its project, folder, Goal, memory and start time, and marks the one serving the dashboard.
+- **Stop** ends a server after a confirm.
+  - Only the dashboard's own page can stop one, never another website.
+  - The server is asked to exit by itself, so no other program can be hit.
+- When the server serving the dashboard stops, another running server takes the dashboard over within about 5 seconds.
+
 ## 0.3.0 · Setup, slash commands and shaping Goals
 
 ### One-command setup

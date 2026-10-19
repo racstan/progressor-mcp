@@ -237,3 +237,17 @@ pre { font: 11.5px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; backg
 .fresh-note { font-size: 12px; color: var(--done); display: inline-flex; align-items: center; gap: 2px; }
 .fresh-note .fresh-dot { margin-left: 0; }
 @media (max-width: 720px) { .overview { padding: 16px; } }
+
+/* Servers panel */
+.server { padding: 10px 0; border-top: 1px solid var(--line); }
+.server:first-of-type { border-top: none; padding-top: 0; }
+.server.stopping { opacity: .5; }
+.server-head { display: flex; align-items: center; gap: 8px; }
+.server-head b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.server-head .sp { flex: 1; }
+.server .badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--accent); color: var(--accent); white-space: nowrap; }
+.server .stop { font-size: 12px; padding: 3px 10px; border-radius: 8px; border: 1px solid var(--detour); color: var(--detour); background: none; cursor: pointer; }
+.server .stop:hover:not(:disabled) { background: var(--detour); color: var(--on-accent); }
+.server .stop:disabled { cursor: default; opacity: .6; }
+.server-path { font: 12px ui-monospace, SFMono-Regular, Consolas, monospace; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.server-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); margin-top: 4px; }

@@ -1,10 +1,11 @@
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { createServer as createHttpServer, request } from "node:http";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type Dashboard, startDashboard } from "../src/dashboard/http.js";
-import { type ProjectEntry, projectEntry } from "../src/dashboard/registry.js";
+import { type ProjectEntry, projectEntry, registerProject } from "../src/dashboard/registry.js";
 import { Project } from "../src/project.js";
+import { announceServer } from "../src/servers.js";
 import { tempDir } from "./tmp.js";
 
 let registry: string;
@@ -266,5 +267,91 @@ describe("who serves the dashboard", () => {
     const d = await start(agent, { port });
     expect(d.role).toBe("serving");
     expect(d.url).toBe(`http://localhost:${port + 1}/?project=${entry(agent).id}`);
+  });
+});
+
+describe("running servers", () => {
+  const announced: { close(): void }[] = [];
+  afterEach(() => announced.splice(0).forEach((a) => a.close()));
+  const serversDir = () => join(dirname(registry), "servers");
+  function announce(project: Project, pid: number, onStop = () => {}) {
+    announced.push(
+      announceServer(
+        { kind: "session", root: project.root, session: project.session.id },
+        { dir: serversDir(), pid, version: "9.9.9", pollMs: 10, onStop },
+      ),
+    );
+  }
+  const stop = (d: Dashboard, pid: number, headers: Record<string, string>) =>
+    fetch(new URL(`/api/servers/${pid}/stop`, d.url), { method: "POST", headers });
+  const fromPage = (d: Dashboard) => ({ origin: new URL(d.url).origin, "x-progressor": "stop" });
+
+  it("lists each running server with its project, the Goal its Session holds, and which one serves the dashboard", async () => {
+    announce(agent, process.pid);
+    announce(billing, process.ppid);
+    registerProject(billing.root, registry);
+    const d = await start(agent);
+    const { status, body } = await get(d, "/api/servers");
+    expect(status).toBe(200);
+    expect(body.hub).toBe(process.pid);
+    const byPid = Object.fromEntries(body.servers.map((s: any) => [s.pid, s]));
+    expect(byPid[process.pid]).toMatchObject({
+      kind: "session",
+      root: agent.root,
+      project: entry(agent).id,
+      name: entry(agent).name,
+      goal: { id: "ship-oauth-login", title: "Ship OAuth login" },
+      serving: true,
+    });
+    expect(byPid[process.ppid]).toMatchObject({ project: entry(billing).id, goal: { title: "Billing page" }, serving: false });
+  });
+
+  it("asks a server to stop when the dashboard's own page says so", async () => {
+    const stopped: number[] = [];
+    announce(billing, process.ppid, () => stopped.push(process.ppid));
+    const d = await start(agent);
+    const res = await stop(d, process.ppid, fromPage(d));
+    expect(res.status).toBe(202);
+    const end = Date.now() + 2000;
+    while (stopped.length === 0 && Date.now() < end) await new Promise((r) => setTimeout(r, 10));
+    expect(stopped).toEqual([process.ppid]);
+  });
+
+  it("refuses to stop anything for another web page, or without the dashboard's header", async () => {
+    const stopped: number[] = [];
+    announce(billing, process.ppid, () => stopped.push(process.ppid));
+    const d = await start(agent);
+    expect((await stop(d, process.ppid, { ...fromPage(d), origin: "https://evil.example" })).status).toBe(403);
+    expect((await stop(d, process.ppid, { origin: new URL(d.url).origin })).status).toBe(403);
+    const { "x-progressor": header } = fromPage(d);
+    expect((await stop(d, process.ppid, { "x-progressor": header })).status).toBe(403);
+    await new Promise((r) => setTimeout(r, 60));
+    expect(stopped).toEqual([]);
+  });
+
+  it("refuses to stop a process that is not a running Progressor server", async () => {
+    const d = await start(agent);
+    expect((await stop(d, 424242, fromPage(d))).status).toBe(404);
+  });
+
+  it("is still view-only for everything else", async () => {
+    const d = await start(agent);
+    const res = await fetch(new URL("/api/projects", d.url), { method: "POST", headers: fromPage(d) });
+    expect(res.status).toBe(405);
+  });
+});
+
+describe("handing the dashboard over", () => {
+  it("takes over by itself when the process that served it stops", async () => {
+    const port = freePort();
+    const first = await start(agent, { port });
+    const second = await startDashboard({ project: billing, registryFile: registry, port, hubCheckMs: 20 });
+    open.push(second);
+    expect(second.role).toBe("shared");
+    await first.close();
+    const end = Date.now() + 3000;
+    while (second.role !== "serving" && Date.now() < end) await new Promise((r) => setTimeout(r, 20));
+    expect(second.role).toBe("serving");
+    expect((await get(second, "/api/projects")).status).toBe(200);
   });
 });

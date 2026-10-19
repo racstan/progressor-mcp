@@ -11,6 +11,7 @@ The Developer can also point the dashboard at any folder, a Workspace, with `pro
 - The registry only lists where projects are, so it can never disagree with their progress. Entries whose folder or `.progressor/` is gone are hidden, not deleted.
 - The hub's own settings (such as `PROGRESSOR_EDITOR`) apply to every project it serves. The editor can also be chosen per browser in the dashboard.
 - A hub from an incompatible Progressor version answers on the port but is not shared. Newer servers move to the next free port.
+- The one thing the dashboard does besides showing is stopping a running Progressor process, from its Servers panel. That changes which processes run, never the progress record, so the Agent stays its only writer. A stop is a request the process acts on itself, accepted only from the dashboard's own page. Processes sharing the dashboard take it over when the hub stops.
 
 ## Considered Options
 

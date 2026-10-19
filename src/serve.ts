@@ -1,9 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { type Dashboard, startDashboard } from "./dashboard/http.js";
+import { type Dashboard, VERSION, startDashboard } from "./dashboard/http.js";
 import { Project } from "./project.js";
 import { createServer } from "./server.js";
+import { announceServer } from "./servers.js";
 
 // One server process serves one Agent conversation (and its sub-agents), so the
 // process is the Session: it gets a fresh ID, and its pid lets other Sessions
@@ -29,10 +30,17 @@ if (process.env.PROGRESSOR_DASHBOARD !== "off") {
   }
 }
 
+// The dashboard lists this process and can ask it to stop (servers.ts).
+const record = announceServer(
+  { kind: "session", root: project.root, session: project.session.id },
+  { version: VERSION, onStop: () => releaseAndExit() },
+);
+
 let released = false;
 function releaseAndExit(code = 0): void {
   if (!released) {
     released = true;
+    record.close();
     try {
       project.releaseGoal();
     } catch (e) {

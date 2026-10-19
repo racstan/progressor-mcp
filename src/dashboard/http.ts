@@ -10,7 +10,17 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { PROGRESSOR_DIR, Project, ROADMAP_FILE, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
-import { type ProjectEntry, type WorkspaceEntry, addWorkspace, defaultRegistryFile, listWorkspaces, registerProject } from "./registry.js";
+import { defaultServersDir, listServers, requestStop } from "../servers.js";
+import {
+  type ProjectEntry,
+  type WorkspaceEntry,
+  addWorkspace,
+  defaultRegistryFile,
+  listWorkspaces,
+  pathKey,
+  projectEntry,
+  registerProject,
+} from "./registry.js";
 import { watchProgress } from "./watch.js";
 import { allProjects, findProjects } from "./workspace.js";
 
@@ -38,6 +48,8 @@ export interface DashboardOptions {
   rescanMs?: number;
   /** How long a Workspace's scan for projects is reused before the folder is scanned again. */
   workspaceScanMs?: number;
+  /** While another process serves the dashboard, how often to check it is still there and take over if not. */
+  hubCheckMs?: number;
 }
 
 export interface Dashboard {
@@ -61,7 +73,7 @@ const MIME: Record<string, string> = {
   ".json": "application/json; charset=utf-8",
 };
 
-const VERSION: string = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
+export const VERSION: string = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
 
 /** The JSON views of one project. Each call re-reads the markdown, which is the source of truth. */
 export function dashboardApi(project: Project) {
@@ -111,6 +123,22 @@ function json(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
+/**
+ * Whether a request that changes something comes from the dashboard's own page. Browsers always send
+ * Origin on a POST, and a custom header cannot be sent from another site without a CORS preflight,
+ * which the dashboard never answers, so other web pages cannot stop servers.
+ */
+function isFromDashboardPage(req: IncomingMessage): boolean {
+  if (req.headers["x-progressor"] !== "stop") return false;
+  try {
+    const origin = new URL(String(req.headers.origin ?? ""));
+    const port = (req.headers.host ?? "").match(/:(\d+)$/)?.[1] ?? "80";
+    return ["localhost", "127.0.0.1", "[::1]"].includes(origin.hostname) && (origin.port || "80") === port;
+  } catch {
+    return false;
+  }
+}
+
 /** Only answer requests addressed to the loopback host, so other web pages cannot read the record through DNS rebinding. */
 function isLocalHost(req: IncomingMessage): boolean {
   const host = (req.headers.host ?? "").replace(/:\d+$/, "").toLowerCase();
@@ -144,6 +172,7 @@ class Hub {
     private readonly editor: string,
     rescanMs: number,
     private readonly workspaceScanMs: number,
+    private readonly serversDir: string,
   ) {
     this.sync();
     this.timer = setInterval(() => this.sync(), rescanMs);
@@ -205,12 +234,41 @@ class Hub {
     });
   }
 
+  /** The running Progressor processes, with each one's project and the Goal its Session holds. */
+  servers() {
+    const entries = this.sync();
+    return {
+      hub: process.pid,
+      servers: listServers(this.serversDir).map((s) => {
+        const entry = entries.find((e) => pathKey(e.root) === pathKey(s.root));
+        let goal: { id: string; title: string } | undefined;
+        try {
+          const g = s.session && this.projects.get(entry?.id ?? "")?.api.roadmap().goals.find((x) => x.claim?.session === s.session);
+          if (g) goal = { id: g.id, title: g.title };
+        } catch {
+          // a Roadmap that cannot be read shows the server without its Goal
+        }
+        return { ...s, name: entry?.name ?? projectEntry(s.root).name, project: entry?.id, goal, serving: s.pid === process.pid };
+      }),
+    };
+  }
+
+  /** The one thing the dashboard changes: asking a running server to stop. */
+  private stopServer(req: IncomingMessage, res: ServerResponse, pid: number): void {
+    if (!isFromDashboardPage(req)) return json(res, 403, { error: "Servers can only be stopped from the dashboard's own page." });
+    if (!requestStop(this.serversDir, pid)) return json(res, 404, { error: "No running Progressor server has that process ID." });
+    return json(res, 202, { stopping: pid });
+  }
+
   handle = (req: IncomingMessage, res: ServerResponse): void => {
     if (!isLocalHost(req)) return json(res, 403, { error: "The dashboard only answers on localhost." });
-    if (req.method !== "GET" && req.method !== "HEAD") return json(res, 405, { error: "The dashboard is view-only." });
     const url = new URL(`http://localhost${req.url ?? "/"}`);
     const path = url.pathname;
+    const stop = /^\/api\/servers\/(\d+)\/stop$/.exec(path);
+    if (req.method === "POST" && stop) return this.stopServer(req, res, Number(stop[1]));
+    if (req.method !== "GET" && req.method !== "HEAD") return json(res, 405, { error: "The dashboard is view-only." });
     try {
+      if (path === "/api/servers") return json(res, 200, this.servers());
       if (path === "/api/info") return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, editor: this.editor });
       if (path === "/api/projects") return json(res, 200, this.sync(url.searchParams.has("rescan")));
       if (path === "/api/workspaces") return json(res, 200, listWorkspaces(this.registryFile));
@@ -291,8 +349,9 @@ async function isHub(port: number): Promise<boolean> {
  * Ports held by anything else are skipped for the next one.
  */
 export async function startDashboard(options: DashboardOptions): Promise<Dashboard> {
-  const { project, uiDir, editor = DEFAULT_EDITOR, attempts = 20, rescanMs = 5000, workspaceScanMs = 300_000 } = options;
+  const { project, uiDir, editor = DEFAULT_EDITOR, attempts = 20, rescanMs = 5000, workspaceScanMs = 300_000, hubCheckMs = 5000 } = options;
   const registryFile = options.registryFile ?? defaultRegistryFile();
+  const serversDir = defaultServersDir(registryFile);
   const firstPort = options.port ?? DEFAULT_PORT;
   const entry = project && registerProject(project.root, registryFile);
   const workspace: WorkspaceEntry | undefined = options.workspace ? addWorkspace(options.workspace, registryFile) : undefined;
@@ -308,7 +367,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
       const http = createServer();
       const result = await listen(http, p);
       if (result === "ok") {
-        hub = new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs);
+        hub = new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs, serversDir);
         http.on("request", hub.handle);
         [servers, port, role] = [[http], p, "serving"];
         const ipv6 = createServer();
@@ -332,6 +391,21 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
 
   await claimPort();
 
+  // While another process serves the dashboard, check now and then that it still does, and take
+  // over when it has gone (stopped from the dashboard, or its Session ended), so the page stays up.
+  let checking = false;
+  const refresh = async () => {
+    if (role === "serving" || checking) return;
+    checking = true;
+    try {
+      if (!(await isHub(port))) await claimPort();
+    } finally {
+      checking = false;
+    }
+  };
+  const watcher = setInterval(() => void refresh().catch(() => undefined), hubCheckMs);
+  watcher.unref();
+
   return {
     get url() {
       const base = `http://localhost:${port}/`;
@@ -342,11 +416,9 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
       return role;
     },
     project: entry,
-    async refresh() {
-      if (role === "serving") return;
-      if (!(await isHub(port))) await claimPort();
-    },
+    refresh,
     async close() {
+      clearInterval(watcher);
       hub?.close();
       hub = undefined;
       const closing = servers;
@@ -367,3 +439,4 @@ export type RoadmapView = ReturnType<DashboardApi["roadmap"]>;
 export type GoalView = NonNullable<ReturnType<DashboardApi["goal"]>>;
 export type GoalSummary = GoalView["goal"];
 export type OverviewView = ReturnType<Hub["overview"]>;
+export type ServersView = ReturnType<Hub["servers"]>;

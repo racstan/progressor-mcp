@@ -4,9 +4,10 @@ import { spawn } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { startDashboard } from "./dashboard/http.js";
+import { VERSION, startDashboard } from "./dashboard/http.js";
 import { forgetWorkspace, listWorkspaces, projectEntry } from "./dashboard/registry.js";
 import { findProjects } from "./dashboard/workspace.js";
+import { announceServer } from "./servers.js";
 
 const USAGE = `Usage: progressor-mcp dashboard [folder] [--no-open]
        progressor-mcp dashboard --forget [folder]
@@ -69,8 +70,10 @@ export async function runDashboardCommand(args: string[]): Promise<number> {
   }
   console.log("Serving the dashboard. Press Ctrl+C to stop.");
   await new Promise<void>((done) => {
+    const record = announceServer({ kind: "dashboard", root: folder }, { version: VERSION, onStop: done });
     process.once("SIGINT", done);
     process.once("SIGTERM", done);
+    process.once("exit", () => record.close());
   });
   await dashboard.close();
   return 0;

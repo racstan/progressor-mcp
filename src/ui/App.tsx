@@ -2,13 +2,14 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { DEFAULT_EDITOR, EDITORS, editorUrl, parseCodeRef } from "../dashboard/editor.js";
 import { type DetourNode, type GoalGraph, type TaskNode, withoutDetours } from "../dashboard/graph.js";
 import { type PromptSubject, copyAsPrompt } from "../dashboard/prompt.js";
-import { type GoalView, type RoadmapView, useDashboard, useOverview, useStored, useStoredJson } from "./data.js";
+import { type GoalView, type RoadmapView, useDashboard, useOverview, useServers, useStored, useStoredJson } from "./data.js";
 import { STATUS_LABEL } from "./geometry.js";
 import { Checklist } from "./Checklist.js";
 import { type Finished, type Seen, doneMark, groupGoals, seenOnFirstVisit } from "./goalList.js";
 import { MetroMap } from "./MetroMap.js";
 import { Overview } from "./Overview.js";
 import { RichText } from "./RichText.js";
+import { ServersPanel } from "./Servers.js";
 import { plainText } from "./text.js";
 import { VIEWS, VIEW_LABELS, type View, pickView } from "./views.js";
 import { groupByWorkspace, placeIn } from "./workspaces.js";
@@ -114,6 +115,8 @@ export function App() {
   const [editorChoice, setEditorChoice] = useStored<string>("progressor.editor", undefined);
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [serversOpen, setServersOpen] = useState(false);
+  const [servers, reloadServers] = useServers();
   const [goalMenu, setGoalMenu] = useState<{ id: string; at: { x: number; y: number } }>();
   const [switcherOpen, setSwitcherOpen] = useState(false);
   // What the popover shows, by ID, so it follows live updates to that item.
@@ -242,6 +245,7 @@ export function App() {
         setSelected(undefined);
         setMenuOpen(false);
         setSettingsOpen(false);
+        setServersOpen(false);
         setGoalMenu(undefined);
         setSwitcherOpen(false);
       }
@@ -343,6 +347,7 @@ export function App() {
             title="Help: your Standing Instructions, the parked Ideas and how to support Progressor" aria-label="Help" onClick={() => {
               setMenuOpen(!menuOpen);
               setSettingsOpen(false);
+              setServersOpen(false);
             }}>
             ❓<span className="label"> Help</span>
           </button>
@@ -351,8 +356,19 @@ export function App() {
           title="Settings: default view, theme, editor and finished Goals" aria-label="Settings" onClick={() => {
             setSettingsOpen(!settingsOpen);
             setMenuOpen(false);
+            setServersOpen(false);
           }}>
           ⚙️<span className="label"> Settings</span>
+        </button>
+        <button className={`iconbtn menu-btn ${serversOpen ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={serversOpen}
+          title="Servers: the Progressor processes running on this computer" aria-label="Servers" onClick={() => {
+            setServersOpen(!serversOpen);
+            setMenuOpen(false);
+            setSettingsOpen(false);
+            if (!serversOpen) reloadServers();
+          }}>
+          🖥<span className="label"> Servers</span>
+          {servers && <span className="count">{servers.servers.length}</span>}
         </button>
         <div className="views" role="radiogroup" aria-label="View">
           {VIEWS.map((v) => (
@@ -373,6 +389,12 @@ export function App() {
           {dark ? "☀️" : "🌙"}
         </button>
       </header>
+
+      {serversOpen && (
+        <MenuPanel label="Servers" onClose={() => setServersOpen(false)}>
+          <ServersPanel servers={servers} reload={reloadServers} toast={toast} />
+        </MenuPanel>
+      )}
 
       {settingsOpen && (
         <MenuPanel label="Settings" onClose={() => setSettingsOpen(false)}>

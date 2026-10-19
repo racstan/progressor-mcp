@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GoalView, InfoView, OverviewView, RoadmapView } from "../dashboard/http.js";
+import type { GoalView, InfoView, OverviewView, RoadmapView, ServersView } from "../dashboard/http.js";
 import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
 
-export type { GoalView, InfoView, OverviewView, ProjectEntry, RoadmapView, WorkspaceEntry };
+export type { GoalView, InfoView, OverviewView, ProjectEntry, RoadmapView, ServersView, WorkspaceEntry };
 export type Connection = "connecting" | "live" | "reconnecting";
 
 async function getJson<T>(path: string): Promise<T | undefined> {
@@ -167,4 +167,30 @@ export function useStored<T extends string>(key: string, initial: T | undefined)
     [key],
   );
   return [value, set];
+}
+
+/** The running Progressor processes, polled every few seconds (and right away on `reload`). */
+export function useServers(): [ServersView | undefined, () => void] {
+  const [servers, setServers] = useState<ServersView>();
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      getJson<ServersView>("/api/servers")
+        .then((s) => alive && s && setServers(s))
+        .catch(() => undefined);
+    void load();
+    const timer = setInterval(load, 5000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [tick]);
+  return [servers, useCallback(() => setTick((t) => t + 1), [])];
+}
+
+/** Asks a running server to stop. The header tells the dashboard the request comes from its own page. */
+export async function stopServer(pid: number): Promise<void> {
+  const res = await fetch(`/api/servers/${pid}/stop`, { method: "POST", headers: { "x-progressor": "stop" } });
+  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `${res.status}`);
 }
