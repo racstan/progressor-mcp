@@ -188,7 +188,7 @@ pre { font: 11.5px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; backg
   .banner { margin: 10px 10px 0; padding: 10px 12px; }
   .banner .big { display: none; }
 }
-.card.support { text-decoration: none; color: var(--ink); }
+a.card { text-decoration: none; color: var(--ink); }
 
 /* finished, hidden and grouped Goals in the sidebar */
 .goal.done .t { color: var(--done); }

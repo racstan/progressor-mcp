@@ -10,6 +10,23 @@ Progressor keeps an AI coding Agent and you, the Developer, focused on the same 
 
 The record is plain markdown inside your project, in `.progressor/`, so it is readable, diffable and travels with the repo. See [GLOSSARY.md](GLOSSARY.md) for the words used here and [docs/markdown-format.md](docs/markdown-format.md) for the file format.
 
+## For AI agents
+
+The quickest setup: paste this into your Agent's chat in the project folder, and it installs Progressor and checks it for you.
+
+```text
+Set up Progressor (https://github.com/racstan/progressor-mcp) in this project:
+1. Run `node --version`. Progressor needs Node 22 or later; if it is older, stop and tell me.
+2. Run `npm install -g progressor-mcp`, then `progressor-mcp --version` to check it installed.
+3. In this project folder, run `progressor-mcp init --yes`.
+   If you are not Claude Code, skip init: instead add an MCP server named "progressor"
+   to this app's MCP config that runs `npx -y progressor-mcp` over stdio in this folder.
+4. Tell me to restart this app and approve the "progressor" server if it asks. After the
+   restart, call the progressor `get_status` tool and show me what it says.
+```
+
+If you are an AI agent reading this to set Progressor up, follow the same steps, and see [Troubleshooting](#troubleshooting) if one fails. Once it is connected, call `get_status` at the start of every conversation, and follow the instructions the server sends with its tools.
+
 ## Install
 
 ### With Claude Code
@@ -105,7 +122,7 @@ The dashboard shows the selected Goal in one of three views, picked in the top b
 - **Metro, vertical**: the same map running top to bottom, so a long plan scrolls down. The mouse wheel scrolls it; Ctrl + wheel (or a pinch) zooms.
 - **Checklist**: the Tasks as a list in plan order, each with its files and summary, and each Detour indented under the Task it branched from with how it ended and its Reason.
 
-On the maps, Tasks are stops on a line with their files as small chips (the first file and "+n" on the horizontal map), Detours are orange branches labelled with how they ended (Merge back, Returned, Recalibrated or open), and Tasks dropped by a Recalibration stay on the old line, faded. A banner shows what is happening now: the current Task, or the open Detour and where it branched from. The sidebar has the project switcher (every project's name and folder, those with work in progress first) and the Roadmap with each Goal's progress, under the full path of the project folder it comes from. Your Standing Instructions and the parked Ideas are in the **❓ Help** menu in the top bar. Only one project is shown at a time, and the page updates by itself as its markdown changes.
+On the maps, Tasks are stops on a line with their files as small chips (the first file and "+n" on the horizontal map), Detours are orange branches labelled with how they ended (Merge back, Returned, Recalibrated or open), and Tasks dropped by a Recalibration stay on the old line, faded. A banner shows what is happening now: the current Task, or the open Detour and where it branched from. The sidebar has the project switcher (every project's name and folder, those with work in progress first) and the Roadmap with each Goal's progress, under the full path of the project folder it comes from. The **❓ Help** menu in the top bar has links to report a problem or share an idea, your Standing Instructions and the parked Ideas. Only one project is shown at a time, and the page updates by itself as its markdown changes.
 
 - **Search** with the box in the top bar (press `/` or Ctrl+K): as you type it lists the matching projects, Goals, Tasks and Ideas across every project, matching titles, Outcomes, summaries, notes and folders. Arrow keys and Enter, or a click, open a result: a Task opens on its Goal's map with its details. On the overview, the project cards narrow to the ones with results.
 - **Zoom** with the mouse wheel or the + / − buttons, **pan** by dragging the background, and **fit** the whole map with ⤢. Stops can be dragged; they spring back when you let go.
@@ -208,6 +225,30 @@ In Claude Code, Progressor adds three commands to the `/` menu:
 | `record_idea`              | Parks an Idea for later.                                                     |
 | `promote_idea`             | Turns an Idea into a Task or a Goal.                                         |
 | `add_standing_instruction` | Saves a lasting rule from the Developer.                                     |
+
+## Troubleshooting
+
+**`progressor` is missing from `/mcp`, or shows as failed.** Restart Claude Code in the project folder, and approve the server when it asks. Check that `.mcp.json` in the folder lists `progressor`; if not, run `progressor-mcp init` again. Then run `node --version` (22 or later is needed) and `progressor-mcp --version` in a terminal: an error from either is the cause.
+
+**`progressor-mcp: command not found`.** npm's global folder is not on your `PATH`. `npm prefix -g` prints that folder (its `bin` folder on macOS and Linux); add it to `PATH` and open a new terminal. Or skip the global install and use `npx -y progressor-mcp` instead.
+
+**The dashboard does not open.** It runs only while an Agent app is running Progressor, or while `progressor-mcp dashboard` runs. If port 4747 was taken, it is on the next free port: the `Dashboard:` line at the end of `get_status` has the right address. Check that `PROGRESSOR_DASHBOARD` is not set to `off`.
+
+**The dashboard says it is served by an older Progressor.** A conversation started before you updated is still running the old version. Restart it, or stop that server in **🖥 Servers**.
+
+**The Agent does not follow the plan, or never calls `get_status`.** Check that `CLAUDE.md` has the Progressor note and `.claude/settings.json` has the two [hooks](#claude-code-hooks-recommended); `progressor-mcp init` adds anything missing. The hooks need the global install. Typing `/mcp__progressor__status` shows the Agent the plan straight away.
+
+Still stuck? [Report a problem](#feedback-and-help).
+
+## Feedback and help
+
+Progressor is young, and what you run into shapes what comes next.
+
+- **Something not working?** [Report a problem](https://github.com/racstan/progressor-mcp/issues/new?template=bug_report.yml). The form asks for your version (`progressor-mcp --version`), system and steps.
+- **An idea, or feedback of any kind?** [Share it](https://github.com/racstan/progressor-mcp/issues/new?template=idea.yml), even a sentence helps.
+- **From the dashboard**, the **❓ Help** menu has both links, with your version and system already filled in.
+
+Before opening one, have a look at the [open issues](https://github.com/racstan/progressor-mcp/issues): someone may have hit it already.
 
 ## Development
 
