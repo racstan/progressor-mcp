@@ -368,7 +368,7 @@ export function App() {
           {connection === "live" ? "Live" : connection === "connecting" ? "Connecting…" : "Reconnecting…"}
         </span>
         <button className={`iconbtn menu-btn ${menuOpen ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={menuOpen}
-          title="Help: your Standing Instructions, the parked Ideas, reporting a problem and supporting Progressor" aria-label="Help" onClick={() => {
+          title="Help: report a problem, share feedback, your Standing Instructions and the parked Ideas" aria-label="Help" onClick={() => {
             setMenuOpen(!menuOpen);
             setSettingsOpen(false);
             setServersOpen(false);
@@ -461,6 +461,15 @@ export function App() {
               <span><b>Show hidden Goals</b><small>Right-click a Goal in the sidebar to hide it. Hiding only changes this list, never the plan.</small></span>
             </label>
           </section>
+          {SUPPORT_URL && (
+            <section>
+              <h3>Support Progressor</h3>
+              <a className="card" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
+                ☕ Buy me a coffee
+                <small>Progressor is free and open source. If it keeps you on track, a coffee keeps it going.</small>
+              </a>
+            </section>
+          )}
           <p className="hint">Settings are saved in this browser.</p>
         </MenuPanel>
       )}
@@ -501,15 +510,6 @@ export function App() {
               </button>
             ))}
           </section>}
-          {SUPPORT_URL && (
-            <section>
-              <h3>Support Progressor</h3>
-              <a className="card" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
-                ☕ Buy me a coffee
-                <small>Progressor is free and open source. If it keeps you on track, a coffee keeps it going.</small>
-              </a>
-            </section>
-          )}
         </MenuPanel>
       )}
 
@@ -655,10 +655,10 @@ export function App() {
   );
 }
 
-/** The Developer's Buy Me a Coffee page, shown in the Help panel; the section is hidden while it is empty. */
+/** The Developer's Buy Me a Coffee page, shown in the Settings panel; the section is hidden while it is empty. */
 const SUPPORT_URL = "https://buymeacoffee.com/rachitasthana";
 
-/** A panel that drops from the navbar: Help (Standing Instructions, Ideas, feedback, support) or Settings. */
+/** A panel that drops from the navbar: Help (feedback, Standing Instructions, Ideas) or Settings (with support). */
 function MenuPanel({ label, children, onClose }: { label: string; children: React.ReactNode; onClose: () => void }) {
   useEffect(() => {
     const away = (e: PointerEvent) => {

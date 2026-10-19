@@ -4,9 +4,9 @@
 
 ![An Agent works through "Ship OAuth login": Tasks tick off, a Detour branches off and merges back, a second Detour recalibrates the plan, and the Goal finishes, all live on the dashboard](docs/media/demo.gif)
 
-<sub>The dashboard follows an Agent through a Goal: Tasks tick off, a Detour is merged back, another one recalibrates the plan, and a stop is opened to copy it as a prompt. [Watch as video](docs/media/demo.mp4).</sub>
+<sub>This is the dashboard, a page in your browser that you keep open beside your editor or terminal. You keep chatting with your Agent as usual, and the page follows along by itself as it works through a Goal: Tasks tick off, a Detour is merged back, another one recalibrates the plan, and a stop is opened to copy it as a prompt. [Watch as video](docs/media/demo.mp4).</sub>
 
-Progressor keeps an AI coding Agent and you, the Developer, focused on the same Goal across long sessions, context compression and distractions. It is an [MCP](https://modelcontextprotocol.io) server: your Agent's app starts it, and the Agent uses its tools to keep a live record of what is planned, what is done, and what came up along the way.
+Progressor keeps an AI coding Agent and you, the Developer, focused on the same Goal across long sessions, context compression and distractions. It is an [MCP](https://modelcontextprotocol.io) server: your Agent's app starts it, and the Agent uses its tools to keep a live record of what is planned, what is done, and what came up along the way. You work in your Agent's chat as before; the dashboard is optional, for when you want to see the whole plan at a glance.
 
 The record is plain markdown inside your project, in `.progressor/`, so it is readable, diffable and travels with the repo. See [GLOSSARY.md](GLOSSARY.md) for the words used here and [docs/markdown-format.md](docs/markdown-format.md) for the file format.
 
@@ -288,7 +288,7 @@ The workflow checks that the tag and both files agree, then publishes to npm thr
 
 ## Support
 
-Progressor is free and open source. If it keeps you on track, you can [buy me a coffee](https://buymeacoffee.com/rachitasthana). The link is also in the dashboard's Help menu.
+Progressor is free and open source. If it keeps you on track, you can [buy me a coffee](https://buymeacoffee.com/rachitasthana). The link is also at the bottom of the dashboard's ⚙️ Settings.
 
 ## License
 
