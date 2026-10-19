@@ -48,6 +48,8 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - note: Measure today's token cost first
 - Dashboard you can trust at a glance: stale warning, plan history from git, activity feed ^i7
   - note: Stale warning when a claimed Goal hasn't changed for ~20 minutes
+- Edit or remove a Standing Instruction ^i8
+  - note: Came up fixing the outdated s4 (manual npm publish with a one-time code, now done by the release workflow): there is no tool to change or remove a Standing Instruction, so a replacement had to be added alongside it.
 
 ## Standing Instructions
 
@@ -55,3 +57,4 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
 - Merge finished, tested branches into main yourself; ask before pushing or publishing ^s2
 - Write tests first for anything with logic ^s3
 - A release bundles several finished Goals into one version, through its own release Goal; the Developer runs npm publish with their one-time code ^s4
+- A release bundles several finished Goals into one version, through its own release Goal. Pushing a version tag (v0.4.1) makes the release workflow publish to npm and the MCP Registry by itself; ask the Developer before pushing the tag. This replaces s4. ^s5
