@@ -269,7 +269,7 @@ class Hub {
     if (req.method !== "GET" && req.method !== "HEAD") return json(res, 405, { error: "The dashboard is view-only." });
     try {
       if (path === "/api/servers") return json(res, 200, this.servers());
-      if (path === "/api/info") return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, editor: this.editor });
+      if (path === "/api/info") return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, editor: this.editor, pid: process.pid });
       if (path === "/api/projects") return json(res, 200, this.sync(url.searchParams.has("rescan")));
       if (path === "/api/workspaces") return json(res, 200, listWorkspaces(this.registryFile));
       if (path === "/api/overview") return json(res, 200, this.overview());
@@ -434,7 +434,8 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
 }
 
 export type DashboardApi = ReturnType<typeof dashboardApi>;
-export type InfoView = { app: "progressor"; hub: number; version: string; editor: string };
+/** `pid` is missing from hubs older than 0.3.2. */
+export type InfoView = { app: "progressor"; hub: number; version: string; editor: string; pid?: number };
 export type RoadmapView = ReturnType<DashboardApi["roadmap"]>;
 export type GoalView = NonNullable<ReturnType<DashboardApi["goal"]>>;
 export type GoalSummary = GoalView["goal"];

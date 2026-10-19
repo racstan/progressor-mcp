@@ -2,6 +2,11 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## Unreleased
+
+- The Servers panel no longer stays on "Loading…" when the dashboard is still served by a Progressor from before 0.3.1. It now says so and how to close that process.
+- `/api/info` reports the process ID of the server serving the dashboard.
+
 ## 0.3.1 · Running servers
 
 ### Running servers in the dashboard

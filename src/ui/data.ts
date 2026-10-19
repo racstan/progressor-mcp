@@ -169,15 +169,18 @@ export function useStored<T extends string>(key: string, initial: T | undefined)
   return [value, set];
 }
 
-/** The running Progressor processes, polled every few seconds (and right away on `reload`). */
-export function useServers(): [ServersView | undefined, () => void] {
-  const [servers, setServers] = useState<ServersView>();
+/**
+ * The running Progressor processes, polled every few seconds (and right away on `reload`).
+ * "unsupported" when the process serving the dashboard is a Progressor from before the list existed.
+ */
+export function useServers(): [ServersView | "unsupported" | undefined, () => void] {
+  const [servers, setServers] = useState<ServersView | "unsupported">();
   const [tick, setTick] = useState(0);
   useEffect(() => {
     let alive = true;
     const load = () =>
       getJson<ServersView>("/api/servers")
-        .then((s) => alive && s && setServers(s))
+        .then((s) => alive && setServers(s ?? "unsupported"))
         .catch(() => undefined);
     void load();
     const timer = setInterval(load, 5000);

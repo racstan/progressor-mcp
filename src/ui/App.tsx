@@ -368,7 +368,7 @@ export function App() {
             if (!serversOpen) reloadServers();
           }}>
           🖥<span className="label"> Servers</span>
-          {servers && <span className="count">{servers.servers.length}</span>}
+          {servers && servers !== "unsupported" && <span className="count">{servers.servers.length}</span>}
         </button>
         <div className="views" role="radiogroup" aria-label="View">
           {VIEWS.map((v) => (
@@ -392,7 +392,7 @@ export function App() {
 
       {serversOpen && (
         <MenuPanel label="Servers" onClose={() => setServersOpen(false)}>
-          <ServersPanel servers={servers} reload={reloadServers} toast={toast} />
+          <ServersPanel servers={servers} hub={info} reload={reloadServers} toast={toast} />
         </MenuPanel>
       )}
 

@@ -181,6 +181,13 @@ describe("one dashboard for every project", () => {
     const d = await start(agent, { editor: "cursor" });
     expect((await get(d, "/api/info")).body).toMatchObject({ app: "progressor", hub: 2, editor: "cursor" });
   });
+
+  it("says which process and version serve it, so the page can name an outdated one", async () => {
+    const d = await start(agent);
+    const { body } = await get(d, "/api/info");
+    expect(body.pid).toBe(process.pid);
+    expect(body.version).toMatch(/^\d+\.\d+\.\d+/);
+  });
 });
 
 describe("live updates", () => {

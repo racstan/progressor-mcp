@@ -27,3 +27,10 @@
   - code: `README.md`
   - code: `CHANGELOG.md`
   - code: `docs/adr/0001-mcp-server-hosts-the-dashboard.md`
+- [x] Explain an outdated dashboard instead of loading forever ^t6
+  - summary: After an update, an older Progressor still serving the dashboard serves the new page but has no /api/servers; the panel now says so and how to close it, and /api/info reports the serving pid.
+  - code: `src/ui/Servers.tsx`
+  - code: `src/ui/data.ts`
+  - code: `src/ui/App.tsx`
+  - code: `src/dashboard/http.ts`
+  - code: `test/dashboard.test.ts`

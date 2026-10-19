@@ -1,7 +1,7 @@
 // The Servers panel: every running Progressor process (one per Agent conversation, plus any
 // `progressor-mcp dashboard` command), with a Stop button behind a confirm.
 import { useState } from "react";
-import { type ServersView, stopServer } from "./data.js";
+import { type InfoView, type ServersView, stopServer } from "./data.js";
 
 type Server = ServersView["servers"][number];
 
@@ -26,8 +26,25 @@ function confirmText(s: Server, others: number): string {
     : `${what}\n\nThis is the only one running, so the dashboard goes away until a server starts again.`;
 }
 
-export function ServersPanel({ servers, reload, toast }: { servers: ServersView | undefined; reload: () => void; toast: (m: string) => void }) {
+export function ServersPanel({ servers, hub, reload, toast }: {
+  servers: ServersView | "unsupported" | undefined;
+  /** The process serving this page, as /api/info describes it. */
+  hub: InfoView | undefined;
+  reload: () => void;
+  toast: (m: string) => void;
+}) {
   const [stopping, setStopping] = useState<Set<number>>(new Set());
+  if (servers === "unsupported")
+    return (
+      <section>
+        <h3>Running servers</h3>
+        <p className="empty">
+          This page is served by an older Progressor{hub?.version ? ` (${hub.version})` : ""}, which cannot list servers. Close that
+          process and a newer one takes the dashboard over within a few seconds: end any <code>progressor-mcp dashboard</code> command
+          you left running, and restart the Claude Code conversations that started before you updated.
+        </p>
+      </section>
+    );
   const list = servers?.servers ?? [];
   const stop = async (s: Server) => {
     if (!confirm(confirmText(s, list.length - 1))) return;
