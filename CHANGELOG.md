@@ -2,6 +2,21 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## 0.4.1 · Help and a shorter README
+
+### Report a problem from the dashboard
+
+- The ❓ Help menu opens with **Facing a problem?**: **Report a problem** and **Suggest an idea or share feedback** open a GitHub issue form with your Progressor version (and, for a problem, your system and browser) already filled in, next to a link to the open issues.
+- The Help menu is there on every page, including before a project has any Goals.
+- **Buy me a coffee** moves to the bottom of ⚙️ Settings.
+- `progressor-mcp --version` (or `-v`) prints the version, for bug reports.
+- New issue forms on GitHub for problems and ideas.
+
+### A shorter README
+
+- The README keeps what a new user needs: a **For AI agents** setup prompt to paste into your Agent's chat, a short install, how it works, the dashboard in brief, **Troubleshooting** for the common setup problems, and **Feedback and help**.
+- The details move, unchanged, to [docs/setup.md](docs/setup.md), [docs/dashboard.md](docs/dashboard.md), [docs/reference.md](docs/reference.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## 0.4.0 · Search and long plans
 
 ### Search
