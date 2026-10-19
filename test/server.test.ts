@@ -35,15 +35,18 @@ describe("the MCP server", () => {
         "claim_goal",
         "complete_goal",
         "complete_task",
+        "drop_goal",
         "drop_task",
         "end_detour",
         "get_item",
         "get_status",
+        "move_goal",
         "promote_idea",
         "record_idea",
         "release_goal",
         "start_detour",
         "start_task",
+        "update_goal",
         "update_task",
       ].sort(),
     );
@@ -167,5 +170,72 @@ describe("the MCP server", () => {
       "Dashboard: http://localhost:4747/ (tell the Developer they can follow progress there)",
     );
     expect(refreshed).toBe(1);
+  });
+});
+
+describe("shaping Goals through the tools", () => {
+  it("adds a Goal with a short ID and an Outcome, and shows the Outcome in the status", async () => {
+    expect((await call("add_goal", { title: "Share the screens", id: "web-ui", outcome: "Every screen works on the web" })).text).toContain(
+      "Added Goal web-ui (progressor://web-ui)",
+    );
+    await call("claim_goal", { goal: "web-ui" });
+    expect((await call("get_status")).text).toContain("Outcome: Every screen works on the web");
+    expect((await call("get_item", { ref: "progressor://web-ui" })).text).toContain("Outcome: Every screen works on the web");
+  });
+
+  it("refuses a duplicate title with a way out", async () => {
+    await call("add_goal", { title: "Try it" });
+    const again = await call("add_goal", { title: "Try it" });
+    expect(again.isError).toBe(true);
+    expect(again.text).toMatch(/allow_duplicate/);
+    expect((await call("add_goal", { title: "Try it", allow_duplicate: true })).text).toContain("try-it-2");
+  });
+
+  it("records finished work in one call", async () => {
+    const r = await call("add_goal", { title: "Spike", tasks: [{ title: "A", done: true }, { title: "B", done: true }], done: true });
+    expect(r.text).toBe("Recorded finished Goal spike (progressor://spike) with 2 done Tasks.");
+  });
+
+  it("renames, moves and drops Goals", async () => {
+    await call("add_goal", { title: "One" });
+    await call("add_goal", { title: "Two" });
+    expect((await call("update_goal", { goal: "two", title: "Second", outcome: "It ships" })).text).toContain("Goal two: Second");
+    expect((await call("move_goal", { goal: "two", before: "one" })).text).toBe("Goals in order:\n- two: Second (planned)\n- one: One (planned)");
+    expect((await call("drop_goal", { goal: "one", reason: "Not needed" })).text).toBe("Dropped Goal one: Not needed");
+  });
+});
+
+describe("slash commands", () => {
+  it("offers status, plan and review as prompts", async () => {
+    const { prompts } = await client.listPrompts();
+    expect(prompts.map((p) => p.name).sort()).toEqual(["plan", "review", "status"]);
+    expect(prompts.find((p) => p.name === "plan")!.arguments?.map((a) => [a.name, a.required])).toEqual([["goal", true]]);
+  });
+
+  const text = async (name: string, args: Record<string, string> = {}) =>
+    (await client.getPrompt({ name, arguments: args })).messages.map((m) => (m.content as { text: string }).text).join("\n");
+
+  it("status shows where things stand and asks for a short summary", async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Callback" }] });
+    await call("claim_goal", { goal: "login" });
+    const t = await text("status");
+    expect(t).toContain("Goal: Login (progressor://login), claimed by this Session");
+    expect(t).toMatch(/summari[sz]e/i);
+  });
+
+  it("plan asks for a plan to approve before add_goal", async () => {
+    const t = await text("plan", { goal: "Dark mode for the settings page" });
+    expect(t).toContain("Dark mode for the settings page");
+    expect(t).toMatch(/Outcome/);
+    expect(t).toMatch(/wait for my OK/i);
+    expect(t).toContain("add_goal");
+  });
+
+  it("review lists the Goal's Tasks and says how to reopen it", async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Callback", done: true, summary: "Sets the cookie" }], done: true });
+    const t = await text("review", { goal: "login" });
+    expect(t).toContain("[x] t1 Callback: Sets the cookie");
+    expect(t).toContain("claim_goal");
+    expect(t).toContain("add_tasks");
   });
 });

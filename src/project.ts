@@ -19,6 +19,17 @@ export interface ProjectOptions {
 
 export type DetourEnding = "merge back" | "return" | "recalibrate";
 
+export interface NewGoalOptions {
+  /** A short ID for the Goal's refs, such as "web-ui"; made from the title when absent. */
+  id?: string;
+  /** What done looks like. */
+  outcome?: string;
+  /** Add the Goal even if another one has the same title. */
+  allowDuplicate?: boolean;
+  /** Record a Goal that is already finished, with its finished Tasks. */
+  done?: boolean;
+}
+
 export interface Status {
   goal: Goal | undefined;
   planFile: string | undefined;
@@ -186,14 +197,64 @@ export class Project {
     return roadmap.goal(goal.id)!;
   }
 
-  addGoal(title: string, tasks: NewTask[] = []): Goal {
+  /**
+   * Adds a Goal to the end of the Roadmap. A title some other Goal already has (not counting dropped
+   * ones) is refused unless `allowDuplicate`, since it is usually a mistake. `done` records a Goal
+   * that was finished before it was recorded; all its Tasks must then be done too.
+   */
+  addGoal(title: string, tasks: NewTask[] = [], options: NewGoalOptions = {}): Goal {
     const roadmap = this.roadmap();
-    const goal = roadmap.addGoal(title);
-    this.saveRoadmap(roadmap);
+    const key = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
+    const same = roadmap.goals.find((g) => g.status !== "dropped" && key(g.title) === key(title));
+    if (same && !options.allowDuplicate)
+      throw new Error(
+        `There is already a Goal "${same.title}" (${same.id}, ${same.status}). Use that one, or pass allow_duplicate: true to add another.`,
+      );
+    const unfinished = options.done ? tasks.find((t) => !t.done) : undefined;
+    if (unfinished) throw new Error(`Task "${unfinished.title}" is not done, so the Goal cannot be recorded as done.`);
+    const goal = roadmap.addGoal(title, { id: options.id, outcome: options.outcome });
+    if (options.done) roadmap.setGoalStatus(goal.id, "done");
     const plan = newPlanFile(goal.id, title);
     if (tasks.length > 0) plan.addTasks(tasks);
+    this.saveRoadmap(roadmap);
     this.savePlan(plan);
-    return goal;
+    return roadmap.goal(goal.id)!;
+  }
+
+  /** Renames a Goal or changes its Outcome; its ID, refs and Plan File stay the same. Needs no Claim. */
+  updateGoal(goalId: string, changes: { title?: string; outcome?: string }): Goal {
+    const roadmap = this.roadmap();
+    roadmap.updateGoal(goalId, changes);
+    this.saveRoadmap(roadmap);
+    if (changes.title?.trim()) {
+      const plan = this.plan(goalId);
+      plan.title = changes.title;
+      this.savePlan(plan);
+    }
+    return roadmap.goal(goalId)!;
+  }
+
+  /** Moves a Goal right before or after another, to put the Roadmap in the order the work should happen. */
+  moveGoal(goalId: string, to: { before?: string; after?: string }): Goal[] {
+    const roadmap = this.roadmap();
+    roadmap.moveGoal(goalId, to);
+    this.saveRoadmap(roadmap);
+    return this.roadmap().goals;
+  }
+
+  /** Drops a Goal that will not be done, with the reason; releases this Session's Claim on it. */
+  dropGoal(goalId: string, reason: string): Goal {
+    const roadmap = this.roadmap();
+    const goal = roadmap.goal(goalId);
+    if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
+    if (goal.status === "done" || goal.status === "dropped") throw new Error(`Goal ${goalId} is already ${goal.status}.`);
+    if (this.claimIsLive(goal))
+      throw new Error(`Goal ${goalId} is claimed by Session ${goal.claim!.session}, which is still running; it cannot be dropped from here.`);
+    roadmap.setClaim(goalId, undefined);
+    roadmap.setGoalStatus(goalId, "dropped");
+    roadmap.setGoalReason(goalId, reason);
+    this.saveRoadmap(roadmap);
+    return roadmap.goal(goalId)!;
   }
 
   /** Appends Tasks to the end of the claimed Goal's Task list. */

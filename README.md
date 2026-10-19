@@ -12,7 +12,23 @@ The record is plain markdown inside your project, in `.progressor/`, so it is re
 
 ## Install
 
-With Claude Code, from your project folder:
+With Claude Code, install Progressor once and set your project up from its folder:
+
+```bash
+npm install -g progressor-mcp
+progressor-mcp init
+```
+
+`init` lists what it will change and asks once before doing it (`--yes` skips the question):
+
+- `.mcp.json`: registers the `progressor` MCP server for the project.
+- `.claude/settings.json`: adds the two [Claude Code hooks](#claude-code-hooks-recommended).
+- `CLAUDE.md`: adds a short note telling the Agent to use Progressor.
+- `.progressor/roadmap.md`: an empty Roadmap.
+
+Running it again changes nothing; `progressor-mcp init --remove` takes the first three out again and leaves your `.progressor/` record alone. Restart Claude Code in the folder afterwards.
+
+To only add the server, without the hooks or the note:
 
 ```bash
 claude mcp add progressor -- npx -y progressor-mcp
@@ -27,13 +43,7 @@ An Agent can forget to call `get_status`, especially after its context has been 
 - **At session start, on resume and after compaction**, the Agent gets the full status: the Goal, the current Task and its summary, any open Detour, the next Task and your Standing Instructions.
 - **On every message**, it gets one line, such as `[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Next: t3 End-to-end tests`. The line is left out when no Goal is being worked on.
 
-The hooks run on every message, so install Progressor once, globally, for a fast start:
-
-```bash
-npm install -g progressor-mcp
-```
-
-Then add this to `.claude/settings.json` in your project (or to `~/.claude/settings.json` for every project). If the file already has a `hooks` section, add these two entries to it:
+`progressor-mcp init` sets them up for you. To add them by hand, install Progressor globally (`npm install -g progressor-mcp`), then add this to `.claude/settings.json` in your project (or to `~/.claude/settings.json` for every project). If the file already has a `hooks` section, add these two entries to it:
 
 ```json
 {
@@ -44,7 +54,7 @@ Then add this to `.claude/settings.json` in your project (or to `~/.claude/setti
 }
 ```
 
-The hook reads `.progressor/` straight from disk, so it needs no running server, and it prints nothing in projects that don't use Progressor. It never blocks or fails a message: if anything goes wrong, it stays silent. Without a global install, use `npx -y progressor-mcp hook ...` as the command instead; it works the same, just a little slower.
+The hook reads `.progressor/` straight from disk, so it needs no running server, and it prints nothing in projects that don't use Progressor. It never blocks or fails a message: if anything goes wrong, it stays silent. Without a global install, `npx -y progressor-mcp hook ...` works as the command too, but npx adds about 1.5 seconds to every message while it checks the package, so a global install is recommended.
 
 ## How it works
 
@@ -59,6 +69,8 @@ The hook reads `.progressor/` straight from disk, so it needs no running server,
 6. Lasting rules you give the Agent ("ask me before recalibrating") are saved as **Standing Instructions** and shown in every `get_status`, so they survive context compression and new conversations.
 
 You steer by talking to the Agent; it is the only writer of the `.progressor/` files. You can still edit them by hand: Progressor keeps everything it does not recognise and only rewrites the lines it changes.
+
+A Goal can have an **Outcome**, one line saying what done looks like ("users can sign in with Google and stay signed in"), and a short ID of your choosing (`oauth`) instead of one made from its title. The Outcome is shown with the status and on the dashboard. Adding a Goal with the same title as an existing one is refused unless the Agent says it means it. Work that is already finished can be recorded in one call, as a done Goal with done Tasks, so the Roadmap shows it too.
 
 Every item has a ref such as `progressor://ship-oauth-login/t2` that you can paste into the chat; the Agent looks it up with `get_item`.
 
@@ -117,6 +129,16 @@ The folder is remembered as a Workspace in `~/.progressor/workspaces.json`, so t
 
 When the dashboard shows more than one project, its start page is the overview of them all (**🗂 All projects** in the switcher).
 
+### Slash commands
+
+In Claude Code, Progressor adds three commands to the `/` menu:
+
+| Command                          | What it does                                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `/mcp__progressor__status`       | A short summary of where things stand; with no Goal claimed, the Goals to pick from.             |
+| `/mcp__progressor__plan <goal>`  | The Agent proposes a title, short ID, Outcome and Tasks for the Goal you describe, and waits for your OK before adding it. |
+| `/mcp__progressor__review [goal]` | The Agent checks a Goal's finished Tasks against the code and its Outcome, and says what is missing. |
+
 ## Example
 
 ```markdown
@@ -146,7 +168,10 @@ When the dashboard shows more than one project, its start page is the overview o
 | -------------------------- | ---------------------------------------------------------------------------- |
 | `get_status`               | Summary of the claimed Goal, current Task, open Detour, next Task and Standing Instructions. |
 | `get_item`                 | Looks up any item by ref, with its file and line.                            |
-| `add_goal`                 | Adds a Goal to the Roadmap, with an optional Task list.                      |
+| `add_goal`                 | Adds a Goal to the Roadmap, with an optional Task list, Outcome and short ID; with `done`, records finished work. |
+| `update_goal`              | Renames a Goal or changes its Outcome.                                       |
+| `move_goal`                | Moves a Goal before or after another on the Roadmap.                         |
+| `drop_goal`                | Drops a Goal that is no longer wanted, with a reason.                        |
 | `claim_goal`               | Claims a Goal for this Session (pausing any other it held).                  |
 | `release_goal`             | Releases the Claim; the Goal is paused.                                      |
 | `complete_goal`            | Marks the claimed Goal done.                                                 |

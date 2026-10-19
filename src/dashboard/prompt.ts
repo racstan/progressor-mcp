@@ -13,6 +13,8 @@ export interface PromptGoal {
   line: number;
   planFile: string;
   claim?: { session: string } | undefined;
+  /** What done looks like. */
+  outcome?: string | undefined;
 }
 
 export type PromptSubject =
@@ -102,6 +104,7 @@ export function copyAsPrompt(subject: PromptSubject): string {
       return [
         `[Progressor] Goal ${quote(goal.title)} (${goal.status}${claim})`,
         `Ref: ${goal.ref}`,
+        ...(goal.outcome ? [`Outcome: ${goal.outcome}`] : []),
         `Location: .progressor/roadmap.md:${goal.line}`,
         `Plan File: ${goal.planFile}`,
         `Progress: ${live.filter((t) => t.status === "done").length} of ${live.length} Tasks done`,

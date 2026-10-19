@@ -32,6 +32,10 @@ export interface Goal {
   status: GoalStatus;
   line: number;
   claim: Claim | undefined;
+  /** What done looks like: once it is true, the Goal can be completed. */
+  outcome: string | undefined;
+  /** Why the Goal was dropped. */
+  reason: string | undefined;
 }
 
 export interface Idea {
@@ -58,6 +62,9 @@ export const ROADMAP_REF = "roadmap";
 const GOAL_MARKER: Record<GoalMarker, Marker> = { planned: " ", started: "/", done: "x", dropped: "-" };
 const LINK = /^\[(.*)\]\((.*)\)$/;
 const CLAIM = /^(\S+)(?:\s+\(pid (\d+)\))?(?:\s+since\s+(\S+))?/;
+/** A Goal ID chosen by the Agent: the end of every ref into the Goal, so short and URL-safe. */
+const GOAL_ID = /^[a-z0-9][a-z0-9-]{0,47}$/;
+const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 
 export function slugify(title: string): string {
   const slug = title
@@ -108,6 +115,8 @@ export class Roadmap {
         status,
         line: b.line,
         claim,
+        outcome: getDetail(b, "outcome"),
+        reason: getDetail(b, "reason"),
       };
     });
   }
@@ -173,12 +182,46 @@ export class Roadmap {
     return id;
   }
 
-  addGoal(title: string): Goal {
+  /** Adds a Goal at the end of the Roadmap, under the given ID or one made from its title. */
+  addGoal(title: string, options: { id?: string; outcome?: string } = {}): Goal {
     this.ensureTitle();
     this.assignMissingIds();
-    const id = this.freeGoalId(title);
-    appendToSection(this.doc, GOALS, [newItem({ marker: " ", text: `[${title}](goals/${id}.md)`, id })]);
+    const id = options.id ?? this.freeGoalId(title);
+    if (options.id !== undefined) {
+      if (!GOAL_ID.test(id)) throw new Error(`Goal ID "${id}" must be up to 48 lowercase letters, digits and dashes, such as "web-ui".`);
+      if (id === ROADMAP_REF) throw new Error(`Goal ID "${id}" is reserved; pick another.`);
+      if (itemsIn(this.doc, GOALS).some((b) => b.id === id)) throw new Error(`Goal ID "${id}" is already used; pick another.`);
+    }
+    const b = newItem({ marker: " ", text: `[${oneLine(title)}](goals/${id}.md)`, id });
+    if (options.outcome?.trim()) addDetail(b, "outcome", oneLine(options.outcome));
+    appendToSection(this.doc, GOALS, [b]);
     return this.goal(id)!;
+  }
+
+  /** Changes a Goal's title (its ID and Plan File stay) or its Outcome; an empty Outcome removes it. */
+  updateGoal(id: string, changes: { title?: string; outcome?: string }): void {
+    const b = this.goalBlock(id);
+    if (changes.title?.trim()) {
+      const link = LINK.exec(b.text);
+      b.text = `[${oneLine(changes.title)}](${link ? link[2] : `goals/${id}.md`})`;
+    }
+    if (changes.outcome !== undefined) setDetail(b, "outcome", changes.outcome.trim() ? oneLine(changes.outcome) : undefined);
+  }
+
+  /** Moves a Goal, with its details, right before or after another Goal. */
+  moveGoal(id: string, to: { before?: string; after?: string }): void {
+    const target = to.before ?? to.after;
+    if (!target || (to.before && to.after)) throw new Error("Say where the Goal goes: before or after another Goal.");
+    if (target === id) throw new Error("A Goal cannot move before or after itself.");
+    const moving = this.goalBlock(id);
+    this.goalBlock(target);
+    this.doc.blocks.splice(this.doc.blocks.indexOf(moving), 1);
+    const at = this.doc.blocks.indexOf(this.goalBlock(target));
+    this.doc.blocks.splice(to.before ? at : at + 1, 0, moving);
+  }
+
+  setGoalReason(id: string, reason: string | undefined): void {
+    setDetail(this.goalBlock(id), "reason", reason && oneLine(reason));
   }
 
   setGoalStatus(id: string, status: GoalMarker): void {

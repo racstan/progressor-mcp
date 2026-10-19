@@ -302,7 +302,7 @@ export function App() {
     const fresh = grouped.fresh.has(g.id);
     return (
       <button key={g.id} className={`goal ${g.status} ${fresh ? "fresh" : ""}`} aria-current={g.id === effectiveGoal}
-        title={fresh ? "Finished: open it to take a look" : "Right-click for more"}
+        title={fresh ? "Finished: open it to take a look" : g.outcome ? `Done when: ${g.outcome} (right-click for more)` : "Right-click for more"}
         onClick={() => pickGoal(g.id)}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -704,12 +704,13 @@ function Banner({ view, detours, status, planLink, onCopy }: {
           <>
             <div>
               <b>{goal.title}:</b>{" "}
-              {current ? `now on "${current.title}"` : goal.status === "done" ? "Goal complete" : goal.status === "dropped" ? "Goal dropped" : "nothing in progress"}
+              {current ? `now on "${current.title}"` : goal.status === "done" ? "Goal complete" : goal.status === "dropped" ? `Goal dropped${goal.reason ? `: ${plainText(goal.reason)}` : ""}` : "nothing in progress"}
             </div>
             <div className="k">
               {status} · {goal.done} of {goal.total} Tasks done
               {next ? ` · Next stop: ${next.title}` : ""}
             </div>
+            {goal.outcome && <div className="k outcome">🎯 Done when: {plainText(goal.outcome)}</div>}
           </>
         )}
       </div>
@@ -748,6 +749,7 @@ function describe(subject: PromptSubject): { title: string; meta: string; summar
       return {
         title: subject.goal.title,
         meta: `Goal · ${GOAL_STATUS[subject.goal.status]}`,
+        summary: subject.goal.outcome && `Done when: ${subject.goal.outcome}`,
         locations: [{ path: subject.goal.planFile, label: `📄 ${subject.goal.planFile}` }],
       };
     case "idea":

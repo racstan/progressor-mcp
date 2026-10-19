@@ -10,9 +10,13 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
 - [x] [Workspaces](goals/workspaces.md) ^workspaces
 - [/] [Release 0.2.0](goals/release-0-2-0.md) ^release-0-2-0
 - [ ] [Automatic drift detection](goals/drift-detection.md) ^drift-detection
-- [ ] [One-command setup](goals/one-command-setup.md) ^one-command-setup
+- [x] [One-command setup](goals/one-command-setup.md) ^one-command-setup
 - [/] [Public GitHub repo and launch](goals/github-launch.md) ^github-launch
-- [ ] [Slash commands in chat](goals/slash-commands.md) ^slash-commands
+- [/] [Slash commands in chat](goals/slash-commands.md) ^slash-commands
+- [x] [Goal shaping from Developer feedback](goals/goal-shaping.md) ^goal-shaping
+  - outcome: Goals can be renamed, reordered, dropped, given an Outcome and a short ID, recorded as already done, and duplicates are caught
+- [/] [Release 0.3.0](goals/release-0-3-0.md) ^release-0-3-0
+  - outcome: progressor-mcp 0.3.0 is on npm and in the MCP Registry with init, slash commands and the Goal tools
 
 ## Ideas
 

@@ -24,6 +24,7 @@ function fullStatus(s: Status): string[] {
   const d = s.openDetour;
   return [
     `Goal: ${s.goal?.title} (${s.goal?.ref}), ${s.done} of ${s.total} Tasks done`,
+    ...(s.goal?.outcome ? [`Outcome: ${s.goal.outcome}`] : []),
     s.currentTask ? `Current Task: ${task(s.currentTask)} (${s.planFile}:${s.currentTask.line})` : "Current Task: none started",
     ...(s.currentTask?.summary ? [`  Summary: ${s.currentTask.summary}`] : []),
     ...(d ? [`Open Detour: ${d.id} ${d.title}${d.branchedFrom ? `, branched from ${d.branchedFrom}` : ""}. Reason: ${d.reason ?? "none given"}`] : []),

@@ -46,6 +46,10 @@ _Avoid_: Backlog, plan list
 An outcome being worked toward, such as "Ship OAuth login".
 _Avoid_: Objective, epic, project
 
+**Outcome**:
+One line saying what done looks like for a Goal, used to judge whether it is finished.
+_Avoid_: Acceptance criteria, definition of done, success metric
+
 **Plan File**:
 The markdown file that holds one Goal's Tasks and Detours, and the place every one of them can be opened.
 _Avoid_: Audit file, progress file, todo file

@@ -327,3 +327,122 @@ describe("getting an item by ref", () => {
     expect(() => agent.getItem("t1")).toThrow(/progressor:\/\//);
   });
 });
+
+describe("shaping Goals", () => {
+  const goalIds = (p: Project) => p.roadmap().goals.map((g) => g.id);
+
+  it("takes a short ID and an Outcome when a Goal is added", () => {
+    const agent = session("s-a", 100);
+    const goal = agent.addGoal("Share the screens with Compose Multiplatform", [], {
+      id: "web-ui",
+      outcome: "The web build shows every screen the Android app has",
+    });
+
+    expect(goal.ref).toBe("progressor://web-ui");
+    expect(goal.outcome).toBe("The web build shows every screen the Android app has");
+    expect(read("roadmap.md")).toContain(
+      "- [ ] [Share the screens with Compose Multiplatform](goals/web-ui.md) ^web-ui\n  - outcome: The web build shows every screen the Android app has\n",
+    );
+    expect(() => agent.addGoal("Other", [], { id: "web-ui" })).toThrow(/already used/);
+    expect(() => agent.addGoal("Other", [], { id: "Web UI!" })).toThrow(/lowercase letters, digits and dashes/);
+    expect(() => agent.addGoal("Other", [], { id: "roadmap" })).toThrow(/reserved/);
+  });
+
+  it("refuses a second Goal with the same title unless asked for one", () => {
+    const agent = session("s-a", 100);
+    agent.addGoal("Try it");
+
+    expect(() => agent.addGoal("  try IT ")).toThrow(/already a Goal "Try it" \(try-it, planned\).*allow_duplicate/);
+    expect(agent.addGoal("Try it", [], { allowDuplicate: true }).id).toBe("try-it-2");
+  });
+
+  it("lets a dropped Goal's title be used again", () => {
+    const agent = session("s-a", 100);
+    agent.addGoal("Try it");
+    agent.dropGoal("try-it", "Wrong approach");
+
+    expect(agent.addGoal("Try it").id).toBe("try-it-2");
+  });
+
+  it("renames a Goal and changes or clears its Outcome, keeping its ID", () => {
+    const agent = session("s-a", 100);
+    agent.addGoal("Web", [{ title: "One" }], { outcome: "Old" });
+
+    agent.updateGoal("web", { title: "Web UI", outcome: "Every screen works in the browser" });
+    expect(agent.roadmap().goal("web")).toMatchObject({ title: "Web UI", outcome: "Every screen works in the browser" });
+    expect(read("goals/web.md").split("\n")[0]).toBe("# Web UI");
+
+    agent.updateGoal("web", { outcome: "" });
+    expect(agent.roadmap().goal("web")!.outcome).toBeUndefined();
+    expect(() => agent.updateGoal("nope", { title: "x" })).toThrow(/No Goal nope/);
+  });
+
+  it("moves a Goal before or after another, with its details", () => {
+    const agent = session("s-a", 100);
+    for (const t of ["Phase one", "Phase two", "Phase three"]) agent.addGoal(t);
+    agent.updateGoal("phase-three", { outcome: "Ships" });
+
+    agent.moveGoal("phase-three", { before: "phase-one" });
+    expect(goalIds(agent)).toEqual(["phase-three", "phase-one", "phase-two"]);
+    expect(agent.roadmap().goal("phase-three")!.outcome).toBe("Ships");
+
+    agent.moveGoal("phase-three", { after: "phase-two" });
+    expect(goalIds(agent)).toEqual(["phase-one", "phase-two", "phase-three"]);
+    expect(() => agent.moveGoal("phase-one", {})).toThrow(/before or after/);
+    expect(() => agent.moveGoal("phase-one", { before: "phase-one" })).toThrow(/itself/);
+  });
+
+  it("drops a Goal with a reason and releases this Session's Claim on it", () => {
+    const agent = session("s-a", 100);
+    agent.addGoal("Spike");
+    agent.claimGoal("spike");
+
+    agent.dropGoal("spike", "The library cannot do it");
+    const goal = agent.roadmap().goal("spike")!;
+    expect(goal).toMatchObject({ status: "dropped", reason: "The library cannot do it", claim: undefined });
+    expect(agent.status().goal).toBeUndefined();
+    expect(() => agent.claimGoal("spike")).toThrow(/dropped/);
+  });
+
+  it("does not drop a Goal another running Session holds, or one that is done", () => {
+    session("s-a", 100).addGoal("Login", [{ title: "One" }]);
+    session("s-a", 100).claimGoal("login");
+    expect(() => session("s-b", 200).dropGoal("login", "x")).toThrow(/claimed by Session s-a/);
+
+    const agent = session("s-a", 100);
+    agent.completeTask("t1");
+    agent.completeGoal();
+    expect(() => agent.dropGoal("login", "x")).toThrow(/done/);
+  });
+});
+
+describe("recording finished work", () => {
+  it("adds a finished Goal and its finished Tasks in one call", () => {
+    const agent = session("s-a", 100);
+    const goal = agent.addGoal("Spike", [{ title: "Try A", done: true }, { title: "Try B", done: true, summary: "B works" }], {
+      done: true,
+    });
+
+    expect(goal.status).toBe("done");
+    expect(read("goals/spike.md")).toContain("- [x] Try A ^t1\n- [x] Try B ^t2\n  - summary: B works\n");
+    expect(agent.status().goal).toBeUndefined();
+  });
+
+  it("refuses to mark a Goal done while a Task is not, and writes nothing", () => {
+    const agent = session("s-a", 100);
+    expect(() => agent.addGoal("Spike", [{ title: "Try A", done: true }, { title: "Try B" }], { done: true })).toThrow(
+      /Try B.*not done/,
+    );
+    expect(agent.roadmap().goals).toEqual([]);
+  });
+
+  it("adds finished Tasks to the claimed Goal", () => {
+    const agent = session("s-a", 100);
+    agent.addGoal("Login", [{ title: "One" }]);
+    agent.claimGoal("login");
+    agent.addTasks([{ title: "Already fixed", done: true }]);
+
+    expect(agent.plan("login").task("t2")!.status).toBe("done");
+    expect(agent.status().nextTask?.id).toBe("t1");
+  });
+});

@@ -69,6 +69,8 @@ export interface NewTask {
   title: string;
   summary?: string;
   code?: string[];
+  /** Added already done, for work that happened before it was recorded. */
+  done?: boolean;
 }
 
 export interface TaskChanges {
@@ -108,6 +110,12 @@ export class PlanFile {
   get title(): string {
     const h = this.doc.blocks.find((b): b is HeadingBlock => b.type === "heading" && b.level === 1);
     return h?.text ?? this.goalId;
+  }
+
+  set title(title: string) {
+    const h = this.doc.blocks.find((b): b is HeadingBlock => b.type === "heading" && b.level === 1);
+    if (h) h.text = oneLine(title);
+    else this.doc.blocks.unshift(newHeading(1, oneLine(title)), { type: "text", text: "" });
   }
 
   private taskBlocks(): ItemBlock[] {
@@ -204,7 +212,7 @@ export class PlanFile {
     const blocks = tasks.map((t) => {
       const id = nextId([...this.allIds(), ...ids], "t");
       ids.push(id);
-      const b = newItem({ marker: " ", text: oneLine(t.title), id });
+      const b = newItem({ marker: t.done ? "x" : " ", text: oneLine(t.title), id });
       if (t.summary?.trim()) addDetail(b, "summary", oneLine(t.summary));
       for (const c of t.code ?? []) addDetail(b, "code", `\`${c}\``);
       if (addedBy) addDetail(b, "added by", `^${addedBy}`);

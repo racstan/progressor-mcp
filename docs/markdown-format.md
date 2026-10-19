@@ -16,6 +16,7 @@ The files are written by the Agent through Progressor's tools, but they are ordi
 
 - [/] [Ship OAuth login](goals/ship-oauth-login.md) ^ship-oauth-login
   - claimed by: s-7f3a (pid 18244) since 2026-10-18T15:02:11.000Z
+  - outcome: Users can sign in with Google and stay signed in across restarts
 - [ ] [Billing](goals/billing.md) ^billing
 - [x] [Project setup](goals/project-setup.md) ^project-setup
 
@@ -106,6 +107,8 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 | Task     | `dropped by`   | The Detour whose Recalibration dropped this Task (`^d1`).                |
 | Task     | `reason`       | Why the Task was dropped, when dropped directly.                         |
 | Goal     | `claimed by`   | The Claim: `<session> (pid <pid>) since <ISO time>`.                     |
+| Goal     | `outcome`      | The Outcome: what done looks like, on one line.                          |
+| Goal     | `reason`       | Why the Goal was dropped.                                                |
 | Idea     | `promoted to`  | The ref of the Task or Goal it was promoted to.                          |
 | Idea     | `note`         | Free text recorded with the Idea.                                        |
 

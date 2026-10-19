@@ -2,6 +2,36 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## 0.3.0 · Setup, slash commands and shaping Goals
+
+### One-command setup
+
+- New `progressor-mcp init [folder]`. It registers the MCP server in `.mcp.json`, adds the status hooks to `.claude/settings.json`, adds a short note for the Agent to `CLAUDE.md` and creates an empty Roadmap.
+  - It lists the changes and asks once; `--yes` skips the question.
+  - Running it again changes nothing.
+  - `--remove` takes it out again and leaves `.progressor/` alone.
+- When run through npx, it says that npx adds about 1.5 seconds to every message and suggests a global install. The README's hooks section says the same.
+
+### Slash commands
+
+- Three MCP prompts, which Claude Code shows as `/mcp__progressor__status`, `/mcp__progressor__plan <goal>` and `/mcp__progressor__review [goal]`.
+
+### Shaping Goals
+
+- New tools:
+  - `update_goal` renames a Goal or changes its Outcome.
+  - `move_goal` reorders the Roadmap.
+  - `drop_goal` drops a Goal with a reason.
+- A Goal can have an **Outcome**, one line on what done looks like. It is shown in the status, the session-start hook, Copy as prompt and the dashboard banner.
+- `add_goal` takes an optional short `id`.
+- `add_goal` refuses a second Goal with the same title unless `allow_duplicate` is set.
+- Finished work can be recorded in one call: `add_goal` with `done: true` and Tasks marked `done`.
+- Clearer tool descriptions.
+
+### Dashboard
+
+- `progressor-mcp dashboard <folder>` now says when it remembers a new folder as a Workspace, and how to forget it.
+
 ## 0.2.1
 
 - Dashboard: the Goal on screen stays on screen when it finishes, instead of jumping to the next planned Goal.

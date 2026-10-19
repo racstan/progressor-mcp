@@ -5,7 +5,7 @@ import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { startDashboard } from "./dashboard/http.js";
-import { forgetWorkspace } from "./dashboard/registry.js";
+import { forgetWorkspace, listWorkspaces, projectEntry } from "./dashboard/registry.js";
 import { findProjects } from "./dashboard/workspace.js";
 
 const USAGE = `Usage: progressor-mcp dashboard [folder] [--no-open]
@@ -42,6 +42,7 @@ export async function runDashboardCommand(args: string[]): Promise<number> {
   }
 
   const found = findProjects(folder).length;
+  const known = listWorkspaces().some((w) => w.id === projectEntry(folder).id);
   const dashboard = await startDashboard({
     workspace: folder,
     port: process.env.PROGRESSOR_PORT ? Number(process.env.PROGRESSOR_PORT) : undefined,
@@ -53,6 +54,11 @@ export async function runDashboardCommand(args: string[]): Promise<number> {
       ? `No projects with a .progressor/ Roadmap in ${folder} yet. They appear once an Agent adds a Goal in one.`
       : `${found} ${found === 1 ? "project" : "projects"} in ${folder}.`,
   );
+  if (!known)
+    console.log(
+      "Remembered this folder as a Workspace, so the dashboard keeps showing its projects. Remove it with: progressor-mcp dashboard --forget " +
+        (args.find((a) => !a.startsWith("-")) ?? "."),
+    );
   console.log(`Dashboard: ${dashboard.url}`);
   if (!args.includes("--no-open")) openInBrowser(dashboard.url);
 
