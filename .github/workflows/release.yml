@@ -67,11 +67,11 @@ jobs:
 
       - name: Publish to the MCP Registry
         run: |
-          name=$(node -p "require('./server.json').name")
-          latest=$(curl -fsSL "https://registry.modelcontextprotocol.io/v0/servers?search=$name" \
-            | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const v=JSON.parse(s).servers.filter(x=>x.server.name==='$name').map(x=>x.server.version);console.log(v.join(' '))})")
-          if [[ " $latest " == *" ${{ steps.version.outputs.version }} "* ]]; then
-            echo "$name ${{ steps.version.outputs.version }} is already in the MCP Registry."
+          name=$(node -p "encodeURIComponent(require('./server.json').name)")
+          # Ask for this exact version: the search listing is cached and can lag behind.
+          status=$(curl -s -o /dev/null -w "%{http_code}" "https://registry.modelcontextprotocol.io/v0/servers/$name/versions/${{ steps.version.outputs.version }}")
+          if [ "$status" = "200" ]; then
+            echo "Version ${{ steps.version.outputs.version }} is already in the MCP Registry."
           else
             ./mcp-publisher login github-oidc
             ./mcp-publisher publish
