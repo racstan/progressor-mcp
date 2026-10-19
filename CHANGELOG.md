@@ -2,7 +2,7 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
-## Unreleased
+## 0.3.1 · Running servers
 
 ### Running servers in the dashboard
 
