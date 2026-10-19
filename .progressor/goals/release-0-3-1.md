@@ -7,7 +7,8 @@
   - code: `package.json`
   - code: `server.json`
   - code: `package-lock.json`
-- [/] Release workflow publishes it ^t2
-  - summary: Pushing the v0.3.1 tag publishes to npm through trusted publishing (its first run, which validates it) and to the MCP Registry.
-- [ ] Check npm and the MCP Registry ^t3
-  - summary: Both show 0.3.1 as the latest version, and npm shows its provenance.
+- [x] Release workflow publishes it ^t2
+  - summary: The v0.3.1 tag published to npm through trusted publishing; npm took about 4 minutes to serve it, so the Registry step failed once. The workflow now waits for npm, and a re-run published to the Registry.
+  - code: `.github/workflows/release.yml`
+- [x] Check npm and the MCP Registry ^t3
+  - summary: npm latest is 0.3.1 with SLSA provenance; the MCP Registry lists 0.3.1 as latest; the global install is updated.

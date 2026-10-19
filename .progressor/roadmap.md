@@ -15,13 +15,12 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
 - [/] [Slash commands in chat](goals/slash-commands.md) ^slash-commands
 - [x] [Goal shaping from Developer feedback](goals/goal-shaping.md) ^goal-shaping
   - outcome: Goals can be renamed, reordered, dropped, given an Outcome and a short ID, recorded as already done, and duplicates are caught
-- [/] [Release 0.3.0](goals/release-0-3-0.md) ^release-0-3-0
+- [x] [Release 0.3.0](goals/release-0-3-0.md) ^release-0-3-0
   - outcome: progressor-mcp 0.3.0 is on npm and in the MCP Registry with init, slash commands and the Goal tools
 - [x] [Running servers in the dashboard](goals/servers-panel.md) ^servers-panel
   - outcome: The dashboard lists every running Progressor process with its folder, memory and age, and stops any of them after a confirm; stopping the one that serves the dashboard hands it to another.
-- [/] [Release 0.3.1](goals/release-0-3-1.md) ^release-0-3-1
+- [x] [Release 0.3.1](goals/release-0-3-1.md) ^release-0-3-1
   - outcome: progressor-mcp 0.3.1 with the Servers panel is on npm and in the MCP Registry, published by the GitHub workflow alone.
-  - claimed by: s-0af93d (pid 2836) since 2026-10-19T06:16:36.827Z
 
 ## Ideas
 
