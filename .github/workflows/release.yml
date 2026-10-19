@@ -1,0 +1,69 @@
+# Publishes a release when a version tag (v0.3.0) is pushed: to npm through npm's trusted publishing
+# (no token or one-time code; npm trusts this workflow file) and then to the official MCP Registry,
+# signed in through GitHub. Each step skips itself if that version is already published, so a run
+# can be repeated safely. "Run workflow" on the Actions tab publishes the version in package.json.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # trusted publishing on npm and the MCP Registry sign-in
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      # Trusted publishing needs npm 11.5.1 or later; Node 22 ships npm 10.
+      - run: npm install -g npm@11.21.1
+
+      - name: Check the versions agree
+        id: version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          server=$(node -p "require('./server.json').version")
+          package=$(node -p "require('./server.json').packages[0].version")
+          if [ "$server" != "$version" ] || [ "$package" != "$version" ]; then
+            echo "::error::server.json says $server / $package but package.json says $version"; exit 1
+          fi
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"; exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - run: npm ci
+
+      - name: Publish to npm
+        run: |
+          if npm view "progressor-mcp@${{ steps.version.outputs.version }}" version >/dev/null 2>&1; then
+            echo "progressor-mcp ${{ steps.version.outputs.version }} is already on npm."
+          else
+            npm publish # prepublishOnly typechecks, tests and builds
+          fi
+
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL -o mcp-publisher.tar.gz https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz
+          echo "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc  mcp-publisher.tar.gz" | sha256sum -c -
+          tar xzf mcp-publisher.tar.gz mcp-publisher
+
+      - name: Publish to the MCP Registry
+        run: |
+          name=$(node -p "require('./server.json').name")
+          latest=$(curl -fsSL "https://registry.modelcontextprotocol.io/v0/servers?search=$name" \
+            | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const v=JSON.parse(s).servers.filter(x=>x.server.name==='$name').map(x=>x.server.version);console.log(v.join(' '))})")
+          if [[ " $latest " == *" ${{ steps.version.outputs.version }} "* ]]; then
+            echo "$name ${{ steps.version.outputs.version }} is already in the MCP Registry."
+          else
+            ./mcp-publisher login github-oidc
+            ./mcp-publisher publish
+          fi

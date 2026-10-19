@@ -208,6 +208,20 @@ node scripts/dashboard.mjs test/fixtures/sample-project
 
 `npm run dev:ui` rebuilds the page on every change; reload the browser to see it. The server side of the dashboard is in `src/dashboard/`: the HTTP server and API (`http.ts`), the project list (`registry.ts`), the file watcher (`watch.ts`), and the pure logic shared with the page: the metro map layout (`graph.ts`), the Copy-as-prompt text (`prompt.ts`) and the editor links (`editor.ts`).
 
+### Releasing
+
+Releases publish themselves from GitHub Actions ([release.yml](.github/workflows/release.yml)). Bump the version in `package.json` and `server.json` (both `version` and `packages[0].version`), add a `CHANGELOG.md` entry, commit, then tag and push:
+
+```bash
+git tag v0.3.1
+```
+
+```bash
+git push origin main --tags
+```
+
+The workflow checks that the tag and both files agree, then publishes to npm through npm's trusted publishing (no token or one-time code) and to the official MCP Registry, signed in through GitHub. A version already published is skipped, so a failed run can simply be run again from the Actions tab.
+
 ## Support
 
 Progressor is free and open source. If it keeps you on track, you can [buy me a coffee](https://buymeacoffee.com/rachitasthana). The link is also in the dashboard's Help menu.
