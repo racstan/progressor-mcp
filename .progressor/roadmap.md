@@ -31,9 +31,8 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: A new user (or their Agent) can set Progressor up from the README alone, and anyone stuck can report a problem from the dashboard's Help menu in one click.
 - [x] [Shorter README](goals/short-readme.md) ^short-readme
   - outcome: The README holds only what a new user needs to set up, use and get help; the details live in docs/ and CONTRIBUTING.md, linked from it.
-- [/] [Release 0.4.1](goals/release-0-4-1.md) ^release-0-4-1
+- [x] [Release 0.4.1](goals/release-0-4-1.md) ^release-0-4-1
   - outcome: 0.4.1, with the Help menu feedback links, --version and the shorter README, is on npm and the MCP Registry.
-  - claimed by: s-45742b (pid 15232) since 2026-10-19T13:32:27.973Z
 
 ## Ideas
 
