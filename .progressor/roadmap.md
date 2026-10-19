@@ -29,6 +29,8 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: progressor-mcp 0.4.0 with search, the flat project list and wrapped Across maps is on npm and in the MCP Registry, published by the release workflow.
 - [x] [Onboarding docs and feedback](goals/feedback.md) ^feedback
   - outcome: A new user (or their Agent) can set Progressor up from the README alone, and anyone stuck can report a problem from the dashboard's Help menu in one click.
+- [x] [Shorter README](goals/short-readme.md) ^short-readme
+  - outcome: The README holds only what a new user needs to set up, use and get help; the details live in docs/ and CONTRIBUTING.md, linked from it.
 
 ## Ideas
 
