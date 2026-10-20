@@ -43,9 +43,8 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: 0.5.2, where the dashboard's top bar fits a half-screen window, is on npm and the MCP Registry.
 - [/] [Simple for vibe coders](goals/simple.md) ^simple
   - outcome: Someone who doesn't code can follow what their Agent is doing on the dashboard without learning Progressor's terms, and never has to manage the plan themselves.
-- [/] [Agent and reliability](goals/agent-first.md) ^agent-first
+- [x] [Agent and reliability](goals/agent-first.md) ^agent-first
   - outcome: In any MCP app the Agent keeps the plan in the right folder, runs the whole loop without asking the human, and the known bugs are fixed.
-  - claimed by: s-0b50c4 (pid 4180) since 2026-10-20T05:21:42.273Z
 - [ ] [Plain-English dashboard](goals/plain-dashboard.md) ^plain-dashboard
   - outcome: Someone who doesn't code can tell at a glance what the AI is doing, how far along it is, and whether it stopped, with every word plain and every control explained on hover.
 - [ ] [Thorough docs](goals/docs.md) ^docs

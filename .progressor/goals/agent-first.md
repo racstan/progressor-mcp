@@ -39,12 +39,12 @@
   - code: `src/project.ts`
   - code: `test/server.test.ts`
   - code: `test/roadmap.test.ts`
-- [/] Agent runs the loop itself ^t7
+- [x] Agent runs the loop itself ^t7
   - summary: Seven short plain rules: resume a single paused Goal, propose a plan unasked, add_goal with claim, finish the Goal and tell the Developer, plain words, the dashboard link only at the start and at the end; each tool result ends with a one-line Now/Next reminder.
   - code: `src/server.ts`
   - code: `src/prompts.ts`
   - code: `test/server.test.ts`
-- [ ] Setup for every app ^t8
+- [x] Setup for every app ^t8
   - summary: Test-first: setup also writes Progressor's note to AGENTS.md, which most other MCP apps read; the setup command says the Agent runs the command itself.
   - code: `src/init.ts`
   - code: `src/initCommand.ts`
