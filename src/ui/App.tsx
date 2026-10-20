@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_EDITOR, EDITORS, editorUrl, parseCodeRef } from "../dashboard/editor.js";
-import { type DetourNode, type GoalGraph, type TaskNode, withoutDetours } from "../dashboard/graph.js";
+import { type DetourNode, type GoalGraph, type TaskNode, withoutDetours, withoutDropped } from "../dashboard/graph.js";
 import { type PromptSubject, copyAsPrompt } from "../dashboard/prompt.js";
 import { type GoalView, type RoadmapView, useDashboard, useOverview, useSearch, useServers, useStored, useStoredJson } from "./data.js";
-import { STATUS_LABEL } from "./geometry.js";
 import { Checklist } from "./Checklist.js";
 import { type Finished, type Seen, doneMark, groupGoals, seenOnFirstVisit } from "./goalList.js";
 import { MetroMap } from "./MetroMap.js";
@@ -15,6 +14,7 @@ import { ServersPanel } from "./Servers.js";
 import { plainText } from "./text.js";
 import { VIEWS, VIEW_LABELS, type View, pickView } from "./views.js";
 import { sortProjects } from "./projectList.js";
+import { GOAL_WORD, SIDE_TRIP_HINT, STEP_WORD, goalState, statusLine } from "./words.js";
 
 type Goal = RoadmapView["goals"][number];
 type Theme = "light" | "dark" | "system";
@@ -39,7 +39,18 @@ const EDITOR_NAMES: Record<string, string> = {
 };
 const editorName = (e: string) => EDITOR_NAMES[e] ?? (e.includes("{") ? "your editor" : e);
 
-const GOAL_STATUS: Record<string, string> = { planned: "Planned", active: "Active", paused: "Paused", done: "Done", dropped: "Dropped" };
+/** What the map and the list show besides the plan's own steps; each person picks in the Show menu. */
+interface Show {
+  sideTrips: boolean;
+  cancelled: boolean;
+  files: boolean;
+}
+const SHOW_DEFAULT: Show = { sideTrips: true, cancelled: false, files: false };
+const SHOW_OPTIONS: { key: keyof Show; label: string; hint: string }[] = [
+  { key: "sideTrips", label: "Side trips", hint: "Times the AI stepped off the plan to deal with something, and how each one ended." },
+  { key: "cancelled", label: "Cancelled steps", hint: "Steps the AI decided not to do, crossed out, with the reason when you click one." },
+  { key: "files", label: "File names", hint: "The files each step changes, and buttons to open them in your code editor." },
+];
 
 /** The Goal shown first: the one being worked on, else a paused one, else the next planned one. */
 function defaultGoal(goals: Goal[]): string | undefined {
@@ -95,7 +106,9 @@ export function App() {
   const [pickedProject, setPickedProject] = useState<string | undefined>(projectFromUrl);
   const [pickedWorkspace, setPickedWorkspace] = useState<string | undefined>(workspaceFromUrl);
   const [picked, setPicked] = useState<string | undefined>(goalFromHash);
-  const [detours, setDetours] = useState(true);
+  const [storedShow, setShow] = useStoredJson<Partial<Show>>("progressor.show", {});
+  const show: Show = { ...SHOW_DEFAULT, ...storedShow };
+  const detours = show.sideTrips;
   const [theme, setTheme] = useStored<Theme>("progressor.theme", undefined);
   const [collapsed, setCollapsed] = useStored<"1">("progressor.sidebar-collapsed", undefined);
   // The default view is a setting; the navbar's view buttons only change what this page shows.
@@ -117,7 +130,7 @@ export function App() {
   const [editorChoice, setEditorChoice] = useStored<string>("progressor.editor", undefined);
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [serversOpen, setServersOpen] = useState(false);
+  const [showOpen, setShowOpen] = useState(false);
   const [servers, reloadServers] = useServers();
   const [query, setQuery] = useState("");
   const hits = useSearch(query);
@@ -126,7 +139,7 @@ export function App() {
   const [goalMenu, setGoalMenu] = useState<{ id: string; at: { x: number; y: number } }>();
   const [switcherOpen, setSwitcherOpen] = useState(false);
   // What the popover shows, by ID, so it follows live updates to that item.
-  const [selected, setSelected] = useState<{ kind: "node" | "idea" | "standing instruction"; key: string; at: { x: number; y: number } }>();
+  const [selected, setSelected] = useState<{ key: string; at: { x: number; y: number } }>();
   const [toast, toastNode] = useToast();
 
   const [projectId, setProjectId] = useState<string | undefined>(pickedProject);
@@ -168,7 +181,7 @@ export function App() {
   const hideGoal = (id: string, hide: boolean) => {
     setHidden(hide ? [...hidden.filter((h) => h !== id), id] : hidden.filter((h) => h !== id));
     setGoalMenu(undefined);
-    if (hide) toast("Hidden from this list; the plan is unchanged. Find it under Hidden, below the Roadmap.");
+    if (hide) toast("Hidden from this list; the plan is unchanged. Find it under Hidden, below your goals.");
   };
   const markSeen = (g: Goal) => {
     if (seen[g.id] !== doneMark(g)) setSeen({ ...seen, [g.id]: doneMark(g) });
@@ -232,14 +245,12 @@ export function App() {
       pickProject(hit.project.id, hit.goal.id);
       return setPendingTask({ goal: hit.goal.id, task: hit.id });
     }
-    // an Idea lives in the Help panel of its project
     pickProject(hit.project.id);
-    setMenuOpen(true);
   };
   useEffect(() => {
     if (!pendingTask || shownGoal?.goal.id !== pendingTask.goal) return;
     if (shownGoal.graph.nodes.some((n) => n.id === pendingTask.task))
-      setSelected({ kind: "node", key: pendingTask.task, at: { x: innerWidth / 2, y: 180 } });
+      setSelected({ key: pendingTask.task, at: { x: innerWidth / 2, y: 180 } });
     setPendingTask(undefined);
   }, [pendingTask, shownGoal]);
 
@@ -269,7 +280,7 @@ export function App() {
         setSelected(undefined);
         setMenuOpen(false);
         setSettingsOpen(false);
-        setServersOpen(false);
+        setShowOpen(false);
         setGoalMenu(undefined);
         setSwitcherOpen(false);
       }
@@ -295,42 +306,43 @@ export function App() {
       document.execCommand("copy");
       ta.remove();
     }
-    toast("Copied as prompt. Paste it into your Agent chat.");
+    toast("Copied. Paste it into your AI chat.");
   };
 
-  const graph = useMemo<GoalGraph | undefined>(
-    () => (shownGoal ? (detours ? shownGoal.graph : withoutDetours(shownGoal.graph)) : undefined),
-    [shownGoal, detours],
-  );
+  const graph = useMemo<GoalGraph | undefined>(() => {
+    if (!shownGoal) return undefined;
+    const g = detours ? shownGoal.graph : withoutDetours(shownGoal.graph);
+    return show.cancelled ? g : withoutDropped(g);
+  }, [shownGoal, detours, show.cancelled]);
 
   const subject = useMemo<PromptSubject | undefined>(() => {
-    if (!selected || !roadmap) return undefined;
-    const file = roadmap.file;
-    if (selected.kind === "node") {
-      const node = shownGoal?.graph.nodes.find((n) => n.id === selected.key);
-      return node && shownGoal ? { kind: "node", node, goal: shownGoal.goal, graph: shownGoal.graph } : undefined;
-    }
-    if (selected.kind === "idea") {
-      const idea = roadmap.ideas.find((i) => keyOf(i) === selected.key);
-      return idea && { kind: "idea", idea, file };
-    }
-    const instruction = roadmap.standingInstructions.find((i) => keyOf(i) === selected.key);
-    return instruction && { kind: "standing instruction", instruction, file };
-  }, [selected, roadmap, shownGoal]);
+    if (!selected) return undefined;
+    const node = shownGoal?.graph.nodes.find((n) => n.id === selected.key);
+    return node && shownGoal ? { kind: "node", node, goal: shownGoal.goal, graph: shownGoal.graph } : undefined;
+  }, [selected, shownGoal]);
 
+  // The chat working on a Goal, if one holds it: whether it is still open says if the AI stopped.
   const sessionChips = roadmap?.sessions ?? [];
-  const sessionLabel = (g: Pick<Goal, "id" | "status">) => {
+  const stateOf = (g: Pick<Goal, "id" | "status" | "updatedAt">) => {
     const s = sessionChips.find((x) => x.goal === g.id);
-    return s ? `Session ${s.session}${s.running ? "" : " (ended)"}` : (GOAL_STATUS[g.status] ?? g.status);
+    return { status: g.status, updatedAt: g.updatedAt, running: s?.running };
   };
+  // "last update 2 min ago" moves on by itself.
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => tick((n) => n + 1), 30_000);
+    return () => clearInterval(timer);
+  }, []);
   // The Done group opens by itself while it holds the Goal on screen.
   const doneShown = !!doneOpen || grouped.done.some((g) => g.id === effectiveGoal);
   const goalButton = (g: Goal) => {
     const pct = g.total ? Math.round((100 * g.done) / g.total) : 0;
     const fresh = grouped.fresh.has(g.id);
+    const state = goalState(stateOf(g));
+    const hover = [fresh ? "Finished: open it to take a look." : state.hint, g.outcome && `Finished when: ${plainText(g.outcome)}`, "Right-click to hide it from this list."];
     return (
       <button key={g.id} className={`goal ${g.status} ${fresh ? "fresh" : ""}`} aria-current={g.id === effectiveGoal}
-        title={fresh ? "Finished: open it to take a look" : g.outcome ? `Done when: ${g.outcome} (right-click for more)` : "Right-click for more"}
+        title={hover.filter(Boolean).join("\n")}
         onClick={() => pickGoal(g.id)}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -342,17 +354,19 @@ export function App() {
         </div>
         <div className="bar"><i style={{ width: `${pct}%` }} /></div>
         <div className="s">
-          <span>{sessionLabel(g)}</span>
-          <span>{g.total ? `${g.done}/${g.total} · ${pct}%` : "no Tasks"}</span>
+          <span className={`state ${state.state}`}>{state.label}</span>
+          <span>{g.total ? `${g.done} of ${g.total} steps` : "no steps yet"}</span>
         </div>
       </button>
     );
   };
   const menuGoal = goalMenu && goals.find((g) => g.id === goalMenu.id);
-  const instructions = roadmap?.standingInstructions ?? [];
-  const ideas = roadmap?.ideas.filter((i) => !i.promotedTo) ?? [];
-  const select = (kind: "idea" | "standing instruction", key: string) => (e: React.MouseEvent) =>
-    setSelected({ kind, key, at: { x: e.clientX, y: e.clientY } });
+  const openPanel = (which: "help" | "settings" | "show" | undefined) => {
+    setMenuOpen(which === "help");
+    setSettingsOpen(which === "settings");
+    setShowOpen(which === "show");
+    if (which === "settings") reloadServers();
+  };
 
   return (
     <>
@@ -363,35 +377,19 @@ export function App() {
         </div>
         <SearchBox query={query} hits={hits} onChange={setQuery} onOpen={openHit} />
         <span className="sp" />
-        <span className="chip" title={connection === "live" ? "Updates as the markdown changes" : "Lost the connection to the Progressor server"}>
+        <span className={`chip ${connection === "live" ? "dot-only" : ""}`} role="status"
+          title={connection === "live" ? "Live: this page updates by itself as your AI works." : "Lost touch with Progressor. It comes back by itself once your AI chat is open again."}
+          aria-label={connection === "live" ? "Live" : "Reconnecting"}>
           <span className={`dot ${connection === "live" ? "" : "warn"}`} />
-          {connection === "live" ? "Live" : connection === "connecting" ? "Connecting…" : "Reconnecting…"}
+          {connection === "connecting" ? "Connecting…" : connection === "reconnecting" ? "Reconnecting…" : null}
         </span>
         <button className={`iconbtn menu-btn ${menuOpen ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={menuOpen}
-          title="Help: report a problem, share feedback, your Standing Instructions and the parked Ideas" aria-label="Help" onClick={() => {
-            setMenuOpen(!menuOpen);
-            setSettingsOpen(false);
-            setServersOpen(false);
-          }}>
+          title="Help: report a problem or suggest an idea" aria-label="Help" onClick={() => openPanel(menuOpen ? undefined : "help")}>
           ❓<span className="label"> Help</span>
         </button>
         <button className={`iconbtn menu-btn ${settingsOpen ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={settingsOpen}
-          title="Settings: default view, theme, editor and finished Goals" aria-label="Settings" onClick={() => {
-            setSettingsOpen(!settingsOpen);
-            setMenuOpen(false);
-            setServersOpen(false);
-          }}>
+          title="Settings: how this page looks, and advanced options" aria-label="Settings" onClick={() => openPanel(settingsOpen ? undefined : "settings")}>
           ⚙️<span className="label"> Settings</span>
-        </button>
-        <button className={`iconbtn menu-btn ${serversOpen ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={serversOpen}
-          title="Servers: the Progressor processes running on this computer" aria-label="Servers" onClick={() => {
-            setServersOpen(!serversOpen);
-            setMenuOpen(false);
-            setSettingsOpen(false);
-            if (!serversOpen) reloadServers();
-          }}>
-          🖥<span className="label"> Servers</span>
-          {servers && servers !== "unsupported" && <span className="count">{servers.servers.length}</span>}
         </button>
         <div className="views" role="radiogroup" aria-label="View">
           {VIEWS.map((v) => (
@@ -401,21 +399,26 @@ export function App() {
             </button>
           ))}
         </div>
-        <button className="toggle" role="switch" aria-checked={detours} onClick={() => {
-          setDetours(!detours);
-          toast(`${detours ? "Hiding" : "Showing"} Detours in this view.`);
-        }}>
-          <span className="sw" />
-          Detours
+        <button className={`toggle menu-btn ${showOpen ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={showOpen} aria-label="Show"
+          title="Show: choose what the map and the list show besides the plan's steps" onClick={() => openPanel(showOpen ? undefined : "show")}>
+          Show <span aria-hidden="true">▾</span>
         </button>
-        <button className="iconbtn" title="Switch between light and dark" aria-label="Switch between light and dark" onClick={() => setTheme(dark ? "light" : "dark")}>
+        <button className="iconbtn theme-btn" title="Switch between light and dark" aria-label="Switch between light and dark" onClick={() => setTheme(dark ? "light" : "dark")}>
           {dark ? "☀️" : "🌙"}
         </button>
       </header>
 
-      {serversOpen && (
-        <MenuPanel label="Servers" onClose={() => setServersOpen(false)}>
-          <ServersPanel servers={servers} hub={info} reload={reloadServers} toast={toast} />
+      {showOpen && (
+        <MenuPanel label="Show" onClose={() => setShowOpen(false)}>
+          <section>
+            <h3>Show on the map and the list</h3>
+            {SHOW_OPTIONS.map((o) => (
+              <label key={o.key} className="option" title={o.hint}>
+                <input type="checkbox" checked={show[o.key]} onChange={(e) => setShow({ ...storedShow, [o.key]: e.target.checked })} />
+                <span><b>{o.label}</b><small>{o.hint}</small></span>
+              </label>
+            ))}
+          </section>
         </MenuPanel>
       )}
 
@@ -424,43 +427,52 @@ export function App() {
           <section>
             <h3>Default view</h3>
             <Choice value={defaultView ?? "horizontal"} onChange={(v) => setDefaultView(v === "horizontal" ? undefined : v)}
-              options={VIEWS.map((v) => ({ value: v, label: `${VIEW_ICONS[v]} ${VIEW_SHORT[v]}` }))} />
-            <p className="hint">What a Goal opens in. The buttons in the navbar change only the page you're on.</p>
+              options={VIEWS.map((v) => ({ value: v, label: `${VIEW_ICONS[v]} ${VIEW_SHORT[v]}`, hint: VIEW_LABELS[v] }))} />
+            <p className="hint">How a goal is shown when you open it. The buttons at the top change only the page you're on.</p>
           </section>
           <section>
             <h3>Theme</h3>
             <Choice value={theme ?? "light"} onChange={(t) => setTheme(t === "light" ? undefined : t)}
-              options={[{ value: "light", label: "☀️ Light" }, { value: "dark", label: "🌙 Dark" }, { value: "system", label: "💻 System" }]} />
+              options={[
+                { value: "light", label: "☀️ Light", hint: "Always light" },
+                { value: "dark", label: "🌙 Dark", hint: "Always dark" },
+                { value: "system", label: "💻 System", hint: "Light or dark, following your computer's setting" },
+              ]} />
           </section>
           <section>
-            <h3>Open files in</h3>
-            <select className="picker wide" aria-label="Open files in" value={editor} onChange={(e) => setEditorChoice(e.target.value === info?.editor ? undefined : e.target.value)}>
-              {info?.editor && !EDITORS.includes(info.editor) && <option value={info.editor}>Custom (PROGRESSOR_EDITOR)</option>}
-              {EDITORS.filter((e) => e !== "jetbrains").map((e) => (
-                <option key={e} value={e}>
-                  {editorName(e)}
-                </option>
-              ))}
-            </select>
-          </section>
-          <section>
-            <h3>Finished Goals</h3>
+            <h3>Finished goals</h3>
             <label className="option">
               <input type="radio" name="finished" checked={finished !== "auto"} onChange={() => setFinished(undefined)} />
-              <span><b>Wait for me to look</b><small>A finished Goal stays in the list with a green dot until you open it, then moves to Done.</small></span>
+              <span><b>Wait for me to look</b><small>A finished goal keeps a green dot until you open it, then moves to Finished.</small></span>
             </label>
             <label className="option">
               <input type="radio" name="finished" checked={finished === "auto"} onChange={() => setFinished("auto")} />
-              <span><b>Move to Done straight away</b><small>Finished Goals go to the Done group below the Roadmap as soon as they finish.</small></span>
+              <span><b>Move to Finished straight away</b><small>Finished goals go to the Finished group below your goals as soon as they finish.</small></span>
             </label>
           </section>
-          <section>
-            <h3>Hidden Goals</h3>
-            <label className="option">
-              <input type="checkbox" checked={!!showHidden} onChange={(e) => setShowHidden(e.target.checked ? "1" : undefined)} />
-              <span><b>Show hidden Goals</b><small>Right-click a Goal in the sidebar to hide it. Hiding only changes this list, never the plan.</small></span>
-            </label>
-          </section>
+          <details className="advanced">
+            <summary title="Options for people who look at the code">Advanced</summary>
+            <section>
+              <h3>Open files in</h3>
+              <select className="picker wide" aria-label="Open files in" title="The code editor that opens when you click a file name (turn on File names in the Show menu)"
+                value={editor} onChange={(e) => setEditorChoice(e.target.value === info?.editor ? undefined : e.target.value)}>
+                {info?.editor && !EDITORS.includes(info.editor) && <option value={info.editor}>Custom (PROGRESSOR_EDITOR)</option>}
+                {EDITORS.filter((e) => e !== "jetbrains").map((e) => (
+                  <option key={e} value={e}>
+                    {editorName(e)}
+                  </option>
+                ))}
+              </select>
+            </section>
+            <section>
+              <h3>Hidden goals</h3>
+              <label className="option">
+                <input type="checkbox" checked={!!showHidden} onChange={(e) => setShowHidden(e.target.checked ? "1" : undefined)} />
+                <span><b>Show hidden goals</b><small>Right-click a goal in the sidebar to hide it. Hiding only changes this list, never the plan.</small></span>
+              </label>
+            </section>
+            <ServersPanel servers={servers} hub={info} reload={reloadServers} toast={toast} />
+          </details>
           {SUPPORT_URL && (
             <section>
               <h3>Support Progressor</h3>
@@ -491,38 +503,19 @@ export function App() {
               {info?.version && <> · Progressor {info.version}</>}
             </p>
           </section>
-          {roadmap && <section>
-            <h3>Standing Instructions</h3>
-            {instructions.length === 0 && <p className="empty">None yet. They are lasting rules you give the Agent, such as "ask me before recalibrating".</p>}
-            {instructions.map((s, i) => (
-              <button key={s.id ?? i} className="card" onClick={select("standing instruction", keyOf(s))}>
-                📌 {s.text}
-              </button>
-            ))}
-          </section>}
-          {roadmap && <section>
-            <h3>Parked Ideas</h3>
-            {ideas.length === 0 && <p className="empty">None parked.</p>}
-            {ideas.map((idea, i) => (
-              <button key={idea.id ?? i} className="card" onClick={select("idea", keyOf(idea))}>
-                💡 {idea.title}
-                {idea.notes[0] && <small>{idea.notes[0]}</small>}
-              </button>
-            ))}
-          </section>}
         </MenuPanel>
       )}
 
       <div className={`layout ${collapsed ? "collapsed" : ""}`}>
-        <aside className="side" aria-label="Project and Roadmap">
-          <button className="col-btn" title="Collapse or expand the sidebar ( [ )" aria-label={collapsed ? "Expand the sidebar" : "Collapse the sidebar"} aria-expanded={!collapsed}
+        <aside className="side" aria-label="Project and your goals">
+          <button className="col-btn" title="Hide or show this sidebar (shortcut: [ )" aria-label={collapsed ? "Show the sidebar" : "Hide the sidebar"} aria-expanded={!collapsed}
             onClick={() => setCollapsed(collapsed ? undefined : "1")}>
             {collapsed ? "»" : "«"}
           </button>
-          <button className="vlabel" onClick={() => setCollapsed(undefined)}>Roadmap</button>
+          <button className="vlabel" onClick={() => setCollapsed(undefined)}>Your goals</button>
           <section className="switcher">
             <h3>Project</h3>
-            <button className="project current" title={project?.root} aria-haspopup="listbox" aria-expanded={switcherOpen}
+            <button className="project current" title={project ? `${project.name}, in ${project.root}${(projects?.length ?? 0) > 1 ? "\nClick to switch to another project" : ""}` : undefined} aria-haspopup="listbox" aria-expanded={switcherOpen}
               disabled={(projects?.length ?? 0) < 2 && !!project} onClick={() => setSwitcherOpen(!switcherOpen)}>
               <span className="t">{project?.name ?? (showOverview ? "🗂 All projects" : projects ? "Choose a project" : "Loading…")}</span>
               {(projects?.length ?? 0) > 1 && <span className="chev" aria-hidden="true">{switcherOpen ? "▴" : "▾"}</span>}
@@ -543,25 +536,24 @@ export function App() {
             )}
           </section>
           {!showOverview && <section>
-            <h3>
-              Roadmap
-              {roadmap && <span className="count">{goals.length} {goals.length === 1 ? "Goal" : "Goals"}</span>}
+            <h3 title="Everything your AI plans to build in this project, in order">
+              Your goals
+              {roadmap && <span className="count">{goals.length}</span>}
             </h3>
-            {roadmap && <p className="path roadmap-path" title="The project folder this Roadmap comes from">{roadmap.root}</p>}
-            {roadmap && goals.length === 0 && <p className="empty">No Goals yet.</p>}
+            {roadmap && goals.length === 0 && <p className="empty">No goals yet. Tell your AI what you want to build.</p>}
             {/* One Roadmap, many Goals: the Goals hang off a single rail so they read as parts of one plan. */}
             <div className="goals">{grouped.open.map(goalButton)}</div>
             {grouped.done.length > 0 && (
               <div className="group">
-                <button className="group-head" aria-expanded={doneShown} onClick={() => setDoneOpen(doneOpen ? undefined : "1")}>
-                  <span aria-hidden="true">{doneShown ? "▾" : "▸"}</span> Done <span className="count">{grouped.done.length}</span>
+                <button className="group-head" aria-expanded={doneShown} title="Goals your AI has finished" onClick={() => setDoneOpen(doneOpen ? undefined : "1")}>
+                  <span aria-hidden="true">{doneShown ? "▾" : "▸"}</span> Finished <span className="count">{grouped.done.length}</span>
                 </button>
                 {doneShown && <div className="goals">{grouped.done.map(goalButton)}</div>}
               </div>
             )}
             {grouped.hidden.length > 0 && (
               <div className="group">
-                <button className="group-head" aria-expanded={!!showHidden} onClick={() => setShowHidden(showHidden ? undefined : "1")}>
+                <button className="group-head" aria-expanded={!!showHidden} title="Goals you hid from this list; the plan still has them" onClick={() => setShowHidden(showHidden ? undefined : "1")}>
                   <span aria-hidden="true">{showHidden ? "▾" : "▸"}</span> Hidden <span className="count">{grouped.hidden.length}</span>
                 </button>
                 {showHidden && <div className="goals hidden-goals">{grouped.hidden.map(goalButton)}</div>}
@@ -572,56 +564,59 @@ export function App() {
 
         <main className="main">
           {error && !projects ? (
-            <div className="placeholder"><h2>Can't reach Progressor</h2>{error}</div>
+            <div className="placeholder">
+              <h2>Can't reach Progressor</h2>
+              Progressor runs while your AI chat is open, so it has most likely closed. Open your AI chat again and this page comes back by itself.
+              <small className="detail">{error}</small>
+            </div>
           ) : !projects ? (
             <div className="placeholder">Loading…</div>
           ) : projects.length === 0 ? (
             <div className="placeholder">
-              <h2>No projects yet</h2>
-              A project appears here once an Agent using Progressor has added a Goal to it, which creates its <code>.progressor/</code> folder.
-              To see every project in a folder, run <code>progressor-mcp dashboard &lt;folder&gt;</code>.
+              <h2>Nothing here yet</h2>
+              Tell your AI what you want to build. Your project shows up here as soon as it plans the first goal, and this page follows along by itself.
             </div>
           ) : showOverview ? (
             <Overview overview={overview} workspaces={workspaces ?? []} only={pickedWorkspace} query={query} hits={hits} finishedWaits={finished !== "auto"}
               onOpen={pickProject} onShowAll={showAll} />
           ) : roadmap === null || (roadmap === undefined && !project && projectId) ? (
             <div className="placeholder">
-              <h2>No progress record for this project yet</h2>
-              It appears once the Agent adds a Goal (<code>add_goal</code>). Pick another project from the sidebar meanwhile.
+              <h2>Nothing planned here yet</h2>
+              Tell your AI what you want to build in this project. Its plan shows up here by itself. You can pick another project from the sidebar meanwhile.
             </div>
           ) : !roadmap ? (
             <div className="placeholder">Loading…</div>
           ) : goals.length === 0 ? (
             <div className="placeholder">
-              <h2>No Goals yet</h2>
-              Ask your Agent to add one; it calls <code>add_goal</code>. This page updates by itself as the plan is written to <code>.progressor/</code>.
+              <h2>No goals yet</h2>
+              Tell your AI what you want to build. It plans the work as a goal with steps, and this page follows along by itself.
             </div>
           ) : !shownGoal || !graph ? (
             <div className="placeholder">Loading…</div>
           ) : (
             <>
-              <Banner view={shownGoal} detours={detours} status={sessionLabel(shownGoal.goal)}
-                planLink={fileLink(shownGoal.goal.planFile)}
+              <Banner view={shownGoal} detours={detours} state={stateOf(shownGoal.goal)}
+                planLink={show.files ? fileLink(shownGoal.goal.planFile) : undefined}
                 onCopy={() => copy(copyAsPrompt({ kind: "goal", goal: shownGoal.goal, graph: shownGoal.graph }))} />
               {graph.nodes.length === 0 ? (
-                <div className="placeholder"><h2>No Tasks yet</h2>The Agent adds Tasks with <code>add_tasks</code>.</div>
+                <div className="placeholder"><h2>No steps yet</h2>Your AI adds the steps as it plans. This page updates by itself.</div>
               ) : view === "checklist" ? (
-                <Checklist graph={graph} fileLink={fileLink} onOpen={(node, at) => setSelected({ kind: "node", key: node.id, at })} />
+                <Checklist graph={graph} fileLink={fileLink} files={show.files} onOpen={(node, at) => setSelected({ key: node.id, at })} />
               ) : (
                 <MetroMap
                   graph={graph}
                   orientation={view}
-                  viewKey={`${projectId}:${shownGoal.goal.id}:${view}:${detours}`}
-                  focusId={focus(shownGoal.graph, detours)}
-                  onOpen={(node, at) => setSelected({ kind: "node", key: node.id, at })}
+                  viewKey={`${projectId}:${shownGoal.goal.id}:${view}:${detours}:${show.cancelled}`}
+                  focusId={focus(graph, detours)}
+                  files={show.files}
+                  onOpen={(node, at) => setSelected({ key: node.id, at })}
                 />
               )}
               {view !== "checklist" && graph.nodes.length > 0 && <div className="legend" aria-hidden="true">
-                <span>━ plan</span>
-                <span style={{ color: "var(--detour)" }}>┈ Detour</span>
-                <span style={{ color: "var(--faded)" }}>┅ dropped</span>
-                <span>◆ Detour stop</span>
-                <span>{view === "vertical" ? "drag a stop · scroll to move · Ctrl+scroll to zoom" : "drag a stop · scroll to zoom"}</span>
+                <span>━ the plan</span>
+                {detours && <span style={{ color: "var(--detour)" }}>◆┈ side trip</span>}
+                {show.cancelled && <span style={{ color: "var(--faded)" }}>┅ cancelled</span>}
+                <span>click a stop for details · {view === "vertical" ? "scroll to move · Ctrl+scroll to zoom" : "scroll to zoom"}</span>
               </div>}
             </>
           )}
@@ -638,7 +633,7 @@ export function App() {
             <button role="menuitem" onClick={() => {
               markSeen(menuGoal);
               setGoalMenu(undefined);
-            }}>Move to Done</button>
+            }}>Move to Finished</button>
           )}
           {hidden.includes(menuGoal.id) ? (
             <button role="menuitem" onClick={() => hideGoal(menuGoal.id, false)}>Show in the list again</button>
@@ -648,7 +643,7 @@ export function App() {
         </GoalMenu>
       )}
       {selected && subject && (
-        <Popover subject={subject} at={selected.at} onClose={() => setSelected(undefined)} fileLink={fileLink} onCopy={copy} />
+        <Popover subject={subject} at={selected.at} onClose={() => setSelected(undefined)} fileLink={fileLink} files={show.files} onCopy={copy} />
       )}
       {toastNode}
     </>
@@ -658,7 +653,7 @@ export function App() {
 /** The Developer's Buy Me a Coffee page, shown in the Settings panel; the section is hidden while it is empty. */
 const SUPPORT_URL = "https://buymeacoffee.com/rachitasthana";
 
-/** A panel that drops from the navbar: Help (feedback, Standing Instructions, Ideas) or Settings (with support). */
+/** A panel that drops from the navbar: Help (feedback), Settings (with Advanced and support) or Show. */
 function MenuPanel({ label, children, onClose }: { label: string; children: React.ReactNode; onClose: () => void }) {
   useEffect(() => {
     const away = (e: PointerEvent) => {
@@ -678,13 +673,13 @@ function MenuPanel({ label, children, onClose }: { label: string; children: Reac
 /** A row of mutually exclusive buttons, for a setting with a few short choices. */
 function Choice<T extends string>({ value, options, onChange }: {
   value: T;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; hint?: string }[];
   onChange: (v: T) => void;
 }) {
   return (
     <div className="views choice" role="radiogroup">
       {options.map((o) => (
-        <button key={o.value} role="radio" aria-checked={value === o.value} onClick={() => onChange(o.value)}>
+        <button key={o.value} role="radio" aria-checked={value === o.value} title={o.hint} onClick={() => onChange(o.value)}>
           {o.label}
         </button>
       ))}
@@ -715,7 +710,6 @@ function GoalMenu({ at, children, onClose }: { at: { x: number; y: number }; chi
   );
 }
 
-const keyOf = (item: { id: string | undefined; line: number }) => item.id ?? `line${item.line}`;
 const tasksOf = (g: GoalGraph) => g.nodes.filter((n): n is TaskNode => n.kind === "task");
 const openDetourOf = (g: GoalGraph) => g.nodes.find((n): n is DetourNode => n.kind === "detour" && n.status === "open");
 
@@ -727,12 +721,13 @@ function focus(g: GoalGraph, detours: boolean): string | undefined {
 
 type FileLink = (path: string, line?: number) => { href: string | undefined; onClick: () => void };
 
-function Banner({ view, detours, status, planLink, onCopy }: {
+function Banner({ view, detours, state, planLink, onCopy }: {
   view: GoalView;
   detours: boolean;
-  /** The Goal's status, or the Session working on it. */
-  status: string;
-  planLink: ReturnType<FileLink>;
+  /** Whether a chat is working on the Goal, for the status line. */
+  state: Parameters<typeof goalState>[0];
+  /** The Plan File's link, when file names are shown. */
+  planLink: ReturnType<FileLink> | undefined;
   onCopy: () => void;
 }) {
   const { goal, graph } = view;
@@ -741,35 +736,38 @@ function Banner({ view, detours, status, planLink, onCopy }: {
   const next = tasks.find((t) => t.status === "pending");
   const open = detours ? openDetourOf(graph) : undefined;
   const from = open?.branchedFrom ? tasks.find((t) => t.id === open.branchedFrom) : undefined;
+  const { state: now, hint } = goalState(state);
+  const line = statusLine(state, tasks.map((t) => t.status));
   return (
-    <div className={`banner ${open ? "detour" : ""}`}>
+    <div className={`banner ${open ? "detour" : ""} ${now}`}>
       <span className="big" aria-hidden="true">{open ? "🚧" : goal.status === "done" ? "🏁" : "🚇"}</span>
       <div className="text">
         {open ? (
           <>
-            <div><b>On a Detour:</b> {open.title}</div>
-            <div className="k">
-              {from ? `Branched off "${from.title}". ` : ""}
-              {open.reason ? `Reason: ${plainText(open.reason)}` : ""}
+            <div><b>On a side trip:</b> {open.title}</div>
+            <div className="k" title={SIDE_TRIP_HINT.open}>
+              {from ? `Stepped off "${from.title}"` : "Stepped off the plan"}
+              {open.reason ? ` because: ${plainText(open.reason)}` : "."}
             </div>
           </>
         ) : (
           <>
             <div>
               <b>{goal.title}:</b>{" "}
-              {current ? `now on "${current.title}"` : goal.status === "done" ? "Goal complete" : goal.status === "dropped" ? `Goal dropped${goal.reason ? `: ${plainText(goal.reason)}` : ""}` : "nothing in progress"}
+              {current ? `working on "${current.title}"` : goal.status === "done" ? "finished" : goal.status === "dropped" ? `cancelled${goal.reason ? `: ${plainText(goal.reason)}` : ""}` : "nothing under way"}
             </div>
-            <div className="k">
-              {status} · {goal.done} of {goal.total} Tasks done
-              {next ? ` · Next stop: ${next.title}` : ""}
-            </div>
-            {goal.outcome && <div className="k outcome">🎯 Done when: {plainText(goal.outcome)}</div>}
+            {goal.outcome && <div className="k outcome" title="What finished looks like: the AI checks the work against this before it calls the goal finished">🎯 Finished when: {plainText(goal.outcome)}</div>}
           </>
         )}
+        <div className="k status-line" title={hint}>
+          <span className={`state-dot ${now}`} aria-hidden="true" />
+          {line}
+          {next && !open ? ` · next: ${next.title}` : ""}
+        </div>
       </div>
       <div className="actions">
-        <a className="btn ghost" {...planLink}>Open plan file</a>
-        <button className="btn ghost" onClick={onCopy}>Copy Goal as prompt</button>
+        {planLink && <a className="btn ghost" title="Open the file the plan of this goal is kept in" {...planLink}>Open plan file</a>}
+        <button className="btn ghost" title="Copies a description of this goal that you can paste into your AI chat" onClick={onCopy}>Copy for your AI</button>
       </div>
     </div>
   );
@@ -784,48 +782,41 @@ interface Location {
 function describe(subject: PromptSubject): { title: string; meta: string; summary?: string; reason?: string; locations: Location[] } {
   switch (subject.kind) {
     case "node": {
-      const { node: n, goal } = subject;
+      const { node: n, goal, graph } = subject;
       const main = { path: goal.planFile, line: n.line, label: `📄 ${goal.planFile}:${n.line}` };
       if (n.kind === "detour")
-        return { title: n.title, meta: `Detour ${n.id} · ${STATUS_LABEL[n.status]}`, reason: n.reason, locations: [main] };
+        return { title: n.title, meta: `Side trip · ${STEP_WORD[n.status]}`, summary: SIDE_TRIP_HINT[n.status], reason: n.reason && `Why: ${n.reason}`, locations: [main] };
       const code = n.code.map((c) => ({ ...parseCodeRef(c), label: `↳ ${c}` }));
-      const extra = n.fromDetour ? " · added from a Detour" : n.addedBy ? ` · added by ${n.addedBy}` : "";
+      const live = tasksOf(graph).filter((t) => t.status !== "dropped").sort((a, b) => a.line - b.line);
+      const number = live.findIndex((t) => t.id === n.id);
+      const which = number >= 0 ? `Step ${number + 1} of ${live.length}` : "Step";
       return {
         title: n.title,
-        meta: `Task ${n.id} · ${STATUS_LABEL[n.status]}${extra}`,
+        meta: `${which} · ${STEP_WORD[n.status]}${n.fromDetour ? " · added after a side trip" : ""}`,
         summary: n.summary,
-        reason: n.status === "dropped" ? n.reason : undefined,
+        reason: n.status === "dropped" && n.reason ? `Why it was cancelled: ${n.reason}` : undefined,
         locations: [main, ...code],
       };
     }
     case "goal":
       return {
         title: subject.goal.title,
-        meta: `Goal · ${GOAL_STATUS[subject.goal.status]}`,
-        summary: subject.goal.outcome && `Done when: ${subject.goal.outcome}`,
+        meta: `Goal · ${GOAL_WORD[subject.goal.status]}`,
+        summary: subject.goal.outcome && `Finished when: ${subject.goal.outcome}`,
         locations: [{ path: subject.goal.planFile, label: `📄 ${subject.goal.planFile}` }],
       };
-    case "idea":
-      return {
-        title: subject.idea.title,
-        meta: `Idea ${subject.idea.id ?? ""} · parked`,
-        reason: subject.idea.notes.join(" "),
-        locations: [{ path: subject.file, line: subject.idea.line, label: `📄 ${subject.file}:${subject.idea.line}` }],
-      };
-    case "standing instruction":
-      return {
-        title: subject.instruction.text,
-        meta: `Standing Instruction ${subject.instruction.id ?? ""}`,
-        locations: [{ path: subject.file, line: subject.instruction.line, label: `📄 ${subject.file}:${subject.instruction.line}` }],
-      };
+    default:
+      return { title: "", meta: "", locations: [] };
   }
 }
 
-function Popover({ subject, at, onClose, fileLink, onCopy }: {
+function Popover({ subject, at, onClose, fileLink, files, onCopy }: {
   subject: PromptSubject;
   at: { x: number; y: number };
   onClose: () => void;
   fileLink: FileLink;
+  /** Whether to show the files and the buttons that open them. */
+  files: boolean;
   onCopy: (text: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -860,20 +851,20 @@ function Popover({ subject, at, onClose, fileLink, onCopy }: {
       <div className="meta">{d.meta}</div>
       {d.summary && <RichText className="summary" text={d.summary} />}
       {d.reason && <RichText className="reason" text={d.reason} />}
-      <div className="locs">
+      {files && <div className="locs">
         {d.locations.map((l) => (
           <a key={l.label} {...fileLink(l.path, l.line)}>
             {l.label}
           </a>
         ))}
-      </div>
+      </div>}
       <details>
         <summary>What gets copied</summary>
         <pre>{prompt}</pre>
       </details>
       <div className="row">
-        <button className="btn" onClick={() => onCopy(prompt)}>Copy as prompt</button>
-        {first && <a className="btn ghost" {...fileLink(first.path, first.line)}>Open in file</a>}
+        <button className="btn" title="Copies a description of this that you can paste into your AI chat, to ask about it or change it" onClick={() => onCopy(prompt)}>Copy for your AI</button>
+        {files && first && <a className="btn ghost" title="Open it in your code editor" {...fileLink(first.path, first.line)}>Open in file</a>}
       </div>
     </div>
   );

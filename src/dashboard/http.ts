@@ -91,7 +91,16 @@ export function dashboardApi(project: Project) {
     } catch {
       // A Goal whose Plan File is missing or unreadable still shows, with no progress.
     }
-    return { ...goal, planFile: project.planFilePath(goalId), done, total };
+    // When the plan last changed, for "last update 2 min ago": the Plan File, else the Roadmap.
+    const changed = (file: string) => {
+      try {
+        return statSync(join(project.root, file)).mtimeMs;
+      } catch {
+        return undefined;
+      }
+    };
+    const planFile = project.planFilePath(goalId);
+    return { ...goal, planFile, done, total, updatedAt: changed(planFile) ?? changed(roadmapFile) };
   };
   return {
     roadmap: () => {
@@ -235,7 +244,7 @@ class Hub {
     });
   }
 
-  /** Projects, Goals, Tasks and Ideas matching a search, across every project, read afresh. */
+  /** Projects, Goals and Tasks matching a search, across every project, read afresh. */
   search(query: string) {
     const projects: SearchableProject[] = this.sync().map((entry) => {
       const api = this.projects.get(entry.id)?.api;
@@ -252,10 +261,9 @@ class Hub {
         return {
           ...base,
           goals: roadmap.goals.map((g) => ({ id: g.id, title: g.title, status: g.status, outcome: g.outcome, tasks: tasksOf(g.id) })),
-          ideas: roadmap.ideas.filter((i) => !i.promotedTo).map((i) => ({ id: i.id, title: i.title, notes: i.notes })),
         };
       } catch {
-        return { ...base, goals: [], ideas: [] };
+        return { ...base, goals: [] };
       }
     });
     return search(projects, query);

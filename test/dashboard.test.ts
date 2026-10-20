@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { createServer as createHttpServer, request } from "node:http";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -148,6 +148,10 @@ describe("one dashboard for every project", () => {
       ["billing", "planned", 0, 0, ".progressor/goals/billing.md"],
     ]);
     expect(body.sessions).toEqual([{ session: "s-a", pid: process.pid, goal: "ship-oauth-login", running: true }]);
+    // when each Goal's plan last changed, for "last update 2 min ago"
+    const planTime = statSync(join(agent.root, ".progressor/goals/ship-oauth-login.md")).mtimeMs;
+    expect(body.goals[0].updatedAt).toBe(planTime);
+    expect(typeof body.goals[1].updatedAt).toBe("number");
     expect(body.ideas.map((i: any) => [i.ref, i.title, i.notes])).toEqual([
       ["progressor://roadmap/i1", "Remember-me checkbox", ["From the Developer"]],
     ]);
@@ -364,7 +368,7 @@ describe("handing the dashboard over", () => {
 });
 
 describe("searching", () => {
-  it("finds Tasks, Goals and Ideas across every project on the dashboard", async () => {
+  it("finds Tasks and Goals across every project on the dashboard, but not old Ideas", async () => {
     const d = await start(agent);
     registerProject(billing.root, registry);
     const tasks = (await get(d, "/api/search?q=callback")).body;
@@ -374,7 +378,7 @@ describe("searching", () => {
     expect((await get(d, "/api/search?q=billing")).body.map((h: any) => `${h.kind}:${h.title}`)).toEqual(
       expect.arrayContaining(["goal:Billing", "goal:Billing page"]),
     );
-    expect((await get(d, "/api/search?q=remember")).body.map((h: any) => h.kind)).toEqual(["idea"]);
+    expect((await get(d, "/api/search?q=remember")).body.map((h: any) => h.kind)).toEqual([]);
     expect((await get(d, "/api/search")).body).toEqual([]);
   });
 });

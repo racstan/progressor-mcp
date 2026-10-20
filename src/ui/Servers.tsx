@@ -19,7 +19,7 @@ function confirmText(s: Server, others: number): string {
   const what =
     s.kind === "dashboard"
       ? `Stop the dashboard command for ${s.root}?`
-      : `Stop the Progressor server for ${s.name}? That Claude Code conversation loses Progressor's tools until it restarts.`;
+      : `Stop the Progressor server for ${s.name}? That AI chat loses Progressor until it starts again.`;
   if (!s.serving) return what;
   return others > 0
     ? `${what}\n\nThis one serves the dashboard; another running server takes it over within a few seconds.`
@@ -37,7 +37,7 @@ export function ServersPanel({ servers, hub, reload, toast }: {
   if (servers === "unsupported")
     return (
       <section>
-        <h3>Running servers</h3>
+        <h3 title="Each open AI chat that uses Progressor runs one of these">Running servers</h3>
         <p className="empty">
           This page is served by an older Progressor{hub?.version ? ` (${hub.version})` : ""}, which cannot list servers. Close that
           process and a newer one takes the dashboard over within a few seconds: end any <code>progressor-mcp dashboard</code> command
@@ -60,7 +60,7 @@ export function ServersPanel({ servers, hub, reload, toast }: {
   const total = list.reduce((sum, s) => sum + s.memory, 0);
   return (
     <section>
-      <h3>Running servers</h3>
+      <h3 title="Each open AI chat that uses Progressor runs one of these">Running servers</h3>
       {!servers && <p className="empty">Loading…</p>}
       {servers && list.length === 0 && <p className="empty">None listed.</p>}
       {list.map((s) => (
@@ -76,7 +76,7 @@ export function ServersPanel({ servers, hub, reload, toast }: {
           </div>
           <div className="server-path" title={s.root}>{s.root}</div>
           <div className="server-meta">
-            <span>{s.kind === "dashboard" ? "📊 dashboard command" : s.goal ? `🎯 ${s.goal.title}` : "No Goal claimed"}</span>
+            <span>{s.kind === "dashboard" ? "📊 dashboard command" : s.goal ? `🎯 ${s.goal.title}` : "Not working on a goal"}</span>
             <span>{megabytes(s.memory)}</span>
             <span title={new Date(s.startedAt).toLocaleString()}>started {age(s.startedAt)}</span>
             <span>pid {s.pid}</span>

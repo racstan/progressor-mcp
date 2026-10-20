@@ -185,6 +185,27 @@ export function buildGoalGraph(plan: { tasks: Task[]; detours: Detour[] }): Goal
 }
 
 /** The same map with the Detours left out: each new line joins the Task its Recalibration branched from. */
+/**
+ * The map without its dropped Tasks: each one's line joins straight around it, a Detour that
+ * branched off it hangs off the stop before, and the empty columns close up.
+ */
+export function withoutDropped(graph: GoalGraph): GoalGraph {
+  const hidden = graph.nodes.filter((n) => n.kind === "task" && n.status === "dropped").map((n) => n.id);
+  let edges = graph.edges;
+  for (const h of hidden) {
+    const into = edges.filter((e) => e.to === h);
+    const out = edges.filter((e) => e.from === h);
+    edges = edges.filter((e) => e.from !== h && e.to !== h);
+    for (const i of into)
+      for (const o of out)
+        if (!edges.some((e) => e.from === i.from && e.to === o.to))
+          edges.push({ from: i.from, to: o.to, kind: o.kind === "plan" ? i.kind : o.kind });
+  }
+  const nodes = graph.nodes.filter((n) => !hidden.includes(n.id));
+  const steps = [...new Set(nodes.map((n) => n.step))].sort((a, b) => a - b);
+  return { nodes: nodes.map((n) => ({ ...n, step: steps.indexOf(n.step) })), edges };
+}
+
 export function withoutDetours(graph: GoalGraph): GoalGraph {
   const hidden = new Set(graph.nodes.filter((n) => n.kind === "detour").map((n) => n.id));
   const edges = graph.edges.filter((e) => !hidden.has(e.from) && !hidden.has(e.to));

@@ -5,9 +5,9 @@ export const VIEWS = ["horizontal", "vertical", "checklist"] as const;
 export type View = (typeof VIEWS)[number];
 
 export const VIEW_LABELS: Record<View, string> = {
-  horizontal: "Metro, horizontal",
-  vertical: "Metro, vertical",
-  checklist: "Checklist",
+  horizontal: "Map, left to right",
+  vertical: "Map, top to bottom",
+  checklist: "List of steps",
 };
 
 const isView = (v: string | null | undefined): v is View => VIEWS.includes(v as View);

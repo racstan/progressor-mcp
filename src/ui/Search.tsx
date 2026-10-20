@@ -1,20 +1,20 @@
-// The search box in the top bar: finds projects, Goals, Tasks and Ideas across every project as you
+// The search box in the top bar: finds projects, goals and steps across every project as you
 // type. "/" focuses it; arrow keys move through the results and Enter opens one.
 import { useEffect, useRef, useState } from "react";
 import type { SearchView } from "./data.js";
+import { GOAL_WORD, STEP_WORD } from "./words.js";
 
 export type SearchHit = SearchView[number];
 
 const KINDS: { kind: SearchHit["kind"]; label: string; icon: string }[] = [
   { kind: "project", label: "Projects", icon: "📁" },
   { kind: "goal", label: "Goals", icon: "🎯" },
-  { kind: "task", label: "Tasks", icon: "•" },
-  { kind: "idea", label: "Ideas", icon: "💡" },
+  { kind: "task", label: "Steps", icon: "•" },
 ];
 
 /** Where a hit lives, under its title. */
 const context = (h: SearchHit) =>
-  h.kind === "project" ? h.detail : [h.project.name, h.goal?.title, h.status].filter(Boolean).join(" · ");
+  h.kind === "project" ? h.detail : [h.project.name, h.goal?.title, h.status && (h.kind === "goal" ? GOAL_WORD : STEP_WORD)[h.status]].filter(Boolean).join(" · ");
 
 export function SearchBox({ query, hits, onChange, onOpen }: {
   query: string;
@@ -58,8 +58,9 @@ export function SearchBox({ query, hits, onChange, onOpen }: {
         ref={input}
         type="search"
         value={query}
-        placeholder="Search projects, Goals, Tasks…"
-        aria-label="Search projects, Goals, Tasks and Ideas"
+        placeholder="Search projects, goals, steps…"
+        title="Search every project for a goal or step (shortcut: /)"
+        aria-label="Search projects, goals and steps"
         aria-controls="search-results"
         aria-expanded={showing}
         aria-activedescendant={showing && ordered[active] ? `search-hit-${active}` : undefined}

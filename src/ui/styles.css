@@ -269,3 +269,30 @@ a.card { text-decoration: none; color: var(--ink); }
 .search-results .c { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 760px) { .search { margin-left: 8px; } .search kbd { display: none; } }
 @media (max-width: 820px) { .logo .name { display: none; } .logo { margin-right: 0; } }
+
+/* The Live chip is only its dot while all is well; its words are in the hover. */
+.nav .chip.dot-only { padding: 6px; gap: 0; flex-shrink: 0; }
+
+/* What the AI is doing: working, waiting for the person, or stopped. */
+.state-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: 1px; background: var(--faded); }
+.state-dot.working { background: var(--done); }
+.state-dot.waiting, .state-dot.stopped { background: var(--detour); }
+.state-dot.finished { background: var(--done); }
+.goal .s .state.working { color: var(--done); font-weight: 600; }
+.goal .s .state.waiting, .goal .s .state.stopped { color: var(--detour); font-weight: 600; }
+.banner .status-line { margin-top: 3px; }
+.banner .outcome { margin-top: 2px; }
+
+/* Settings > Advanced: the options for people who look at the code. */
+.menu-panel details.advanced { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
+.menu-panel details.advanced > summary { cursor: pointer; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.menu-panel details.advanced[open] > summary { margin-bottom: 12px; }
+.menu-panel details.advanced section + section, .menu-panel details.advanced section + * { margin-top: 18px; }
+.placeholder .detail { display: block; margin-top: 10px; font-size: 12px; color: var(--muted); }
+/* On a phone the top bar keeps search, the dot, Help, Settings, the views and Show; the theme is in Settings. */
+@media (max-width: 560px) {
+  .nav { gap: 6px; padding: 0 10px; }
+  .nav .theme-btn { display: none; }
+  .search { margin-left: 4px; min-width: 44px; }
+  .views button { padding: 4px 7px; }
+}

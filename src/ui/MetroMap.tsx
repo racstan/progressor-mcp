@@ -1,9 +1,10 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { EdgeKind, GoalGraph, GraphNode } from "../dashboard/graph.js";
-import { type Orientation, type Point, STATUS_LABEL, chooseWrap, edgePath, edgeStyle, laneColor, positionOf, wrapLabel } from "./geometry.js";
+import { type Orientation, type Point, chooseWrap, edgePath, edgeStyle, laneColor, positionOf, wrapLabel } from "./geometry.js";
 import { type PanZoom, type View, panZoom } from "./panZoom.js";
 import { type BandEdge, rubberBand } from "./rubberBand.js";
 import { plainText } from "./text.js";
+import { STEP_WORD } from "./words.js";
 
 /** Zoom and pan per Goal (and view and Detours setting) survive live updates and switching back and forth. */
 const views = new Map<string, View>();
@@ -14,10 +15,12 @@ interface Props {
   viewKey: string;
   /** The stop to centre on when the map is first shown. */
   focusId: string | undefined;
+  /** Whether each step shows the files it changes. */
+  files: boolean;
   onOpen: (node: GraphNode, at: { x: number; y: number }) => void;
 }
 
-export function MetroMap({ graph, orientation, viewKey: goalViewKey, focusId, onOpen }: Props) {
+export function MetroMap({ graph, orientation, viewKey: goalViewKey, focusId, files, onOpen }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement>(null);
   const pz = useRef<PanZoom>(undefined);
@@ -105,7 +108,7 @@ export function MetroMap({ graph, orientation, viewKey: goalViewKey, focusId, on
 
   return (
     <>
-      <svg ref={svgRef} className="map" role="group" aria-label="Metro map of the Goal's Tasks and Detours">
+      <svg ref={svgRef} className="map" role="group" aria-label="Map of the goal's steps and side trips">
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="var(--detour)" />
@@ -127,7 +130,7 @@ export function MetroMap({ graph, orientation, viewKey: goalViewKey, focusId, on
             />
           ))}
           {graph.nodes.map((n) => (
-            <Stop key={n.id} node={n} at={positions.get(n.id)!} vertical={orientation === "vertical"} onKey={openFromKey} />
+            <Stop key={n.id} node={n} at={positions.get(n.id)!} vertical={orientation === "vertical"} files={files} onKey={openFromKey} />
           ))}
         </g>
       </svg>
@@ -185,12 +188,12 @@ function FileChips({ files, x, y, centred, max }: { files: string[]; x: number; 
   );
 }
 
-function Stop({ node: n, at, vertical, onKey }: { node: GraphNode; at: Point; vertical: boolean; onKey: (n: GraphNode, el: Element) => void }) {
+function Stop({ node: n, at, vertical, files, onKey }: { node: GraphNode; at: Point; vertical: boolean; files: boolean; onKey: (n: GraphNode, el: Element) => void }) {
   const { x, y } = at;
   const dropped = n.kind === "task" && n.status === "dropped";
   const active = n.kind === "task" && n.status === "in progress";
   const lines = wrapLabel(n.title, vertical ? 26 : 20);
-  const label = `${n.kind === "task" ? "Task" : "Detour"} ${n.id}: ${n.title} (${STATUS_LABEL[n.status]})`;
+  const label = `${n.kind === "task" ? "Step" : "Side trip"}: ${n.title} (${STEP_WORD[n.status]})`;
   // Labels sit under the stop on the horizontal map and beside it on the vertical one.
   const textX = vertical ? x + 26 : x;
   const anchor = vertical ? "start" : "middle";
@@ -204,7 +207,7 @@ function Stop({ node: n, at, vertical, onKey }: { node: GraphNode; at: Point; ve
         {n.status === "open" && <rect className="pulse" {...diamond} fill="var(--detour)" />}
         <rect className="shape" {...diamond} fill="var(--panel)" stroke="var(--detour)" strokeWidth={4} />
         <text x={textX} y={vertical ? tagY : y - 30} textAnchor={anchor} fontSize={11} fontWeight={700} style={{ fill: "var(--detour)" }}>
-          {STATUS_LABEL[n.status]!.toUpperCase()}
+          {(n.status === "open" ? "SIDE TRIP" : STEP_WORD[n.status]!.toUpperCase())}
         </text>
       </>
     );
@@ -217,7 +220,7 @@ function Stop({ node: n, at, vertical, onKey }: { node: GraphNode; at: Point; ve
         {n.status === "done" && <path d={`M${x - 5},${y} l4,4 l7,-8`} stroke="#fff" strokeWidth={2.5} fill="none" strokeLinecap="round" />}
         {n.fromDetour && (
           <text x={textX} y={tagY} textAnchor={anchor} fontSize={11} style={{ fill: "var(--detour)" }}>
-            from Detour
+            from a side trip
           </text>
         )}
       </>
@@ -247,7 +250,7 @@ function Stop({ node: n, at, vertical, onKey }: { node: GraphNode; at: Point; ve
           </tspan>
         ))}
       </text>
-      {n.kind === "task" && <FileChips files={n.code} x={textX} y={titleY + (lines.length - 1) * 15 + 7} centred={!vertical} max={vertical ? 2 : 1} />}
+      {files && n.kind === "task" && <FileChips files={n.code} x={textX} y={titleY + (lines.length - 1) * 15 + 7} centred={!vertical} max={vertical ? 2 : 1} />}
     </g>
   );
 }
