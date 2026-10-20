@@ -2,6 +2,13 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## 0.5.1 · Commands that work with no text
+
+- **/progressor:plan** and **/progressor:idea** no longer need text after them. Sent on their own, the Agent asks you in the chat what to plan or park, and your answer can hold anything: links, code, pasted text.
+  - Some apps allow only plain words after a command. Claude's app refuses links and formatting there with "A command takes file @-mentions but no other @-mentions, slash commands, links, or inline formatting", so nothing was sent.
+  - Plain words after the command still work as before.
+- Troubleshooting in the README covers that error.
+
 ## 0.5.0 · More slash commands
 
 ### New commands
