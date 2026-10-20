@@ -2,6 +2,25 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## 0.5.0 · More slash commands
+
+### New commands
+
+- **/progressor:next** picks up where the plan left off: it finishes an open Detour first, carries on with the Task in progress or starts the next one, and claims the paused Goal if no Goal is claimed (or asks which, when there are several).
+- **/progressor:idea** parks an idea for later as an Idea, without working on it now.
+- **/progressor:dashboard** gives the link to this project's dashboard, and opens it in the app's browser pane where there is one.
+- **/progressor:setup** sets up the conversation's folder from the chat: the hooks, the note in `CLAUDE.md` and a Roadmap, after your OK.
+
+### Progressor in every project
+
+- Register Progressor once for your user (`claude mcp add --scope user progressor -- npx -y progressor-mcp`) and it runs in every conversation, whatever its folder; **/progressor:setup** then sets a folder up without a restart. See [docs/setup.md](docs/setup.md#use-progressor-in-every-project).
+- `progressor-mcp init --no-server` sets a project up without adding it to `.mcp.json`, for an app that already runs Progressor in every folder.
+- The server takes its project folder from `CLAUDE_PROJECT_DIR` when Claude Code sets it, as the hooks already did.
+
+### Docs
+
+- The commands are named as the `/` menu shows them, `/progressor:status (MCP)`, instead of `/mcp__progressor__status`, which only works when typed in full.
+
 ## 0.4.1 · Help and a shorter README
 
 ### Report a problem from the dashboard
