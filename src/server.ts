@@ -145,8 +145,22 @@ function respond(body: () => string) {
 }
 
 export interface ServerOptions {
-  /** The dashboard, so get_status can say where the Developer can open it. */
-  dashboard?: Pick<Dashboard, "url" | "refresh">;
+  /** The dashboard, so get_status can say where the Developer can open it; its url may come later. */
+  dashboard?: { readonly url: string | undefined; refresh(): Promise<void> };
+}
+
+/**
+ * The folders the app has open, as MCP root URIs, or undefined when it does not report any (or
+ * takes longer than `timeoutMs`). Call it once the app has connected.
+ */
+export async function appRoots(server: McpServer, timeoutMs: number): Promise<string[] | undefined> {
+  if (!server.server.getClientCapabilities()?.roots) return undefined;
+  try {
+    const { roots } = await server.server.listRoots(undefined, { timeout: timeoutMs });
+    return roots.map((r) => r.uri);
+  } catch {
+    return undefined;
+  }
 }
 
 export function createServer(project: Project, options: ServerOptions = {}): McpServer {
@@ -166,7 +180,11 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       // The Session serving the dashboard may have ended; if so, this one takes over.
       await dashboard?.refresh().catch(() => undefined);
       return respond(() =>
-        [status(), ...(dashboard ? [`Dashboard: ${dashboard.url} (tell the Developer they can follow progress there)`] : [])].join("\n"),
+        [
+          status(),
+          `Project folder: ${project.root}`,
+          ...(dashboard?.url ? [`Dashboard: ${dashboard.url} (tell the Developer they can follow progress there)`] : []),
+        ].join("\n"),
       );
     },
   );

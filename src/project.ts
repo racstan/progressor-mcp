@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { type Detour, type NewTask, type PlanFile, type Task, type TaskChanges, newPlanFile, parsePlanFile } from "./planFile.js";
+import { unsafeRoot } from "./root.js";
 import { type Goal, type Idea, ROADMAP_REF, type Roadmap, type StandingInstruction, parseRoadmap } from "./roadmap.js";
 
 export interface SessionIdentity {
@@ -15,6 +17,8 @@ export interface ProjectOptions {
   /** Whether a process is still running; used to spot stale Claims. */
   isAlive?: (pid: number) => boolean;
   now?: () => Date;
+  /** Why a folder is the wrong place to start a progress record, if it is (see unsafeRoot). */
+  unsafe?: (root: string) => string | undefined;
 }
 
 export type DetourEnding = "merge back" | "return" | "recalibrate";
@@ -73,16 +77,29 @@ export function processIsAlive(pid: number): boolean {
 
 /** The progress record of one project, as seen by one Session. Every call re-reads the files. */
 export class Project {
-  readonly root: string;
+  private folder: string;
   readonly session: SessionIdentity;
   private readonly isAlive: (pid: number) => boolean;
   private readonly now: () => Date;
+  private readonly unsafe: (root: string) => string | undefined;
 
   constructor(options: ProjectOptions) {
-    this.root = options.root;
+    this.folder = options.root;
     this.session = options.session;
     this.isAlive = options.isAlive ?? processIsAlive;
     this.now = options.now ?? (() => new Date());
+    this.unsafe =
+      options.unsafe ?? ((root) => unsafeRoot(root, { home: homedir(), systemRoot: process.env.SystemRoot, platform: process.platform }));
+  }
+
+  /** The project folder; progress lives in `<root>/.progressor`. */
+  get root(): string {
+    return this.folder;
+  }
+
+  /** Switches to another project folder, once the app has said which folder it has open. */
+  moveTo(root: string): void {
+    this.folder = root;
   }
 
   // --- files ---------------------------------------------------------------
@@ -101,6 +118,14 @@ export class Project {
   }
 
   private writeText(path: string, text: string): void {
+    if (!existsSync(join(this.root, PROGRESSOR_DIR))) {
+      const why = this.unsafe(this.root);
+      if (why)
+        throw new Error(
+          `Progressor will not start a plan in ${this.root}: ${why}, so the app most likely started Progressor outside the project. ` +
+            "Open the project's folder in the app, or set PROGRESSOR_ROOT to it in Progressor's MCP settings, then try again.",
+        );
+    }
     mkdirSync(dirname(path), { recursive: true });
     const tmp = `${path}.${process.pid}.tmp`;
     writeFileSync(tmp, text);

@@ -475,3 +475,27 @@ describe("recording finished work", () => {
     expect(agent.status().nextTask?.id).toBe("t1");
   });
 });
+
+describe("the project folder", () => {
+  it("refuses to start a progress record in a folder that is the wrong place, and says why", () => {
+    const agent = new Project({ root, session: { id: "s-a", pid: 100 }, unsafe: () => "it is your home folder" });
+    expect(() => agent.addGoal("Login")).toThrow(/home folder.*PROGRESSOR_ROOT/s);
+    expect(agent.roadmap().goals).toEqual([]);
+  });
+
+  it("keeps using a progress record that is already there", () => {
+    session("s-a", 100).addGoal("Login");
+    const agent = new Project({ root, session: { id: "s-a", pid: 100 }, unsafe: () => "it is your home folder" });
+    agent.addGoal("Billing");
+    expect(agent.roadmap().goals.map((g) => g.id)).toEqual(["login", "billing"]);
+  });
+
+  it("moves to the folder the app reports", () => {
+    const other = tempDir("progressor-other-");
+    const agent = session("s-a", 100);
+    agent.moveTo(other);
+    agent.addGoal("Login");
+    expect(agent.root).toBe(other);
+    expect(readFileSync(join(other, ".progressor", "roadmap.md"), "utf8")).toContain("Login");
+  });
+});

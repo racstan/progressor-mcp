@@ -11,13 +11,13 @@
   - summary: Test-first: refuse to complete a Goal with Tasks still pending or in progress, or an open Detour, and say which.
   - code: `src/project.ts`
   - code: `test/project.test.ts`
-- [/] Multi-line text stays on one line ^t3
+- [x] Multi-line text stays on one line ^t3
   - summary: Test-first: Detour titles and reasons, drop reasons and Standing Instructions go through oneLine like Goal and Task titles.
   - code: `src/planFile.ts`
   - code: `src/roadmap.ts`
   - code: `test/planFile.test.ts`
   - code: `test/roadmap.test.ts`
-- [ ] The right project folder in every app ^t4
+- [/] The right project folder in every app ^t4
   - summary: Test-first: take the folder from PROGRESSOR_ROOT, then the app's MCP roots, then CLAUDE_PROJECT_DIR, then the start folder; get_status names the folder; never create .progressor/ in the home folder or a system folder.
   - code: `src/serve.ts`
   - code: `src/server.ts`

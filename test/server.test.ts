@@ -1,16 +1,18 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { ListRootsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applyChanges, launchFor, planInit } from "../src/init.js";
 import { Project } from "../src/project.js";
 import { setupPrompt } from "../src/prompts.js";
-import { createServer } from "../src/server.js";
+import { appRoots, createServer } from "../src/server.js";
 import { tempDir } from "./tmp.js";
 
 let client: Client;
+let root: string;
 
 beforeEach(async () => {
-  const root = tempDir("progressor-");
+  root = tempDir("progressor-");
   const project = new Project({ root, session: { id: "s-a", pid: process.pid } });
   const server = createServer(project);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
@@ -65,6 +67,7 @@ describe("the MCP server", () => {
         "No Goal is claimed by this Session. Claim one with claim_goal, or add one with add_goal.",
         "Goals:",
         "- login: Login (planned)",
+        `Project folder: ${root}`,
       ].join("\n"),
     );
   });
@@ -91,6 +94,7 @@ describe("the MCP server", () => {
         "Next Task: t3 Cookies",
         "Standing Instructions:",
         "- s1 Ask me before recalibrating",
+        `Project folder: ${root}`,
       ].join("\n"),
     );
   });
@@ -354,5 +358,32 @@ describe("the dashboard command", () => {
     const t = (await c.getPrompt({ name: "dashboard" })).messages.map((m) => (m.content as { text: string }).text).join("\n");
     expect(t).toContain(url);
     expect(t).toMatch(/browser/i);
+  });
+});
+
+describe("the folder the app has open", () => {
+  const connect = async (withRoots: boolean) => {
+    const project = new Project({ root: tempDir("progressor-"), session: { id: "s-r", pid: process.pid } });
+    const server = createServer(project);
+    const c = new Client({ name: "test", version: "0" }, { capabilities: withRoots ? { roots: {} } : {} });
+    if (withRoots)
+      c.setRequestHandler(ListRootsRequestSchema, async () => ({ roots: [{ uri: "file:///home/dev/shop", name: "shop" }] }));
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    await Promise.all([server.connect(serverSide), c.connect(clientSide)]);
+    return server;
+  };
+
+  it("lists the app's roots when it has them", async () => {
+    expect(await appRoots(await connect(true), 1000)).toEqual(["file:///home/dev/shop"]);
+  });
+
+  it("gives nothing when the app does not report roots", async () => {
+    expect(await appRoots(await connect(false), 1000)).toBeUndefined();
+  });
+});
+
+describe("get_status", () => {
+  it("names the project folder", async () => {
+    expect((await call("get_status")).text).toMatch(/Project folder: .*progressor-/);
   });
 });
