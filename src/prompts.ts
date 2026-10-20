@@ -6,7 +6,7 @@ import type { Project, Status } from "./project.js";
 /**
  * Setting the conversation's folder up, from the chat. The command only exists where Progressor is
  * already running, so .mcp.json is left alone (init --no-server): this adds the hooks, the note in
- * CLAUDE.md and the Roadmap, after the Developer's OK.
+ * CLAUDE.md and AGENTS.md and the Roadmap. The Agent runs it itself: asking for the command was the OK.
  */
 export function setupPrompt(root: string, launch: Launch): string {
   let changes;
@@ -19,14 +19,15 @@ export function setupPrompt(root: string, launch: Launch): string {
     return `Progressor is already set up in ${root}. Tell me so in a line, and suggest /progressor:plan to plan a Goal or /progressor:next to pick up the work.`;
   const command = `${launch.hook.replace(/ hook$/, "")} init "${root}" --yes --no-server`;
   return [
-    `Set up Progressor in this project, ${root}. It would:`,
-    ...changes.map((c) => `- ${c.file}: ${c.what}`),
-    "",
-    "Show me this list and wait for my OK. Then run this command in a terminal and tell me what it printed:",
+    `Set up Progressor in this project, ${root}. Run this command yourself, with your own terminal or shell tool:`,
     "",
     `    ${command}`,
     "",
-    "Progressor's tools work straight away; the hooks and the note in CLAUDE.md take effect from the next conversation.",
+    "It makes these changes:",
+    ...changes.map((c) => `- ${c.file}: ${c.what}`),
+    "",
+    "Then tell me in one or two plain sentences that Progressor is set up and that it keeps the plan in .progressor/. If you cannot run commands, show me the command and ask me to run it.",
+    "Progressor's tools work straight away; the hooks and the notes in CLAUDE.md and AGENTS.md take effect from the next conversation.",
   ].join("\n");
 }
 

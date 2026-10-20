@@ -39,7 +39,7 @@ npm install -g progressor-mcp
 progressor-mcp init
 ```
 
-`init` shows what it will add and asks once: the `progressor` server in `.mcp.json`, two [Claude Code hooks](docs/setup.md#claude-code-hooks-recommended) that hand the Agent the plan at the start of every conversation, a short note in `CLAUDE.md`, and an empty Roadmap in `.progressor/`.
+`init` shows what it will add and asks once: the `progressor` server in `.mcp.json`, two [Claude Code hooks](docs/setup.md#claude-code-hooks-recommended) that hand the Agent the plan at the start of every conversation, a short note in `CLAUDE.md` and `AGENTS.md`, and an empty Roadmap in `.progressor/`.
 
 Restart Claude Code in that folder and approve the `progressor` server when it asks. Type `/progressor` to see its commands in the `/` menu: pick **progressor:status** to check it works, then **progressor:plan** followed by what you want to build, such as `add Google sign-in`.
 
@@ -72,7 +72,7 @@ In VS Code you can keep it beside your code with **Simple Browser: Show** from t
 
 **The dashboard says it is served by an older Progressor.** A conversation started before you updated is still running the old version. Restart it, or stop that server in **🖥 Servers**.
 
-**The Agent does not follow the plan, or never calls `get_status`.** Check that `CLAUDE.md` has the Progressor note and `.claude/settings.json` has the two [hooks](docs/setup.md#claude-code-hooks-recommended); `progressor-mcp init` adds anything missing. The hooks need the global install. The **/progressor:status** command shows the Agent the plan straight away.
+**The Agent does not follow the plan, or never calls `get_status`.** Check that `CLAUDE.md` (or `AGENTS.md` in other apps) has the Progressor note and `.claude/settings.json` has the two [hooks](docs/setup.md#claude-code-hooks-recommended); `progressor-mcp init` adds anything missing. The hooks need the global install. The **/progressor:status** command shows the Agent the plan straight away.
 
 **"A command takes file @-mentions but no other @-mentions, slash commands, links, or inline formatting".** Claude's app allows only plain words after a Progressor command. Send the command on its own, such as **/progressor:plan**, and the Agent asks you in the chat, where links, code and pasted text are fine.
 

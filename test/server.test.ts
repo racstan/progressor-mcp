@@ -303,13 +303,15 @@ describe("slash commands", () => {
     expect(await text("dashboard")).toContain("progressor-mcp dashboard");
   });
 
-  it("setup lists what init would add here and runs it after an OK", async () => {
+  it("setup has the Agent run init itself and say what it changed", async () => {
     const t = await text("setup");
     expect(t).toContain("CLAUDE.md");
+    expect(t).toContain("AGENTS.md");
     expect(t).toContain(".progressor/roadmap.md");
     expect(t).not.toContain(".mcp.json:");
     expect(t).toMatch(/init "[^"]+" --yes --no-server/);
-    expect(t).toMatch(/wait for my OK/i);
+    expect(t).toMatch(/run this command yourself/i);
+    expect(t).not.toMatch(/wait for my OK|in a terminal/i);
   });
 
   it("setup says when the folder is already set up", () => {

@@ -1,6 +1,6 @@
 // `progressor-mcp init`: sets a project up for Progressor in one go. It registers the MCP server in
 // .mcp.json, adds the Claude Code hooks to .claude/settings.json, puts a short note for the Agent in
-// CLAUDE.md and creates the Roadmap. Every change is worked out first, so the Developer sees the
+// CLAUDE.md and AGENTS.md and creates the Roadmap. Every change is worked out first, so the Developer sees the
 // list before anything is written; running it again changes nothing, and --remove undoes it all
 // except the progress record.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -51,7 +51,8 @@ export function applyChanges(changes: Change[]): void {
 
 const MCP_FILE = ".mcp.json";
 const SETTINGS_FILE = join(".claude", "settings.json");
-const NOTE_FILE = "CLAUDE.md";
+// Claude Code reads CLAUDE.md; most other apps (Cursor, Copilot, Windsurf, Codex) read AGENTS.md.
+const NOTE_FILES = ["CLAUDE.md", "AGENTS.md"];
 const SERVER_NAME = "progressor";
 const HOOKS = { SessionStart: "session-start", UserPromptSubmit: "prompt" } as const;
 const NOTE_START = "<!-- progressor:start -->";
@@ -125,19 +126,20 @@ export function planInit(root: string, launch: Launch, { server = true }: { serv
   }
   if (edits.length > 0) changes.push(change(root, SETTINGS_FILE, edits.join("; "), text({ ...settings, hooks })));
 
-  const notePath = join(root, NOTE_FILE);
-  const note = existsSync(notePath) ? readFileSync(notePath, "utf8") : undefined;
-  const block = note === undefined ? -1 : note.indexOf(NOTE_START);
-  if (note === undefined) {
-    changes.push(change(root, NOTE_FILE, "create it with a short note telling the Agent to use Progressor", `${NOTE}\n`));
-  } else if (block < 0) {
-    const sep = note.endsWith("\n\n") ? "" : note.endsWith("\n") ? "\n" : "\n\n";
-    changes.push(change(root, NOTE_FILE, "add a short note telling the Agent to use Progressor", `${note}${sep}${NOTE}\n`));
-  } else {
-    const end = note.indexOf(NOTE_END, block);
-    const existing = note.slice(block, end < 0 ? note.length : end + NOTE_END.length);
-    if (existing !== NOTE)
-      changes.push(change(root, NOTE_FILE, "update Progressor's note to the Agent", note.replace(existing, NOTE)));
+  for (const file of NOTE_FILES) {
+    const notePath = join(root, file);
+    const note = existsSync(notePath) ? readFileSync(notePath, "utf8") : undefined;
+    const block = note === undefined ? -1 : note.indexOf(NOTE_START);
+    if (note === undefined) {
+      changes.push(change(root, file, "create it with a short note telling the Agent to use Progressor", `${NOTE}\n`));
+    } else if (block < 0) {
+      const sep = note.endsWith("\n\n") ? "" : note.endsWith("\n") ? "\n" : "\n\n";
+      changes.push(change(root, file, "add a short note telling the Agent to use Progressor", `${note}${sep}${NOTE}\n`));
+    } else {
+      const end = note.indexOf(NOTE_END, block);
+      const existing = note.slice(block, end < 0 ? note.length : end + NOTE_END.length);
+      if (existing !== NOTE) changes.push(change(root, file, "update Progressor's note to the Agent", note.replace(existing, NOTE)));
+    }
   }
 
   const roadmap = join(PROGRESSOR_DIR, ROADMAP_FILE);
@@ -184,14 +186,15 @@ export function planRemove(root: string): Change[] {
     }
   }
 
-  const notePath = join(root, NOTE_FILE);
-  const note = existsSync(notePath) ? readFileSync(notePath, "utf8") : "";
-  const start = note.indexOf(NOTE_START);
-  if (start >= 0) {
+  for (const file of NOTE_FILES) {
+    const notePath = join(root, file);
+    const note = existsSync(notePath) ? readFileSync(notePath, "utf8") : "";
+    const start = note.indexOf(NOTE_START);
+    if (start < 0) continue;
     const endAt = note.indexOf(NOTE_END, start);
     const end = endAt < 0 ? note.length : endAt + NOTE_END.length;
     const rest = `${note.slice(0, start).replace(/\s+$/, "")}\n${note.slice(end).replace(/^\s+/, "")}`.replace(/^\n+/, "");
-    changes.push(change(root, NOTE_FILE, "remove Progressor's note to the Agent", rest.trim() ? `${rest.replace(/\n+$/, "")}\n` : null));
+    changes.push(change(root, file, "remove Progressor's note to the Agent", rest.trim() ? `${rest.replace(/\n+$/, "")}\n` : null));
   }
 
   return changes;

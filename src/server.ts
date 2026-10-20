@@ -537,7 +537,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
 
   server.registerPrompt(
     "setup",
-    { title: "Set up this project", description: "Add Progressor's hooks, its note in CLAUDE.md and a Roadmap to this folder, after your OK." },
+    { title: "Set up this project", description: "Add Progressor's hooks, its notes in CLAUDE.md and AGENTS.md and a Roadmap to this folder." },
     () => message(setupPrompt(project.root, launchFor({ viaNpx: startedViaNpx(), platform: process.platform }))),
   );
 

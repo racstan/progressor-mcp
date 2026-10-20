@@ -38,7 +38,7 @@ describe("how Progressor is started", () => {
 describe("init", () => {
   it("leaves .mcp.json alone without the server, for an app that already runs Progressor", () => {
     const changes = planInit(root, global, { server: false });
-    expect(changes.map((c) => c.file)).toEqual([".claude/settings.json", "CLAUDE.md", ".progressor/roadmap.md"]);
+    expect(changes.map((c) => c.file)).toEqual([".claude/settings.json", "CLAUDE.md", "AGENTS.md", ".progressor/roadmap.md"]);
     applyChanges(changes);
     expect(existsSync(join(root, ".mcp.json"))).toBe(false);
     expect(planInit(root, global, { server: false })).toEqual([]);
@@ -46,7 +46,7 @@ describe("init", () => {
 
   it("sets up a fresh project: server, hooks, a note for the Agent and an empty Roadmap", () => {
     const changes = planInit(root, global);
-    expect(changes.map((c) => c.file)).toEqual([".mcp.json", ".claude/settings.json", "CLAUDE.md", ".progressor/roadmap.md"]);
+    expect(changes.map((c) => c.file)).toEqual([".mcp.json", ".claude/settings.json", "CLAUDE.md", "AGENTS.md", ".progressor/roadmap.md"]);
     applyChanges(changes);
 
     expect(json(".mcp.json")).toEqual({ mcpServers: { progressor: { command: "progressor-mcp", args: [] } } });
@@ -57,7 +57,14 @@ describe("init", () => {
       },
     });
     expect(read("CLAUDE.md")).toMatch(/^<!-- progressor:start -->\n## Progressor\n[\s\S]*get_status[\s\S]*<!-- progressor:end -->\n$/);
+    expect(read("AGENTS.md")).toBe(read("CLAUDE.md"));
     expect(read(".progressor/roadmap.md")).toBe("# Roadmap\n");
+  });
+
+  it("adds the note to an AGENTS.md that other apps already read, keeping what is there", () => {
+    write("AGENTS.md", "# Agents\n\nRun npm test.\n");
+    init();
+    expect(read("AGENTS.md")).toMatch(/^# Agents\n\nRun npm test\.\n\n<!-- progressor:start -->[\s\S]*<!-- progressor:end -->\n$/);
   });
 
   it("changes nothing the second time", () => {
@@ -110,12 +117,14 @@ describe("init --remove", () => {
   it("takes out only what init added and keeps the progress record", () => {
     write(".mcp.json", JSON.stringify({ mcpServers: { github: { command: "gh-mcp" } } }));
     write("CLAUDE.md", "# My project\n");
+    write("AGENTS.md", "# Agents\n");
     init();
     applyChanges(planRemove(root));
 
     expect(json(".mcp.json")).toEqual({ mcpServers: { github: { command: "gh-mcp" } } });
     expect(existsSync(join(root, ".claude/settings.json"))).toBe(false);
     expect(read("CLAUDE.md")).toBe("# My project\n");
+    expect(read("AGENTS.md")).toBe("# Agents\n");
     expect(read(".progressor/roadmap.md")).toBe("# Roadmap\n");
     expect(planRemove(root)).toEqual([]);
   });
@@ -123,6 +132,6 @@ describe("init --remove", () => {
   it("deletes files that held nothing but Progressor's entries", () => {
     init(npx);
     applyChanges(planRemove(root));
-    for (const f of [".mcp.json", ".claude/settings.json", "CLAUDE.md"]) expect(existsSync(join(root, f))).toBe(false);
+    for (const f of [".mcp.json", ".claude/settings.json", "CLAUDE.md", "AGENTS.md"]) expect(existsSync(join(root, f))).toBe(false);
   });
 });
