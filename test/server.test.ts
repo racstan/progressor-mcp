@@ -211,8 +211,8 @@ describe("slash commands", () => {
   it("offers its commands as prompts", async () => {
     const { prompts } = await client.listPrompts();
     expect(prompts.map((p) => p.name).sort()).toEqual(["dashboard", "idea", "next", "plan", "review", "setup", "status"]);
-    expect(prompts.find((p) => p.name === "idea")!.arguments?.map((a) => [a.name, a.required])).toEqual([["idea", true]]);
-    expect(prompts.find((p) => p.name === "plan")!.arguments?.map((a) => [a.name, a.required])).toEqual([["goal", true]]);
+    expect(prompts.find((p) => p.name === "idea")!.arguments?.map((a) => [a.name, a.required])).toEqual([["idea", false]]);
+    expect(prompts.find((p) => p.name === "plan")!.arguments?.map((a) => [a.name, a.required])).toEqual([["goal", false]]);
   });
 
   const text = async (name: string, args: Record<string, string> = {}) =>
@@ -224,6 +224,20 @@ describe("slash commands", () => {
     const t = await text("status");
     expect(t).toContain("Goal: Login (progressor://login), claimed by this Session");
     expect(t).toMatch(/summari[sz]e/i);
+  });
+
+  it("plan with no text asks what to plan, in the chat", async () => {
+    const t = await text("plan");
+    expect(t).toMatch(/ask me what/i);
+    expect(t).toMatch(/links/i);
+    expect(t).toContain("add_goal");
+  });
+
+  it("idea with no text asks for the idea, in the chat", async () => {
+    const t = await text("idea");
+    expect(t).toMatch(/ask me what/i);
+    expect(t).toContain("record_idea");
+    expect(t).toMatch(/do not work on it/i);
   });
 
   it("plan asks for a plan to approve before add_goal", async () => {

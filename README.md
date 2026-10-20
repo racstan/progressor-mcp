@@ -74,6 +74,8 @@ In VS Code you can keep it beside your code with **Simple Browser: Show** from t
 
 **The Agent does not follow the plan, or never calls `get_status`.** Check that `CLAUDE.md` has the Progressor note and `.claude/settings.json` has the two [hooks](docs/setup.md#claude-code-hooks-recommended); `progressor-mcp init` adds anything missing. The hooks need the global install. The **/progressor:status** command shows the Agent the plan straight away.
 
+**"A command takes file @-mentions but no other @-mentions, slash commands, links, or inline formatting".** Claude's app allows only plain words after a Progressor command. Send the command on its own, such as **/progressor:plan**, and the Agent asks you in the chat, where links, code and pasted text are fine.
+
 Still stuck? [Report a problem](#feedback-and-help).
 
 ## Feedback and help

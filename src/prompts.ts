@@ -40,10 +40,17 @@ export function statusPrompt(statusText: string): string {
   ].join("\n");
 }
 
+/**
+ * What to say when a command came without its text. Some apps take only plain words after a command
+ * (Claude's app refuses links and formatting there), so the Developer can always answer in the chat.
+ */
+const askInChat = (what: string) =>
+  `Ask me what ${what}. I will answer in my next message, which can hold anything: several lines, links, code or pasted text. Once I have, follow these steps:`;
+
 /** Turning a piece of work the Developer describes into a Goal, with the Developer's OK first. */
-export function planPrompt(goal: string): string {
+export function planPrompt(goal: string | undefined): string {
   return [
-    `Plan this as a Progressor Goal: ${goal}`,
+    goal ? `Plan this as a Progressor Goal: ${goal}` : askInChat("I want to plan as a Progressor Goal"),
     "",
     "1. Look at the code you need to understand the work. Do not change anything yet.",
     "2. Propose:",
@@ -113,9 +120,9 @@ export function nextPrompt(status: Status, statusText: string): string {
 }
 
 /** Parking an idea the Developer has, so it is kept without derailing the current work. */
-export function ideaPrompt(idea: string): string {
+export function ideaPrompt(idea: string | undefined): string {
   return [
-    `Park this as a Progressor Idea with record_idea: ${idea}`,
+    idea ? `Park this as a Progressor Idea with record_idea: ${idea}` : `${askInChat("idea to park")} park it as a Progressor Idea with record_idea.`,
     "",
     "Give it a short title of a few words, and put any detail in the note. Do not work on it now; tell me in one line that it is parked.",
   ].join("\n");
