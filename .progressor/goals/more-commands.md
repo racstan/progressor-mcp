@@ -45,4 +45,4 @@
 
 - branched from: ^t5
 - reason: At a half-screen browser width (about 910px) the dashboard's top bar runs past the window's right edge, hiding the view buttons, the Detours switch and the theme toggle; it blocks the demo recording.
-- status: open
+- status: merged back

@@ -2,6 +2,10 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## 0.5.2 · The top bar fits narrow windows
+
+- In a browser window about half a screen wide, the dashboard's top bar ran past the right edge, hiding the view buttons, the Detours switch and the theme toggle. The search box now shrinks to make room, and below 820px the logo drops its name, so the whole bar fits down to about 700px.
+
 ## 0.5.1 · Commands that work with no text
 
 - **/progressor:plan** and **/progressor:idea** no longer need text after them. Sent on their own, the Agent asks you in the chat what to plan or park, and your answer can hold anything: links, code, pasted text.
