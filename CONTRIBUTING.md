@@ -4,6 +4,8 @@ Thanks for helping. Report problems and ideas through the [issue forms](https://
 
 ## Development
 
+The code uses Progressor's own terms (Goal, Task, Detour, Outcome, Standing Instruction), defined in the [glossary](GLOSSARY.md). Everything a person reads says them in everyday words instead (goal, step, side trip, Finished when, a rule your AI keeps): the dashboard's words are in `src/ui/words.ts`, and the [reference](docs/reference.md) has the full list.
+
 ```bash
 npm install
 ```
@@ -26,10 +28,10 @@ node scripts/dashboard.mjs test/fixtures/sample-project
 
 ## Releasing
 
-Releases publish themselves from GitHub Actions ([release.yml](.github/workflows/release.yml)). Bump the version in `package.json` and `server.json` (both `version` and `packages[0].version`), add a `CHANGELOG.md` entry, commit, then tag and push:
+Releases publish themselves from GitHub Actions ([release.yml](.github/workflows/release.yml)). Bump the version (here `0.6.0`) in `package.json` and `server.json` (both `version` and `packages[0].version`), add a `CHANGELOG.md` entry, commit, then tag and push:
 
 ```bash
-git tag v0.3.1
+git tag v0.6.0
 ```
 
 ```bash

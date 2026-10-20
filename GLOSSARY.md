@@ -2,6 +2,8 @@
 
 Progressor keeps an AI agent and the human it works with focused on the same goal across long sessions, context compression and distractions, by keeping a shared, live record of what is planned, what is done, and what came up along the way.
 
+These are the terms the code, the Agent's tools and the files use. Everything a person reads (the dashboard and the guides) says them in everyday words instead: a Task is a *step*, a Detour a *side trip*, the Roadmap *Your goals*, an Outcome *Finished when*, dropped is *cancelled*. The [reference](docs/reference.md) has the full list.
+
 ## Language
 
 ### People
@@ -75,7 +77,7 @@ Ending a small Detour as done, leaving the planned Tasks unchanged.
 _Avoid_: Close, resolve
 
 **Idea**:
-A feature or improvement thought of during the work and parked for later rather than done now.
+A feature or improvement thought of during the work and parked for later rather than done now. Since 0.6 Ideas are no longer added; older Roadmaps keep theirs.
 _Avoid_: Backlog item, wishlist, feature request
 
 **Promotion**:
