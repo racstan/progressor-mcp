@@ -49,6 +49,7 @@ describe("the MCP server", () => {
         "start_detour",
         "start_task",
         "update_goal",
+        "update_standing_instruction",
         "update_task",
       ].sort(),
     );
@@ -368,5 +369,19 @@ describe("the folder the app has open", () => {
 describe("get_status", () => {
   it("names the project folder", async () => {
     expect((await call("get_status")).text).toMatch(/Project folder: .*progressor-/);
+  });
+});
+
+describe("update_standing_instruction", () => {
+  it("changes a rule, and removes it when the text is empty", async () => {
+    await call("add_standing_instruction", { text: "Ask before pushing" });
+    await call("add_standing_instruction", { text: "Write tests first" });
+    expect((await call("update_standing_instruction", { id: "s1", text: "Ask before pushing or publishing" })).text).toBe(
+      "Changed Standing Instruction s1: Ask before pushing or publishing",
+    );
+    expect((await call("update_standing_instruction", { id: "s2", text: "" })).text).toBe("Removed Standing Instruction s2.");
+    const { text } = await call("get_status");
+    expect(text).toContain("- s1 Ask before pushing or publishing");
+    expect(text).not.toContain("Write tests first");
   });
 });

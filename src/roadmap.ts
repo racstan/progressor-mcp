@@ -256,6 +256,23 @@ export class Roadmap {
     return this.standingInstruction(id)!;
   }
 
+  private instructionBlock(id: string): ItemBlock {
+    const b = this.instructionBlocks().find((i) => i.id === id);
+    if (!b) throw new Error(`No Standing Instruction ${id} on the Roadmap.`);
+    return b;
+  }
+
+  /** Rewords a Standing Instruction; it keeps its ID. */
+  setStandingInstruction(id: string, text: string): StandingInstruction {
+    this.instructionBlock(id).text = oneLine(text);
+    return this.standingInstruction(id)!;
+  }
+
+  /** Takes a Standing Instruction off the Roadmap; its ID is not given out again while a higher one exists. */
+  removeStandingInstruction(id: string): void {
+    this.doc.blocks.splice(this.doc.blocks.indexOf(this.instructionBlock(id)), 1);
+  }
+
   toString(): string {
     return serialiseMarkdown(this.doc);
   }

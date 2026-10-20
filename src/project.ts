@@ -421,6 +421,16 @@ export class Project {
     return instruction;
   }
 
+  /** Rewords a Standing Instruction, or removes it when the text is empty; returns undefined when removed. */
+  updateStandingInstruction(id: string, text: string): StandingInstruction | undefined {
+    const roadmap = this.roadmap();
+    let result: StandingInstruction | undefined;
+    if (text.trim()) result = roadmap.setStandingInstruction(id, text);
+    else roadmap.removeStandingInstruction(id);
+    this.saveRoadmap(roadmap);
+    return result;
+  }
+
   // --- lookup ----------------------------------------------------------------
 
   /** Finds any item by its ref, such as `progressor://login/t2` or `progressor://roadmap/i1`. */

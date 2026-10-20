@@ -470,6 +470,24 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       }),
   );
 
+  server.registerTool(
+    "update_standing_instruction",
+    {
+      title: "Update Standing Instruction",
+      description:
+        "Reword a Standing Instruction when the Developer changes a rule, or remove it with an empty text when they drop it. The IDs (s1, s2...) are in get_status.",
+      inputSchema: {
+        id: z.string().describe("The Standing Instruction ID, such as 's2'."),
+        text: z.string().describe("The new wording; empty to remove the rule."),
+      },
+    },
+    ({ id, text }) =>
+      respond(() => {
+        const s = project.updateStandingInstruction(id, text);
+        return s ? `Changed Standing Instruction ${s.id}: ${s.text}` : `Removed Standing Instruction ${id}.`;
+      }),
+  );
+
   // Slash commands: Claude Code lists them in its / menu as /<server name>:status (MCP) and so on.
   const message = (text: string) => ({ messages: [{ role: "user" as const, content: { type: "text" as const, text } }] });
 

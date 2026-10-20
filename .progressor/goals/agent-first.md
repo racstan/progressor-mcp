@@ -26,13 +26,13 @@
   - code: `src/root.ts`
   - code: `test/root.test.ts`
   - code: `test/project.test.ts`
-- [/] Remove Ideas ^t5
-  - summary: Unregister record_idea, promote_idea and the idea command, and drop them from the instructions; old files with Ideas still load.
+- [x] Remove Ideas ^t5
+  - summary: record_idea, promote_idea and the idea command are unregistered and gone from the instructions; Roadmaps with Ideas still load and get_item still finds them. The dashboard's Ideas go in plain-dashboard.
   - code: `src/server.ts`
   - code: `src/prompts.ts`
   - code: `src/project.ts`
   - code: `test/server.test.ts`
-- [ ] Change or remove a rule ^t6
+- [/] Change or remove a rule ^t6
   - summary: Test-first: update_standing_instruction { id, text } changes a rule, and empty text removes it.
   - code: `src/server.ts`
   - code: `src/roadmap.ts`
