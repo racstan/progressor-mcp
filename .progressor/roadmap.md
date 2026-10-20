@@ -35,11 +35,11 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: 0.4.1, with the Help menu feedback links, --version and the shorter README, is on npm and the MCP Registry.
 - [/] [More slash commands](goals/more-commands.md) ^more-commands
   - outcome: The docs name the commands as the / menu shows them (/progressor:status), and setup, next, idea and dashboard join status, plan and review.
+  - claimed by: s-488302 (pid 19212) since 2026-10-20T04:47:45.086Z
 - [x] [Release 0.5.0](goals/release-0-5-0.md) ^release-0-5-0
   - outcome: 0.5.0, with the setup, next, idea and dashboard commands and the every-project install, is on npm and the MCP Registry.
-- [/] [Release 0.5.1](goals/release-0-5-1.md) ^release-0-5-1
+- [x] [Release 0.5.1](goals/release-0-5-1.md) ^release-0-5-1
   - outcome: 0.5.1, where plan and idea work with no text, is on npm and the MCP Registry.
-  - claimed by: s-488302 (pid 19212) since 2026-10-20T04:44:49.890Z
 
 ## Ideas
 
