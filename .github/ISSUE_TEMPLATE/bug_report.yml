@@ -20,15 +20,15 @@ body:
       label: How to make it happen again
       description: The steps, if you know them.
       placeholder: |
-        1. Run `progressor-mcp init` in a new project
-        2. Start Claude Code
+        1. Set Progressor up in a new project
+        2. Open the project in my AI app and ask for ...
         3. ...
   - type: input
     id: version
     attributes:
       label: Progressor version
       description: "`progressor-mcp --version`, or the version at the bottom of the dashboard's Help menu."
-      placeholder: "0.4.0"
+      placeholder: "The number progressor-mcp --version prints"
     validations:
       required: true
   - type: input
@@ -39,7 +39,7 @@ body:
   - type: dropdown
     id: client
     attributes:
-      label: Which app runs your Agent?
+      label: Which AI app do you use?
       options:
         - Claude Code (terminal)
         - Claude Code (desktop app or IDE extension)
@@ -47,9 +47,10 @@ body:
         - Cursor
         - VS Code (Copilot)
         - Windsurf
+        - Codex
         - Another MCP app
   - type: textarea
     id: logs
     attributes:
       label: Anything else
-      description: Screenshots, the output of `/mcp` in Claude Code, or the server log.
+      description: Screenshots, what your app shows about the `progressor` server (in Claude Code, the output of `/mcp`), or the server log.

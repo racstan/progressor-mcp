@@ -1,56 +1,96 @@
 # The dashboard
 
-While your Agent's app is running Progressor, open **http://localhost:4747/** in a browser. It is one dashboard for every project you use Progressor in: pick the project in the sidebar. Each `get_status` ends with a `Dashboard:` line that links straight to that conversation's project (`http://localhost:4747/?project=<id>`), so the Agent can hand it to you; the server prints it to its log too. It is served by the same process as the MCP tools, so there is nothing else to install or start.
+The dashboard is a page in your browser that shows what your AI is doing, live. Open **http://localhost:4747** while your AI's app is open: your AI gives you the exact link when it starts, or ask it *"Where's the dashboard?"*. Keep it beside your AI's window, or in a tab. It updates by itself; you never need to refresh.
 
-The dashboard shows the selected Goal in one of three views, picked in the top bar (⇢ Across, ⇣ Down, ☰ List). The view is remembered by your browser and kept in the address (`&view=vertical`, `&view=checklist`), so a link shows the same thing:
+The dashboard only shows. To change anything in the plan, tell your AI.
 
-- **Metro, horizontal** (the default): a metro map running left to right. A plan too long for the screen wraps onto rows that turn back and forth like a snake, so the whole Goal fits at a readable size.
-- **Metro, vertical**: the same map running top to bottom, so a long plan scrolls down. The mouse wheel scrolls it; Ctrl + wheel (or a pinch) zooms.
-- **Checklist**: the Tasks as a list in plan order, each with its files and summary, and each Detour indented under the Task it branched from with how it ended and its Reason.
+## At the top of a goal
 
-On the maps, Tasks are stops on a line with their files as small chips (the first file and "+n" on the horizontal map), Detours are orange branches labelled with how they ended (Merge back, Returned, Recalibrated or open), and Tasks dropped by a Recalibration stay on the old line, faded. A banner shows what is happening now: the current Task, or the open Detour and where it branched from. The sidebar has the project switcher (every project's name and folder, those with work in progress first) and the Roadmap with each Goal's progress, under the full path of the project folder it comes from. The **❓ Help** menu in the top bar has links to report a problem or share an idea, your Standing Instructions and the parked Ideas. Only one project is shown at a time, and the page updates by itself as its markdown changes.
+A banner says, in one glance:
 
-- **Search** with the box in the top bar (press `/` or Ctrl+K): as you type it lists the matching projects, Goals, Tasks and Ideas across every project, matching titles, Outcomes, summaries, notes and folders. Arrow keys and Enter, or a click, open a result: a Task opens on its Goal's map with its details. On the overview, the project cards narrow to the ones with results.
-- **Zoom** with the mouse wheel or the + / − buttons, **pan** by dragging the background, and **fit** the whole map with ⤢. Stops can be dragged; they spring back when you let go.
-- Click any Task, Detour, Idea or Standing Instruction for its details (a Task's summary, a Detour's Reason) and **Copy as prompt**: a self-describing text (what it is, its status, its `progressor://` ref, file and line, its Goal, its summary, where it branched from, its Reason, its neighbours and the files it touches) to paste into your Agent chat.
-- **Open in file** opens the Plan File at the item's line, or the code a Task touches, in your editor.
-- The **Detours** switch hides the Detours from the view only; `[` collapses the sidebar. The sun / moon button switches between light and dark.
-- When a Goal is finished it turns green and gets a green dot in the sidebar until you open it; then it moves to the **Done** group at the bottom. Right-click a Goal to hide it from the list, or to move a finished one to Done without opening it.
-- **🖥 Servers** shows how many Progressor processes are running: one per Agent conversation, plus any `progressor-mcp dashboard` command. For each it lists the project and folder, the Goal its Session holds, its memory and when it started, and marks the one serving the dashboard. **Stop** ends one after a confirm; that conversation loses Progressor's tools until it restarts. Stopping the one serving the dashboard hands the dashboard to another running server within a few seconds. Servers from 0.3.0 or older are not listed.
-- **⚙️ Settings** sets the view a Goal opens in (Across, Down or List), the theme (light, dark or match the system), the editor for "Open in file", whether finished Goals wait for you or go to Done straight away, and whether hidden Goals are shown. Settings are saved in that browser.
+- **What the AI is working on**: *Contact form: working on "Send the email"*.
+- **Finished when**: what done looks like for this goal.
+- **The status line**, with a coloured dot:
+  - 🟢 **AI working** · step 3 of 7 · last update 2 min ago: your AI is on it.
+  - 🟠 **AI waiting**: your AI's chat is open, but nothing has changed for 15 minutes. It's most likely waiting for you: check the chat.
+  - 🟠 **AI stopped**: the chat that was working on this has closed. Open a chat and say *"carry on"*.
+  - **Paused**: no AI is working on this goal right now.
+  - **Not started**, **Finished** or **Cancelled**.
 
-The dashboard is view-only, apart from stopping servers: you change the plan by talking to the Agent. Hiding a Goal or moving it to Done changes only what your browser shows. To add work to a finished Goal, ask the Agent: claiming the Goal again reopens it, and the new Tasks join the same list.
+When the AI is on a side trip, the banner turns orange and says what it's doing and why.
 
-## Choosing the editor
+**Copy for your AI** copies a description of the goal that you can paste into any AI chat, to ask about it or change it.
 
-"Open in file" uses VS Code by default. Pick another editor under **Open files in** in the dashboard's ⚙️ Settings (remembered in that browser), or set it for the project with `PROGRESSOR_EDITOR` in the MCP server's environment:
+## The map
 
-```bash
-claude mcp add progressor -e PROGRESSOR_EDITOR=cursor -- npx -y progressor-mcp
-```
+Each step is a stop on a line, left to right. A filled stop with a tick is done; the pulsing one is being worked on now; empty ones are still to do. Long plans wrap onto several rows.
 
-| `PROGRESSOR_EDITOR`                                                                 | Opens                                     |
-| ----------------------------------------------------------------------------------- | ----------------------------------------- |
-| `vscode` (default), `vscode-insiders`, `vscodium`, `cursor`, `windsurf`, `zed`       | the file at the line, by its full path     |
+**Click any stop** to see what the step does, and to copy it for your AI. Scroll to zoom, drag the background to move around, and use **⤢** to fit the whole map on screen.
+
+Three buttons at the top switch how you see it:
+
+- **⇢ Across**: the map, left to right (the default).
+- **⇣ Down**: the map, top to bottom, for long plans.
+- **☰ List**: the steps as a plain list, with what each one does.
+
+## The Show menu
+
+**Show ▾** at the top chooses what you see besides the plan's steps:
+
+- **Side trips** (on): times the AI stepped off the plan, as orange branches with how each ended.
+- **Cancelled steps** (off): steps the AI decided not to do, crossed out. Click one to see why.
+- **File names** (off): the files each step changes, with buttons to open them in your code editor.
+
+Your choices are remembered in your browser.
+
+## Your goals
+
+The sidebar lists **Your goals** for the project, in the order they'll be done, each with a progress bar and its status. Click one to see its map.
+
+A goal that finishes turns green and gets a green dot until you've looked at it; then it moves to **Finished** at the bottom. Right-click a goal to hide it from the list (the plan keeps it), or to move a finished one along without opening it.
+
+If you use Progressor in several projects, click the project name at the top of the sidebar to switch, or pick **🗂 All projects** for an overview of every project at once.
+
+## Search
+
+The search box at the top (press `/` to jump to it) finds projects, goals and steps across all your projects. Click a result to open it.
+
+## Help and Settings
+
+- **❓ Help**: report a problem or suggest an idea. Both open a form on GitHub with your Progressor version and system already filled in.
+- **⚙️ Settings**: the view a goal opens in, light or dark, and whether finished goals wait for you to look. Under **Advanced**: the code editor files open in, showing hidden goals, and the Progressor servers running on your computer. Settings are saved in your browser.
+- **The green dot** at the top means the page is live. If it turns orange and says *Reconnecting…*, Progressor has closed (it runs while your AI's app is open); it comes back by itself when the app is open again.
+
+---
+
+## For the technically curious
+
+### Choosing the code editor
+
+With **File names** on, clicking a file opens it in VS Code by default. Pick another under **⚙️ Settings → Advanced → Open files in**, or set it for a project with `PROGRESSOR_EDITOR` in the MCP server's environment:
+
+| `PROGRESSOR_EDITOR` | Opens |
+| --- | --- |
+| `vscode` (default), `vscode-insiders`, `vscodium`, `cursor`, `windsurf`, `zed` | the file at the line, by its full path |
 | `idea` (or `jetbrains`), `webstorm`, `pycharm`, `phpstorm`, `goland`, `rider`, `rubymine`, `clion`, `rustrover` | the file in the open project, through [JetBrains Toolbox](https://www.jetbrains.com/toolbox-app/) |
-| a URL template, such as `myeditor://open?file={path}&line={line}`                   | anything else: `{path}` is the full path, `{relPath}` the path inside the project, `{project}` the folder name and `{line}` the line |
+| a URL template, such as `myeditor://open?file={path}&line={line}` | anything else: `{path}` is the full path, `{relPath}` the path inside the project, `{project}` the folder name and `{line}` the line |
 
-## One dashboard for every project
+### One dashboard for every project
 
-Every Progressor server adds its project folder to a per-user list, `~/.progressor/projects.json` (`PROGRESSOR_REGISTRY` points it elsewhere). Whichever Progressor process holds the port serves every project on that list, reading each project's `.progressor/` files straight from disk; the others link to it. If that process ends, the next Progressor server to start, or the next `get_status` from one already running, takes over. Projects whose folder or `.progressor/` has gone are not shown. To take a project off the list, delete its entry from the file.
+Every Progressor server adds its project folder to a list for your user, `~/.progressor/projects.json` (`PROGRESSOR_REGISTRY` points it elsewhere). Whichever Progressor holds the port serves every project on that list; if it ends, the next one to start takes over. Projects whose folder has gone are not shown. To take a project off the list, delete its entry from the file.
 
-The dashboard listens on the loopback address only (`127.0.0.1`, and `::1` where there is IPv6), port 4747 by default (`PROGRESSOR_PORT` changes it). A port held by another program is skipped for the next free one. Set `PROGRESSOR_DASHBOARD=off` to run without the dashboard.
+The dashboard listens only on your own computer (`127.0.0.1`, and `::1` where there is IPv6), on port 4747 (`PROGRESSOR_PORT` changes it). If that port is taken it uses the next free one; the `Dashboard:` line at the end of `get_status` always has the right address. `PROGRESSOR_DASHBOARD=off` runs Progressor without it.
 
-## Workspaces: every project in a folder
+### The dashboard without an AI running
 
-If your projects live under one folder, open the dashboard on it from anywhere, with no Agent running:
+To open the dashboard on all the projects in a folder, with no AI app open:
 
 ```bash
-progressor-mcp dashboard C:\Programming
+progressor-mcp dashboard C:\Projects
 ```
 
-Progressor looks through that folder and its subfolders for projects: folders with a `.progressor/roadmap.md`. It skips `node_modules`, `.git`, build output and other hidden or dependency folders, and goes 5 levels deep. Nothing is created or changed; a folder only becomes a project once an Agent adds a Goal in it. The dashboard opens in your browser on an overview of that Workspace, with each project's Goals in progress, how far along they are, and a green note when a Goal has finished since you last looked. Click a project or a Goal to open it.
+Progressor looks through that folder and its subfolders (5 levels deep, skipping `node_modules`, `.git`, build output and hidden folders) for projects with a plan, and opens an overview of them. Nothing is created or changed. The folder is remembered in `~/.progressor/workspaces.json`, so its projects keep showing later; `progressor-mcp dashboard --forget <folder>` stops that, and `--no-open` prints the address without opening the browser.
 
-The folder is remembered as a Workspace in `~/.progressor/workspaces.json`, so the dashboard keeps showing its projects even when it is started by an Agent later. New projects in a Workspace show up within a few minutes, or straight away when you run the command again. `progressor-mcp dashboard --forget <folder>` stops showing a Workspace; `--no-open` prints the address without opening the browser. Without a folder, the command uses the current one.
+### Running servers
 
-When the dashboard shows more than one project, its start page is the overview of them all (**🗂 All projects** in the switcher), one card per project, those with work in progress first.
+**⚙️ Settings → Advanced** lists the Progressor servers running on your computer: one per open AI chat, plus any `progressor-mcp dashboard`. For each it shows the project, the goal it's working on, its memory and when it started. **Stop** ends one after you confirm; that chat loses Progressor until it starts again. Stopping the one serving the dashboard hands it to another within a few seconds.

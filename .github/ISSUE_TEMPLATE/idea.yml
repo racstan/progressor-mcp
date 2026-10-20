@@ -13,4 +13,4 @@ body:
     id: version
     attributes:
       label: Progressor version
-      placeholder: "0.4.0"
+      placeholder: "The number progressor-mcp --version prints"

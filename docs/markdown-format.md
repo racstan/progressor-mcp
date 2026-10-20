@@ -2,10 +2,10 @@
 
 Progress lives in two kinds of file inside the project (see [ADR 0002](adr/0002-progress-stored-as-markdown.md)):
 
-- `.progressor/roadmap.md`: the Roadmap (Goals), Ideas and Standing Instructions.
+- `.progressor/roadmap.md`: the Roadmap (Goals) and Standing Instructions. Roadmaps from before 0.6 may also hold Ideas, which are still read but no longer added.
 - `.progressor/goals/<goal-id>.md`: one Plan File per Goal, holding its Tasks and Detours.
 
-The files are written by the Agent through Progressor's tools, but they are ordinary markdown that a person can read in any viewer and edit by hand. This document is the contract between the two.
+The files are written by the Agent through Progressor's tools, and they are ordinary markdown that a person can read in any viewer. Changes should go through the tools (ask the Agent), which keep the files consistent; but the parser is forgiving, so a hand edit never breaks a file (see [Hand edits](#hand-edits)). This document is the contract between the files and the tools.
 
 ## Example: roadmap.md
 
@@ -134,7 +134,7 @@ A Claim is a `claimed by` line under a Goal in roadmap.md. The session is the Pr
 
 ## Hand edits
 
-The parser never rejects a file. It recognises what it can and keeps everything else:
+The tools are the way to change the plan, but a file edited by hand, or merged by git, still works. The parser never rejects a file. It recognises what it can and keeps everything else:
 
 - **Round trip.** Parsing a file and serialising it without changes gives back the same bytes, including line endings (LF or CRLF), blank lines, unknown sections, comments and stray text.
 - **Untouched items are copied verbatim.** When the Agent changes one item, only that item's lines are rewritten in the canonical form above; every other line keeps its original spelling (`* [ ]`, `[X]`, extra spaces and so on).

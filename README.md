@@ -2,102 +2,73 @@
 
 [![npm](https://img.shields.io/npm/v/progressor-mcp)](https://www.npmjs.com/package/progressor-mcp) [![Test](https://github.com/racstan/progressor-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/racstan/progressor-mcp/actions/workflows/test.yml) [![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 
-![An Agent works through "Ship OAuth login": Tasks tick off, a Detour branches off and merges back, a second Detour recalibrates the plan, and the Goal finishes, all live on the dashboard](docs/media/demo.gif)
+**See what your AI is building, step by step, in a page that updates by itself.**
 
-<sub>This is the dashboard, a page in your browser that you keep open beside your editor or terminal. You keep chatting with your Agent as usual, and the page follows along by itself as it works through a Goal: Tasks tick off, a Detour is merged back, another one recalibrates the plan, and a stop is opened to copy it as a prompt. [Watch as video](docs/media/demo.mp4).</sub>
+![An AI works through "Ship OAuth login": steps tick off, a side trip branches off and rejoins the plan, another changes the plan, and the goal finishes, all live on the dashboard](docs/media/demo.gif)
 
-Progressor keeps an AI coding Agent and you, the Developer, focused on the same Goal across long sessions, context compression and distractions. It is an [MCP](https://modelcontextprotocol.io) server: your Agent's app starts it, and the Agent uses its tools to keep a live record of what is planned, what is done, and what came up along the way. You work in your Agent's chat as before; the dashboard is optional, for when you want to see the whole plan at a glance.
+You tell your AI coding assistant what you want. Progressor makes it plan the work as a **goal** with **steps**, keep that plan up to date as it works, and say so when it has to step off the plan. You watch it all on a dashboard in your browser: what the AI is doing now, how far along it is, and whether it has stopped. The AI manages everything; you don't have to.
 
-The record is plain markdown inside your project, in `.progressor/`, so it is readable, diffable and travels with the repo. See [GLOSSARY.md](GLOSSARY.md) for the words used here and [docs/markdown-format.md](docs/markdown-format.md) for the file format.
+It works with any app that supports [MCP](https://modelcontextprotocol.io) (the standard way AI apps add tools): Claude Code, Claude Desktop, VS Code with Copilot, Cursor, Windsurf, Codex and others.
 
-## For AI agents
+## Set it up
 
-The quickest setup: paste this into your Agent's chat in the project folder, and it installs Progressor and checks it for you.
+You need [Node.js](https://nodejs.org) 22 or later. Then paste this into your AI's chat, in the project you're working on:
 
 ```text
-Set up Progressor (https://github.com/racstan/progressor-mcp) in this project:
-1. Run `node --version`. Progressor needs Node 22 or later; if it is older, stop and tell me.
-2. Run `npm install -g progressor-mcp`, then `progressor-mcp --version` to check it installed.
-3. In this project folder, run `progressor-mcp init --yes`.
-   If you are not Claude Code, skip init: instead add an MCP server named "progressor"
-   to this app's MCP config that runs `npx -y progressor-mcp` over stdio in this folder.
-4. Tell me to restart this app and approve the "progressor" server if it asks. After the
-   restart, call the progressor `get_status` tool and show me what it says.
+Set up Progressor (https://github.com/racstan/progressor-mcp) for this project:
+1. Run `node --version`. If it is older than 22, stop and tell me how to install Node.
+2. Run `npm install -g progressor-mcp`.
+3. If you are Claude Code, run `progressor-mcp init --yes` in this folder. Otherwise, add
+   the "progressor" MCP server to this app's settings as the guide for this app shows
+   (https://github.com/racstan/progressor-mcp/blob/main/docs/apps.md), then run
+   `progressor-mcp init --yes --no-server` in this folder.
+4. Tell me to restart the app, and to approve the "progressor" server if it asks.
+   After the restart, call get_status and tell me in plain words that Progressor is
+   ready, with the dashboard link.
 ```
 
-If you are an AI agent reading this to set Progressor up, follow the same steps, and see [Troubleshooting](#troubleshooting) if one fails. Once it is connected, call `get_status` at the start of every conversation, and follow the instructions the server sends with its tools.
+Your AI does the rest. If you'd rather do it yourself, [Getting started](docs/getting-started.md) walks through it, and [Setup for your app](docs/apps.md) has the exact settings for each app.
 
-## Install
+## Then just talk to your AI
 
-You need Node 22 or later (`node --version`). Then, in your project folder:
+Tell it what you want to build, as you would anyway: *"Add a login page with Google sign-in."* It plans the work as a goal, shows you the steps, and starts. You don't need to learn any commands. If you ever want to nudge it, these work in most apps' `/` menu:
 
-```bash
-npm install -g progressor-mcp
-```
+- **/progressor:next**: carry on where the work was left
+- **/progressor:status**: where things stand, in a few lines
+- **/progressor:plan**: plan something new together
 
-```bash
-progressor-mcp init
-```
+## Watch it work
 
-`init` shows what it will add and asks once: the `progressor` server in `.mcp.json`, two [Claude Code hooks](docs/setup.md#claude-code-hooks-recommended) that hand the Agent the plan at the start of every conversation, a short note in `CLAUDE.md` and `AGENTS.md`, and an empty Roadmap in `.progressor/`.
+Open **http://localhost:4747** while your AI's app is open (your AI gives you the link). You'll see:
 
-Restart Claude Code in that folder and approve the `progressor` server when it asks. Type `/progressor` to see its commands in the `/` menu: pick **progressor:status** to check it works, then **progressor:plan** followed by what you want to build, such as `add Google sign-in`.
+- **What the AI is doing**: *AI working · step 3 of 7 · last update 2 min ago*, or *AI stopped* when its chat has closed.
+- **The plan as a map**: each step is a stop on a line, ticked off as it's done. When the AI steps off the plan to deal with something, a **side trip** branches off, with the reason.
+- **Your goals**: everything planned for the project, with how far along each one is.
 
-Its other commands include **progressor:next** to pick up where you left off and **progressor:idea** to park an idea for later; the [reference](docs/reference.md#slash-commands) lists them all.
+The page only shows; you change the plan by talking to your AI. More in the [dashboard guide](docs/dashboard.md).
 
-To have Progressor in every project instead of running `init` in each, [register it once for your user](docs/setup.md#use-progressor-in-every-project) and type **/progressor:setup** in any folder. Another MCP app, updating, removing and setting the hooks by hand: see [docs/setup.md](docs/setup.md).
+## If something goes wrong
 
-## How it works
+Most problems can be fixed by asking your AI. [Troubleshooting](docs/troubleshooting.md) lists the common ones, each with a line you can paste to your AI. Still stuck? [Report a problem](https://github.com/racstan/progressor-mcp/issues/new?template=bug_report.yml), or use **❓ Help** on the dashboard, which fills in your version and system for you.
 
-- **Goals** sit on a Roadmap, and each Goal has a list of **Tasks**, each with its files and a one-line summary.
-- Each conversation **claims** one Goal and keeps its Tasks up to date as it works. After the context is compressed, `get_status` puts the plan back in front of the Agent.
-- When the Agent has to do something off the plan, it declares a **Detour** with a reason instead of drifting silently. It then merges back, returns, or recalibrates the plan.
-- Ideas for later are parked as **Ideas**. Lasting rules you give the Agent ("ask me before recalibrating") are saved as **Standing Instructions** and survive new conversations.
+## Docs
 
-You steer by talking to the Agent. The [glossary](GLOSSARY.md) explains the words, and [the file format](docs/markdown-format.md) shows the markdown.
+- [Getting started](docs/getting-started.md): setting up, step by step
+- [Setup for your app](docs/apps.md): Claude Code, Claude Desktop, VS Code, Cursor, Windsurf, Codex and others
+- [Using Progressor](docs/using.md): goals, steps, side trips, and what to say to your AI
+- [The dashboard](docs/dashboard.md): everything on the page
+- [Questions](docs/faq.md) and [Troubleshooting](docs/troubleshooting.md)
+- [Updating and removing](docs/updating-and-removing.md)
+- [Reference](docs/reference.md): commands, the AI's tools, settings and the file format, for the technically curious
+- [Contributing](CONTRIBUTING.md): working on Progressor itself
 
-## The dashboard
+## Feedback
 
-While your Agent is running Progressor, open **http://localhost:4747/**, or run `progressor-mcp dashboard` to open it on its own. It shows every project you use Progressor in, each Goal as a metro map or a checklist, and updates by itself as the Agent works. Click any Task for its details and **Copy as prompt**. The **❓ Help** menu has links to report a problem or share an idea.
-
-In VS Code you can keep it beside your code with **Simple Browser: Show** from the Command Palette. The full guide is in [docs/dashboard.md](docs/dashboard.md).
-
-## Troubleshooting
-
-**`progressor` is missing from `/mcp`, or shows as failed.** Restart Claude Code in the project folder, and approve the server when it asks. Check that `.mcp.json` in the folder lists `progressor`; if not, run `progressor-mcp init` again. Then run `node --version` (22 or later is needed) and `progressor-mcp --version` in a terminal: an error from either is the cause.
-
-**`progressor-mcp: command not found`.** npm's global folder is not on your `PATH`. `npm prefix -g` prints that folder (its `bin` folder on macOS and Linux); add it to `PATH` and open a new terminal. Or skip the global install and use `npx -y progressor-mcp` instead.
-
-**The dashboard does not open.** It runs only while an Agent app is running Progressor, or while `progressor-mcp dashboard` runs. If port 4747 was taken, it is on the next free port: the `Dashboard:` line at the end of `get_status` has the right address. Check that `PROGRESSOR_DASHBOARD` is not set to `off`.
-
-**The dashboard says it is served by an older Progressor.** A conversation started before you updated is still running the old version. Restart it, or stop that server in **🖥 Servers**.
-
-**The Agent does not follow the plan, or never calls `get_status`.** Check that `CLAUDE.md` (or `AGENTS.md` in other apps) has the Progressor note and `.claude/settings.json` has the two [hooks](docs/setup.md#claude-code-hooks-recommended); `progressor-mcp init` adds anything missing. The hooks need the global install. The **/progressor:status** command shows the Agent the plan straight away.
-
-**"A command takes file @-mentions but no other @-mentions, slash commands, links, or inline formatting".** Claude's app allows only plain words after a Progressor command. Send the command on its own, such as **/progressor:plan**, and the Agent asks you in the chat, where links, code and pasted text are fine.
-
-Still stuck? [Report a problem](#feedback-and-help).
-
-## Feedback and help
-
-Progressor is young, and what you run into shapes what comes next.
-
-- **Something not working?** [Report a problem](https://github.com/racstan/progressor-mcp/issues/new?template=bug_report.yml). The form asks for your version (`progressor-mcp --version`), system and steps.
-- **An idea, or feedback of any kind?** [Share it](https://github.com/racstan/progressor-mcp/issues/new?template=idea.yml), even a sentence helps.
-- **From the dashboard**, the **❓ Help** menu has both links, with your version and system already filled in.
-
-Before opening one, have a look at the [open issues](https://github.com/racstan/progressor-mcp/issues): someone may have hit it already.
-
-## More
-
-- [Setup details](docs/setup.md): other MCP apps, updating, removing, the hooks by hand
-- [Dashboard guide](docs/dashboard.md): views, search, settings, editors, Workspaces
-- [Reference](docs/reference.md): slash commands, every tool, an example Plan File
-- [Contributing](CONTRIBUTING.md): developing and releasing Progressor
+Progressor is young, and what you run into shapes what comes next. [Share an idea or feedback](https://github.com/racstan/progressor-mcp/issues/new?template=idea.yml), even a sentence helps, or [see the open issues](https://github.com/racstan/progressor-mcp/issues).
 
 ## Support
 
-Progressor is free and open source. If it keeps you on track, you can [buy me a coffee](https://buymeacoffee.com/rachitasthana). The link is also at the bottom of the dashboard's ⚙️ Settings.
+Progressor is free and open source. If it helps you, you can [buy me a coffee](https://buymeacoffee.com/rachitasthana); the link is also in the dashboard's ⚙️ Settings.
 
 ## License
 
