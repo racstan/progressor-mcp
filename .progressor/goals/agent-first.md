@@ -2,12 +2,12 @@
 
 ## Tasks
 
-- [/] Side trips with the same title ^t1
+- [x] Side trips with the same title ^t1
   - summary: Test-first: Detour fields are found by heading text, so a second Detour with the same title reads and edits the first; key them by the heading block instead.
   - code: `src/planFile.ts`
   - code: `src/markdown.ts`
   - code: `test/planFile.test.ts`
-- [ ] complete_goal checks the plan ^t2
+- [/] complete_goal checks the plan ^t2
   - summary: Test-first: refuse to complete a Goal with Tasks still pending or in progress, or an open Detour, and say which.
   - code: `src/project.ts`
   - code: `test/project.test.ts`

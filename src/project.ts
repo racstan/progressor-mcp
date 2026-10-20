@@ -187,9 +187,17 @@ export class Project {
 
   // --- Goals and Tasks -----------------------------------------------------
 
-  /** Marks the claimed Goal done and releases it. */
+  /** Marks the claimed Goal done and releases it, once every Task is done or dropped and no Detour is open. */
   completeGoal(): Goal {
     const { goal } = this.requireClaim();
+    const plan = this.plan(goal.id);
+    const open = plan.tasks.filter((t) => t.status === "pending" || t.status === "in progress");
+    if (open.length > 0)
+      throw new Error(
+        `Goal ${goal.id} is not finished: ${open.map((t) => `${t.id} ${t.title} (${t.status})`).join(", ")}. Complete or drop ${open.length === 1 ? "it" : "them"} first.`,
+      );
+    if (plan.openDetour)
+      throw new Error(`Goal ${goal.id} has an open Detour, "${plan.openDetour.title}". End it with end_detour first.`);
     const roadmap = this.roadmap();
     roadmap.setClaim(goal.id, undefined);
     roadmap.setGoalStatus(goal.id, "done");
