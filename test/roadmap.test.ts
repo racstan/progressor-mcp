@@ -114,3 +114,11 @@ describe("Roadmap parsing", () => {
     expect(roadmap.toString()).toBe("## Goals\n- [ ] Billing ^billing\n- [ ] Billing ^billing-2\n## Ideas\n- Dark mode ^i1\n");
   });
 });
+
+describe("Standing Instructions with line breaks", () => {
+  it("keeps the rule on one line", () => {
+    const roadmap = parseRoadmap("# Roadmap\n\n## Goals\n");
+    roadmap.addStandingInstruction("Ask me\nbefore pushing");
+    expect(parseRoadmap(roadmap.toString()).standingInstructions.map((s) => s.text)).toEqual(["Ask me before pushing"]);
+  });
+});

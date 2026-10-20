@@ -198,3 +198,14 @@ describe("side trips that share a title", () => {
     expect(last.detours.map((d) => d.status)).toEqual(["merged back", "returned"]);
   });
 });
+
+describe("text with line breaks", () => {
+  it("keeps a side trip's title and reason, and a drop reason, on one line", () => {
+    const plan = parsePlanFile("# Login\n\n## Tasks\n\n- [/] Callback ^t1\n- [ ] Logout ^t2\n", "login");
+    plan.startDetour("Fix\nthe build", "It is red\n\nsince this morning", "t1");
+    plan.dropTask("t2", { reason: "Not needed\nany more" });
+    const again = parsePlanFile(plan.toString(), "login");
+    expect(again.detours[0]).toMatchObject({ title: "Fix the build", reason: "It is red since this morning", status: "open" });
+    expect(again.task("t2")).toMatchObject({ status: "dropped", reason: "Not needed any more" });
+  });
+});

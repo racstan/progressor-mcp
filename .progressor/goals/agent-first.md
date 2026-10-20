@@ -7,11 +7,11 @@
   - code: `src/planFile.ts`
   - code: `src/markdown.ts`
   - code: `test/planFile.test.ts`
-- [/] complete_goal checks the plan ^t2
+- [x] complete_goal checks the plan ^t2
   - summary: Test-first: refuse to complete a Goal with Tasks still pending or in progress, or an open Detour, and say which.
   - code: `src/project.ts`
   - code: `test/project.test.ts`
-- [ ] Multi-line text stays on one line ^t3
+- [/] Multi-line text stays on one line ^t3
   - summary: Test-first: Detour titles and reasons, drop reasons and Standing Instructions go through oneLine like Goal and Task titles.
   - code: `src/planFile.ts`
   - code: `src/roadmap.ts`

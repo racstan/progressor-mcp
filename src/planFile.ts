@@ -250,16 +250,16 @@ export class PlanFile {
     const b = this.taskBlock(id);
     b.marker = TASK_MARKER.dropped;
     if (why.droppedBy) setDetail(b, "dropped by", `^${why.droppedBy}`);
-    if (why.reason) setDetail(b, "reason", why.reason);
+    if (why.reason?.trim()) setDetail(b, "reason", oneLine(why.reason));
   }
 
   startDetour(title: string, reason: string, branchedFrom: string | undefined): Detour {
     this.assignMissingIds();
     const id = nextId(this.allIds(), "d");
-    const heading = newHeading(2, `${DETOUR_PREFIX}${title}`, id);
+    const heading = newHeading(2, `${DETOUR_PREFIX}${oneLine(title)}`, id);
     const fields = [
       ...(branchedFrom ? [`branched from: ^${branchedFrom}`] : []),
-      `reason: ${reason}`,
+      `reason: ${oneLine(reason)}`,
       "status: open",
     ].map((text) => {
       const b = newItem({ marker: undefined, text, id: undefined });

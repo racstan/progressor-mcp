@@ -252,7 +252,7 @@ export class Roadmap {
     this.ensureTitle();
     this.assignMissingIds();
     const id = nextId(this.instructionBlocks().map((i) => i.id), "s");
-    appendToSection(this.doc, STANDING_INSTRUCTIONS, [newItem({ marker: undefined, text, id })]);
+    appendToSection(this.doc, STANDING_INSTRUCTIONS, [newItem({ marker: undefined, text: oneLine(text), id })]);
     return this.standingInstruction(id)!;
   }
 
