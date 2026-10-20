@@ -18,22 +18,20 @@ const shop: SearchableProject = {
     },
     { id: "billing", title: "Billing page", status: "planned", tasks: [{ id: "t1", title: "Stripe checkout", status: "pending" }] },
   ],
-  ideas: [{ id: "i1", title: "Remember-me checkbox", notes: ["From the login review"] }],
 };
 const blog: SearchableProject = {
   id: "blog-2",
   name: "blog",
   root: "C:\\work\\blog",
   goals: [{ id: "login", title: "Login for authors", status: "done", tasks: [] }],
-  ideas: [],
 };
 
 const titles = (q: string) => search([shop, blog], q).map((h) => `${h.kind}:${h.title}`);
 
 describe("search", () => {
-  it("finds projects, Goals, Tasks and Ideas across every project", () => {
+  it("finds projects, Goals and Tasks across every project", () => {
     expect(titles("login")).toEqual(
-      expect.arrayContaining(["goal:Ship OAuth login", "goal:Login for authors", "task:Add the /login route", "idea:Remember-me checkbox"]),
+      expect.arrayContaining(["goal:Ship OAuth login", "goal:Login for authors", "task:Add the /login route"]),
     );
     expect(titles("shop")).toContain("project:shop-app");
   });
@@ -44,10 +42,9 @@ describe("search", () => {
     expect(titles("redirect nothing")).toEqual([]);
   });
 
-  it("looks in Outcomes, summaries, Idea notes and folders too", () => {
+  it("looks in Outcomes, summaries and folders too", () => {
     expect(titles("google")).toEqual(["goal:Ship OAuth login"]);
     expect(titles("token exchange")).toEqual(["task:Fix callback redirect loop"]);
-    expect(titles("review")).toEqual(["idea:Remember-me checkbox"]);
     expect(titles("work\\blog")).toEqual(["project:blog"]);
   });
 
@@ -63,7 +60,7 @@ describe("search", () => {
   it("ranks title matches and live work above the rest", () => {
     const hits = titles("login");
     expect(hits.indexOf("goal:Ship OAuth login")).toBeLessThan(hits.indexOf("goal:Login for authors"));
-    expect(hits.indexOf("goal:Ship OAuth login")).toBeLessThan(hits.indexOf("idea:Remember-me checkbox"));
+    expect(hits.indexOf("goal:Login for authors")).toBeLessThan(hits.indexOf("task:Add the /login route"));
   });
 
   it("returns nothing for an empty search and caps a long one", () => {

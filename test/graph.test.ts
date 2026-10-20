@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGoalGraph, withoutDetours } from "../src/dashboard/graph.js";
+import { buildGoalGraph, withoutDetours, withoutDropped } from "../src/dashboard/graph.js";
 import { parsePlanFile } from "../src/planFile.js";
 
 const graphOf = (markdown: string) => buildGoalGraph(parsePlanFile(markdown, "g"));
@@ -221,5 +221,43 @@ describe("the metro map of a Goal", () => {
     );
     expect(g.nodes.map((n) => n.id)).toEqual(["t1", "t2", "t3"]);
     expect(g.edges.map((e) => `${e.from}>${e.to}:${e.kind}`)).toEqual(["t1>t2:plan", "t2>t3:plan"]);
+  });
+
+  const cancelled = `# G
+
+## Tasks
+
+- [x] One ^t1
+- [-] Two ^t2
+- [-] Three ^t3
+- [ ] Four ^t4
+`;
+
+  it("can hide the cancelled steps, joining the line around them and closing the gap", () => {
+    const g = withoutDropped(graphOf(cancelled));
+    expect(g.nodes.map((n) => `${n.id}@${n.step},${n.lane}`)).toEqual(["t1@0,0", "t4@1,0"]);
+    expect(g.edges.map((e) => `${e.from}>${e.to}:${e.kind}`)).toEqual(["t1>t4:plan"]);
+  });
+
+  it("keeps a side trip that started from a cancelled step, hung off the step before", () => {
+    const g = withoutDropped(
+      graphOf(`# G
+
+## Tasks
+
+- [x] One ^t1
+- [-] Two ^t2
+  - dropped by: ^d1
+- [/] New two ^t3
+  - added by: ^d1
+
+## Detour: Rethink ^d1
+
+- branched from: ^t2
+- status: recalibrated
+`),
+    );
+    expect(g.nodes.map((n) => n.id).sort()).toEqual(["d1", "t1", "t3"]);
+    expect(g.edges.map((e) => `${e.from}>${e.to}:${e.kind}`).sort()).toEqual(["d1>t3:recalibrate", "t1>d1:detour"]);
   });
 });

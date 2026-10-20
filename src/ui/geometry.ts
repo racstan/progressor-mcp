@@ -136,13 +136,3 @@ export function wrapLabel(text: string, max = 20): string[] {
   return [...lines.slice(0, 2), `${lines[2]!.slice(0, max - 1)}…`];
 }
 
-export const STATUS_LABEL: Record<string, string> = {
-  pending: "Pending",
-  "in progress": "In progress",
-  done: "Done",
-  dropped: "Dropped",
-  open: "Open Detour",
-  "merged back": "Merge back",
-  returned: "Returned",
-  recalibrated: "Recalibrated",
-};

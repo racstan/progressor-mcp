@@ -42,7 +42,7 @@ export function Overview({ overview, workspaces, only, query, hits, finishedWait
       {shown.length === 0 && inWorkspace.length > 0 && <p className="empty">No project matches “{query.trim()}”.</p>}
       {inWorkspace.length === 0 && (
         <p className="empty">
-          No projects here yet. A folder shows up once an Agent using Progressor adds a Goal in it, which creates its <code>.progressor/</code> folder.
+          Nothing here yet. Tell your AI what you want to build: a project shows up here as soon as it plans the first goal.
         </p>
       )}
       {shown.length > 0 && (
@@ -61,7 +61,6 @@ export function Overview({ overview, workspaces, only, query, hits, finishedWait
                         <span className="fresh-dot" aria-hidden="true" /> {fresh} finished
                       </span>
                     )}
-                    <span className="path">{p.root}</span>
                   </button>
                   {working.map((x) => {
                     const pct = x.total ? Math.round((100 * x.done) / x.total) : 0;
@@ -70,17 +69,17 @@ export function Overview({ overview, workspaces, only, query, hits, finishedWait
                         <div className="t">{x.title}</div>
                         <div className="bar"><i style={{ width: `${pct}%` }} /></div>
                         <div className="s">
-                          <span>{x.status === "active" ? "Active" : "Paused"}</span>
-                          <span>{x.total ? `${x.done}/${x.total} · ${pct}%` : "no Tasks"}</span>
+                          <span>{x.status === "active" ? "In progress" : "Paused"}</span>
+                          <span>{x.total ? `${x.done} of ${x.total} steps` : "no steps yet"}</span>
                         </div>
                       </button>
                     );
                   })}
                   <div className="counts">
-                    {working.length === 0 && <span>Nothing in progress</span>}
-                    {planned > 0 && <span>{planned} planned</span>}
-                    {done > 0 && <span>{done} done</span>}
-                    {p.goals.length === 0 && <span>No Goals yet</span>}
+                    {working.length === 0 && <span>Nothing under way</span>}
+                    {planned > 0 && <span>{planned} not started</span>}
+                    {done > 0 && <span>{done} finished</span>}
+                    {p.goals.length === 0 && <span>No goals yet</span>}
                   </div>
                 </div>
               );
