@@ -499,9 +499,11 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Plan a Goal",
       description: "Turn a piece of work into a Goal with an Outcome and Tasks, agreed with you before anything is added.",
-      argsSchema: { goal: z.string().describe("What you want done, in your own words.") },
+      argsSchema: {
+        goal: z.string().optional().describe("What you want done, in plain words. Leave it empty to describe it in the chat, with links or code."),
+      },
     },
-    ({ goal }) => message(planPrompt(goal)),
+    ({ goal }) => message(planPrompt(goal?.trim() || undefined)),
   );
 
   server.registerPrompt(
@@ -531,9 +533,9 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Park an Idea",
       description: "Keep an idea for later without working on it now.",
-      argsSchema: { idea: z.string().describe("The idea, in your own words.") },
+      argsSchema: { idea: z.string().optional().describe("The idea, in plain words. Leave it empty to write it in the chat.") },
     },
-    ({ idea }) => message(ideaPrompt(idea)),
+    ({ idea }) => message(ideaPrompt(idea?.trim() || undefined)),
   );
 
   server.registerPrompt(

@@ -27,3 +27,16 @@
   - code: `README.md`
 - [/] Try the commands in a real session ^t5
   - summary: Check each command appears in the / menu, takes its argument and leads the Agent to the right tools.
+- [ ] plan and idea work with no text ^t6
+  - summary: Some apps allow only plain text in a command's argument (Claude's app refuses links and formatting), so plan and idea take it optionally: left empty, the Agent asks in the chat, where anything can be written.
+  - code: `src/prompts.ts`
+  - code: `src/server.ts`
+  - code: `test/server.test.ts`
+  - code: `docs/reference.md`
+  - code: `README.md`
+
+## Detour: Commands that need no rich text ^d1
+
+- branched from: ^t5
+- reason: Trying the commands in Claude's app, sending text with a link or formatting after a command was refused ("nothing was sent"); plan and idea must work in apps that allow only plain text in a command's argument.
+- status: open
