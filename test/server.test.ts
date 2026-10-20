@@ -45,8 +45,6 @@ describe("the MCP server", () => {
         "get_item",
         "get_status",
         "move_goal",
-        "promote_idea",
-        "record_idea",
         "release_goal",
         "start_detour",
         "start_task",
@@ -214,8 +212,7 @@ describe("shaping Goals through the tools", () => {
 describe("slash commands", () => {
   it("offers its commands as prompts", async () => {
     const { prompts } = await client.listPrompts();
-    expect(prompts.map((p) => p.name).sort()).toEqual(["dashboard", "idea", "next", "plan", "review", "setup", "status"]);
-    expect(prompts.find((p) => p.name === "idea")!.arguments?.map((a) => [a.name, a.required])).toEqual([["idea", false]]);
+    expect(prompts.map((p) => p.name).sort()).toEqual(["dashboard", "next", "plan", "review", "setup", "status"]);
     expect(prompts.find((p) => p.name === "plan")!.arguments?.map((a) => [a.name, a.required])).toEqual([["goal", false]]);
   });
 
@@ -235,13 +232,6 @@ describe("slash commands", () => {
     expect(t).toMatch(/ask me what/i);
     expect(t).toMatch(/links/i);
     expect(t).toContain("add_goal");
-  });
-
-  it("idea with no text asks for the idea, in the chat", async () => {
-    const t = await text("idea");
-    expect(t).toMatch(/ask me what/i);
-    expect(t).toContain("record_idea");
-    expect(t).toMatch(/do not work on it/i);
   });
 
   it("plan asks for a plan to approve before add_goal", async () => {
@@ -307,13 +297,6 @@ describe("slash commands", () => {
 
   it("next suggests planning a Goal when the Roadmap is empty", async () => {
     expect(await text("next")).toContain("/progressor:plan");
-  });
-
-  it("idea parks the idea without working on it", async () => {
-    const t = await text("idea", { idea: "Dark mode for the dashboard" });
-    expect(t).toContain("Dark mode for the dashboard");
-    expect(t).toContain("record_idea");
-    expect(t).toMatch(/do not work on it/i);
   });
 
   it("dashboard says when this Session has no dashboard", async () => {

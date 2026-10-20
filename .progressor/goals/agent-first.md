@@ -17,13 +17,16 @@
   - code: `src/roadmap.ts`
   - code: `test/planFile.test.ts`
   - code: `test/roadmap.test.ts`
-- [/] The right project folder in every app ^t4
+- [x] The right project folder in every app ^t4
   - summary: Test-first: take the folder from PROGRESSOR_ROOT, then the app's MCP roots, then CLAUDE_PROJECT_DIR, then the start folder; get_status names the folder; never create .progressor/ in the home folder or a system folder.
   - code: `src/serve.ts`
   - code: `src/server.ts`
   - code: `src/project.ts`
   - code: `test/server.test.ts`
-- [ ] Remove Ideas ^t5
+  - code: `src/root.ts`
+  - code: `test/root.test.ts`
+  - code: `test/project.test.ts`
+- [/] Remove Ideas ^t5
   - summary: Unregister record_idea, promote_idea and the idea command, and drop them from the instructions; old files with Ideas still load.
   - code: `src/server.ts`
   - code: `src/prompts.ts`

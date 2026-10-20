@@ -119,15 +119,6 @@ export function nextPrompt(status: Status, statusText: string): string {
   return ["Pick up the Progressor work where it was left:", "", ...steps, "", statusText].join("\n");
 }
 
-/** Parking an idea the Developer has, so it is kept without derailing the current work. */
-export function ideaPrompt(idea: string | undefined): string {
-  return [
-    idea ? `Park this as a Progressor Idea with record_idea: ${idea}` : `${askInChat("idea to park")} park it as a Progressor Idea with record_idea.`,
-    "",
-    "Give it a short title of a few words, and put any detail in the note. Do not work on it now; tell me in one line that it is parked.",
-  ].join("\n");
-}
-
 /** Where to watch the plan: this project's dashboard, if this Session serves or links to one. */
 export function dashboardPrompt(url: string | undefined): string {
   if (!url)

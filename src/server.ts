@@ -5,7 +5,7 @@ import type { Dashboard } from "./dashboard/http.js";
 import { launchFor, startedViaNpx } from "./init.js";
 import type { Detour, Task } from "./planFile.js";
 import type { DetourEnding, FoundItem, Project, Status } from "./project.js";
-import { dashboardPrompt, ideaPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
+import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
 import type { Goal } from "./roadmap.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -20,7 +20,6 @@ export const INSTRUCTIONS = `Progressor keeps you and the Developer focused on t
 - Mark Tasks as you go: start_task before working on one, complete_task when it is done (pass the files you touched and, if it changed, the final summary), drop_task when it is no longer needed.
 - When the work you are about to do is not the current Task (fixing something unrelated, a prerequisite you discovered, a rethink of the plan), declare a Detour with start_detour and a Reason before doing it. Never drift away from the plan silently.
 - End the Detour with end_detour: "merge back" for a small fix that leaves the plan as it is, "return" to go back to the plan (optionally appending Tasks for the Detour's intended work), or "recalibrate" to replace the remaining Tasks with a new list.
-- When a feature or improvement comes up that is not needed now, park it with record_idea instead of doing it.
 - When the Developer states a lasting rule about how you should work, save it with add_standing_instruction.
 - Refs like progressor://<goal>/<item> can be looked up with get_item.`;
 
@@ -194,7 +193,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Get item",
       description:
-        "Look up one Goal, Task, Detour, Idea or Standing Instruction by its ref (progressor://<goal>/<item>, or progressor://roadmap/<idea or instruction>), with its file and line. Use it when the Developer pastes a ref or you need one item's details; for where the work stands overall, use get_status.",
+        "Look up one Goal, Task, Detour or Standing Instruction by its ref (progressor://<goal>/<item>, or progressor://roadmap/<instruction>), with its file and line. Use it when the Developer pastes a ref or you need one item's details; for where the work stands overall, use get_status.",
       inputSchema: { ref: z.string().describe("A ref such as progressor://login/t2 or progressor://roadmap/i1.") },
       annotations: { readOnlyHint: true },
     },
@@ -457,43 +456,11 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   );
 
   server.registerTool(
-    "record_idea",
-    {
-      title: "Record Idea",
-      description:
-        "Park a feature or improvement that came up but is not needed for the current Goal, instead of doing it. It goes to the Roadmap's Ideas until the Developer asks for it (promote_idea). For work that is needed now but off the plan, declare a Detour instead.",
-      inputSchema: {
-        title: z.string().min(1).describe("The idea in a few words, such as 'Remember-me checkbox'."),
-        note: z.string().optional().describe("Context for later: where it came from or why it could matter."),
-      },
-    },
-    ({ title, note }) =>
-      respond(() => {
-        const idea = project.recordIdea(title, note);
-        return `Recorded Idea ${idea.id} (${idea.ref}).`;
-      }),
-  );
-
-  server.registerTool(
-    "promote_idea",
-    {
-      title: "Promote Idea",
-      description: "Turn an Idea into a Task at the end of the claimed Goal, or into a new Goal on the Roadmap.",
-      inputSchema: { idea: z.string().describe("The Idea ID, such as 'i2'."), to: z.enum(["task", "goal"]) },
-    },
-    ({ idea, to }) =>
-      respond(() => {
-        const promoted = project.promoteIdea(idea, to);
-        return `Promoted Idea ${idea} to ${to === "task" ? "Task" : "Goal"} ${promoted.ref}.`;
-      }),
-  );
-
-  server.registerTool(
     "add_standing_instruction",
     {
       title: "Add Standing Instruction",
       description:
-        "Save a lasting rule from the Developer about how you should work in this project, such as 'ask me before recalibrating'. It is shown in every get_status and by the Claude Code hooks. Use it only for rules meant to last; a one-off request is just done, and an idea for later goes to record_idea.",
+        "Save a lasting rule from the Developer about how you should work in this project, such as 'ask me before recalibrating'. It is shown in every get_status and by the Claude Code hooks. Use it only for rules meant to last; a one-off request is just done.",
       inputSchema: { text: z.string().min(1).describe("The rule, in the Developer's words where possible.") },
     },
     ({ text }) =>
@@ -544,16 +511,6 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     "next",
     { title: "Pick up the work", description: "Carry on where the plan left off: the open Detour, the Task in progress, or the next Task, claiming a Goal if needed." },
     () => message(nextPrompt(project.status(), status())),
-  );
-
-  server.registerPrompt(
-    "idea",
-    {
-      title: "Park an Idea",
-      description: "Keep an idea for later without working on it now.",
-      argsSchema: { idea: z.string().optional().describe("The idea, in plain words. Leave it empty to write it in the chat.") },
-    },
-    ({ idea }) => message(ideaPrompt(idea?.trim() || undefined)),
   );
 
   server.registerPrompt(
