@@ -41,7 +41,7 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: 0.5.1, where plan and idea work with no text, is on npm and the MCP Registry.
 - [x] [Release 0.5.2](goals/release-0-5-2.md) ^release-0-5-2
   - outcome: 0.5.2, where the dashboard's top bar fits a half-screen window, is on npm and the MCP Registry.
-- [/] [Simple for vibe coders](goals/simple.md) ^simple
+- [x] [Simple for vibe coders](goals/simple.md) ^simple
   - outcome: Someone who doesn't code can follow what their Agent is doing on the dashboard without learning Progressor's terms, and never has to manage the plan themselves.
 - [x] [Agent and reliability](goals/agent-first.md) ^agent-first
   - outcome: In any MCP app the Agent keeps the plan in the right folder, runs the whole loop without asking the human, and the known bugs are fixed.
@@ -49,6 +49,9 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: Someone who doesn't code can tell at a glance what the AI is doing, how far along it is, and whether it stopped, with every word plain and every control explained on hover.
 - [x] [Thorough docs](goals/docs.md) ^docs
   - outcome: A non-coder using any MCP app can set Progressor up, use it and fix problems from the docs, mostly by asking their AI.
+- [/] [Release 0.6.0](goals/v0-6-0.md) ^v0-6-0
+  - outcome: 0.6.0, with the Agent, dashboard and docs work for non-coders, is on npm and the MCP Registry.
+  - claimed by: s-0b50c4 (pid 4180) since 2026-10-20T05:54:05.881Z
 
 ## Ideas
 
