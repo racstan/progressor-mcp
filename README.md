@@ -41,9 +41,11 @@ progressor-mcp init
 
 `init` shows what it will add and asks once: the `progressor` server in `.mcp.json`, two [Claude Code hooks](docs/setup.md#claude-code-hooks-recommended) that hand the Agent the plan at the start of every conversation, a short note in `CLAUDE.md`, and an empty Roadmap in `.progressor/`.
 
-Restart Claude Code in that folder and approve the `progressor` server when it asks. Type `/mcp__progressor__status` to check it works, then `/mcp__progressor__plan` and what you want to build, such as `/mcp__progressor__plan add Google sign-in`.
+Restart Claude Code in that folder and approve the `progressor` server when it asks. Type `/progressor` to see its commands in the `/` menu: pick **progressor:status** to check it works, then **progressor:plan** followed by what you want to build, such as `add Google sign-in`.
 
-Another MCP app, updating, removing and setting the hooks by hand: see [docs/setup.md](docs/setup.md).
+Its other commands include **progressor:next** to pick up where you left off and **progressor:idea** to park an idea for later; the [reference](docs/reference.md#slash-commands) lists them all.
+
+To have Progressor in every project instead of running `init` in each, [register it once for your user](docs/setup.md#use-progressor-in-every-project) and type **/progressor:setup** in any folder. Another MCP app, updating, removing and setting the hooks by hand: see [docs/setup.md](docs/setup.md).
 
 ## How it works
 
@@ -70,7 +72,7 @@ In VS Code you can keep it beside your code with **Simple Browser: Show** from t
 
 **The dashboard says it is served by an older Progressor.** A conversation started before you updated is still running the old version. Restart it, or stop that server in **🖥 Servers**.
 
-**The Agent does not follow the plan, or never calls `get_status`.** Check that `CLAUDE.md` has the Progressor note and `.claude/settings.json` has the two [hooks](docs/setup.md#claude-code-hooks-recommended); `progressor-mcp init` adds anything missing. The hooks need the global install. Typing `/mcp__progressor__status` shows the Agent the plan straight away.
+**The Agent does not follow the plan, or never calls `get_status`.** Check that `CLAUDE.md` has the Progressor note and `.claude/settings.json` has the two [hooks](docs/setup.md#claude-code-hooks-recommended); `progressor-mcp init` adds anything missing. The hooks need the global install. The **/progressor:status** command shows the Agent the plan straight away.
 
 Still stuck? [Report a problem](#feedback-and-help).
 

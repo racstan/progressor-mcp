@@ -33,6 +33,9 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: The README holds only what a new user needs to set up, use and get help; the details live in docs/ and CONTRIBUTING.md, linked from it.
 - [x] [Release 0.4.1](goals/release-0-4-1.md) ^release-0-4-1
   - outcome: 0.4.1, with the Help menu feedback links, --version and the shorter README, is on npm and the MCP Registry.
+- [/] [More slash commands](goals/more-commands.md) ^more-commands
+  - outcome: The docs name the commands as the / menu shows them (/progressor:status), and setup, next, idea and dashboard join status, plan and review.
+  - claimed by: s-815fdf (pid 10852) since 2026-10-20T02:53:30.972Z
 
 ## Ideas
 

@@ -18,6 +18,9 @@ export interface Launch {
  * The global command when Progressor is installed globally, else npx. On Windows the app starts the
  * server without a shell, so the npm launcher needs `cmd /c` in front of it; hooks run in a shell.
  */
+/** Started through npx when the running script sits in npm's npx cache. */
+export const startedViaNpx = (script = process.argv[1] ?? "") => /[\\/]_npx[\\/]/.test(script);
+
 export function launchFor({ viaNpx, platform }: { viaNpx: boolean; platform: NodeJS.Platform }): Launch {
   const base = viaNpx ? ["npx", "-y", "progressor-mcp"] : ["progressor-mcp"];
   const server = platform === "win32" ? { command: "cmd", args: ["/c", ...base] } : { command: base[0]!, args: base.slice(1) };
@@ -89,12 +92,17 @@ const change = (root: string, file: string, what: string, contents: string | nul
   path: join(root, file),
 });
 
-export function planInit(root: string, launch: Launch): Change[] {
+/**
+ * The changes that set a project up. Without the server (`server: false`), .mcp.json is left alone:
+ * that is for an app that already runs Progressor in this folder, say from the user's own MCP
+ * settings, where a project entry would only start a second copy.
+ */
+export function planInit(root: string, launch: Launch, { server = true }: { server?: boolean } = {}): Change[] {
   const changes: Change[] = [];
 
-  const mcp = readJson(root, MCP_FILE) ?? {};
+  const mcp = server ? (readJson(root, MCP_FILE) ?? {}) : {};
   const current = mcp.mcpServers?.[SERVER_NAME];
-  if (JSON.stringify(current) !== JSON.stringify(launch.server)) {
+  if (server && JSON.stringify(current) !== JSON.stringify(launch.server)) {
     const next = { ...mcp, mcpServers: { ...(mcp.mcpServers ?? {}), [SERVER_NAME]: launch.server } };
     const how = [launch.server.command, ...launch.server.args].join(" ");
     changes.push(change(root, MCP_FILE, `${current ? "update" : "add"} the "${SERVER_NAME}" MCP server (${how})`, text(next)));

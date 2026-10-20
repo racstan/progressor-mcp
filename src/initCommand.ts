@@ -1,19 +1,17 @@
-// `progressor-mcp init [folder] [--yes] [--remove]`: shows what it will change, asks once, then does it.
+// `progressor-mcp init [folder] [--yes] [--remove] [--no-server]`: shows what it will change, asks once, then does it.
 import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
-import { type Change, applyChanges, launchFor, planInit, planRemove } from "./init.js";
+import { type Change, applyChanges, launchFor, planInit, planRemove, startedViaNpx } from "./init.js";
 
-const USAGE = `Usage: progressor-mcp init [folder] [--yes]
+const USAGE = `Usage: progressor-mcp init [folder] [--yes] [--no-server]
        progressor-mcp init [folder] --remove [--yes]
 
 Sets up a project (the current folder by default) for Progressor and Claude Code: registers the MCP
 server in .mcp.json, adds the status hooks to .claude/settings.json, adds a short note for the Agent
 to CLAUDE.md and creates .progressor/roadmap.md. It lists the changes and asks before making them;
---yes skips the question. --remove takes them out again and leaves .progressor/ alone.`;
-
-/** Started through npx when the running script sits in npm's npx cache. */
-const startedViaNpx = () => /[\\/]_npx[\\/]/.test(process.argv[1] ?? "");
+--yes skips the question. --no-server leaves .mcp.json alone, for an app that already runs
+Progressor in every folder. --remove takes them out again and leaves .progressor/ alone.`;
 
 async function confirm(question: string): Promise<boolean> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -35,10 +33,11 @@ export async function runInitCommand(args: string[]): Promise<number> {
     return 1;
   }
   const remove = args.includes("--remove");
+  const noServer = args.includes("--no-server");
   const viaNpx = startedViaNpx();
   let changes: Change[];
   try {
-    changes = remove ? planRemove(root) : planInit(root, launchFor({ viaNpx, platform: process.platform }));
+    changes = remove ? planRemove(root) : planInit(root, launchFor({ viaNpx, platform: process.platform }), { server: !noServer });
   } catch (e) {
     console.error(`progressor: ${(e as Error).message}`);
     return 1;
@@ -68,12 +67,16 @@ export async function runInitCommand(args: string[]): Promise<number> {
     console.log("Done. The progress record in .progressor/ is still there; delete it yourself if you no longer want it.");
     return 0;
   }
-  console.log("Done. Restart Claude Code in this folder to load Progressor, then ask the Agent to plan a Goal.");
+  console.log(
+    noServer
+      ? "Done. Progressor's tools work right away; the hooks and the note in CLAUDE.md take effect from the next conversation."
+      : "Done. Restart Claude Code in this folder to load Progressor, then ask the Agent to plan a Goal.",
+  );
   console.log("See every project's progress with: progressor-mcp dashboard");
   if (viaNpx)
     console.log(
       "\nThis ran through npx, so the hooks do too, and npx adds about 1.5 seconds to every message. For a faster setup, run\n" +
-        "  npm install -g progressor-mcp\n  progressor-mcp init\n" +
+        `  npm install -g progressor-mcp\n  progressor-mcp init${noServer ? " --no-server" : ""}\n` +
         "which switches the server and the hooks to the global command.",
     );
   return 0;

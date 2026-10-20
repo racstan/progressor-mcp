@@ -2,9 +2,10 @@ import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod";
 import type { Dashboard } from "./dashboard/http.js";
+import { launchFor, startedViaNpx } from "./init.js";
 import type { Detour, Task } from "./planFile.js";
 import type { DetourEnding, FoundItem, Project, Status } from "./project.js";
-import { planPrompt, reviewPrompt, statusPrompt } from "./prompts.js";
+import { dashboardPrompt, ideaPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
 import type { Goal } from "./roadmap.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -484,7 +485,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       }),
   );
 
-  // Slash commands: in Claude Code they show up as /mcp__<server name>__status and so on.
+  // Slash commands: Claude Code lists them in its / menu as /<server name>:status (MCP) and so on.
   const message = (text: string) => ({ messages: [{ role: "user" as const, content: { type: "text" as const, text } }] });
 
   server.registerPrompt(
@@ -511,6 +512,37 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       argsSchema: { goal: z.string().optional().describe("The Goal ID; the claimed Goal when left out.") },
     },
     ({ goal }) => message(reviewPrompt(project, goal?.trim() || undefined)),
+  );
+
+  server.registerPrompt(
+    "setup",
+    { title: "Set up this project", description: "Add Progressor's hooks, its note in CLAUDE.md and a Roadmap to this folder, after your OK." },
+    () => message(setupPrompt(project.root, launchFor({ viaNpx: startedViaNpx(), platform: process.platform }))),
+  );
+
+  server.registerPrompt(
+    "next",
+    { title: "Pick up the work", description: "Carry on where the plan left off: the open Detour, the Task in progress, or the next Task, claiming a Goal if needed." },
+    () => message(nextPrompt(project.status(), status())),
+  );
+
+  server.registerPrompt(
+    "idea",
+    {
+      title: "Park an Idea",
+      description: "Keep an idea for later without working on it now.",
+      argsSchema: { idea: z.string().describe("The idea, in your own words.") },
+    },
+    ({ idea }) => message(ideaPrompt(idea)),
+  );
+
+  server.registerPrompt(
+    "dashboard",
+    { title: "Open the dashboard", description: "The link to this project's dashboard, opened in a browser pane where the app has one." },
+    async () => {
+      await dashboard?.refresh().catch(() => undefined);
+      return message(dashboardPrompt(dashboard?.url));
+    },
   );
 
   return server;
