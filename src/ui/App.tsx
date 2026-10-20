@@ -359,7 +359,7 @@ export function App() {
       <header className="nav">
         <div className="logo">
           <i aria-hidden="true" />
-          Progressor
+          <span className="name">Progressor</span>
         </div>
         <SearchBox query={query} hits={hits} onChange={setQuery} onOpen={openHit} />
         <span className="sp" />
