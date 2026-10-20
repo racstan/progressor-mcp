@@ -45,7 +45,7 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: Someone who doesn't code can follow what their Agent is doing on the dashboard without learning Progressor's terms, and never has to manage the plan themselves.
 - [x] [Agent and reliability](goals/agent-first.md) ^agent-first
   - outcome: In any MCP app the Agent keeps the plan in the right folder, runs the whole loop without asking the human, and the known bugs are fixed.
-- [ ] [Plain-English dashboard](goals/plain-dashboard.md) ^plain-dashboard
+- [x] [Plain-English dashboard](goals/plain-dashboard.md) ^plain-dashboard
   - outcome: Someone who doesn't code can tell at a glance what the AI is doing, how far along it is, and whether it stopped, with every word plain and every control explained on hover.
 - [ ] [Thorough docs](goals/docs.md) ^docs
   - outcome: A non-coder using any MCP app can set Progressor up, use it and fix problems from the docs, mostly by asking their AI.
