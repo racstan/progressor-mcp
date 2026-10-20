@@ -40,3 +40,9 @@
 - branched from: ^t5
 - reason: Trying the commands in Claude's app, sending text with a link or formatting after a command was refused ("nothing was sent"); plan and idea must work in apps that allow only plain text in a command's argument.
 - status: merged back
+
+## Detour: Top bar overflows narrow windows ^d2
+
+- branched from: ^t5
+- reason: At a half-screen browser width (about 910px) the dashboard's top bar runs past the window's right edge, hiding the view buttons, the Detours switch and the theme toggle; it blocks the demo recording.
+- status: open
