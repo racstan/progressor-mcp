@@ -6,3 +6,7 @@ This page has moved:
 - [Setup for your app](apps.md): Claude Code (including [every project at once](apps.md#claude-code)), Claude Desktop, VS Code, Cursor, Windsurf, Codex and others
 - [Updating and removing](updating-and-removing.md)
 - [Claude Code's hooks](reference.md#claude-codes-hooks)
+
+## Use Progressor in every project
+
+See [Claude Code → In every project at once](apps.md#claude-code), or your app's section in [Setup for your app](apps.md).

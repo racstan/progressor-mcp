@@ -2,6 +2,43 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## 0.6.0 · Simple for anyone, in any app
+
+Progressor is now made for people who don't code as much as for those who do: the AI manages the plan by itself, the dashboard speaks plain English, and the docs cover every MCP app.
+
+### The dashboard
+
+- **Plain words everywhere**: *step*, *side trip*, *Your goals*, *Finished when* and *cancelled*, with no IDs, tool names or file paths unless you ask for them.
+- **A status line** says what the AI is doing: *AI working · step 3 of 7 · last update 2 min ago*; *AI waiting* when its chat is open but nothing has changed for 15 minutes; *AI stopped* when its chat has closed.
+- **A Show menu** replaces the Detours switch: side trips (on), cancelled steps (off) and file names (off).
+- **Fewer things up front**: the Live chip is a green dot with its words on hover, and every control explains itself on hover. Help keeps only the feedback links. The code editor, hidden goals and the running servers move to **⚙️ Settings → Advanced**. The plan's rules and Ideas are no longer shown.
+- Empty pages tell you what to say to your AI instead of which tool it should call.
+- The top bar fits a phone screen.
+
+### The AI
+
+- **It runs the whole loop by itself**: it plans new work and starts it, carries on with a paused goal, finishes a goal when every step is done, and tells you in a plain sentence, with the dashboard link.
+- **It talks plainly**: no tool names, IDs or file names when it tells you what it's doing.
+- **It can change or drop a rule** you gave it, with the new `update_standing_instruction` tool.
+- **Ideas are gone**: the `record_idea` and `promote_idea` tools and the **/progressor:idea** command are removed, to keep things simple. Ideas already in a plan are kept in the file.
+- **/progressor:setup** has the AI run the setup itself instead of asking you to.
+
+### Any MCP app
+
+- **The right project folder in every app**: Progressor asks the app which folder is open (MCP roots), and refuses to start a plan in your home folder, the top of a drive or the Windows folder, saying how to fix it. `get_status` shows the project folder.
+- **`init` adds Progressor's note to `AGENTS.md`** as well as `CLAUDE.md`, since most apps other than Claude Code read `AGENTS.md`.
+
+### Fixes
+
+- Two side trips with the same title no longer mix up their details.
+- A goal can only be finished once every step is done or cancelled and no side trip is open.
+- Titles, reasons and rules given with line breaks are kept on one line, so they no longer break the plan file.
+
+### Docs
+
+- A short README with a setup message to paste into any AI app.
+- New guides: [getting started](docs/getting-started.md), [setup for your app](docs/apps.md) (Claude Code, Claude Desktop, VS Code, Cursor, Windsurf, Codex and others), [using Progressor](docs/using.md), [questions](docs/faq.md), [troubleshooting](docs/troubleshooting.md) with a line to paste to your AI for each problem, and [updating and removing](docs/updating-and-removing.md).
+
 ## 0.5.2 · The top bar fits narrow windows
 
 - In a browser window about half a screen wide, the dashboard's top bar ran past the right edge, hiding the view buttons, the Detours switch and the theme toggle. The search box now shrinks to make room, and below 820px the logo drops its name, so the whole bar fits down to about 700px.
