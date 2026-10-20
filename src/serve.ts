@@ -8,9 +8,11 @@ import { announceServer } from "./servers.js";
 
 // One server process serves one Agent conversation (and its sub-agents), so the
 // process is the Session: it gets a fresh ID, and its pid lets other Sessions
-// spot a Claim left behind by a process that crashed.
+// spot a Claim left behind by a process that crashed. The project folder is found the way the hooks
+// find it: Claude Code names it in CLAUDE_PROJECT_DIR, which matters when the server is registered
+// for every project rather than in the project's .mcp.json.
 const project = new Project({
-  root: process.env.PROGRESSOR_ROOT ?? process.cwd(),
+  root: process.env.PROGRESSOR_ROOT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd(),
   session: { id: `s-${randomBytes(3).toString("hex")}`, pid: process.pid },
 });
 

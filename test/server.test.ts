@@ -1,7 +1,9 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { beforeEach, describe, expect, it } from "vitest";
+import { applyChanges, launchFor, planInit } from "../src/init.js";
 import { Project } from "../src/project.js";
+import { setupPrompt } from "../src/prompts.js";
 import { createServer } from "../src/server.js";
 import { tempDir } from "./tmp.js";
 
@@ -206,9 +208,10 @@ describe("shaping Goals through the tools", () => {
 });
 
 describe("slash commands", () => {
-  it("offers status, plan and review as prompts", async () => {
+  it("offers its commands as prompts", async () => {
     const { prompts } = await client.listPrompts();
-    expect(prompts.map((p) => p.name).sort()).toEqual(["plan", "review", "status"]);
+    expect(prompts.map((p) => p.name).sort()).toEqual(["dashboard", "idea", "next", "plan", "review", "setup", "status"]);
+    expect(prompts.find((p) => p.name === "idea")!.arguments?.map((a) => [a.name, a.required])).toEqual([["idea", true]]);
     expect(prompts.find((p) => p.name === "plan")!.arguments?.map((a) => [a.name, a.required])).toEqual([["goal", true]]);
   });
 
@@ -231,11 +234,111 @@ describe("slash commands", () => {
     expect(t).toContain("add_goal");
   });
 
+  it("next starts the claimed Goal's next Task", async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Route", done: true }, { title: "Callback" }] });
+    await call("claim_goal", { goal: "login" });
+    const t = await text("next");
+    expect(t).toContain("start_task");
+    expect(t).toContain("t2 Callback");
+  });
+
+  it("next carries on with the Task in progress", async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Route" }, { title: "Callback" }] });
+    await call("claim_goal", { goal: "login" });
+    await call("start_task", { task: "t1" });
+    const t = await text("next");
+    expect(t).toContain("t1 Route");
+    expect(t).not.toContain("start_task");
+  });
+
+  it("next finishes an open Detour before anything else", async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Route" }] });
+    await call("claim_goal", { goal: "login" });
+    await call("start_task", { task: "t1" });
+    await call("start_detour", { title: "Fix the build", reason: "It is red" });
+    const t = await text("next");
+    expect(t).toContain("Fix the build");
+    expect(t).toContain("end_detour");
+  });
+
+  it("next asks before completing a Goal whose Tasks are all done", async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Route", done: true }] });
+    await call("claim_goal", { goal: "login" });
+    const t = await text("next");
+    expect(t).toContain("complete_goal");
+    expect(t).toMatch(/ask me/i);
+  });
+
+  it("next claims the one paused Goal", async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Route" }] });
+    await call("claim_goal", { goal: "login" });
+    await call("release_goal");
+    const t = await text("next");
+    expect(t).toContain("claim_goal");
+    expect(t).toContain("login");
+  });
+
+  it("next asks which Goal when several could be picked up", async () => {
+    await call("add_goal", { title: "Login" });
+    await call("add_goal", { title: "Billing" });
+    const t = await text("next");
+    expect(t).toMatch(/ask me which/i);
+    expect(t).toContain("login");
+    expect(t).toContain("billing");
+  });
+
+  it("next suggests planning a Goal when the Roadmap is empty", async () => {
+    expect(await text("next")).toContain("/progressor:plan");
+  });
+
+  it("idea parks the idea without working on it", async () => {
+    const t = await text("idea", { idea: "Dark mode for the dashboard" });
+    expect(t).toContain("Dark mode for the dashboard");
+    expect(t).toContain("record_idea");
+    expect(t).toMatch(/do not work on it/i);
+  });
+
+  it("dashboard says when this Session has no dashboard", async () => {
+    expect(await text("dashboard")).toContain("progressor-mcp dashboard");
+  });
+
+  it("setup lists what init would add here and runs it after an OK", async () => {
+    const t = await text("setup");
+    expect(t).toContain("CLAUDE.md");
+    expect(t).toContain(".progressor/roadmap.md");
+    expect(t).not.toContain(".mcp.json:");
+    expect(t).toMatch(/init "[^"]+" --yes --no-server/);
+    expect(t).toMatch(/wait for my OK/i);
+  });
+
+  it("setup says when the folder is already set up", () => {
+    const root = tempDir("progressor-");
+    const launch = launchFor({ viaNpx: false, platform: "linux" });
+    applyChanges(planInit(root, launch, { server: false }));
+    const t = setupPrompt(root, launch);
+    expect(t).toMatch(/already set up/i);
+    expect(t).not.toContain("--yes");
+  });
+
   it("review lists the Goal's Tasks and says how to reopen it", async () => {
     await call("add_goal", { title: "Login", tasks: [{ title: "Callback", done: true, summary: "Sets the cookie" }], done: true });
     const t = await text("review", { goal: "login" });
     expect(t).toContain("[x] t1 Callback: Sets the cookie");
     expect(t).toContain("claim_goal");
     expect(t).toContain("add_tasks");
+  });
+});
+
+describe("the dashboard command", () => {
+  it("hands over this project's dashboard link", async () => {
+    const project = new Project({ root: tempDir("progressor-"), session: { id: "s-b", pid: process.pid } });
+    const url = "http://localhost:4747/?project=shop-1a2b3c";
+    const server = createServer(project, { dashboard: { url, refresh: async () => {} } });
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    const c = new Client({ name: "test", version: "0" });
+    await Promise.all([server.connect(serverSide), c.connect(clientSide)]);
+    const t = (await c.getPrompt({ name: "dashboard" })).messages.map((m) => (m.content as { text: string }).text).join("\n");
+    expect(t).toContain(url);
+    expect(t).toMatch(/browser/i);
   });
 });

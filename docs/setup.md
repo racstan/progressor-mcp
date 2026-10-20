@@ -16,7 +16,21 @@ To add only the server to Claude Code, with no install, hooks or note:
 claude mcp add progressor -- npx -y progressor-mcp
 ```
 
-Any other MCP client can run the same command over stdio: `npx -y progressor-mcp`. Progressor keeps its files in the folder the client starts it in; set `PROGRESSOR_ROOT` to use another folder.
+Any other MCP client can run the same command over stdio: `npx -y progressor-mcp`. Progressor keeps its files in the project folder: the one Claude Code names in `CLAUDE_PROJECT_DIR`, or else the folder the client starts it in. Set `PROGRESSOR_ROOT` to use another folder.
+
+## Use Progressor in every project
+
+`init` sets Progressor up one project at a time, so a conversation opened in another folder has no Progressor. To have it in every conversation, whatever its folder, register it once for your user instead:
+
+```bash
+claude mcp add --scope user progressor -- npx -y progressor-mcp
+```
+
+On Windows, put `cmd /c` before `npx`. With the global install, `progressor-mcp` on its own replaces `npx -y progressor-mcp` and starts faster. Other MCP apps have a user-wide MCP settings file too (in Cursor, `~/.cursor/mcp.json`); add the same command there.
+
+Then, in any folder, type **/progressor:setup** in the chat. The Agent lists what it would add (the hooks, the note in `CLAUDE.md` and an empty Roadmap), and runs `progressor-mcp init --no-server` once you say OK. It leaves `.mcp.json` alone, since Progressor is already running. Progressor's tools work at once; the hooks and the note take effect from the next conversation.
+
+Register Progressor one way or the other, not both: a project entry in `.mcp.json` as well as the user one would start two copies.
 
 ## Claude Code hooks (recommended)
 

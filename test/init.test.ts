@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { type Launch, applyChanges, launchFor, planInit, planRemove } from "../src/init.js";
+import { type Launch, applyChanges, launchFor, planInit, planRemove, startedViaNpx } from "../src/init.js";
 import { tempDir } from "./tmp.js";
 
 let root: string;
@@ -21,6 +21,13 @@ beforeEach(() => {
 });
 
 describe("how Progressor is started", () => {
+  it("tells an npx start from a global install, on Windows and elsewhere", () => {
+    expect(startedViaNpx(String.raw`C:\Users\dev\AppData\Local\npm-cache\_npx\1a2b\node_modules\progressor-mcp\dist\cli.js`)).toBe(true);
+    expect(startedViaNpx("/home/dev/.npm/_npx/1a2b/node_modules/progressor-mcp/dist/cli.js")).toBe(true);
+    expect(startedViaNpx(String.raw`C:\Users\dev\AppData\Roaming\npm\node_modules\progressor-mcp\dist\cli.js`)).toBe(false);
+    expect(startedViaNpx("/usr/lib/node_modules/progressor-mcp/dist/cli.js")).toBe(false);
+  });
+
   it("uses the global command, or npx, wrapped in cmd /c on Windows for the server", () => {
     expect(global).toEqual({ server: { command: "progressor-mcp", args: [] }, hook: "progressor-mcp hook" });
     expect(npx).toEqual({ server: { command: "npx", args: ["-y", "progressor-mcp"] }, hook: "npx -y progressor-mcp hook" });
@@ -29,6 +36,14 @@ describe("how Progressor is started", () => {
 });
 
 describe("init", () => {
+  it("leaves .mcp.json alone without the server, for an app that already runs Progressor", () => {
+    const changes = planInit(root, global, { server: false });
+    expect(changes.map((c) => c.file)).toEqual([".claude/settings.json", "CLAUDE.md", ".progressor/roadmap.md"]);
+    applyChanges(changes);
+    expect(existsSync(join(root, ".mcp.json"))).toBe(false);
+    expect(planInit(root, global, { server: false })).toEqual([]);
+  });
+
   it("sets up a fresh project: server, hooks, a note for the Agent and an empty Roadmap", () => {
     const changes = planInit(root, global);
     expect(changes.map((c) => c.file)).toEqual([".mcp.json", ".claude/settings.json", "CLAUDE.md", ".progressor/roadmap.md"]);

@@ -2,13 +2,17 @@
 
 ## Slash commands
 
-In Claude Code, Progressor adds three commands to the `/` menu:
+In Claude Code, Progressor adds its commands to the `/` menu, listed as `/progressor:status (MCP)` and so on: type `/progressor` to see them. Typing the full name, such as `/mcp__progressor__status`, works too. A command's argument is the text after it.
 
 | Command                          | What it does                                                                                     |
 | -------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `/mcp__progressor__status`       | A short summary of where things stand; with no Goal claimed, the Goals to pick from.             |
-| `/mcp__progressor__plan <goal>`  | The Agent proposes a title, short ID, Outcome and Tasks for the Goal you describe, and waits for your OK before adding it. |
-| `/mcp__progressor__review [goal]` | The Agent checks a Goal's finished Tasks against the code and its Outcome, and says what is missing. |
+| `/progressor:status`             | A short summary of where things stand; with no Goal claimed, the Goals to pick from.             |
+| `/progressor:plan <goal>`        | The Agent proposes a title, short ID, Outcome and Tasks for the Goal you describe, and waits for your OK before adding it. |
+| `/progressor:review [goal]`      | The Agent checks a Goal's finished Tasks against the code and its Outcome, and says what is missing. |
+| `/progressor:next`               | Picks up where the plan left off: finishes an open Detour, carries on with the Task in progress or starts the next one, claiming a Goal first if needed. |
+| `/progressor:idea <idea>`        | Parks an idea for later as an Idea, without working on it now. |
+| `/progressor:dashboard`          | Gives the link to this project's dashboard, and opens it in the app's browser pane where there is one. |
+| `/progressor:setup`              | Sets up the conversation's folder: the hooks, the note in `CLAUDE.md` and a Roadmap, after your OK. For when Progressor is [registered for every project](setup.md#use-progressor-in-every-project). |
 
 ## Example
 
