@@ -178,3 +178,23 @@ describe("Task summaries", () => {
     expect(plan.task("t2")!.summary).toBe("Clears the cookie. Then redirects home.");
   });
 });
+
+describe("side trips that share a title", () => {
+  it("keeps each one's fields apart, when read back and when changed", () => {
+    const plan = parsePlanFile("# Login\n\n## Tasks\n\n- [/] Callback ^t1\n", "login");
+    const first = plan.startDetour("Fix tests", "They fail", "t1");
+    plan.setDetourStatus(first.id!, "merged back");
+    const second = plan.startDetour("Fix tests", "They fail again", "t1");
+
+    const again = parsePlanFile(plan.toString(), "login");
+    expect(again.detours.map((d) => [d.id, d.status, d.reason])).toEqual([
+      [first.id, "merged back", "They fail"],
+      [second.id, "open", "They fail again"],
+    ]);
+    expect(again.openDetour?.id).toBe(second.id);
+
+    again.setDetourStatus(second.id!, "returned");
+    const last = parsePlanFile(again.toString(), "login");
+    expect(last.detours.map((d) => d.status)).toEqual(["merged back", "returned"]);
+  });
+});

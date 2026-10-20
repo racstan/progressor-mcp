@@ -227,6 +227,19 @@ export function appendToSection(doc: MarkdownDoc, name: string, items: ItemBlock
     appendSection(doc, newHeading(2, name), items);
     return;
   }
+  appendAt(doc, h, items);
+}
+
+/**
+ * Appends items to the list under one particular heading. Two sections can share a name (two
+ * Detours with the same title), so this goes by the heading itself rather than its text.
+ */
+export function appendUnder(doc: MarkdownDoc, heading: HeadingBlock, items: ItemBlock[]): void {
+  for (const item of items) item.section = heading.text;
+  appendAt(doc, doc.blocks.indexOf(heading), items);
+}
+
+function appendAt(doc: MarkdownDoc, h: number, items: ItemBlock[]): void {
   const [start, end] = sectionRange(doc, h);
   let lastItem = -1;
   for (let i = start; i < end; i++) if (doc.blocks[i]!.type === "item") lastItem = i;
@@ -240,6 +253,14 @@ export function appendToSection(doc: MarkdownDoc, name: string, items: ItemBlock
   if (at >= end && end < doc.blocks.length) insert.push({ type: "text", text: "" });
   doc.blocks.splice(at, 0, ...insert);
   if (end >= doc.blocks.length - insert.length) doc.finalNewline = true;
+}
+
+/** The items in the section under one particular heading (see appendUnder). */
+export function itemsUnder(doc: MarkdownDoc, heading: HeadingBlock): ItemBlock[] {
+  const h = doc.blocks.indexOf(heading);
+  if (h < 0) return [];
+  const [start, end] = sectionRange(doc, h);
+  return doc.blocks.slice(start, end).filter((b): b is ItemBlock => b.type === "item");
 }
 
 export function itemsIn(doc: MarkdownDoc, section: string): ItemBlock[] {

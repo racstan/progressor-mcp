@@ -6,9 +6,11 @@ import {
   addDetail,
   appendSection,
   appendToSection,
+  appendUnder,
   getDetail,
   getDetails,
   itemsIn,
+  itemsUnder,
   newHeading,
   newItem,
   nextId,
@@ -144,7 +146,7 @@ export class PlanFile {
   }
 
   private detourField(h: HeadingBlock, key: string): ItemBlock | undefined {
-    return itemsIn(this.doc, h.text).find((b) => b.marker === undefined && b.text.startsWith(`${key}:`));
+    return itemsUnder(this.doc, h).find((b) => b.marker === undefined && b.text.startsWith(`${key}:`));
   }
 
   private detourValue(h: HeadingBlock, key: string): string | undefined {
@@ -276,7 +278,7 @@ export class PlanFile {
       field.text = `status: ${status}`;
     } else {
       const b = newItem({ marker: undefined, text: `status: ${status}`, id: undefined });
-      appendToSection(this.doc, h.text, [b]);
+      appendUnder(this.doc, h, [b]);
     }
   }
 
