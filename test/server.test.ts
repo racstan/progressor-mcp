@@ -63,7 +63,7 @@ describe("the MCP server", () => {
     const { text } = await call("get_status");
     expect(text).toBe(
       [
-        "No Goal is claimed by this Session. Claim one with claim_goal, or add one with add_goal.",
+        "No Goal is claimed by this Session. Claim one with claim_goal, or plan one and add it with add_goal (claim: true).",
         "Goals:",
         "- login: Login (planned)",
         `Project folder: ${root}`,
@@ -171,9 +171,7 @@ describe("the MCP server", () => {
     const withDashboard = new Client({ name: "test", version: "0" });
     await Promise.all([server.connect(serverSide), withDashboard.connect(clientSide)]);
     const result = (await withDashboard.callTool({ name: "get_status", arguments: {} })) as { content: { text: string }[] };
-    expect(result.content[0]!.text.split("\n").at(-1)).toBe(
-      "Dashboard: http://localhost:4747/ (tell the Developer they can follow progress there)",
-    );
+    expect(result.content[0]!.text.split("\n").at(-1)).toBe("Dashboard: http://localhost:4747/");
     expect(refreshed).toBe(1);
   });
 });
@@ -270,12 +268,13 @@ describe("slash commands", () => {
     expect(t).toContain("end_detour");
   });
 
-  it("next asks before completing a Goal whose Tasks are all done", async () => {
+  it("next completes a Goal whose Tasks are all done and says so", async () => {
     await call("add_goal", { title: "Login", tasks: [{ title: "Route", done: true }] });
     await call("claim_goal", { goal: "login" });
     const t = await text("next");
     expect(t).toContain("complete_goal");
-    expect(t).toMatch(/ask me/i);
+    expect(t).toMatch(/tell me/i);
+    expect(t).not.toMatch(/ask me before/i);
   });
 
   it("next claims the one paused Goal", async () => {
@@ -383,5 +382,44 @@ describe("update_standing_instruction", () => {
     const { text } = await call("get_status");
     expect(text).toContain("- s1 Ask before pushing or publishing");
     expect(text).not.toContain("Write tests first");
+  });
+});
+
+describe("the Agent runs the loop itself", () => {
+  it("is told to plan, finish and talk plainly without waiting on the Developer", () => {
+    const instructions = client.getInstructions() ?? "";
+    expect(instructions).toContain("claim: true");
+    expect(instructions).toContain("complete_goal");
+    expect(instructions).toContain("update_standing_instruction");
+    expect(instructions).toMatch(/everyday words/);
+    expect(instructions).toMatch(/dashboard/i);
+    expect(instructions).not.toMatch(/record_idea|Idea/);
+  });
+
+  it("adds and claims a Goal in one call", async () => {
+    const { text } = await call("add_goal", { title: "Login", tasks: [{ title: "Route" }], claim: true });
+    expect(text).toContain("claimed");
+    expect((await call("get_status")).text).toContain("Goal: Login (progressor://login), claimed by this Session");
+  });
+
+  it("points at the one paused Goal to pick up", async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Route" }], claim: true });
+    await call("release_goal");
+    await call("add_goal", { title: "Billing" });
+    expect((await call("get_status")).text).toMatch(/Goal login .*paused.*claim_goal/);
+  });
+
+  it("tells the Agent to let the Developer know a Goal is finished", async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Route", done: true }], claim: true });
+    expect((await call("complete_goal")).text).toMatch(/Tell the Developer/);
+  });
+
+  it("ends results that don't show the status with a Now line", async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Route" }], claim: true });
+    await call("start_task", { task: "t1" });
+    const added = (await call("add_tasks", { tasks: [{ title: "Logout" }] })).text;
+    expect(added.split("\n").at(-1)).toBe("Now: t1 Route · Next: t2 Logout");
+    const detour = (await call("start_detour", { title: "Fix the build", reason: "It is red" })).text;
+    expect(detour.split("\n").at(-1)).toBe('Now: side trip "Fix the build" (end it with end_detour) · then t1 Route');
   });
 });

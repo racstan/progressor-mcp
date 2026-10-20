@@ -86,7 +86,7 @@ export function reviewPrompt(project: Project, goalId: string | undefined): stri
     "1. For each done Task, check that its change is really in the code, and tell me in a line or two.",
     "2. Compare the work with the Outcome and tell me what is missing or worth fixing.",
     "3. If more work is needed and I agree: claim_goal to claim it (a done Goal is reopened, its finished Tasks stay done), then add_tasks for the new work.",
-    "4. If everything is there and the Goal is not done yet, ask me before calling complete_goal.",
+    "4. If everything is there and the Goal is not done yet, call complete_goal and tell me in one sentence.",
   ].join("\n");
 }
 
@@ -104,7 +104,7 @@ export function nextPrompt(status: Status, statusText: string): string {
   } else if (goal && status.nextTask) {
     steps = [`Call start_task for the next Task, ${task(status.nextTask)}, then work on it and complete_task when it is done.`];
   } else if (goal) {
-    steps = [`Every Task of "${goal.title}" is done or dropped. Check the work against its Outcome, then ask me before calling complete_goal.`];
+    steps = [`Every Task of "${goal.title}" is done or dropped. Check the work against its Outcome, then call complete_goal and tell me in one sentence that it is finished.`];
   } else {
     const paused = status.goals.filter((g) => g.status === "paused");
     const open = paused.length > 0 ? paused : status.goals.filter((g) => g.status === "planned");

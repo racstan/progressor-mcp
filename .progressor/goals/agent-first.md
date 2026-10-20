@@ -32,14 +32,14 @@
   - code: `src/prompts.ts`
   - code: `src/project.ts`
   - code: `test/server.test.ts`
-- [/] Change or remove a rule ^t6
+- [x] Change or remove a rule ^t6
   - summary: Test-first: update_standing_instruction { id, text } changes a rule, and empty text removes it.
   - code: `src/server.ts`
   - code: `src/roadmap.ts`
   - code: `src/project.ts`
   - code: `test/server.test.ts`
   - code: `test/roadmap.test.ts`
-- [ ] Agent runs the loop itself ^t7
+- [/] Agent runs the loop itself ^t7
   - summary: Seven short plain rules: resume a single paused Goal, propose a plan unasked, add_goal with claim, finish the Goal and tell the Developer, plain words, the dashboard link only at the start and at the end; each tool result ends with a one-line Now/Next reminder.
   - code: `src/server.ts`
   - code: `src/prompts.ts`

@@ -10,18 +10,15 @@ import type { Goal } from "./roadmap.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
-export const INSTRUCTIONS = `Progressor keeps you and the Developer focused on the same Goal across long sessions, context compression and distractions. The progress record is markdown in .progressor/ that only you change, through these tools; never edit those files directly.
+export const INSTRUCTIONS = `Progressor keeps the plan for this project in .progressor/ and shows it to the Developer on a live dashboard. Change the plan only with these tools, never by editing those files. The Developer may not be a programmer: you run the plan, they watch.
 
-- At the start of every conversation, and again after your context has been compressed or summarised, call get_status before doing anything else. It tells you the Goal you are working on, the current Task, any open Detour, the next Task and the Developer's Standing Instructions. Follow the Standing Instructions.
-- If no Goal is claimed, claim the one the Developer wants to work on (claim_goal), or add it (add_goal) with a Task list, an Outcome (one sentence on what done looks like) and, if the title is long, a short id. Complete the Goal once its Outcome is true. When the Developer finds more work in a Goal that is already done, claim it again to reopen it and add the new Tasks there.
-- Keep the Roadmap in the order the work should happen: rename a Goal or change its Outcome with update_goal, reorder with move_goal, and drop_goal (with a reason) for one that will not be done.
-- To record work that was finished before Progressor tracked it, use add_goal with done: true on the Goal and on each Task, in one call.
-- Give every Task a short title (a few words), the files it touches, and a summary: one or two sentences on the fix or change it makes, such as "Callback re-sets the session cookie on every hit; only set it after token exchange." Set them when you add Tasks, and keep them true with update_task as you learn more.
-- Mark Tasks as you go: start_task before working on one, complete_task when it is done (pass the files you touched and, if it changed, the final summary), drop_task when it is no longer needed.
-- When the work you are about to do is not the current Task (fixing something unrelated, a prerequisite you discovered, a rethink of the plan), declare a Detour with start_detour and a Reason before doing it. Never drift away from the plan silently.
-- End the Detour with end_detour: "merge back" for a small fix that leaves the plan as it is, "return" to go back to the plan (optionally appending Tasks for the Detour's intended work), or "recalibrate" to replace the remaining Tasks with a new list.
-- When the Developer states a lasting rule about how you should work, save it with add_standing_instruction.
-- Refs like progressor://<goal>/<item> can be looked up with get_item.`;
+1. First thing in every conversation, and again after your context is compressed or summarised, call get_status. Follow the Standing Instructions it lists.
+2. No Goal claimed? If get_status says one Goal is paused, claim it and carry on. When the Developer asks for work no Goal covers, plan it yourself as a Goal: a short title, an Outcome (one sentence on what done looks like) and Tasks, each with a short title, the files it touches and a one-line summary of the change. Tell the Developer the plan in a few plain lines, then call add_goal with claim: true. A quick question needs no Goal.
+3. Before you change code for a Task, call start_task; call complete_task when it is done, with the files you touched. Keep summaries true with update_task, and drop_task what is no longer needed.
+4. About to change code for something that is not the current Task (an unrelated bug, a missing prerequisite, a change of plan)? Call start_detour with the reason first. When it is done, call end_detour: "merge back" for a small fix, "return" to go back to the plan (adding Tasks for any work left), or "recalibrate" to replace the remaining Tasks with a new list.
+5. When every Task is done or dropped and the Outcome is true, call complete_goal and tell the Developer in one sentence. If more work turns up for a finished Goal, claim it again to reopen it, then add_tasks.
+6. Talk to the Developer in everyday words: say "step" for Task and "side trip" for Detour, and leave out tool names, IDs and the files in .progressor/. Give them the dashboard link from get_status once at the start of a conversation, and again when a Goal is finished.
+7. When the Developer gives a lasting rule ("always...", "never..."), save it with add_standing_instruction; change or remove one with update_standing_instruction.`;
 
 const taskInput = z.object({
   title: z.string().min(1).describe("A short title for the Task, a few words, such as 'Fix callback redirect loop'."),
@@ -52,14 +49,26 @@ function taskLine(t: Task): string {
 
 const summaryLine = (t: Task | undefined) => (t?.summary ? [`  Summary: ${t.summary}`] : []);
 
+/** One line on where the work stands, for the end of results that don't show the whole status. */
+export function nowLine(s: Status): string {
+  if (!s.goal) return "Now: no Goal claimed; call get_status.";
+  const next = s.currentTask ?? s.nextTask;
+  if (s.openDetour) return `Now: side trip "${s.openDetour.title}" (end it with end_detour) · then ${next ? taskLine(next) : "complete_goal"}`;
+  if (s.currentTask) return `Now: ${taskLine(s.currentTask)} · Next: ${s.nextTask ? taskLine(s.nextTask) : "complete_goal"}`;
+  return s.nextTask ? `Now: no Task in progress · Next: start_task ${taskLine(s.nextTask)}` : "Now: every Task is done or dropped · Next: complete_goal";
+}
+
 export function formatStatus(s: Status): string {
   const instructions =
     s.standingInstructions.length > 0
       ? ["Standing Instructions:", ...s.standingInstructions.map((i) => `- ${i.id} ${i.text}`)]
       : [];
   if (!s.goal) {
+    const paused = s.goals.filter((g) => g.status === "paused");
     return [
-      "No Goal is claimed by this Session. Claim one with claim_goal, or add one with add_goal.",
+      paused.length === 1
+        ? `No Goal is claimed by this Session. Goal ${paused[0]!.id} ("${paused[0]!.title}") is paused: claim it with claim_goal and carry on.`
+        : "No Goal is claimed by this Session. Claim one with claim_goal, or plan one and add it with add_goal (claim: true).",
       ...(s.goals.length > 0 ? ["Goals:", ...s.goals.map(goalLine)] : ["The Roadmap has no Goals yet."]),
       ...instructions,
     ].join("\n");
@@ -165,6 +174,9 @@ export async function appRoots(server: McpServer, timeoutMs: number): Promise<st
 export function createServer(project: Project, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: "progressor", version: VERSION }, { instructions: INSTRUCTIONS });
   const status = () => formatStatus(project.status());
+  // Apps without Claude Code's hooks never hand the Agent the plan between calls, so results that
+  // don't show the whole status end with where the work stands.
+  const withNow = (text: string) => `${text}\n${nowLine(project.status())}`;
   const { dashboard } = options;
 
   server.registerTool(
@@ -182,7 +194,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         [
           status(),
           `Project folder: ${project.root}`,
-          ...(dashboard?.url ? [`Dashboard: ${dashboard.url} (tell the Developer they can follow progress there)`] : []),
+          ...(dashboard?.url ? [`Dashboard: ${dashboard.url}`] : []),
         ].join("\n"),
       );
     },
@@ -205,7 +217,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Add Goal",
       description:
-        "Add a Goal to the end of the Roadmap, with an optional Task list and Outcome. Does not claim it. A title another Goal already has is refused unless allow_duplicate is set. To record work already finished, set done on the Goal and on every Task.",
+        "Add a Goal to the end of the Roadmap, with an optional Task list and Outcome; with claim: true, also claim it to start work. A title another Goal already has is refused unless allow_duplicate is set. To record work already finished, set done on the Goal and on every Task.",
       inputSchema: {
         title: z.string().min(1).describe("A few words naming the Goal, such as 'Ship OAuth login'."),
         id: z
@@ -216,15 +228,19 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         tasks: z.array(newTaskInput).optional(),
         allow_duplicate: z.boolean().optional().describe("Add the Goal even though another Goal has the same title."),
         done: z.boolean().optional().describe("Record a Goal that is already finished. Every Task must then have done: true."),
+        claim: z.boolean().optional().describe("Claim the new Goal straight away, to start working on it."),
       },
     },
-    ({ title, id, outcome, tasks, allow_duplicate, done }) =>
+    ({ title, id, outcome, tasks, allow_duplicate, done, claim }) =>
       respond(() => {
         const goal = project.addGoal(title, tasks ?? [], { id, outcome, allowDuplicate: allow_duplicate, done });
         const n = tasks?.length ?? 0;
-        return done
-          ? `Recorded finished Goal ${goal.id} (${goal.ref}) with ${n} done Tasks.`
-          : `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks. Claim it with claim_goal to work on it.`;
+        if (done) return `Recorded finished Goal ${goal.id} (${goal.ref}) with ${n} done Tasks.`;
+        if (claim) {
+          project.claimGoal(goal.id);
+          return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks, claimed by this Session.\n\n${status()}`;
+        }
+        return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks. Claim it with claim_goal to work on it.`;
       }),
   );
 
@@ -322,7 +338,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     () =>
       respond(() => {
         const goal = project.completeGoal();
-        return `Goal ${goal.id} is done.`;
+        return `Goal ${goal.id} is done. Tell the Developer in one plain sentence that "${goal.title}" is finished${dashboard?.url ? `, and that they can see it at ${dashboard.url}` : ""}.`;
       }),
   );
 
@@ -337,7 +353,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     ({ tasks }) =>
       respond(() => {
         const added = project.addTasks(tasks);
-        return `Added: ${added.map(taskLine).join("; ")}`;
+        return withNow(`Added: ${added.map(taskLine).join("; ")}`);
       }),
   );
 
@@ -426,7 +442,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     ({ title, reason }) =>
       respond(() => {
         const d = project.startDetour(title, reason);
-        return `Started ${formatDetour(d)}. End it with end_detour when done.`;
+        return withNow(`Started ${formatDetour(d)}. End it with end_detour when done.`);
       }),
   );
 
@@ -460,13 +476,13 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Add Standing Instruction",
       description:
-        "Save a lasting rule from the Developer about how you should work in this project, such as 'ask me before recalibrating'. It is shown in every get_status and by the Claude Code hooks. Use it only for rules meant to last; a one-off request is just done.",
+        "Save a lasting rule from the Developer about how you should work in this project, such as 'ask me before changing the plan'. get_status lists it from then on. Use it only for rules meant to last; a one-off request is just done.",
       inputSchema: { text: z.string().min(1).describe("The rule, in the Developer's words where possible.") },
     },
     ({ text }) =>
       respond(() => {
         const s = project.addStandingInstruction(text);
-        return `Saved Standing Instruction ${s.id}: ${s.text}`;
+        return withNow(`Saved Standing Instruction ${s.id}: ${s.text}`);
       }),
   );
 
