@@ -9,7 +9,7 @@ const USAGE = `Usage: progressor-mcp init [folder] [--yes] [--no-server]
 
 Sets up a project (the current folder by default) for Progressor and Claude Code: registers the MCP
 server in .mcp.json, adds the status hooks to .claude/settings.json, adds a short note for the Agent
-to CLAUDE.md and creates .progressor/roadmap.md. It lists the changes and asks before making them;
+to CLAUDE.md and AGENTS.md and creates .progressor/roadmap.md. It lists the changes and asks before making them;
 --yes skips the question. --no-server leaves .mcp.json alone, for an app that already runs
 Progressor in every folder. --remove takes them out again and leaves .progressor/ alone.`;
 
@@ -69,7 +69,7 @@ export async function runInitCommand(args: string[]): Promise<number> {
   }
   console.log(
     noServer
-      ? "Done. Progressor's tools work right away; the hooks and the note in CLAUDE.md take effect from the next conversation."
+      ? "Done. Progressor's tools work right away; the hooks and the notes in CLAUDE.md and AGENTS.md take effect from the next conversation."
       : "Done. Restart Claude Code in this folder to load Progressor, then ask the Agent to plan a Goal.",
   );
   console.log("See every project's progress with: progressor-mcp dashboard");

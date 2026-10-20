@@ -1,0 +1,52 @@
+# Agent and reliability
+
+## Tasks
+
+- [x] Side trips with the same title ^t1
+  - summary: Test-first: Detour fields are found by heading text, so a second Detour with the same title reads and edits the first; key them by the heading block instead.
+  - code: `src/planFile.ts`
+  - code: `src/markdown.ts`
+  - code: `test/planFile.test.ts`
+- [x] complete_goal checks the plan ^t2
+  - summary: Test-first: refuse to complete a Goal with Tasks still pending or in progress, or an open Detour, and say which.
+  - code: `src/project.ts`
+  - code: `test/project.test.ts`
+- [x] Multi-line text stays on one line ^t3
+  - summary: Test-first: Detour titles and reasons, drop reasons and Standing Instructions go through oneLine like Goal and Task titles.
+  - code: `src/planFile.ts`
+  - code: `src/roadmap.ts`
+  - code: `test/planFile.test.ts`
+  - code: `test/roadmap.test.ts`
+- [x] The right project folder in every app ^t4
+  - summary: Test-first: take the folder from PROGRESSOR_ROOT, then the app's MCP roots, then CLAUDE_PROJECT_DIR, then the start folder; get_status names the folder; never create .progressor/ in the home folder or a system folder.
+  - code: `src/serve.ts`
+  - code: `src/server.ts`
+  - code: `src/project.ts`
+  - code: `test/server.test.ts`
+  - code: `src/root.ts`
+  - code: `test/root.test.ts`
+  - code: `test/project.test.ts`
+- [x] Remove Ideas ^t5
+  - summary: record_idea, promote_idea and the idea command are unregistered and gone from the instructions; Roadmaps with Ideas still load and get_item still finds them. The dashboard's Ideas go in plain-dashboard.
+  - code: `src/server.ts`
+  - code: `src/prompts.ts`
+  - code: `src/project.ts`
+  - code: `test/server.test.ts`
+- [x] Change or remove a rule ^t6
+  - summary: Test-first: update_standing_instruction { id, text } changes a rule, and empty text removes it.
+  - code: `src/server.ts`
+  - code: `src/roadmap.ts`
+  - code: `src/project.ts`
+  - code: `test/server.test.ts`
+  - code: `test/roadmap.test.ts`
+- [x] Agent runs the loop itself ^t7
+  - summary: Seven short plain rules: resume a single paused Goal, propose a plan unasked, add_goal with claim, finish the Goal and tell the Developer, plain words, the dashboard link only at the start and at the end; each tool result ends with a one-line Now/Next reminder.
+  - code: `src/server.ts`
+  - code: `src/prompts.ts`
+  - code: `test/server.test.ts`
+- [x] Setup for every app ^t8
+  - summary: Test-first: setup also writes Progressor's note to AGENTS.md, which most other MCP apps read; the setup command says the Agent runs the command itself.
+  - code: `src/init.ts`
+  - code: `src/initCommand.ts`
+  - code: `src/prompts.ts`
+  - code: `test/init.test.ts`

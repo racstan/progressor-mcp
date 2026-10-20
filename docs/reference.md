@@ -12,7 +12,7 @@ In Claude Code, Progressor adds its commands to the `/` menu, listed as `/progre
 | `/progressor:next`               | Picks up where the plan left off: finishes an open Detour, carries on with the Task in progress or starts the next one, claiming a Goal first if needed. |
 | `/progressor:idea [idea]`        | Parks an idea for later as an Idea, without working on it now. |
 | `/progressor:dashboard`          | Gives the link to this project's dashboard, and opens it in the app's browser pane where there is one. |
-| `/progressor:setup`              | Sets up the conversation's folder: the hooks, the note in `CLAUDE.md` and a Roadmap, after your OK. For when Progressor is [registered for every project](setup.md#use-progressor-in-every-project). |
+| `/progressor:setup`              | Sets up the conversation's folder: the hooks, the notes in `CLAUDE.md` and `AGENTS.md`, and a Roadmap. The Agent runs it for you. For when Progressor is [registered for every project](setup.md#use-progressor-in-every-project). |
 
 ## Example
 

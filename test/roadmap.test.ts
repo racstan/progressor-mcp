@@ -114,3 +114,40 @@ describe("Roadmap parsing", () => {
     expect(roadmap.toString()).toBe("## Goals\n- [ ] Billing ^billing\n- [ ] Billing ^billing-2\n## Ideas\n- Dark mode ^i1\n");
   });
 });
+
+describe("Standing Instructions with line breaks", () => {
+  it("keeps the rule on one line", () => {
+    const roadmap = parseRoadmap("# Roadmap\n\n## Goals\n");
+    roadmap.addStandingInstruction("Ask me\nbefore pushing");
+    expect(parseRoadmap(roadmap.toString()).standingInstructions.map((s) => s.text)).toEqual(["Ask me before pushing"]);
+  });
+});
+
+describe("changing Standing Instructions", () => {
+  const roadmap = () => {
+    const r = parseRoadmap("# Roadmap\n\n## Goals\n");
+    r.addStandingInstruction("Ask before pushing");
+    r.addStandingInstruction("Write tests first");
+    return r;
+  };
+
+  it("changes a rule's text, keeping its ID", () => {
+    const r = roadmap();
+    r.setStandingInstruction("s1", "Ask before pushing\nor publishing");
+    expect(parseRoadmap(r.toString()).standingInstructions.map((s) => [s.id, s.text])).toEqual([
+      ["s1", "Ask before pushing or publishing"],
+      ["s2", "Write tests first"],
+    ]);
+  });
+
+  it("removes a rule", () => {
+    const r = roadmap();
+    r.removeStandingInstruction("s1");
+    expect(parseRoadmap(r.toString()).standingInstructions.map((s) => [s.id, s.text])).toEqual([["s2", "Write tests first"]]);
+  });
+
+  it("names an unknown rule", () => {
+    expect(() => roadmap().setStandingInstruction("s9", "x")).toThrow(/s9/);
+    expect(() => roadmap().removeStandingInstruction("s9")).toThrow(/s9/);
+  });
+});

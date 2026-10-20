@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { type Detour, type NewTask, type PlanFile, type Task, type TaskChanges, newPlanFile, parsePlanFile } from "./planFile.js";
+import { unsafeRoot } from "./root.js";
 import { type Goal, type Idea, ROADMAP_REF, type Roadmap, type StandingInstruction, parseRoadmap } from "./roadmap.js";
 
 export interface SessionIdentity {
@@ -15,6 +17,8 @@ export interface ProjectOptions {
   /** Whether a process is still running; used to spot stale Claims. */
   isAlive?: (pid: number) => boolean;
   now?: () => Date;
+  /** Why a folder is the wrong place to start a progress record, if it is (see unsafeRoot). */
+  unsafe?: (root: string) => string | undefined;
 }
 
 export type DetourEnding = "merge back" | "return" | "recalibrate";
@@ -73,16 +77,29 @@ export function processIsAlive(pid: number): boolean {
 
 /** The progress record of one project, as seen by one Session. Every call re-reads the files. */
 export class Project {
-  readonly root: string;
+  private folder: string;
   readonly session: SessionIdentity;
   private readonly isAlive: (pid: number) => boolean;
   private readonly now: () => Date;
+  private readonly unsafe: (root: string) => string | undefined;
 
   constructor(options: ProjectOptions) {
-    this.root = options.root;
+    this.folder = options.root;
     this.session = options.session;
     this.isAlive = options.isAlive ?? processIsAlive;
     this.now = options.now ?? (() => new Date());
+    this.unsafe =
+      options.unsafe ?? ((root) => unsafeRoot(root, { home: homedir(), systemRoot: process.env.SystemRoot, platform: process.platform }));
+  }
+
+  /** The project folder; progress lives in `<root>/.progressor`. */
+  get root(): string {
+    return this.folder;
+  }
+
+  /** Switches to another project folder, once the app has said which folder it has open. */
+  moveTo(root: string): void {
+    this.folder = root;
   }
 
   // --- files ---------------------------------------------------------------
@@ -101,6 +118,14 @@ export class Project {
   }
 
   private writeText(path: string, text: string): void {
+    if (!existsSync(join(this.root, PROGRESSOR_DIR))) {
+      const why = this.unsafe(this.root);
+      if (why)
+        throw new Error(
+          `Progressor will not start a plan in ${this.root}: ${why}, so the app most likely started Progressor outside the project. ` +
+            "Open the project's folder in the app, or set PROGRESSOR_ROOT to it in Progressor's MCP settings, then try again.",
+        );
+    }
     mkdirSync(dirname(path), { recursive: true });
     const tmp = `${path}.${process.pid}.tmp`;
     writeFileSync(tmp, text);
@@ -187,9 +212,17 @@ export class Project {
 
   // --- Goals and Tasks -----------------------------------------------------
 
-  /** Marks the claimed Goal done and releases it. */
+  /** Marks the claimed Goal done and releases it, once every Task is done or dropped and no Detour is open. */
   completeGoal(): Goal {
     const { goal } = this.requireClaim();
+    const plan = this.plan(goal.id);
+    const open = plan.tasks.filter((t) => t.status === "pending" || t.status === "in progress");
+    if (open.length > 0)
+      throw new Error(
+        `Goal ${goal.id} is not finished: ${open.map((t) => `${t.id} ${t.title} (${t.status})`).join(", ")}. Complete or drop ${open.length === 1 ? "it" : "them"} first.`,
+      );
+    if (plan.openDetour)
+      throw new Error(`Goal ${goal.id} has an open Detour, "${plan.openDetour.title}". End it with end_detour first.`);
     const roadmap = this.roadmap();
     roadmap.setClaim(goal.id, undefined);
     roadmap.setGoalStatus(goal.id, "done");
@@ -386,6 +419,16 @@ export class Project {
     const instruction = roadmap.addStandingInstruction(text);
     this.saveRoadmap(roadmap);
     return instruction;
+  }
+
+  /** Rewords a Standing Instruction, or removes it when the text is empty; returns undefined when removed. */
+  updateStandingInstruction(id: string, text: string): StandingInstruction | undefined {
+    const roadmap = this.roadmap();
+    let result: StandingInstruction | undefined;
+    if (text.trim()) result = roadmap.setStandingInstruction(id, text);
+    else roadmap.removeStandingInstruction(id);
+    this.saveRoadmap(roadmap);
+    return result;
   }
 
   // --- lookup ----------------------------------------------------------------

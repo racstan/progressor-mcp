@@ -169,9 +169,38 @@ describe("Claims", () => {
   it("marks a Goal done and releases it", () => {
     const agent = session("s-a", 100);
     agent.claimGoal("login");
+    agent.completeTask("t1");
     agent.completeGoal();
 
     expect(agent.roadmap().goal("login")!.status).toBe("done");
+  });
+
+  it("refuses to mark a Goal done while a Task is not finished, and names it", () => {
+    const agent = session("s-a", 100);
+    agent.claimGoal("login");
+    expect(() => agent.completeGoal()).toThrow(/t1 one/);
+    agent.startTask("t1");
+    expect(() => agent.completeGoal()).toThrow(/t1 one/);
+    expect(agent.roadmap().goal("login")!.status).toBe("active");
+  });
+
+  it("refuses to mark a Goal done while a Detour is open", () => {
+    const agent = session("s-a", 100);
+    agent.claimGoal("login");
+    agent.startTask("t1");
+    agent.startDetour("Fix the build", "It is red");
+    agent.completeTask("t1");
+    expect(() => agent.completeGoal()).toThrow(/Fix the build/);
+  });
+
+  it("marks a Goal done when every Task is done or dropped", () => {
+    const agent = session("s-a", 100);
+    agent.claimGoal("billing");
+    agent.addTasks([{ title: "a" }, { title: "b" }]);
+    agent.completeTask("t1");
+    agent.dropTask("t2", "Not needed");
+    agent.completeGoal();
+    expect(agent.roadmap().goal("billing")!.status).toBe("done");
   });
 
   it("reopens a done Goal when it is claimed again, keeping its finished Tasks", () => {
@@ -444,5 +473,29 @@ describe("recording finished work", () => {
 
     expect(agent.plan("login").task("t2")!.status).toBe("done");
     expect(agent.status().nextTask?.id).toBe("t1");
+  });
+});
+
+describe("the project folder", () => {
+  it("refuses to start a progress record in a folder that is the wrong place, and says why", () => {
+    const agent = new Project({ root, session: { id: "s-a", pid: 100 }, unsafe: () => "it is your home folder" });
+    expect(() => agent.addGoal("Login")).toThrow(/home folder.*PROGRESSOR_ROOT/s);
+    expect(agent.roadmap().goals).toEqual([]);
+  });
+
+  it("keeps using a progress record that is already there", () => {
+    session("s-a", 100).addGoal("Login");
+    const agent = new Project({ root, session: { id: "s-a", pid: 100 }, unsafe: () => "it is your home folder" });
+    agent.addGoal("Billing");
+    expect(agent.roadmap().goals.map((g) => g.id)).toEqual(["login", "billing"]);
+  });
+
+  it("moves to the folder the app reports", () => {
+    const other = tempDir("progressor-other-");
+    const agent = session("s-a", 100);
+    agent.moveTo(other);
+    agent.addGoal("Login");
+    expect(agent.root).toBe(other);
+    expect(readFileSync(join(other, ".progressor", "roadmap.md"), "utf8")).toContain("Login");
   });
 });

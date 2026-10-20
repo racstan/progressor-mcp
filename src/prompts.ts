@@ -6,7 +6,7 @@ import type { Project, Status } from "./project.js";
 /**
  * Setting the conversation's folder up, from the chat. The command only exists where Progressor is
  * already running, so .mcp.json is left alone (init --no-server): this adds the hooks, the note in
- * CLAUDE.md and the Roadmap, after the Developer's OK.
+ * CLAUDE.md and AGENTS.md and the Roadmap. The Agent runs it itself: asking for the command was the OK.
  */
 export function setupPrompt(root: string, launch: Launch): string {
   let changes;
@@ -19,14 +19,15 @@ export function setupPrompt(root: string, launch: Launch): string {
     return `Progressor is already set up in ${root}. Tell me so in a line, and suggest /progressor:plan to plan a Goal or /progressor:next to pick up the work.`;
   const command = `${launch.hook.replace(/ hook$/, "")} init "${root}" --yes --no-server`;
   return [
-    `Set up Progressor in this project, ${root}. It would:`,
-    ...changes.map((c) => `- ${c.file}: ${c.what}`),
-    "",
-    "Show me this list and wait for my OK. Then run this command in a terminal and tell me what it printed:",
+    `Set up Progressor in this project, ${root}. Run this command yourself, with your own terminal or shell tool:`,
     "",
     `    ${command}`,
     "",
-    "Progressor's tools work straight away; the hooks and the note in CLAUDE.md take effect from the next conversation.",
+    "It makes these changes:",
+    ...changes.map((c) => `- ${c.file}: ${c.what}`),
+    "",
+    "Then tell me in one or two plain sentences that Progressor is set up and that it keeps the plan in .progressor/. If you cannot run commands, show me the command and ask me to run it.",
+    "Progressor's tools work straight away; the hooks and the notes in CLAUDE.md and AGENTS.md take effect from the next conversation.",
   ].join("\n");
 }
 
@@ -86,7 +87,7 @@ export function reviewPrompt(project: Project, goalId: string | undefined): stri
     "1. For each done Task, check that its change is really in the code, and tell me in a line or two.",
     "2. Compare the work with the Outcome and tell me what is missing or worth fixing.",
     "3. If more work is needed and I agree: claim_goal to claim it (a done Goal is reopened, its finished Tasks stay done), then add_tasks for the new work.",
-    "4. If everything is there and the Goal is not done yet, ask me before calling complete_goal.",
+    "4. If everything is there and the Goal is not done yet, call complete_goal and tell me in one sentence.",
   ].join("\n");
 }
 
@@ -104,7 +105,7 @@ export function nextPrompt(status: Status, statusText: string): string {
   } else if (goal && status.nextTask) {
     steps = [`Call start_task for the next Task, ${task(status.nextTask)}, then work on it and complete_task when it is done.`];
   } else if (goal) {
-    steps = [`Every Task of "${goal.title}" is done or dropped. Check the work against its Outcome, then ask me before calling complete_goal.`];
+    steps = [`Every Task of "${goal.title}" is done or dropped. Check the work against its Outcome, then call complete_goal and tell me in one sentence that it is finished.`];
   } else {
     const paused = status.goals.filter((g) => g.status === "paused");
     const open = paused.length > 0 ? paused : status.goals.filter((g) => g.status === "planned");
@@ -117,15 +118,6 @@ export function nextPrompt(status: Status, statusText: string): string {
           : ["Several Goals could be picked up. Ask me which one, then claim_goal it and start its next Task:", ...list];
   }
   return ["Pick up the Progressor work where it was left:", "", ...steps, "", statusText].join("\n");
-}
-
-/** Parking an idea the Developer has, so it is kept without derailing the current work. */
-export function ideaPrompt(idea: string | undefined): string {
-  return [
-    idea ? `Park this as a Progressor Idea with record_idea: ${idea}` : `${askInChat("idea to park")} park it as a Progressor Idea with record_idea.`,
-    "",
-    "Give it a short title of a few words, and put any detail in the note. Do not work on it now; tell me in one line that it is parked.",
-  ].join("\n");
 }
 
 /** Where to watch the plan: this project's dashboard, if this Session serves or links to one. */

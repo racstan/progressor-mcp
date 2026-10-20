@@ -1,16 +1,18 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { ListRootsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applyChanges, launchFor, planInit } from "../src/init.js";
 import { Project } from "../src/project.js";
 import { setupPrompt } from "../src/prompts.js";
-import { createServer } from "../src/server.js";
+import { appRoots, createServer } from "../src/server.js";
 import { tempDir } from "./tmp.js";
 
 let client: Client;
+let root: string;
 
 beforeEach(async () => {
-  const root = tempDir("progressor-");
+  root = tempDir("progressor-");
   const project = new Project({ root, session: { id: "s-a", pid: process.pid } });
   const server = createServer(project);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
@@ -43,12 +45,11 @@ describe("the MCP server", () => {
         "get_item",
         "get_status",
         "move_goal",
-        "promote_idea",
-        "record_idea",
         "release_goal",
         "start_detour",
         "start_task",
         "update_goal",
+        "update_standing_instruction",
         "update_task",
       ].sort(),
     );
@@ -62,9 +63,10 @@ describe("the MCP server", () => {
     const { text } = await call("get_status");
     expect(text).toBe(
       [
-        "No Goal is claimed by this Session. Claim one with claim_goal, or add one with add_goal.",
+        "No Goal is claimed by this Session. Claim one with claim_goal, or plan one and add it with add_goal (claim: true).",
         "Goals:",
         "- login: Login (planned)",
+        `Project folder: ${root}`,
       ].join("\n"),
     );
   });
@@ -91,6 +93,7 @@ describe("the MCP server", () => {
         "Next Task: t3 Cookies",
         "Standing Instructions:",
         "- s1 Ask me before recalibrating",
+        `Project folder: ${root}`,
       ].join("\n"),
     );
   });
@@ -168,9 +171,7 @@ describe("the MCP server", () => {
     const withDashboard = new Client({ name: "test", version: "0" });
     await Promise.all([server.connect(serverSide), withDashboard.connect(clientSide)]);
     const result = (await withDashboard.callTool({ name: "get_status", arguments: {} })) as { content: { text: string }[] };
-    expect(result.content[0]!.text.split("\n").at(-1)).toBe(
-      "Dashboard: http://localhost:4747/ (tell the Developer they can follow progress there)",
-    );
+    expect(result.content[0]!.text.split("\n").at(-1)).toBe("Dashboard: http://localhost:4747/");
     expect(refreshed).toBe(1);
   });
 });
@@ -210,8 +211,7 @@ describe("shaping Goals through the tools", () => {
 describe("slash commands", () => {
   it("offers its commands as prompts", async () => {
     const { prompts } = await client.listPrompts();
-    expect(prompts.map((p) => p.name).sort()).toEqual(["dashboard", "idea", "next", "plan", "review", "setup", "status"]);
-    expect(prompts.find((p) => p.name === "idea")!.arguments?.map((a) => [a.name, a.required])).toEqual([["idea", false]]);
+    expect(prompts.map((p) => p.name).sort()).toEqual(["dashboard", "next", "plan", "review", "setup", "status"]);
     expect(prompts.find((p) => p.name === "plan")!.arguments?.map((a) => [a.name, a.required])).toEqual([["goal", false]]);
   });
 
@@ -231,13 +231,6 @@ describe("slash commands", () => {
     expect(t).toMatch(/ask me what/i);
     expect(t).toMatch(/links/i);
     expect(t).toContain("add_goal");
-  });
-
-  it("idea with no text asks for the idea, in the chat", async () => {
-    const t = await text("idea");
-    expect(t).toMatch(/ask me what/i);
-    expect(t).toContain("record_idea");
-    expect(t).toMatch(/do not work on it/i);
   });
 
   it("plan asks for a plan to approve before add_goal", async () => {
@@ -275,12 +268,13 @@ describe("slash commands", () => {
     expect(t).toContain("end_detour");
   });
 
-  it("next asks before completing a Goal whose Tasks are all done", async () => {
+  it("next completes a Goal whose Tasks are all done and says so", async () => {
     await call("add_goal", { title: "Login", tasks: [{ title: "Route", done: true }] });
     await call("claim_goal", { goal: "login" });
     const t = await text("next");
     expect(t).toContain("complete_goal");
-    expect(t).toMatch(/ask me/i);
+    expect(t).toMatch(/tell me/i);
+    expect(t).not.toMatch(/ask me before/i);
   });
 
   it("next claims the one paused Goal", async () => {
@@ -305,24 +299,19 @@ describe("slash commands", () => {
     expect(await text("next")).toContain("/progressor:plan");
   });
 
-  it("idea parks the idea without working on it", async () => {
-    const t = await text("idea", { idea: "Dark mode for the dashboard" });
-    expect(t).toContain("Dark mode for the dashboard");
-    expect(t).toContain("record_idea");
-    expect(t).toMatch(/do not work on it/i);
-  });
-
   it("dashboard says when this Session has no dashboard", async () => {
     expect(await text("dashboard")).toContain("progressor-mcp dashboard");
   });
 
-  it("setup lists what init would add here and runs it after an OK", async () => {
+  it("setup has the Agent run init itself and say what it changed", async () => {
     const t = await text("setup");
     expect(t).toContain("CLAUDE.md");
+    expect(t).toContain("AGENTS.md");
     expect(t).toContain(".progressor/roadmap.md");
     expect(t).not.toContain(".mcp.json:");
     expect(t).toMatch(/init "[^"]+" --yes --no-server/);
-    expect(t).toMatch(/wait for my OK/i);
+    expect(t).toMatch(/run this command yourself/i);
+    expect(t).not.toMatch(/wait for my OK|in a terminal/i);
   });
 
   it("setup says when the folder is already set up", () => {
@@ -354,5 +343,85 @@ describe("the dashboard command", () => {
     const t = (await c.getPrompt({ name: "dashboard" })).messages.map((m) => (m.content as { text: string }).text).join("\n");
     expect(t).toContain(url);
     expect(t).toMatch(/browser/i);
+  });
+});
+
+describe("the folder the app has open", () => {
+  const connect = async (withRoots: boolean) => {
+    const project = new Project({ root: tempDir("progressor-"), session: { id: "s-r", pid: process.pid } });
+    const server = createServer(project);
+    const c = new Client({ name: "test", version: "0" }, { capabilities: withRoots ? { roots: {} } : {} });
+    if (withRoots)
+      c.setRequestHandler(ListRootsRequestSchema, async () => ({ roots: [{ uri: "file:///home/dev/shop", name: "shop" }] }));
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    await Promise.all([server.connect(serverSide), c.connect(clientSide)]);
+    return server;
+  };
+
+  it("lists the app's roots when it has them", async () => {
+    expect(await appRoots(await connect(true), 1000)).toEqual(["file:///home/dev/shop"]);
+  });
+
+  it("gives nothing when the app does not report roots", async () => {
+    expect(await appRoots(await connect(false), 1000)).toBeUndefined();
+  });
+});
+
+describe("get_status", () => {
+  it("names the project folder", async () => {
+    expect((await call("get_status")).text).toMatch(/Project folder: .*progressor-/);
+  });
+});
+
+describe("update_standing_instruction", () => {
+  it("changes a rule, and removes it when the text is empty", async () => {
+    await call("add_standing_instruction", { text: "Ask before pushing" });
+    await call("add_standing_instruction", { text: "Write tests first" });
+    expect((await call("update_standing_instruction", { id: "s1", text: "Ask before pushing or publishing" })).text).toBe(
+      "Changed Standing Instruction s1: Ask before pushing or publishing",
+    );
+    expect((await call("update_standing_instruction", { id: "s2", text: "" })).text).toBe("Removed Standing Instruction s2.");
+    const { text } = await call("get_status");
+    expect(text).toContain("- s1 Ask before pushing or publishing");
+    expect(text).not.toContain("Write tests first");
+  });
+});
+
+describe("the Agent runs the loop itself", () => {
+  it("is told to plan, finish and talk plainly without waiting on the Developer", () => {
+    const instructions = client.getInstructions() ?? "";
+    expect(instructions).toContain("claim: true");
+    expect(instructions).toContain("complete_goal");
+    expect(instructions).toContain("update_standing_instruction");
+    expect(instructions).toMatch(/everyday words/);
+    expect(instructions).toMatch(/dashboard/i);
+    expect(instructions).not.toMatch(/record_idea|Idea/);
+  });
+
+  it("adds and claims a Goal in one call", async () => {
+    const { text } = await call("add_goal", { title: "Login", tasks: [{ title: "Route" }], claim: true });
+    expect(text).toContain("claimed");
+    expect((await call("get_status")).text).toContain("Goal: Login (progressor://login), claimed by this Session");
+  });
+
+  it("points at the one paused Goal to pick up", async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Route" }], claim: true });
+    await call("release_goal");
+    await call("add_goal", { title: "Billing" });
+    expect((await call("get_status")).text).toMatch(/Goal login .*paused.*claim_goal/);
+  });
+
+  it("tells the Agent to let the Developer know a Goal is finished", async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Route", done: true }], claim: true });
+    expect((await call("complete_goal")).text).toMatch(/Tell the Developer/);
+  });
+
+  it("ends results that don't show the status with a Now line", async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Route" }], claim: true });
+    await call("start_task", { task: "t1" });
+    const added = (await call("add_tasks", { tasks: [{ title: "Logout" }] })).text;
+    expect(added.split("\n").at(-1)).toBe("Now: t1 Route · Next: t2 Logout");
+    const detour = (await call("start_detour", { title: "Fix the build", reason: "It is red" })).text;
+    expect(detour.split("\n").at(-1)).toBe('Now: side trip "Fix the build" (end it with end_detour) · then t1 Route');
   });
 });

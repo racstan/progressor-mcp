@@ -35,13 +35,20 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: 0.4.1, with the Help menu feedback links, --version and the shorter README, is on npm and the MCP Registry.
 - [/] [More slash commands](goals/more-commands.md) ^more-commands
   - outcome: The docs name the commands as the / menu shows them (/progressor:status), and setup, next, idea and dashboard join status, plan and review.
-  - claimed by: s-488302 (pid 19212) since 2026-10-20T05:10:06.827Z
 - [x] [Release 0.5.0](goals/release-0-5-0.md) ^release-0-5-0
   - outcome: 0.5.0, with the setup, next, idea and dashboard commands and the every-project install, is on npm and the MCP Registry.
 - [x] [Release 0.5.1](goals/release-0-5-1.md) ^release-0-5-1
   - outcome: 0.5.1, where plan and idea work with no text, is on npm and the MCP Registry.
 - [x] [Release 0.5.2](goals/release-0-5-2.md) ^release-0-5-2
   - outcome: 0.5.2, where the dashboard's top bar fits a half-screen window, is on npm and the MCP Registry.
+- [/] [Simple for vibe coders](goals/simple.md) ^simple
+  - outcome: Someone who doesn't code can follow what their Agent is doing on the dashboard without learning Progressor's terms, and never has to manage the plan themselves.
+- [x] [Agent and reliability](goals/agent-first.md) ^agent-first
+  - outcome: In any MCP app the Agent keeps the plan in the right folder, runs the whole loop without asking the human, and the known bugs are fixed.
+- [ ] [Plain-English dashboard](goals/plain-dashboard.md) ^plain-dashboard
+  - outcome: Someone who doesn't code can tell at a glance what the AI is doing, how far along it is, and whether it stopped, with every word plain and every control explained on hover.
+- [ ] [Thorough docs](goals/docs.md) ^docs
+  - outcome: A non-coder using any MCP app can set Progressor up, use it and fix problems from the docs, mostly by asking their AI.
 
 ## Ideas
 
@@ -67,3 +74,4 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
 - Write tests first for anything with logic ^s3
 - A release bundles several finished Goals into one version, through its own release Goal; the Developer runs npm publish with their one-time code ^s4
 - A release bundles several finished Goals into one version, through its own release Goal. Pushing a version tag (v0.4.1) makes the release workflow publish to npm and the MCP Registry by itself; ask the Developer before pushing the tag. This replaces s4. ^s5
+- Everything a person reads (dashboard, docs, what the Agent tells the Developer) is in plain English for someone who doesn't code: say step, side trip, Your goals, cancelled and Finished when; Goal stays. The Agent's tools keep their names inside. The Agent manages the plan; the human only watches. ^s6

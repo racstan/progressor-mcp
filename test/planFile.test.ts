@@ -178,3 +178,34 @@ describe("Task summaries", () => {
     expect(plan.task("t2")!.summary).toBe("Clears the cookie. Then redirects home.");
   });
 });
+
+describe("side trips that share a title", () => {
+  it("keeps each one's fields apart, when read back and when changed", () => {
+    const plan = parsePlanFile("# Login\n\n## Tasks\n\n- [/] Callback ^t1\n", "login");
+    const first = plan.startDetour("Fix tests", "They fail", "t1");
+    plan.setDetourStatus(first.id!, "merged back");
+    const second = plan.startDetour("Fix tests", "They fail again", "t1");
+
+    const again = parsePlanFile(plan.toString(), "login");
+    expect(again.detours.map((d) => [d.id, d.status, d.reason])).toEqual([
+      [first.id, "merged back", "They fail"],
+      [second.id, "open", "They fail again"],
+    ]);
+    expect(again.openDetour?.id).toBe(second.id);
+
+    again.setDetourStatus(second.id!, "returned");
+    const last = parsePlanFile(again.toString(), "login");
+    expect(last.detours.map((d) => d.status)).toEqual(["merged back", "returned"]);
+  });
+});
+
+describe("text with line breaks", () => {
+  it("keeps a side trip's title and reason, and a drop reason, on one line", () => {
+    const plan = parsePlanFile("# Login\n\n## Tasks\n\n- [/] Callback ^t1\n- [ ] Logout ^t2\n", "login");
+    plan.startDetour("Fix\nthe build", "It is red\n\nsince this morning", "t1");
+    plan.dropTask("t2", { reason: "Not needed\nany more" });
+    const again = parsePlanFile(plan.toString(), "login");
+    expect(again.detours[0]).toMatchObject({ title: "Fix the build", reason: "It is red since this morning", status: "open" });
+    expect(again.task("t2")).toMatchObject({ status: "dropped", reason: "Not needed any more" });
+  });
+});
