@@ -42,3 +42,11 @@ export function groupGoals<G extends GoalLike>(
 export function seenOnFirstVisit(goals: GoalLike[]): Seen {
   return Object.fromEntries(goals.filter((g) => g.status === "done").map((g) => [g.id, doneMark(g)]));
 }
+
+/**
+ * Whether a sidebar group is open: when the Developer opened it, or by itself while it holds the
+ * goal on screen, unless the Developer closed it while that goal was on screen.
+ */
+export function groupOpen(g: { pinned: boolean; closedFor: string | undefined; holdsShown: boolean; shown: string | undefined }): boolean {
+  return g.pinned || (g.holdsShown && g.closedFor !== g.shown);
+}

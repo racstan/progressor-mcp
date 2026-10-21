@@ -4,7 +4,7 @@ import { type DetourNode, type GoalGraph, type TaskNode, withoutDetours, without
 import { type PromptSubject, copyAsPrompt } from "../dashboard/prompt.js";
 import { type GoalView, type RoadmapView, useDashboard, useOverview, useSearch, useServers, useStored, useStoredJson } from "./data.js";
 import { Checklist } from "./Checklist.js";
-import { type Finished, type Seen, doneMark, groupGoals, seenOnFirstVisit } from "./goalList.js";
+import { type Finished, type Seen, doneMark, groupGoals, groupOpen, seenOnFirstVisit } from "./goalList.js";
 import { MetroMap } from "./MetroMap.js";
 import { Overview } from "./Overview.js";
 import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
@@ -117,6 +117,8 @@ export function App() {
   const [finished, setFinished] = useStored<Finished>("progressor.finished", undefined);
   const [showHidden, setShowHidden] = useStored<"1">("progressor.show-hidden", undefined);
   const [doneOpen, setDoneOpen] = useStored<"1">("progressor.done-open", undefined);
+  // The goal on screen when the Finished group was closed while it held that goal.
+  const [doneClosedFor, setDoneClosedFor] = useState<string>();
   const chooseView = (v: View) => {
     setView(v);
     setSelected(undefined);
@@ -334,7 +336,11 @@ export function App() {
     return () => clearInterval(timer);
   }, []);
   // The Done group opens by itself while it holds the Goal on screen.
-  const doneShown = !!doneOpen || grouped.done.some((g) => g.id === effectiveGoal);
+  const doneShown = groupOpen({ pinned: !!doneOpen, closedFor: doneClosedFor, holdsShown: grouped.done.some((g) => g.id === effectiveGoal), shown: effectiveGoal });
+  const toggleDone = () => {
+    setDoneOpen(doneShown ? undefined : "1");
+    setDoneClosedFor(doneShown ? effectiveGoal : undefined);
+  };
   const goalButton = (g: Goal) => {
     const pct = g.total ? Math.round((100 * g.done) / g.total) : 0;
     const fresh = grouped.fresh.has(g.id);
@@ -545,7 +551,7 @@ export function App() {
             <div className="goals">{grouped.open.map(goalButton)}</div>
             {grouped.done.length > 0 && (
               <div className="group">
-                <button className="group-head" aria-expanded={doneShown} title="Goals your AI has finished" onClick={() => setDoneOpen(doneOpen ? undefined : "1")}>
+                <button className="group-head" aria-expanded={doneShown} title="Goals your AI has finished" onClick={toggleDone}>
                   <span aria-hidden="true">{doneShown ? "▾" : "▸"}</span> Finished <span className="count">{grouped.done.length}</span>
                 </button>
                 {doneShown && <div className="goals">{grouped.done.map(goalButton)}</div>}

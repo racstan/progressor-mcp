@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { doneMark, groupGoals, seenOnFirstVisit } from "../src/ui/goalList.js";
+import { doneMark, groupGoals, groupOpen, seenOnFirstVisit } from "../src/ui/goalList.js";
 
 const goal = (id: string, status: string, done = 0, total = 2) => ({ id, status, done, total });
 const goals = [
@@ -44,5 +44,19 @@ describe("groupGoals", () => {
 describe("seenOnFirstVisit", () => {
   it("counts every Goal already finished as seen, so a first visit isn't covered in dots", () => {
     expect(seenOnFirstVisit(goals)).toEqual({ b: "2/2", e: "3/3" });
+  });
+});
+
+describe("groupOpen", () => {
+  it("opens by itself while it holds the goal on screen", () => {
+    expect(groupOpen({ pinned: false, closedFor: undefined, holdsShown: true, shown: "b" })).toBe(true);
+    expect(groupOpen({ pinned: false, closedFor: undefined, holdsShown: false, shown: "a" })).toBe(false);
+  });
+  it("stays open when the Developer opened it", () => {
+    expect(groupOpen({ pinned: true, closedFor: undefined, holdsShown: false, shown: "a" })).toBe(true);
+  });
+  it("closes on click even while it holds the goal on screen, until another goal is shown", () => {
+    expect(groupOpen({ pinned: false, closedFor: "b", holdsShown: true, shown: "b" })).toBe(false);
+    expect(groupOpen({ pinned: false, closedFor: "b", holdsShown: true, shown: "e" })).toBe(true);
   });
 });

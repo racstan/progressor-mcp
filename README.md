@@ -27,7 +27,7 @@ Set up Progressor (https://github.com/racstan/progressor-mcp) for this project:
    ready, with the dashboard link.
 ```
 
-Your AI does the rest. If you'd rather do it yourself, [Getting started](docs/getting-started.md) walks through it, and [Setup for your app](docs/apps.md) has the exact settings for each app.
+Your AI does the rest. To have Progressor in every project without setting each one up, add it once to your app's settings for all projects ([how, for each app](docs/apps.md)). If you'd rather do it yourself, [Getting started](docs/getting-started.md) walks through it, and [Setup for your app](docs/apps.md) has the exact settings for each app.
 
 ## Then just talk to your AI
 
@@ -44,6 +44,8 @@ Open **http://localhost:4747** while your AI's app is open (your AI gives you th
 - **What the AI is doing**: *AI working · step 3 of 7 · last update 2 min ago*, or *AI stopped* when its chat has closed.
 - **The plan as a map**: each step is a stop on a line, ticked off as it's done. When the AI steps off the plan to deal with something, a **side trip** branches off, with the reason.
 - **Your goals**: everything planned for the project, with how far along each one is.
+
+**One dashboard for all your projects.** You don't need a Progressor per project to see them all. As long as one AI chat is running Progressor, in any project and any app, the same page shows every project you've used it in. Switch between them at the top of the sidebar, or pick **🗂 All projects** to see them side by side. Each project's plan stays in its own folder, so chats in different projects, even in different apps, never get in each other's way.
 
 The page only shows; you change the plan by talking to your AI. More in the [dashboard guide](docs/dashboard.md).
 
