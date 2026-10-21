@@ -53,6 +53,9 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: 0.6.0, with the Agent, dashboard and docs work for non-coders, is on npm and the MCP Registry.
 - [x] [Collapsible Finished and one dashboard for all](goals/touch-ups.md) ^touch-ups
   - outcome: The Finished group in the sidebar opens and closes on click, and the README says one running Progressor shows every project.
+- [/] [Release 0.6.1](goals/v0-6-1.md) ^v0-6-1
+  - outcome: 0.6.1, with the collapsible Finished group and the one-dashboard README note, is on npm and the MCP Registry.
+  - claimed by: s-39b9d3 (pid 11516) since 2026-10-21T05:16:26.142Z
 
 ## Ideas
 

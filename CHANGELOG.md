@@ -2,6 +2,11 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## 0.6.1 · The Finished group closes
+
+- The **Finished** group in the dashboard's sidebar now opens and closes when you click it. Before, it stayed open while the goal on screen was one of the finished ones.
+- The README explains that one running Progressor shows every project on the same dashboard, whichever project or app it was started from, and how to have Progressor in every project.
+
 ## 0.6.0 · Simple for anyone, in any app
 
 Progressor is now made for people who don't code as much as for those who do: the AI manages the plan by itself, the dashboard speaks plain English, and the docs cover every MCP app.
