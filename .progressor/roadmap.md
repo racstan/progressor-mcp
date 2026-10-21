@@ -51,6 +51,8 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: A non-coder using any MCP app can set Progressor up, use it and fix problems from the docs, mostly by asking their AI.
 - [x] [Release 0.6.0](goals/v0-6-0.md) ^v0-6-0
   - outcome: 0.6.0, with the Agent, dashboard and docs work for non-coders, is on npm and the MCP Registry.
+- [x] [Collapsible Finished and one dashboard for all](goals/touch-ups.md) ^touch-ups
+  - outcome: The Finished group in the sidebar opens and closes on click, and the README says one running Progressor shows every project.
 
 ## Ideas
 
