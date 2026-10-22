@@ -89,7 +89,13 @@ export function useDashboard(projectId: string | undefined, goalId: string | und
     return () => events.close();
   }, [loadProjects, loadProject]);
 
-  return { info, projects, workspaces, roadmap, goal, connection, error };
+  // The Refresh button: load everything again now, instead of waiting for the next change.
+  const refresh = useCallback(() => {
+    void loadProjects();
+    void loadProject();
+  }, [loadProjects, loadProject]);
+
+  return { info, projects, workspaces, roadmap, goal, connection, error, refresh };
 }
 
 /** Every project's Goals for the overview page, fetched again whenever any project changes. */

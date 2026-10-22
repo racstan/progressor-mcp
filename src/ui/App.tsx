@@ -4,7 +4,7 @@ import { type DetourNode, type GoalGraph, type TaskNode, withoutDetours, without
 import { type PromptSubject, copyAsPrompt } from "../dashboard/prompt.js";
 import { type GoalView, type RoadmapView, useDashboard, useOverview, useSearch, useServers, useStored, useStoredJson } from "./data.js";
 import { Checklist } from "./Checklist.js";
-import { type Finished, type Seen, doneMark, groupGoals, groupOpen, seenOnFirstVisit } from "./goalList.js";
+import { type Finished, type Seen, doneMark, groupGoals, groupOpen, hideAll, seenOnFirstVisit } from "./goalList.js";
 import { MetroMap } from "./MetroMap.js";
 import { Overview } from "./Overview.js";
 import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
@@ -146,7 +146,7 @@ export function App() {
 
   const [projectId, setProjectId] = useState<string | undefined>(pickedProject);
   const [goalId, setGoalId] = useState<string | undefined>(picked);
-  const { info, projects, workspaces, roadmap, goal, connection, error } = useDashboard(projectId, goalId);
+  const { info, projects, workspaces, roadmap, goal, connection, error, refresh } = useDashboard(projectId, goalId);
   const project = projects?.find((p) => p.id === projectId);
   // Without a project in the address: the only project, or the overview of them all (or of the
   // Workspace in the address). An unknown project is reported, never swapped.
@@ -383,6 +383,14 @@ export function App() {
         </div>
         <SearchBox query={query} hits={hits} onChange={setQuery} onOpen={openHit} />
         <span className="sp" />
+        <button className="iconbtn refresh-btn" title="Refresh: load the latest plan and running servers now" aria-label="Refresh"
+          onClick={() => {
+            refresh();
+            reloadServers();
+            toast("Refreshed.");
+          }}>
+          ↻<span className="label"> Refresh</span>
+        </button>
         <span className={`chip ${connection === "live" ? "dot-only" : ""}`} role="status"
           title={connection === "live" ? "Live: this page updates by itself as your AI works." : "Lost touch with Progressor. It comes back by itself once your AI chat is open again."}
           aria-label={connection === "live" ? "Live" : "Reconnecting"}>
@@ -554,6 +562,15 @@ export function App() {
                 <button className="group-head" aria-expanded={doneShown} title="Goals your AI has finished" onClick={toggleDone}>
                   <span aria-hidden="true">{doneShown ? "▾" : "▸"}</span> Finished <span className="count">{grouped.done.length}</span>
                 </button>
+                {doneShown && (
+                  <button className="hide-all" title="Hide every finished goal from this list. The plan keeps them; find them under Hidden."
+                    onClick={() => {
+                      setHidden(hideAll(hidden, grouped.done.map((g) => g.id)));
+                      toast(`Hidden ${grouped.done.length} finished ${grouped.done.length === 1 ? "goal" : "goals"}. Find them under Hidden.`);
+                    }}>
+                    Hide all {grouped.done.length}
+                  </button>
+                )}
                 {doneShown && <div className="goals">{grouped.done.map(goalButton)}</div>}
               </div>
             )}

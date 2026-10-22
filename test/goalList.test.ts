@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { doneMark, groupGoals, groupOpen, seenOnFirstVisit } from "../src/ui/goalList.js";
+import { doneMark, groupGoals, groupOpen, hideAll, seenOnFirstVisit } from "../src/ui/goalList.js";
 
 const goal = (id: string, status: string, done = 0, total = 2) => ({ id, status, done, total });
 const goals = [
@@ -58,5 +58,13 @@ describe("groupOpen", () => {
   it("closes on click even while it holds the goal on screen, until another goal is shown", () => {
     expect(groupOpen({ pinned: false, closedFor: "b", holdsShown: true, shown: "b" })).toBe(false);
     expect(groupOpen({ pinned: false, closedFor: "b", holdsShown: true, shown: "e" })).toBe(true);
+  });
+});
+
+describe("hideAll", () => {
+  it("adds the given Goals to the hidden list once each, keeping what was hidden", () => {
+    expect(hideAll(["x"], ["b", "e"])).toEqual(["x", "b", "e"]);
+    expect(hideAll(["b"], ["b", "e"])).toEqual(["b", "e"]);
+    expect(hideAll([], [])).toEqual([]);
   });
 });
