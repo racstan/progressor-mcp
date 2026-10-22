@@ -57,6 +57,8 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: 0.6.1, with the collapsible Finished group and the one-dashboard README note, is on npm and the MCP Registry.
 - [x] [MCP Rush badge in the README](goals/mcprush-badge.md) ^mcprush-badge
   - outcome: The README shows the MCP Rush badge next to the other badges at the top.
+- [x] [Dashboard refresh and clear finished](goals/dashboard-controls.md) ^dashboard-controls
+  - outcome: The dashboard has a Refresh button, the Finished group collapses on click, and one click hides every finished goal from the list.
 
 ## Ideas
 

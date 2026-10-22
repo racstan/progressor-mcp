@@ -50,3 +50,8 @@ export function seenOnFirstVisit(goals: GoalLike[]): Seen {
 export function groupOpen(g: { pinned: boolean; closedFor: string | undefined; holdsShown: boolean; shown: string | undefined }): boolean {
   return g.pinned || (g.holdsShown && g.closedFor !== g.shown);
 }
+
+/** The hidden list with more Goals added, each once. Hiding only changes this browser's list. */
+export function hideAll(hidden: string[], ids: string[]): string[] {
+  return [...new Set([...hidden, ...ids])];
+}
