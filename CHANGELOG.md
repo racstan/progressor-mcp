@@ -2,6 +2,11 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## 0.6.2 · Refresh and hide finished goals
+
+- A **Refresh** button in the top bar loads the latest plan and running servers at once, instead of waiting for the next change.
+- **Hide all** under the **Finished** heading hides every finished goal from your list in one click. The plan keeps them, and they're listed under **Hidden**, where you can show them again. Only your browser's list changes.
+
 ## 0.6.1 · The Finished group closes
 
 - The **Finished** group in the dashboard's sidebar now opens and closes when you click it. Before, it stayed open while the goal on screen was one of the finished ones.

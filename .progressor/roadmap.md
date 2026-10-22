@@ -59,6 +59,9 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: The README shows the MCP Rush badge next to the other badges at the top.
 - [x] [Dashboard refresh and clear finished](goals/dashboard-controls.md) ^dashboard-controls
   - outcome: The dashboard has a Refresh button, the Finished group collapses on click, and one click hides every finished goal from the list.
+- [/] [Release 0.6.2](goals/v0-6-2.md) ^v0-6-2
+  - outcome: 0.6.2, with the Refresh button and Hide all for finished goals, is on npm and the MCP Registry.
+  - claimed by: s-8dbe9b (pid 11996) since 2026-10-22T03:44:38.308Z
 
 ## Ideas
 
