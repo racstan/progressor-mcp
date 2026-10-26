@@ -173,6 +173,41 @@ describe("one dashboard for every project", () => {
     expect((await get(d, `${base}/goals/nope`)).status).toBe(404);
   });
 
+  it("serves a Goal's decisions and notes, and whether it is waiting on the Developer", async () => {
+    agent.addDecision("Keep the old cookie name");
+    agent.addNote("ship-oauth-login", "Logout overlaps on mobile");
+    agent.updateNote("ship-oauth-login", "n1", { resolved: true });
+    agent.addTasks([{ title: "Try it on a phone" }]);
+    agent.setTaskState("t3", "waiting on you");
+    const d = await start(agent);
+    const base = `/api/projects/${entry(agent).id}`;
+    const { body } = await get(d, `${base}/goals/ship-oauth-login`);
+    expect(body.decisions).toEqual([
+      { id: "c1", ref: "progressor://ship-oauth-login/c1", text: "Keep the old cookie name", line: expect.any(Number) },
+    ]);
+    expect(body.notes).toEqual([
+      { id: "n1", ref: "progressor://ship-oauth-login/n1", text: "Logout overlaps on mobile", resolved: true, line: expect.any(Number) },
+    ]);
+    expect(body.goal).toMatchObject({ waitingOnYou: true, done: 1, total: 3 });
+    expect(body.goal.counts).toEqual({
+      pending: 0,
+      "in progress": 1,
+      "with a helper": 0,
+      "waiting on you": 1,
+      checked: 0,
+      done: 1,
+      released: 0,
+      dropped: 0,
+    });
+    const roadmap = (await get(d, `${base}/roadmap`)).body;
+    expect(roadmap.goals.map((g: any) => [g.id, g.waitingOnYou])).toEqual([
+      ["ship-oauth-login", true],
+      ["billing", false],
+    ]);
+    const overview = (await get(d, "/api/overview")).body.find((p: any) => p.id === entry(agent).id);
+    expect(overview.goals[0]).toMatchObject({ id: "ship-oauth-login", waitingOnYou: true });
+  });
+
   it("looks up any item by its ref", async () => {
     const d = await start(agent);
     const base = `/api/projects/${entry(agent).id}`;
@@ -184,7 +219,7 @@ describe("one dashboard for every project", () => {
 
   it("tells the page which editor opens files", async () => {
     const d = await start(agent, { editor: "cursor" });
-    expect((await get(d, "/api/info")).body).toMatchObject({ app: "progressor", hub: 2, editor: "cursor" });
+    expect((await get(d, "/api/info")).body).toMatchObject({ app: "progressor", hub: 3, editor: "cursor" });
   });
 
   it("says which process and version serve it, so the page can name an outdated one", async () => {

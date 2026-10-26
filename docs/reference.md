@@ -11,6 +11,12 @@ The dashboard and the guides use everyday words; the AI's tools and the files us
 | side trip | Detour |
 | Finished when | Outcome |
 | cancelled | dropped |
+| with a helper | with a helper (a Task state) |
+| waiting on you | waiting on you (a Task state) |
+| checked | checked (a Task state) |
+| released | released (a Task state) |
+| decision | Decision |
+| note | Note |
 | Your goals | Roadmap |
 | a rule your AI keeps | Standing Instruction |
 | a chat working on a goal | a Session holding a Claim |
@@ -36,25 +42,32 @@ The AI calls these; the server's instructions tell it when.
 
 | Tool | What it does |
 | --- | --- |
-| `get_status` | The claimed Goal, current Task, open Detour, next Task and Standing Instructions, then the project folder and the dashboard link. |
+| `get_status` | Every Goal this Session holds, each with its current Task, open Detour, Tasks with a helper, waiting on the Developer or checked, next Task, decisions and open notes; then the Standing Instructions, the project folder and the dashboard link. |
 | `get_item` | Looks up any item by its `progressor://` ref, with its file and line. |
 | `add_goal` | Adds a Goal with an optional Task list, Outcome and short ID; `claim: true` claims it at once; `done: true` records finished work. |
 | `update_goal` | Renames a Goal or changes its Outcome. |
 | `move_goal` | Moves a Goal before or after another. |
 | `drop_goal` | Drops a Goal that is no longer wanted, with a reason. |
-| `claim_goal` | Claims a Goal for this Session (pausing any other it held); a done Goal is reopened. |
+| `claim_goal` | Claims a Goal for this Session, which keeps any others it holds; a done Goal is reopened. |
 | `release_goal` | Releases the Claim; the Goal is paused. |
-| `complete_goal` | Marks the claimed Goal done, once every Task is done or dropped and no Detour is open. |
+| `complete_goal` | Marks the claimed Goal done, once every Task is done, released or dropped and no Detour is open. |
 | `add_tasks` | Appends Tasks (title, files and summary) to the claimed Goal. |
-| `start_task` | Marks a Task in progress (one at a time). |
+| `start_task` | Marks a Task in progress (one per Goal at a time). |
+| `set_task_state` | Sets a Task's state: with a helper, waiting on you, checked, released (or pending, in progress, done). |
 | `update_task` | Changes a Task's title, summary or files. |
 | `complete_task` | Marks a Task done, with the files it touched and its final summary. |
 | `drop_task` | Drops a Task, with a reason. |
 | `start_detour` | Declares a Detour, with a Reason, branching from the current Task. |
 | `end_detour` | Ends the open Detour: merge back, return (optionally adding Tasks) or recalibrate (replacing the remaining Tasks). |
+| `add_decision` | Records a decision made for the claimed Goal. |
+| `update_decision` | Rewords a decision, or removes it when the text is empty. |
+| `add_note` | Adds a note to any Goal that is not dropped, claimed or not. |
+| `update_note` | Resolves, reopens or rewords a note, or removes it when the text is empty. |
 | `add_standing_instruction` | Saves a lasting rule from the Developer. |
 | `update_standing_instruction` | Changes a rule's text, or removes it when the text is empty. |
 | `update_context` | Replaces the project's Important context (at most 4000 characters), or clears it with an empty text. |
+
+Every tool that changes a claimed Goal (`add_tasks`, `start_task`, `set_task_state`, `update_task`, `complete_task`, `drop_task`, `start_detour`, `end_detour`, `add_decision`, `update_decision`, `complete_goal`, `release_goal`) takes an optional `goal`: the Goal's ID. It is needed only while the Session holds several Goals.
 
 ## `progressor-mcp` commands
 
@@ -83,7 +96,7 @@ Set these in the `env` of the `progressor` server in your app's MCP settings.
 
 Two hooks put the plan in front of the AI without it having to ask:
 
-- **At session start, on resume and after the conversation is summarised**, the full status: the Goal, the current Task, any open Detour, the next Task and the Standing Instructions.
+- **At session start, on resume and after the conversation is summarised**, the full status: the Goal, the current Task, any open Detour, the Tasks with a helper or waiting on the Developer, the next Task, the Goal's decisions and open notes, and the Standing Instructions.
 - **On every message**, one line, such as `[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Next: t3 End-to-end tests`. It is left out when no Goal is being worked on.
 
 `progressor-mcp init` adds them. By hand, with Progressor installed globally, add this to `.claude/settings.json` in the project (or `~/.claude/settings.json` for every project), merging into any `hooks` already there:
@@ -104,7 +117,7 @@ The hook reads `.progressor/` straight from disk, so it needs no running server,
 Everything lives in `.progressor/` in the project:
 
 - `roadmap.md`: the Goals in order, with their Outcomes and Claims, and the Standing Instructions.
-- `goals/<id>.md`: one Plan File per Goal, with its Tasks and Detours.
+- `goals/<id>.md`: one Plan File per Goal, with its Tasks, decisions, notes and Detours.
 
 They are plain markdown, written only by the server's tools. An example Plan File:
 

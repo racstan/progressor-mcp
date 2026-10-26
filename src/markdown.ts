@@ -219,6 +219,12 @@ export function appendSection(doc: MarkdownDoc, heading: HeadingBlock, body: Blo
   doc.finalNewline = true;
 }
 
+/** Inserts a new level-2 section (heading, blank line, items, blank line) right before a heading. */
+export function insertSectionBefore(doc: MarkdownDoc, before: HeadingBlock, heading: HeadingBlock, items: ItemBlock[]): void {
+  for (const item of items) item.section = heading.text;
+  doc.blocks.splice(doc.blocks.indexOf(before), 0, heading, { type: "text", text: "" }, ...items, { type: "text", text: "" });
+}
+
 /** Appends items to the end of a section's list, creating the section when it is missing. */
 export function appendToSection(doc: MarkdownDoc, name: string, items: ItemBlock[]): void {
   for (const item of items) item.section = name;

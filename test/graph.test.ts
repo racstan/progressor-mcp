@@ -155,6 +155,26 @@ describe("the metro map of a Goal", () => {
     });
   });
 
+  it("counts a released Task as finished, and gives every node its state", () => {
+    const markdown = `# G
+
+## Tasks
+
+- [x] One ^t1
+- [x] Two ^t2
+  - state: released
+- [/] Three ^t3
+  - state: with a helper
+
+## Detour: Upgrade Node ^d1
+
+- reason: The new API needs Node 22
+- status: open
+`;
+    expect(layout(markdown).edges).toContain("t2>d1:detour");
+    expect(graphOf(markdown).nodes.map((n) => n.status)).toEqual(["done", "released", "with a helper", "open"]);
+  });
+
   it("puts a Detour on a Goal with nothing done at the start, unconnected", () => {
     expect(
       layout(`# G

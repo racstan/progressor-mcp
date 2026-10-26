@@ -2,7 +2,7 @@
 
 Progressor keeps an AI agent and the human it works with focused on the same goal across long sessions, context compression and distractions, by keeping a shared, live record of what is planned, what is done, and what came up along the way.
 
-These are the terms the code, the Agent's tools and the files use. Everything a person reads (the dashboard and the guides) says them in everyday words instead: a Task is a *step*, a Detour a *side trip*, the Roadmap *Your goals*, an Outcome *Finished when*, dropped is *cancelled*. The [reference](docs/reference.md) has the full list.
+These are the terms the code, the Agent's tools and the files use. Everything a person reads (the dashboard and the guides) says them in everyday words instead: a Task is a *step*, a Detour a *side trip*, the Roadmap *Your goals*, an Outcome *Finished when*, dropped is *cancelled*, a Task waiting on the Developer is *waiting on you*. The [reference](docs/reference.md) has the full list.
 
 ## Language
 
@@ -25,7 +25,7 @@ The one page per Project holding its lasting background (what it is, key facts, 
 _Avoid_: Notes, memory, project info
 
 **Session**:
-One Agent conversation, including any sub-agents it spawns, working on one claimed Goal.
+One Agent conversation, including any sub-agents it spawns, working on the Goals it has claimed: usually one, several when helper agents work on different Goals.
 _Avoid_: Thread, chat, instance, connection
 
 **Claim**:
@@ -57,12 +57,20 @@ One line saying what done looks like for a Goal, used to judge whether it is fin
 _Avoid_: Acceptance criteria, definition of done, success metric
 
 **Plan File**:
-The markdown file that holds one Goal's Tasks and Detours, and the place every one of them can be opened.
+The markdown file that holds one Goal's Tasks, Decisions, Notes and Detours, and the place every one of them can be opened.
 _Avoid_: Audit file, progress file, todo file
 
 **Task**:
-A planned step toward a Goal, with a short title, the files it touches and a summary of the change it makes.
+A planned step toward a Goal, with a short title, the files it touches and a summary of the change it makes. It is pending, in progress (the Agent's own current work, one per Goal), with a helper, waiting on you (the Agent is waiting on the Developer), checked (a helper's work checked, not yet merged), done, released (merged and out) or dropped.
 _Avoid_: Todo, item, step, ticket
+
+**Decision**:
+A choice made along the way for one Goal that is not a lasting project rule, such as "old models get thinking on/off only", kept in the Goal's Plan File so it survives context compression.
+_Avoid_: Rule, choice, ADR
+
+**Note**:
+Something spotted that belongs to a Goal, often while working on another one, such as a bug found during cleanup that belongs to the Voice Goal; open until it is resolved.
+_Avoid_: Todo, comment, issue
 
 **Detour**:
 A point where the work actually being done splits off from a Goal's planned Tasks, with a Reason explaining why.

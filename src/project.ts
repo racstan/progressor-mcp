@@ -1,7 +1,19 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { type Detour, type NewTask, type PlanFile, type Task, type TaskChanges, newPlanFile, parsePlanFile } from "./planFile.js";
+import {
+  type Decision,
+  type Detour,
+  FINISHED,
+  type NewTask,
+  type Note,
+  type PlanFile,
+  type Task,
+  type TaskChanges,
+  type TaskStatus,
+  newPlanFile,
+  parsePlanFile,
+} from "./planFile.js";
 import { unsafeRoot } from "./root.js";
 import { type Goal, type Idea, ROADMAP_REF, type Roadmap, type StandingInstruction, parseRoadmap } from "./roadmap.js";
 
@@ -40,12 +52,32 @@ export interface Status {
   currentTask: Task | undefined;
   openDetour: Detour | undefined;
   nextTask: Task | undefined;
+  /** Tasks handed to a helper agent. */
+  withHelper: Task[];
+  /** Tasks the Agent is waiting on the Developer for; while there are any, so is the Goal. */
+  waitingOnYou: Task[];
+  /** Tasks whose helper's work the Agent has checked, not yet released. */
+  checked: Task[];
+  /** Done and released Tasks. */
   done: number;
+  /** Every Task that is not dropped. */
   total: number;
+  decisions: Decision[];
+  /** The notes not yet resolved. */
+  notes: Note[];
   standingInstructions: StandingInstruction[];
   /** The project's Important context: lasting background, kept by the Agent. */
   context: string;
   /** Every Goal on the Roadmap, so a Session without a Claim can pick one. */
+  goals: Goal[];
+}
+
+/** Every Goal this Session holds, with what get_status shows besides. */
+export interface SessionStatus {
+  /** In Roadmap order. */
+  held: Status[];
+  standingInstructions: StandingInstruction[];
+  context: string;
   goals: Goal[];
 }
 
@@ -63,6 +95,8 @@ export type FoundItem =
   | { kind: "goal"; ref: string; file: string; line: number; item: Goal; planFile: string }
   | { kind: "task"; ref: string; file: string; line: number; item: Task }
   | { kind: "detour"; ref: string; file: string; line: number; item: Detour }
+  | { kind: "decision"; ref: string; file: string; line: number; item: Decision }
+  | { kind: "note"; ref: string; file: string; line: number; item: Note }
   | { kind: "idea"; ref: string; file: string; line: number; item: Idea }
   | { kind: "standing instruction"; ref: string; file: string; line: number; item: StandingInstruction };
 
@@ -167,15 +201,34 @@ export class Project {
 
   // --- Claims --------------------------------------------------------------
 
-  /** The Goal this Session has claimed, if any. */
-  claimedGoal(roadmap = this.roadmap()): Goal | undefined {
-    return roadmap.goals.find((g) => g.claim?.session === this.session.id && g.status === "active");
+  /** The Goals this Session has claimed, in Roadmap order. */
+  claimedGoals(roadmap = this.roadmap()): Goal[] {
+    return roadmap.goals.filter((g) => g.claim?.session === this.session.id && g.status === "active");
   }
 
-  private requireClaim(): { goal: Goal; plan: PlanFile } {
-    const goal = this.claimedGoal();
-    if (!goal) throw new Error("This Session has no Goal; claim a Goal first (claim_goal).");
-    return { goal, plan: this.plan(goal.id) };
+  /** The Goal this Session has claimed, when it holds exactly one. */
+  claimedGoal(roadmap = this.roadmap()): Goal | undefined {
+    const held = this.claimedGoals(roadmap);
+    return held.length === 1 ? held[0] : undefined;
+  }
+
+  /**
+   * The claimed Goal a change is for: the one named, which this Session must hold, or else the only
+   * one it holds.
+   */
+  private requireClaim(goalId?: string): { goal: Goal; plan: PlanFile } {
+    const roadmap = this.roadmap();
+    const held = this.claimedGoals(roadmap);
+    if (goalId !== undefined) {
+      const goal = held.find((g) => g.id === goalId);
+      if (goal) return { goal, plan: this.plan(goal.id) };
+      if (!roadmap.goal(goalId)) throw new Error(`No Goal ${goalId} on the Roadmap.`);
+      throw new Error(`Goal ${goalId} is not claimed by this Session; claim it first (claim_goal).`);
+    }
+    if (held.length === 0) throw new Error("This Session has no Goal; claim a Goal first (claim_goal).");
+    if (held.length > 1)
+      throw new Error(`This Session holds several Goals (${held.map((g) => g.id).join(", ")}); say which with goal.`);
+    return { goal: held[0]!, plan: this.plan(held[0]!.id) };
   }
 
   /** A Claim is stale when the process that holds it is no longer running. */
@@ -186,7 +239,7 @@ export class Project {
   }
 
   /**
-   * Claims a Goal for this Session, releasing (pausing) any Goal it held before. Claiming a done Goal
+   * Claims a Goal for this Session, which keeps any other Goals it holds. Claiming a done Goal
    * reopens it, so Tasks found in a later review join the same list; its finished Tasks stay done.
    */
   claimGoal(goalId: string, options: { takeover?: boolean } = {}): Goal {
@@ -199,34 +252,40 @@ export class Project {
         `Goal ${goalId} is claimed by Session ${goal.claim!.session} (pid ${goal.claim!.pid ?? "unknown"}), which is still running. ` +
           "Pick another Goal, or take it over only if the Developer asks.",
       );
-    const previous = this.claimedGoal(roadmap);
-    if (previous && previous.id !== goalId) roadmap.setClaim(previous.id, undefined);
     roadmap.setClaim(goalId, { session: this.session.id, pid: this.session.pid, since: this.now().toISOString() });
     roadmap.setGoalStatus(goalId, "started");
     this.saveRoadmap(roadmap);
     return roadmap.goal(goalId)!;
   }
 
-  /** Releases this Session's Claim, leaving the Goal paused. Returns the released Goal, if any. */
-  releaseGoal(): Goal | undefined {
+  /** Releases this Session's Claim on a Goal, leaving it paused. Returns the released Goal, if any. */
+  releaseGoal(goalId?: string): Goal | undefined {
+    if (goalId === undefined && this.claimedGoals().length === 0) return undefined;
+    const { goal } = this.requireClaim(goalId);
     const roadmap = this.roadmap();
-    const goal = this.claimedGoal(roadmap);
-    if (!goal) return undefined;
     roadmap.setClaim(goal.id, undefined);
     this.saveRoadmap(roadmap);
     return roadmap.goal(goal.id);
   }
 
+  /** Releases every Goal this Session holds, as it ends. */
+  releaseAll(): void {
+    const roadmap = this.roadmap();
+    const held = this.claimedGoals(roadmap);
+    if (held.length === 0) return;
+    for (const g of held) roadmap.setClaim(g.id, undefined);
+    this.saveRoadmap(roadmap);
+  }
+
   // --- Goals and Tasks -----------------------------------------------------
 
-  /** Marks the claimed Goal done and releases it, once every Task is done or dropped and no Detour is open. */
-  completeGoal(): Goal {
-    const { goal } = this.requireClaim();
-    const plan = this.plan(goal.id);
-    const open = plan.tasks.filter((t) => t.status === "pending" || t.status === "in progress");
+  /** Marks a claimed Goal done and releases it, once every Task is done, released or dropped and no Detour is open. */
+  completeGoal(goalId?: string): Goal {
+    const { goal, plan } = this.requireClaim(goalId);
+    const open = plan.tasks.filter((t) => !FINISHED.includes(t.status));
     if (open.length > 0)
       throw new Error(
-        `Goal ${goal.id} is not finished: ${open.map((t) => `${t.id} ${t.title} (${t.status})`).join(", ")}. Complete or drop ${open.length === 1 ? "it" : "them"} first.`,
+        `Goal ${goal.id} is not finished: ${open.map((t) => `${t.id} ${t.title} (${t.status})`).join(", ")}. Complete, release or drop ${open.length === 1 ? "it" : "them"} first.`,
       );
     if (plan.openDetour)
       throw new Error(`Goal ${goal.id} has an open Detour, "${plan.openDetour.title}". End it with end_detour first.`);
@@ -297,48 +356,65 @@ export class Project {
     return roadmap.goal(goalId)!;
   }
 
-  /** Appends Tasks to the end of the claimed Goal's Task list. */
-  addTasks(tasks: NewTask[]): Task[] {
-    const { plan } = this.requireClaim();
+  /** Appends Tasks to the end of a claimed Goal's Task list. */
+  addTasks(tasks: NewTask[], goalId?: string): Task[] {
+    const { plan } = this.requireClaim(goalId);
     const added = plan.addTasks(tasks);
     this.savePlan(plan);
     return added;
   }
 
-  startTask(id: string): Task {
-    const { plan } = this.requireClaim();
+  /** Puts a Task in the Agent's own hands; only one Task of a Goal can be in progress. */
+  startTask(id: string, goalId?: string): Task {
+    const { plan } = this.requireClaim(goalId);
     const task = this.taskIn(plan, id);
     const current = plan.currentTask;
     if (current && current.id !== id)
       throw new Error(`Task ${current.id} is already in progress; complete or drop it first.`);
-    if (task.status === "done" || task.status === "dropped") throw new Error(`Task ${id} is already ${task.status}.`);
+    if (FINISHED.includes(task.status)) throw new Error(`Task ${id} is already ${task.status}.`);
     plan.setTaskStatus(id, "in progress");
     this.savePlan(plan);
     return plan.task(id)!;
   }
 
+  /**
+   * Moves a Task to any state but dropped (drop_task, which wants a reason). In progress follows
+   * start_task's rule; several Tasks may be with a helper, waiting on the Developer or checked.
+   */
+  setTaskState(id: string, state: Exclude<TaskStatus, "dropped">, goalId?: string): Task {
+    if (state === "in progress") return this.startTask(id, goalId);
+    const { plan } = this.requireClaim(goalId);
+    const task = this.taskIn(plan, id);
+    if (task.status === "dropped") throw new Error(`Task ${id} is dropped; add a new Task instead.`);
+    plan.setTaskStatus(id, state);
+    this.savePlan(plan);
+    return plan.task(id)!;
+  }
+
   /** Changes a Task's title, summary or files (which replace the old ones). */
-  updateTask(id: string, changes: TaskChanges): Task {
-    const { plan } = this.requireClaim();
+  updateTask(id: string, changes: TaskChanges, goalId?: string): Task {
+    const { plan } = this.requireClaim(goalId);
     this.taskIn(plan, id);
     plan.updateTask(id, changes);
     this.savePlan(plan);
     return plan.task(id)!;
   }
 
-  /** Marks a Task done, adding the files it touched and, optionally, the summary of what it changed. */
-  completeTask(id: string, code: string[] = [], summary?: string): Task {
-    const { plan } = this.requireClaim();
-    this.taskIn(plan, id);
-    plan.setTaskStatus(id, "done");
+  /**
+   * Marks a Task done, adding the files it touched and, optionally, the summary of what it changed.
+   * A released Task stays released.
+   */
+  completeTask(id: string, code: string[] = [], summary?: string, goalId?: string): Task {
+    const { plan } = this.requireClaim(goalId);
+    if (this.taskIn(plan, id).status !== "released") plan.setTaskStatus(id, "done");
     if (code.length > 0) plan.addCode(id, code);
     if (summary?.trim()) plan.updateTask(id, { summary });
     this.savePlan(plan);
     return plan.task(id)!;
   }
 
-  dropTask(id: string, reason: string): Task {
-    const { plan } = this.requireClaim();
+  dropTask(id: string, reason: string, goalId?: string): Task {
+    const { plan } = this.requireClaim(goalId);
     this.taskIn(plan, id);
     plan.dropTask(id, { reason });
     this.savePlan(plan);
@@ -355,8 +431,8 @@ export class Project {
   // --- Detours -------------------------------------------------------------
 
   /** Declares that the work is splitting off from the plan, branching from the current Task. */
-  startDetour(title: string, reason: string): Detour {
-    const { plan } = this.requireClaim();
+  startDetour(title: string, reason: string, goalId?: string): Detour {
+    const { plan } = this.requireClaim(goalId);
     const open = plan.openDetour;
     if (open) throw new Error(`Detour ${open.id} is still open; end it (end_detour) before starting another.`);
     const detour = plan.startDetour(title, reason, plan.currentTask?.id);
@@ -368,8 +444,8 @@ export class Project {
    * Ends the open Detour. Merge back leaves the Tasks alone; Return appends `tasks` (if any) to the
    * Task list; Recalibration drops every remaining Task and appends `tasks` as the new list.
    */
-  endDetour(ending: DetourEnding, tasks: NewTask[] = []): { detour: Detour; added: Task[]; dropped: Task[] } {
-    const { plan } = this.requireClaim();
+  endDetour(ending: DetourEnding, tasks: NewTask[] = [], goalId?: string): { detour: Detour; added: Task[]; dropped: Task[] } {
+    const { plan } = this.requireClaim(goalId);
     const detour = plan.openDetour;
     if (!detour?.id) throw new Error("No open Detour to end.");
     let added: Task[] = [];
@@ -382,12 +458,64 @@ export class Project {
     } else {
       if (tasks.length === 0) throw new Error("A Recalibration needs the new Task list that replaces the remaining Tasks.");
       plan.setDetourStatus(detour.id, "recalibrated");
-      dropped = plan.tasks.filter((t) => t.status === "pending" || t.status === "in progress");
+      dropped = plan.tasks.filter((t) => !FINISHED.includes(t.status));
       for (const t of dropped) plan.dropTask(t.id!, { droppedBy: detour.id });
       added = plan.addTasks(tasks, detour.id);
     }
     this.savePlan(plan);
     return { detour: plan.detour(detour.id)!, added, dropped: dropped.map((t) => plan.task(t.id!)!) };
+  }
+
+  // --- decisions and notes ---------------------------------------------------
+
+  /** Records a choice made for a claimed Goal that is not a lasting project rule. */
+  addDecision(text: string, goalId?: string): Decision {
+    const { plan } = this.requireClaim(goalId);
+    const decision = plan.addDecision(text);
+    this.savePlan(plan);
+    return decision;
+  }
+
+  /** Rewords a decision, or removes it when the text is empty; returns undefined when removed. */
+  updateDecision(id: string, text: string, goalId?: string): Decision | undefined {
+    const { plan } = this.requireClaim(goalId);
+    plan.assignMissingIds();
+    let result: Decision | undefined;
+    if (text.trim()) result = plan.setDecision(id, text);
+    else plan.removeDecision(id);
+    this.savePlan(plan);
+    return result;
+  }
+
+  /** A Goal a note can go to: any Goal on the Roadmap that is not dropped, claimed or not. */
+  private notable(goalId: string): PlanFile {
+    const goal = this.roadmap().goal(goalId);
+    if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
+    if (goal.status === "dropped") throw new Error(`Goal ${goalId} is dropped; put the note on another Goal.`);
+    return this.plan(goalId);
+  }
+
+  /**
+   * Notes something that belongs to a Goal, which may not be the one being worked on; then the
+   * note says which Goal that was (when this Session holds just one).
+   */
+  addNote(goalId: string, text: string): Note {
+    const plan = this.notable(goalId);
+    const working = this.claimedGoal();
+    const note = plan.addNote(text, working && working.id !== goalId ? working.ref : undefined);
+    this.savePlan(plan);
+    return note;
+  }
+
+  /** Rewords or resolves a note, or removes it when the text is empty; returns undefined when removed. */
+  updateNote(goalId: string, id: string, changes: { text?: string; resolved?: boolean }): Note | undefined {
+    const plan = this.notable(goalId);
+    plan.assignMissingIds();
+    let result: Note | undefined;
+    if (changes.text !== undefined && !changes.text.trim()) plan.removeNote(id);
+    else result = plan.updateNote(id, changes);
+    this.savePlan(plan);
+    return result;
   }
 
   // --- Ideas and Standing Instructions --------------------------------------
@@ -485,14 +613,30 @@ export class Project {
     if (task) return { kind: "task", ref, file, line: task.line, item: task };
     const detour = plan.detour(id);
     if (detour) return { kind: "detour", ref, file, line: detour.line, item: detour };
+    const decision = plan.decision(id);
+    if (decision) return { kind: "decision", ref, file, line: decision.line, item: decision };
+    const note = plan.note(id);
+    if (note) return { kind: "note", ref, file, line: note.line, item: note };
     throw missing();
   }
 
   // --- status --------------------------------------------------------------
 
-  status(): Status {
+  /** The status of a Goal: the one named, else the one this Session holds (the first, if it holds several). */
+  status(goalId?: string): Status {
     const roadmap = this.roadmap();
-    return this.goalStatus(this.claimedGoal(roadmap), roadmap);
+    return this.goalStatus(goalId ? roadmap.goal(goalId) : this.claimedGoals(roadmap)[0], roadmap);
+  }
+
+  /** Every Goal this Session holds, for get_status. */
+  sessionStatus(): SessionStatus {
+    const roadmap = this.roadmap();
+    return {
+      held: this.claimedGoals(roadmap).map((g) => this.goalStatus(g, roadmap)),
+      standingInstructions: roadmap.standingInstructions,
+      context: this.context(),
+      goals: roadmap.goals,
+    };
   }
 
   /**
@@ -521,20 +665,31 @@ export class Project {
         currentTask: undefined,
         openDetour: undefined,
         nextTask: undefined,
+        withHelper: [],
+        waitingOnYou: [],
+        checked: [],
         done: 0,
         total: 0,
+        decisions: [],
+        notes: [],
         ...common,
       };
     const plan = this.plan(goal.id);
     const live = plan.tasks.filter((t) => t.status !== "dropped");
+    const inState = (status: TaskStatus) => plan.tasks.filter((t) => t.status === status);
     return {
       goal,
       planFile: this.planFilePath(goal.id),
       currentTask: plan.currentTask,
       openDetour: plan.openDetour,
       nextTask: plan.nextTask,
-      done: live.filter((t) => t.status === "done").length,
+      withHelper: inState("with a helper"),
+      waitingOnYou: inState("waiting on you"),
+      checked: inState("checked"),
+      done: live.filter((t) => t.status === "done" || t.status === "released").length,
       total: live.length,
+      decisions: plan.decisions,
+      notes: plan.notes.filter((n) => !n.resolved),
       ...common,
     };
   }

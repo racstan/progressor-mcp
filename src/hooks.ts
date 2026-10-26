@@ -10,9 +10,19 @@ import { join } from "node:path";
 const PREFIX = "[Progressor]";
 const task = (t: Task) => `${t.id} ${t.title}`;
 
+const ids = (tasks: Task[]) => tasks.map((t) => t.id).join(", ");
+
+/** The Tasks in a helper's hands or the Developer's, briefly. */
+function elsewhere(s: Status): string[] {
+  return [
+    ...(s.withHelper.length > 0 ? [`with a helper: ${ids(s.withHelper)}`] : []),
+    ...(s.waitingOnYou.length > 0 ? [`waiting on the Developer: ${ids(s.waitingOnYou)}`] : []),
+  ];
+}
+
 function goalLine(s: Status): string {
   const now = s.currentTask ? task(s.currentTask) : "no Task started";
-  return `- ${s.goal?.title}: ${now}${s.nextTask ? `; next ${task(s.nextTask)}` : ""}`;
+  return `- ${s.goal?.title}: ${[now, ...(s.nextTask ? [`next ${task(s.nextTask)}`] : []), ...elsewhere(s)].join("; ")}`;
 }
 
 function instructions(o: ProjectOverview): string[] {
@@ -30,7 +40,16 @@ function fullStatus(s: Status): string[] {
     s.currentTask ? `Current Task: ${task(s.currentTask)} (${s.planFile}:${s.currentTask.line})` : "Current Task: none started",
     ...(s.currentTask?.summary ? [`  Summary: ${s.currentTask.summary}`] : []),
     ...(d ? [`Open Detour: ${d.id} ${d.title}${d.branchedFrom ? `, branched from ${d.branchedFrom}` : ""}. Reason: ${d.reason ?? "none given"}`] : []),
-    s.nextTask ? `Next Task: ${task(s.nextTask)}` : "Next Task: none; every Task is done or dropped",
+    ...(s.withHelper.length > 0 ? [`With a helper: ${s.withHelper.map(task).join("; ")}`] : []),
+    ...(s.waitingOnYou.length > 0 ? [`Waiting on the Developer: ${s.waitingOnYou.map(task).join("; ")}`] : []),
+    ...(s.checked.length > 0 ? [`Checked, not yet released: ${s.checked.map(task).join("; ")}`] : []),
+    s.nextTask
+      ? `Next Task: ${task(s.nextTask)}`
+      : s.withHelper.length + s.waitingOnYou.length + s.checked.length > 0
+        ? "Next Task: none pending"
+        : "Next Task: none; every Task is done or dropped",
+    ...(s.decisions.length > 0 ? [`Decisions: ${s.decisions.map((d) => `${d.id} ${d.text}`).join("; ")}`] : []),
+    ...(s.notes.length > 0 ? [`Notes: ${s.notes.map((n) => `${n.id} ${n.text}${n.from ? ` (from ${n.from})` : ""}`).join("; ")}`] : []),
   ];
 }
 
@@ -47,6 +66,14 @@ export function sessionStatus(o: ProjectOverview): string | undefined {
       ...fullStatus(only),
       ...instructions(o),
       "Call get_status before you start. Declare a Detour (start_detour) before doing anything that isn't the current Task.",
+    ].join("\n");
+  // One Session holding them all is most likely this conversation, picking up after compaction.
+  if (o.active.length > 1 && new Set(o.active.map((s) => s.goal?.claim?.session)).size === 1)
+    return [
+      `${PREFIX} One Session is working on ${o.active.length} Goals in this project:`,
+      ...o.active.flatMap(fullStatus),
+      ...instructions(o),
+      "Call get_status before you start, and pass goal (the Goal ID) to the tools that change one. Declare a Detour (start_detour) before doing anything that isn't the current Task.",
     ].join("\n");
   if (o.active.length > 1)
     return [
@@ -70,14 +97,23 @@ export function promptReminder(o: ProjectOverview): string | undefined {
   const [only] = o.active;
   if (!only) return undefined;
   if (o.active.length > 1) {
-    const each = o.active.map((s) => `${s.goal?.title} (${s.currentTask ? task(s.currentTask) : "no Task started"})`);
+    const each = o.active.map((s) => {
+      const now = s.currentTask ? task(s.currentTask) : "no Task started";
+      return `${s.goal?.title} (${now}${s.waitingOnYou.length > 0 ? "; waiting on the Developer" : ""})`;
+    });
     return `${PREFIX} Goals in progress: ${each.join(", ")}. Call get_status if unsure which is yours.`;
   }
   const d = only.openDetour;
   const now = d
     ? `On Detour ${d.id} ${d.title}${d.branchedFrom ? ` (from ${d.branchedFrom})` : ""}`
     : `Task: ${only.currentTask ? task(only.currentTask) : "none started"}`;
-  return [`${PREFIX} Goal: ${only.goal?.title}`, now, ...(only.nextTask ? [`Next: ${task(only.nextTask)}`] : [])].join(" · ");
+  return [
+    `${PREFIX} Goal: ${only.goal?.title}`,
+    now,
+    ...(only.nextTask ? [`Next: ${task(only.nextTask)}`] : []),
+    ...(only.withHelper.length > 0 ? [`With a helper: ${ids(only.withHelper)}`] : []),
+    ...(only.waitingOnYou.length > 0 ? [`Waiting on the Developer: ${ids(only.waitingOnYou)}`] : []),
+  ].join(" · ");
 }
 
 /** Claude Code caps hook text added to context at 10,000 characters; stay under it. */

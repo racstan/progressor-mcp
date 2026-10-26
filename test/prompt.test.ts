@@ -47,6 +47,17 @@ const goal: PromptGoal = {
 const ROADMAP = ".progressor/roadmap.md";
 
 describe("Copy as prompt", () => {
+  it("counts released Tasks as done and names the Tasks in other hands", () => {
+    const g = buildGoalGraph(
+      parsePlanFile(
+        "# G\n\n## Tasks\n\n- [x] One ^t1\n  - state: released\n- [/] Two ^t2\n  - state: with a helper\n- [/] Three ^t3\n  - state: waiting on you\n",
+        "login",
+      ),
+    );
+    const text = copyAsPrompt({ kind: "goal", goal, graph: g });
+    expect(text).toContain("Progress: 1 of 3 Tasks done\nWith a helper: t2 \"Two\" (line 7)\nWaiting on you: t3 \"Three\" (line 9)\n");
+  });
+
   it("describes a Task with its place in the plan, its code and how to look it up", () => {
     expect(copyAsPrompt({ kind: "node", node: node("t4"), goal, graph })).toBe(`[Progressor] Task t4 "Callback route" (in progress)
 Ref: progressor://login/t4

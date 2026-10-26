@@ -12,3 +12,5 @@
   - summary: An add-decision tool so choices made along the way that aren't lasting rules stay saved and visible instead of living only in compressed memory.
 - [ ] Notes for each goal and side trip ^t5
   - summary: Attach a note, such as a bug found during cleanup that belongs to another Goal, so it isn't lost.
+- [x] Decided with the Developer ^t6
+  - summary: Several goals per chat; step states: with a helper, waiting on you, checked, released (plus to do, in progress, done, cancelled); decisions and notes listed under each goal, notes can be filed on another goal.

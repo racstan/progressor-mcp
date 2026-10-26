@@ -1,7 +1,8 @@
 // The slash commands: MCP prompts the Developer picks from the chat's / menu. Each one is a message
 // to the Agent that says which tools to use, with the record filled in where it saves a lookup.
 import { type Launch, planInit } from "./init.js";
-import type { Project, Status } from "./project.js";
+import { TASK_MARKER } from "./planFile.js";
+import type { Project, SessionStatus, Status } from "./project.js";
 
 /**
  * Setting the conversation's folder up, from the chat. The command only exists where Progressor is
@@ -69,13 +70,19 @@ export function planPrompt(goal: string | undefined): string {
 export function reviewPrompt(project: Project, goalId: string | undefined): string {
   const roadmap = project.roadmap();
   const goal = goalId ? roadmap.goal(goalId) : project.claimedGoal(roadmap);
-  if (!goal)
+  if (!goal) {
+    const held = goalId ? [] : project.claimedGoals(roadmap);
     return goalId
       ? `There is no Goal "${goalId}" on the Progressor Roadmap. Call get_status, list the Goals, and ask me which one to review.`
-      : "Call get_status, list the Goals, and ask me which one to review.";
+      : held.length > 1
+        ? `This Session holds several Goals (${held.map((g) => g.id).join(", ")}). Ask me which one to review.`
+        : "Call get_status, list the Goals, and ask me which one to review.";
+  }
   const plan = project.plan(goal.id);
-  const marker = { pending: " ", "in progress": "/", done: "x", dropped: "-" } as const;
-  const tasks = plan.tasks.map((t) => `- [${marker[t.status]}] ${t.id} ${t.title}${t.summary ? `: ${t.summary}` : ""}`);
+  const state = (s: string) => (s === "pending" || s === "in progress" || s === "done" || s === "dropped" ? "" : ` (${s})`);
+  const tasks = plan.tasks.map(
+    (t) => `- [${TASK_MARKER[t.status]}] ${t.id} ${t.title}${state(t.status)}${t.summary ? `: ${t.summary}` : ""}`,
+  );
   return [
     `Review the Progressor Goal "${goal.title}" (${goal.ref}, ${goal.status}) with me.`,
     goal.outcome ? `Outcome: ${goal.outcome}` : "It has no Outcome yet; propose one and set it with update_goal once I agree.",
@@ -91,24 +98,35 @@ export function reviewPrompt(project: Project, goalId: string | undefined): stri
   ].join("\n");
 }
 
+const task = (t: { id: string | undefined; title: string }) => (t.id ? `${t.id} ${t.title}` : `"${t.title}"`);
+
+/** What to do next for one claimed Goal. */
+function goalStep(status: Status): string {
+  const goal = status.goal!;
+  if (status.openDetour)
+    return `The Detour "${status.openDetour.title}" is still open. Finish its work first, then end it with end_detour (merge back, return or recalibrate), and tell me in a line.`;
+  if (status.currentTask) return `Carry on with the Task in progress, ${task(status.currentTask)}, and complete_task when it is done.`;
+  if (status.nextTask) return `Call start_task for the next Task, ${task(status.nextTask)}, then work on it and complete_task when it is done.`;
+  if (status.waitingOnYou.length > 0)
+    return `"${goal.title}" is waiting on me for ${status.waitingOnYou.map(task).join(", ")}. Remind me in a line what you need from me.`;
+  if (status.withHelper.length > 0 || status.checked.length > 0)
+    return `The rest of "${goal.title}" is in a helper's hands or checked but not released: ${[...status.withHelper, ...status.checked].map(task).join(", ")}. See it through, and set_task_state as it moves on.`;
+  return `Every Task of "${goal.title}" is done or dropped. Check the work against its Outcome, then call complete_goal and tell me in one sentence that it is finished.`;
+}
+
 /** Picking the work up where it was left: the open Detour, the Task in progress, the next Task, or a Goal to claim. */
-export function nextPrompt(status: Status, statusText: string): string {
-  const task = (t: { id: string | undefined; title: string }) => (t.id ? `${t.id} ${t.title}` : `"${t.title}"`);
-  const { goal } = status;
+export function nextPrompt(session: SessionStatus, statusText: string): string {
   let steps: string[];
-  if (goal && status.openDetour) {
+  if (session.held.length > 1) {
     steps = [
-      `The Detour "${status.openDetour.title}" is still open. Finish its work first, then end it with end_detour (merge back, return or recalibrate), and tell me in a line.`,
+      "This Session holds several Goals; pass goal to the tools for each one:",
+      ...session.held.map((s) => `- ${s.goal!.id}: ${goalStep(s)}`),
     ];
-  } else if (goal && status.currentTask) {
-    steps = [`Carry on with the Task in progress, ${task(status.currentTask)}, and complete_task when it is done.`];
-  } else if (goal && status.nextTask) {
-    steps = [`Call start_task for the next Task, ${task(status.nextTask)}, then work on it and complete_task when it is done.`];
-  } else if (goal) {
-    steps = [`Every Task of "${goal.title}" is done or dropped. Check the work against its Outcome, then call complete_goal and tell me in one sentence that it is finished.`];
+  } else if (session.held[0]?.goal) {
+    steps = [goalStep(session.held[0])];
   } else {
-    const paused = status.goals.filter((g) => g.status === "paused");
-    const open = paused.length > 0 ? paused : status.goals.filter((g) => g.status === "planned");
+    const paused = session.goals.filter((g) => g.status === "paused");
+    const open = paused.length > 0 ? paused : session.goals.filter((g) => g.status === "planned");
     const list = open.map((g) => `- ${g.id}: ${g.title} (${g.status})`);
     steps =
       open.length === 0

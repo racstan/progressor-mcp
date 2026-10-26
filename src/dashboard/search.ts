@@ -31,8 +31,8 @@ export interface SearchHit {
 }
 
 const KIND_WEIGHT: Record<SearchKind, number> = { project: 4, goal: 3, task: 2 };
-const LIVE = new Set(["active", "paused", "in progress"]);
-const OVER = new Set(["done", "dropped"]);
+const LIVE = new Set(["active", "paused", "in progress", "with a helper", "waiting on you", "checked"]);
+const OVER = new Set(["done", "released", "dropped"]);
 
 /**
  * The items containing every word of the query (in their title, details, Goal or project name),

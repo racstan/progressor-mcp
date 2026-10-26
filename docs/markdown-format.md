@@ -3,7 +3,7 @@
 Progress lives in two kinds of file inside the project (see [ADR 0002](adr/0002-progress-stored-as-markdown.md)):
 
 - `.progressor/roadmap.md`: the Roadmap (Goals) and Standing Instructions. Roadmaps from before 0.6 may also hold Ideas, which are still read but no longer added.
-- `.progressor/goals/<goal-id>.md`: one Plan File per Goal, holding its Tasks and Detours.
+- `.progressor/goals/<goal-id>.md`: one Plan File per Goal, holding its Tasks, decisions, notes and Detours.
 - `.progressor/context.md`: the project's Important context, free-form markdown under a `# Important context` heading (at most 4000 characters). It has no items or IDs; `update_context` replaces it whole.
 
 The files are written by the Agent through Progressor's tools, and they are ordinary markdown that a person can read in any viewer. Changes should go through the tools (ask the Agent), which keep the files consistent; but the parser is forgiving, so a hand edit never breaks a file (see [Hand edits](#hand-edits)). This document is the contract between the files and the tools.
@@ -53,6 +53,20 @@ The files are written by the Agent through Progressor's tools, and they are ordi
   - added by: ^d1
 - [ ] Add logout ^t5
   - added by: ^d1
+- [/] Try the login on a phone ^t6
+  - state: waiting on you
+- [x] Publish the auth package ^t7
+  - state: released
+
+## Decisions
+
+- Keep the old session cookie name, so existing logins survive ^c1
+
+## Notes
+
+- [ ] The settings page logs the token in the console ^n1
+  - from: progressor://billing
+- [x] Typo on the login button ^n2
 
 ## Detour: Fix flaky token refresh ^d1
 
@@ -70,6 +84,8 @@ Every item ends its line with an ID marker: a space, a caret and the ID (`^t2`).
 | Goal                 | `## Goals` in roadmap.md                | slug of the title  | `progressor://<goal>`            |
 | Task                 | `## Tasks` in a Plan File               | `t1`, `t2`, ...    | `progressor://<goal>/t2`         |
 | Detour               | `## Detour: ...` heading in a Plan File | `d1`, `d2`, ...    | `progressor://<goal>/d1`         |
+| Decision             | `## Decisions` in a Plan File           | `c1`, `c2`, ...    | `progressor://<goal>/c1`         |
+| Note                 | `## Notes` in a Plan File               | `n1`, `n2`, ...    | `progressor://<goal>/n1`         |
 | Idea                 | `## Ideas` in roadmap.md                | `i1`, `i2`, ...    | `progressor://roadmap/i1`        |
 | Standing Instruction | `## Standing Instructions`              | `s1`, `s2`, ...    | `progressor://roadmap/s1`        |
 
@@ -81,7 +97,7 @@ Every item also has a line number: the 1-based line of its item line (for a Deto
 
 Every Task has three parts. Its **title** is the item line: a few words, such as "Fix callback redirect loop". Its **files** are its `code` lines. Its **summary** is a `summary` line: one or two sentences on the fix or change it makes. The title is required; files and summary are optional, so a Task typed by hand as a single line is still valid. A summary is kept on one line: line breaks given to the tools become spaces.
 
-When Progressor writes a Task, its known details come first, in this order: `summary`, `code`, `added by`, `dropped by`, `reason`. Unknown details follow in the order they were in.
+When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `added by`, `dropped by`, `reason`. Unknown details follow in the order they were in.
 
 ## Status markers
 
@@ -96,12 +112,26 @@ Tasks and Goals are checklist lines. The character in the brackets is the status
 
 `[X]` is read as done. At most one Task in a Plan File is in progress; it is the current Task.
 
+### Task states beyond the checkbox
+
+A Task can also be in one of four more states. Each is a `state` line under a checkbox, so the line reads plainly and a reader that does not know the state still sees the Task as started or done:
+
+| Checkbox and line                 | State            | Meaning                                                              |
+| --------------------------------- | ---------------- | -------------------------------------------------------------------- |
+| `[/]` with `state: with a helper` | with a helper    | Handed to a helper agent that is working on it.                      |
+| `[/]` with `state: waiting on you`| waiting on you   | The Agent is waiting on the Developer, such as to test something by hand. |
+| `[/]` with `state: checked`       | checked          | The Agent checked a helper's work (tests, review); not merged yet.   |
+| `[x]` with `state: released`      | released         | Merged and out: shipped, installed or published.                     |
+
+A `state` line counts only under the checkbox in the table; under any other checkbox, or with any other value, it is ignored (and kept, like any unknown detail), and the checkbox alone gives the state. Several Tasks can be with a helper, waiting on you or checked at once; they are not the current Task. Released counts as done in progress counts. A Goal can be completed once each of its Tasks is done, released or dropped. While any Task is waiting on you, the Goal is waiting on the Developer.
+
 ## Detail lines
 
 Facts about an item are indented list lines under it, in the form `key: value`:
 
 | Under    | Key            | Meaning                                                                  |
 | -------- | -------------- | ------------------------------------------------------------------------ |
+| Task     | `state`        | One of the [states beyond the checkbox](#task-states-beyond-the-checkbox). |
 | Task     | `summary`      | One or two sentences on the fix or change the Task makes, on one line.   |
 | Task     | `code`         | A file the Task touches, in backticks; may end in `:line`. Repeatable.   |
 | Task     | `added by`     | The Detour whose Return or Recalibration added this Task (`^d1`).        |
@@ -112,6 +142,7 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 | Goal     | `reason`       | Why the Goal was dropped.                                                |
 | Idea     | `promoted to`  | The ref of the Task or Goal it was promoted to.                          |
 | Idea     | `note`         | Free text recorded with the Idea.                                        |
+| Note     | `from`         | The ref of the Goal being worked on when the note was made, if another one. |
 
 A Detour's facts are the list lines directly under its heading:
 
@@ -121,17 +152,25 @@ A Detour's facts are the list lines directly under its heading:
 | `reason`        | The Reason for the Detour.                                               |
 | `status`        | `open`, `merged back`, `returned` or `recalibrated`.                     |
 
+## Decisions and notes
+
+`## Decisions` holds choices made along the way for this Goal that are not lasting project rules (those are Standing Instructions), one plain list line each, such as `- Keep the old session cookie name ^c1`.
+
+`## Notes` holds things spotted that belong to this Goal, often while working on another one: a checklist line each, `[ ]` while open and `[x]` once resolved. A plain list line with no checkbox reads as open. A note made while the Agent was working on a different Goal says which, with a `from` line.
+
+Both sections are created when their first item is added, after the Tasks and before any Detour. Lines are reworded in place; a removed decision or note is deleted from the file.
+
 ## How the Detour endings show up
 
 - **Merge back**: the Detour's status becomes `merged back`. Nothing else changes.
 - **Return**: status `returned`. Any Tasks for the Detour's intended work are appended to the end of `## Tasks`, each with `added by: ^dN`.
-- **Recalibration**: status `recalibrated`. Every Task that was still pending or in progress becomes `[-]` with `dropped by: ^dN` (it stays in place, so the dropped list is still readable), and the new Task list is appended to the end of `## Tasks` with `added by: ^dN`.
+- **Recalibration**: status `recalibrated`. Every Task that was not yet done, released or dropped becomes `[-]` with `dropped by: ^dN` (it stays in place, so the dropped list is still readable), and the new Task list is appended to the end of `## Tasks` with `added by: ^dN`.
 
 New Detour sections are appended to the end of the Plan File. A Plan File has at most one open Detour.
 
 ## Claims
 
-A Claim is a `claimed by` line under a Goal in roadmap.md. The session is the Progressor server process the Agent's app started, so a Claim also records that process's pid: if the pid is no longer running, the Claim is stale and another Session may take the Goal over. Releasing a Claim removes the line and leaves the Goal `[/]`, which reads as paused.
+A Claim is a `claimed by` line under a Goal in roadmap.md. One Session can hold several Goals at once. The session is the Progressor server process the Agent's app started, so a Claim also records that process's pid: if the pid is no longer running, the Claim is stale and another Session may take the Goal over. Releasing a Claim removes the line and leaves the Goal `[/]`, which reads as paused.
 
 ## Hand edits
 
@@ -141,6 +180,6 @@ The tools are the way to change the plan, but a file edited by hand, or merged b
 - **Untouched items are copied verbatim.** When the Agent changes one item, only that item's lines are rewritten in the canonical form above; every other line keeps its original spelling (`* [ ]`, `[X]`, extra spaces and so on).
 - **Items without an ID** (a Task line typed by hand, say) are recognised and get the next free ID the next time Progressor writes that file.
 - **Unknown detail lines** under an item are kept, after the known ones, when that item is rewritten.
-- **Unknown sections** (any `##` heading other than the ones above) and anything before the first `##` heading are kept as they are.
+- **Unknown sections** (any `##` heading other than the ones above; in a Plan File, `## Tasks`, `## Decisions`, `## Notes` and `## Detour: ...` are known) and anything before the first `##` heading are kept as they are.
 - **Missing sections** are created at the end of the file when something needs to go in them.
 - Only top-level list lines (no indentation) are items. Indented lines belong to the item above them.

@@ -7,7 +7,9 @@ import {
   appendSection,
   appendToSection,
   appendUnder,
+  findSection,
   getDetail,
+  insertSectionBefore,
   getDetails,
   itemsIn,
   itemsUnder,
@@ -19,7 +21,15 @@ import {
   setDetail,
 } from "./markdown.js";
 
-export type TaskStatus = "pending" | "in progress" | "done" | "dropped";
+export type TaskStatus =
+  | "pending"
+  | "in progress"
+  | "with a helper"
+  | "waiting on you"
+  | "checked"
+  | "done"
+  | "released"
+  | "dropped";
 export type DetourStatus = "open" | "merged back" | "returned" | "recalibrated";
 
 export interface Task {
@@ -47,7 +57,28 @@ export interface Detour {
   status: DetourStatus;
 }
 
+/** A choice made along the way for one Goal that is not a lasting project rule. */
+export interface Decision {
+  id: string | undefined;
+  ref: string | undefined;
+  text: string;
+  line: number;
+}
+
+/** Something spotted that belongs to a Goal, possibly while working on another one. */
+export interface Note {
+  id: string | undefined;
+  ref: string | undefined;
+  text: string;
+  line: number;
+  resolved: boolean;
+  /** The Goal that was being worked on when the note was made, if another one. */
+  from: string | undefined;
+}
+
 export const TASKS = "Tasks";
+export const DECISIONS = "Decisions";
+export const NOTES = "Notes";
 const DETOUR_PREFIX = "Detour: ";
 
 const TASK_STATUS: Record<Marker, TaskStatus> = {
@@ -56,12 +87,31 @@ const TASK_STATUS: Record<Marker, TaskStatus> = {
   x: "done",
   "-": "dropped",
 };
-const TASK_MARKER: Record<TaskStatus, Marker> = {
+/**
+ * The checkbox of every state. The states beyond the four checkboxes are a `state` line under a
+ * `[/]` or `[x]` Task, so older readers still see them as started or done.
+ */
+export const TASK_MARKER: Record<TaskStatus, Marker> = {
   pending: " ",
   "in progress": "/",
+  "with a helper": "/",
+  "waiting on you": "/",
+  checked: "/",
   done: "x",
+  released: "x",
   dropped: "-",
 };
+const STATE_LINE: TaskStatus[] = ["with a helper", "waiting on you", "checked", "released"];
+/** Tasks in these states are over: a Goal can be completed once all its Tasks are. */
+export const FINISHED: readonly TaskStatus[] = ["done", "released", "dropped"];
+/** Started, but in other hands than the Agent's: a helper's, or the Developer's. */
+export const ELSEWHERE: readonly TaskStatus[] = ["with a helper", "waiting on you", "checked"];
+
+function taskStatus(b: ItemBlock): TaskStatus {
+  const marked = TASK_STATUS[b.marker!];
+  const state = getDetail(b, "state") as TaskStatus | undefined;
+  return state && STATE_LINE.includes(state) && TASK_MARKER[state] === b.marker ? state : marked;
+}
 const DETOUR_STATUSES: DetourStatus[] = ["open", "merged back", "returned", "recalibrated"];
 
 const stripRef = (v: string | undefined) => v?.replace(/^\^/, "").trim();
@@ -84,7 +134,7 @@ export interface TaskChanges {
 }
 
 /** Known Task details come first, in this order, when a Task is rewritten; unknown ones follow as they were. */
-const DETAIL_ORDER = ["summary", "code", "added by", "dropped by", "reason"];
+const DETAIL_ORDER = ["state", "summary", "code", "added by", "dropped by", "reason"];
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 
 function sortDetails(b: ItemBlock): void {
@@ -129,7 +179,7 @@ export class PlanFile {
       id: b.id,
       ref: this.ref(b.id),
       title: b.text,
-      status: TASK_STATUS[b.marker!],
+      status: taskStatus(b),
       line: b.line,
       summary: getDetail(b, "summary"),
       code: getDetails(b, "code").map(stripTicks),
@@ -199,13 +249,20 @@ export class PlanFile {
   }
 
   private allIds(): (string | undefined)[] {
-    return [...this.taskBlocks().map((b) => b.id), ...this.detourHeadings().map((h) => h.id)];
+    return [
+      ...this.taskBlocks().map((b) => b.id),
+      ...this.detourHeadings().map((h) => h.id),
+      ...itemsIn(this.doc, DECISIONS).map((b) => b.id),
+      ...itemsIn(this.doc, NOTES).map((b) => b.id),
+    ];
   }
 
-  /** Gives every Task and Detour that has no ID (typed by hand) the next free one. */
+  /** Gives every Task, Detour, decision and note that has no ID (typed by hand) the next free one. */
   assignMissingIds(): void {
     for (const b of this.taskBlocks()) if (!b.id) b.id = nextId(this.allIds(), "t");
     for (const h of this.detourHeadings()) if (!h.id) h.id = nextId(this.allIds(), "d");
+    for (const b of itemsIn(this.doc, DECISIONS)) if (!b.id) b.id = nextId(this.allIds(), "c");
+    for (const b of itemsIn(this.doc, NOTES)) if (!b.id) b.id = nextId(this.allIds(), "n");
   }
 
   addTasks(tasks: NewTask[], addedBy?: string): Task[] {
@@ -224,8 +281,12 @@ export class PlanFile {
     return ids.map((id) => this.task(id)!);
   }
 
+  /** Sets a Task's checkbox, and its `state` line for the states that need one. */
   setTaskStatus(id: string, status: TaskStatus): void {
-    this.taskBlock(id).marker = TASK_MARKER[status];
+    const b = this.taskBlock(id);
+    b.marker = TASK_MARKER[status];
+    setDetail(b, "state", STATE_LINE.includes(status) ? status : undefined);
+    sortDetails(b);
   }
 
   /** Changes a Task's title, summary or files; everything else about it stays. */
@@ -247,8 +308,8 @@ export class PlanFile {
   }
 
   dropTask(id: string, why: { reason?: string; droppedBy?: string }): void {
+    this.setTaskStatus(id, "dropped");
     const b = this.taskBlock(id);
-    b.marker = TASK_MARKER.dropped;
     if (why.droppedBy) setDetail(b, "dropped by", `^${why.droppedBy}`);
     if (why.reason?.trim()) setDetail(b, "reason", oneLine(why.reason));
   }
@@ -280,6 +341,88 @@ export class PlanFile {
       const b = newItem({ marker: undefined, text: `status: ${status}`, id: undefined });
       appendUnder(this.doc, h, [b]);
     }
+  }
+
+  // --- decisions and notes ------------------------------------------------------
+
+  get decisions(): Decision[] {
+    return itemsIn(this.doc, DECISIONS).map((b) => ({ id: b.id, ref: this.ref(b.id), text: b.text, line: b.line }));
+  }
+
+  get notes(): Note[] {
+    return itemsIn(this.doc, NOTES).map((b) => ({
+      id: b.id,
+      ref: this.ref(b.id),
+      text: b.text,
+      line: b.line,
+      resolved: b.marker === "x",
+      from: getDetail(b, "from"),
+    }));
+  }
+
+  decision(id: string): Decision | undefined {
+    return this.decisions.find((d) => d.id === id);
+  }
+
+  note(id: string): Note | undefined {
+    return this.notes.find((n) => n.id === id);
+  }
+
+  /**
+   * Appends items to a section, creating it after the Tasks (before any Detour) when it is missing,
+   * so a Plan File reads Tasks, Decisions, Notes, then the Detours as they happened.
+   */
+  private addToSection(name: string, item: ItemBlock): void {
+    const firstDetour = this.detourHeadings()[0];
+    if (findSection(this.doc, name) >= 0 || !firstDetour) appendToSection(this.doc, name, [item]);
+    else insertSectionBefore(this.doc, firstDetour, newHeading(2, name), [item]);
+  }
+
+  private entryBlock(section: string, what: string, id: string): ItemBlock {
+    const b = itemsIn(this.doc, section).find((i) => i.id === id);
+    if (!b) throw new Error(`No ${what} ${id} in Goal ${this.goalId}.`);
+    return b;
+  }
+
+  private removeBlock(b: ItemBlock): void {
+    this.doc.blocks.splice(this.doc.blocks.indexOf(b), 1);
+  }
+
+  addDecision(text: string): Decision {
+    this.assignMissingIds();
+    const id = nextId(this.allIds(), "c");
+    this.addToSection(DECISIONS, newItem({ marker: undefined, text: oneLine(text), id }));
+    return this.decision(id)!;
+  }
+
+  setDecision(id: string, text: string): Decision {
+    this.entryBlock(DECISIONS, "decision", id).text = oneLine(text);
+    return this.decision(id)!;
+  }
+
+  removeDecision(id: string): void {
+    this.removeBlock(this.entryBlock(DECISIONS, "decision", id));
+  }
+
+  /** Adds an open note; `from` is the ref of the Goal being worked on when it was spotted. */
+  addNote(text: string, from?: string): Note {
+    this.assignMissingIds();
+    const id = nextId(this.allIds(), "n");
+    const b = newItem({ marker: " ", text: oneLine(text), id });
+    if (from) addDetail(b, "from", from);
+    this.addToSection(NOTES, b);
+    return this.note(id)!;
+  }
+
+  updateNote(id: string, changes: { text?: string; resolved?: boolean }): Note {
+    const b = this.entryBlock(NOTES, "note", id);
+    if (changes.text?.trim()) b.text = oneLine(changes.text);
+    if (changes.resolved !== undefined) b.marker = changes.resolved ? "x" : " ";
+    return this.note(id)!;
+  }
+
+  removeNote(id: string): void {
+    this.removeBlock(this.entryBlock(NOTES, "note", id));
   }
 
   toString(): string {

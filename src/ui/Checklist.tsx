@@ -15,7 +15,17 @@ interface Props {
   onOpen: (node: GraphNode, at: { x: number; y: number }) => void;
 }
 
-const MARK: Record<TaskNode["status"], string> = { done: "✓", "in progress": "▶", pending: "○", dropped: "✕" };
+const MARK: Record<TaskNode["status"], string> = {
+  done: "✓",
+  "in progress": "▶",
+  pending: "○",
+  dropped: "✕",
+  // Placeholders until the dashboard shows the new states properly.
+  "with a helper": "▶",
+  "waiting on you": "▶",
+  checked: "▶",
+  released: "✓",
+};
 
 /** The selected Goal as a plain list in plan order, with each Detour indented under its Task. */
 export function Checklist({ graph, fileLink, files, onOpen }: Props) {
