@@ -85,7 +85,7 @@ If you use Progressor in several projects, click the project name at the top of 
 
 ## Important context
 
-**📌 Important context**, above Your goals, opens the project's one page of rules and background: the rules you've given your AI, then what the project is, key facts and choices that hold for the whole project. Your AI writes it and reads all of it at the start of every conversation. The page is read-only; to change something, tell your AI in the chat.
+**📌 Important context**, above Your goals, opens the project's one page of rules and background: the rules you've given your AI, then what the project is, key facts and choices that hold for the whole project. Your AI writes it and reads all of it at the start of every conversation. Rules you've said must never be broken come first, each marked with a **Must** label. The page is read-only; to change something, tell your AI in the chat.
 
 ## Search
 

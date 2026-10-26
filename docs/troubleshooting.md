@@ -53,6 +53,16 @@ Every `get_status` ends with a `Project folder:` line. If it isn't your project,
 
 > **Ask your AI:** *"Give me Progressor's dashboard link."* (or **/progressor:dashboard**)
 
+## The dashboard is at 4748 instead of 4747
+
+Something else was using 4747 when your chat started. Most often it's a chat that started before you updated Progressor and still runs the old version, which the new one can't share the dashboard with. Your AI's dashboard link then says so.
+
+Close the chats that started before the update (or stop the old server under **⚙️ Settings → Advanced** on the dashboard). Within a few seconds the dashboard moves back to 4747 by itself; reload the page at the usual address. From this version on, a newer Progressor asks the old one to hand the dashboard over, so this won't happen at the next update.
+
+## A goal still shows as worked on after its chat closed
+
+When a chat closes, Progressor lets go of the goals it was working on. If the app or computer stopped it too suddenly to do that, the goal shows *AI stopped* on the dashboard. The next time any chat in the project looks at the plan, the goal is set back to paused, and any chat can carry on with it. Goals that another open chat is working on are never touched.
+
 ## The dashboard says "Reconnecting…" or "Can't reach Progressor"
 
 Progressor has closed, most likely because the AI app or its chat closed. Open the app again; the page reconnects by itself.

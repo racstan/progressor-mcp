@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { MAX_CONTEXT, promptReminder, runHook, sessionStatus } from "../src/hooks.js";
+import { MAX_CONTEXT, STALE_AFTER_MINUTES, promptReminder, runHook, sessionStatus } from "../src/hooks.js";
 import { Project } from "../src/project.js";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "./tmp.js";
 
@@ -16,6 +16,18 @@ function session(id: string, pid: number): Project {
 
 /** What a hook sees: no Session of its own, just the files. */
 const reader = () => new Project({ root, session: { id: "hook", pid: 1 }, isAlive: (p) => alive.has(p), now: () => NOW });
+
+/** Dates every Plan File as last changed this many minutes before NOW, so the reminder's age is the same on every run. */
+function touch(minutesAgo: number) {
+  const dir = join(root, ".progressor", "goals");
+  const when = new Date(NOW.getTime() - minutesAgo * 60_000);
+  for (const f of readdirSync(dir)) utimesSync(join(dir, f), when, when);
+}
+
+const remind = (minutesAgo = 0) => {
+  touch(minutesAgo);
+  return promptReminder(reader().overview(), NOW);
+};
 
 beforeEach(() => {
   root = tempDir("progressor-");
@@ -77,6 +89,15 @@ describe("sessionStatus", () => {
     );
   });
 
+  it("lists hard rules first and marks them", () => {
+    const a = oauthInProgress();
+    a.addStandingInstruction("Ask me before recalibrating");
+    a.addStandingInstruction("Never commit secrets", true);
+    expect(sessionStatus(reader().overview())).toContain(
+      "Standing Instructions: HARD RULE s2: Never commit secrets; s1 Ask me before recalibrating",
+    );
+  });
+
   it("lists every Goal in progress when several Sessions are working", () => {
     oauthInProgress();
     const b = session("s-b", 200);
@@ -122,7 +143,7 @@ describe("one Session holding several Goals", () => {
       ].join("\n"),
     );
     expect(text).toContain("pass goal");
-    expect(promptReminder(reader().overview())).toBe(
+    expect(remind()).toBe(
       "[Progressor] Goals in progress: Ship OAuth login (t2 Fix callback redirect loop), Voice (no Task started; waiting on the Developer). Call get_status if unsure which is yours.",
     );
   });
@@ -130,34 +151,68 @@ describe("one Session holding several Goals", () => {
 
 describe("promptReminder", () => {
   it("is silent when no Goal is being worked on", () => {
-    expect(promptReminder(reader().overview())).toBeUndefined();
+    expect(promptReminder(reader().overview(), NOW)).toBeUndefined();
     oauthInProgress().releaseGoal();
-    expect(promptReminder(reader().overview())).toBeUndefined();
+    expect(remind()).toBeUndefined();
   });
 
   it("is one line with the Goal, current Task and next Task", () => {
     oauthInProgress();
-    expect(promptReminder(reader().overview())).toBe(
-      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Next: t3 End-to-end tests",
+    expect(remind()).toBe(
+      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Next: t3 End-to-end tests · updated just now",
     );
   });
 
   it("says when Tasks are with a helper or waiting on the Developer", () => {
     const a = oauthInProgress();
     a.setTaskState("t3", "with a helper");
-    expect(promptReminder(reader().overview())).toBe(
-      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · With a helper: t3",
+    expect(remind()).toBe(
+      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · With a helper: t3 · updated just now",
     );
     a.setTaskState("t3", "waiting on you");
-    expect(promptReminder(reader().overview())).toBe(
-      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Waiting on the Developer: t3",
+    expect(remind()).toBe(
+      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Waiting on the Developer: t3 · updated just now",
     );
   });
 
   it("mentions an open Detour", () => {
     oauthInProgress().startDetour("Fix flaky CI test", "CI blocks every push");
-    expect(promptReminder(reader().overview())).toBe(
-      "[Progressor] Goal: Ship OAuth login · On Detour d1 Fix flaky CI test (from t2) · Next: t3 End-to-end tests",
+    expect(remind()).toBe(
+      "[Progressor] Goal: Ship OAuth login · On Detour d1 Fix flaky CI test (from t2) · Next: t3 End-to-end tests · updated just now",
+    );
+  });
+
+  it("says how long ago the plan last changed, and flags a reminder that may be out of date", () => {
+    oauthInProgress();
+    const line = (minutes: number) => remind(minutes)!.split(" · ").slice(-1)[0];
+    expect(line(0.5)).toBe("updated just now");
+    expect(line(1)).toBe("updated 1 min ago");
+    expect(line(12)).toBe("updated 12 min ago");
+    expect(line(STALE_AFTER_MINUTES)).toBe(`updated ${STALE_AFTER_MINUTES} min ago`);
+    expect(line(STALE_AFTER_MINUTES + 1)).toBe("updated 31 min ago, may be out of date; call get_status");
+    expect(line(125)).toBe("updated 2 h ago, may be out of date; call get_status");
+    expect(line(60 * 24 * 3 + 30)).toBe("updated 3 days ago, may be out of date; call get_status");
+    expect(remind(125)!.split("\n")).toHaveLength(1);
+  });
+
+  it("leaves the age out when the plan has no time, and counts a time in the future as just now", () => {
+    oauthInProgress();
+    const overview = reader().overview();
+    overview.active[0]!.updatedAt = undefined;
+    expect(promptReminder(overview, NOW)).not.toContain("updated");
+    overview.active[0]!.updatedAt = NOW.getTime() + 5000;
+    expect(promptReminder(overview, NOW)).toMatch(/· updated just now$/);
+  });
+
+  it("flags only the stale Goals when several are in progress", () => {
+    oauthInProgress();
+    const b = session("s-b", 200);
+    b.addGoal("Billing page", [{ title: "Checkout flow" }]);
+    b.claimGoal("billing-page");
+    touch(0);
+    utimesSync(join(root, ".progressor", "goals", "billing-page.md"), new Date(NOW.getTime() - 3 * 3_600_000), new Date(NOW.getTime() - 3 * 3_600_000));
+    expect(promptReminder(reader().overview(), NOW)).toBe(
+      "[Progressor] Goals in progress: Ship OAuth login (t2 Fix callback redirect loop), Billing page (no Task started; updated 3 h ago, may be out of date). Call get_status if unsure which is yours.",
     );
   });
 
@@ -166,7 +221,7 @@ describe("promptReminder", () => {
     const b = session("s-b", 200);
     b.addGoal("Billing page", [{ title: "Checkout flow" }]);
     b.claimGoal("billing-page");
-    expect(promptReminder(reader().overview())).toBe(
+    expect(remind()).toBe(
       "[Progressor] Goals in progress: Ship OAuth login (t2 Fix callback redirect loop), Billing page (no Task started). Call get_status if unsure which is yours.",
     );
   });
@@ -177,7 +232,7 @@ describe("runHook", () => {
     JSON.stringify({ session_id: "abc", cwd: root, hook_event_name: "SessionStart", source });
   const prompt = () => JSON.stringify({ session_id: "abc", cwd: root, hook_event_name: "UserPromptSubmit", prompt: "carry on" });
   const run = (event: string | undefined, input: string, env: Record<string, string | undefined> = {}, canRun = (_: string) => true) =>
-    runHook({ event, input, env, isAlive: (p) => alive.has(p), canRun });
+    runHook({ event, input, env, isAlive: (p) => alive.has(p), canRun, now: () => NOW });
   const mcp = (command: string) =>
     writeFileSync(join(root, ".mcp.json"), JSON.stringify({ mcpServers: { progressor: { command, args: ["/c", "progressor-mcp"] } } }));
   const noCmd = (command: string) => command !== "cmd";
@@ -218,8 +273,9 @@ describe("runHook", () => {
 
   it("prints the one-line reminder for a prompt", () => {
     oauthInProgress();
+    touch(0);
     expect(run("prompt", prompt())).toBe(
-      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Next: t3 End-to-end tests",
+      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Next: t3 End-to-end tests · updated just now",
     );
   });
 

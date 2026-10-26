@@ -22,5 +22,5 @@ export function inlineCode(text: string): TextSegment[] {
 
 /** The same text without the backticks around code spans, for places that can only show plain text. */
 export function plainText(text: string): string {
-  return text.replace(CODE_SPAN, "$1");
+  return text.replace(CODE_SPAN, "$1").replace(/\s*\(progressor:\/\/[^)\s]*\)/g, "");
 }

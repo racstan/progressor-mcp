@@ -4,6 +4,7 @@
 import type { Task } from "./planFile.js";
 import { PROGRESSOR_DIR, Project, type ProjectOverview, type Status } from "./project.js";
 import { launcherWarning, onPath } from "./init.js";
+import { hardFirst, ruleText } from "./roadmap.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -27,7 +28,7 @@ function goalLine(s: Status): string {
 
 function instructions(o: ProjectOverview): string[] {
   return [
-    ...(o.standingInstructions.length > 0 ? [`Standing Instructions: ${o.standingInstructions.map((i) => `${i.id} ${i.text}`).join("; ")}`] : []),
+    ...(o.standingInstructions.length > 0 ? [`Standing Instructions: ${hardFirst(o.standingInstructions).map(ruleText).join("; ")}`] : []),
     ...(o.context ? ["Important context:", o.context] : []),
   ];
 }
@@ -92,27 +93,49 @@ export function sessionStatus(o: ProjectOverview): string | undefined {
   ].join("\n");
 }
 
-/** The one-line reminder added to every prompt; silent when no Goal is being worked on. */
-export function promptReminder(o: ProjectOverview): string | undefined {
+/** A plan that has not changed for longer than this may no longer match the work, so the reminder says so. */
+export const STALE_AFTER_MINUTES = 30;
+
+/** How long ago a plan last changed, such as "12 min ago" or "2 h ago". */
+function ago(minutes: number): string {
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${Math.floor(minutes)} min ago`;
+  if (minutes < 48 * 60) return `${Math.floor(minutes / 60)} h ago`;
+  return `${Math.floor(minutes / (24 * 60))} days ago`;
+}
+
+/** The plan's age in minutes, or undefined when it has no time. A time in the future counts as now. */
+const age = (s: Status, now: Date) => (s.updatedAt === undefined ? undefined : Math.max(0, (now.getTime() - s.updatedAt) / 60_000));
+const STALE = "may be out of date";
+
+/**
+ * The one-line reminder added to every prompt; silent when no Goal is being worked on. It says when
+ * the plan last changed, since a reminder naming a step a helper finished long ago misleads.
+ */
+export function promptReminder(o: ProjectOverview, now = new Date()): string | undefined {
   const [only] = o.active;
   if (!only) return undefined;
   if (o.active.length > 1) {
     const each = o.active.map((s) => {
-      const now = s.currentTask ? task(s.currentTask) : "no Task started";
-      return `${s.goal?.title} (${now}${s.waitingOnYou.length > 0 ? "; waiting on the Developer" : ""})`;
+      const here = s.currentTask ? task(s.currentTask) : "no Task started";
+      const minutes = age(s, now);
+      const stale = minutes !== undefined && minutes > STALE_AFTER_MINUTES ? `; updated ${ago(minutes)}, ${STALE}` : "";
+      return `${s.goal?.title} (${here}${s.waitingOnYou.length > 0 ? "; waiting on the Developer" : ""}${stale})`;
     });
     return `${PREFIX} Goals in progress: ${each.join(", ")}. Call get_status if unsure which is yours.`;
   }
   const d = only.openDetour;
-  const now = d
+  const where = d
     ? `On Detour ${d.id} ${d.title}${d.branchedFrom ? ` (from ${d.branchedFrom})` : ""}`
     : `Task: ${only.currentTask ? task(only.currentTask) : "none started"}`;
+  const minutes = age(only, now);
   return [
     `${PREFIX} Goal: ${only.goal?.title}`,
-    now,
+    where,
     ...(only.nextTask ? [`Next: ${task(only.nextTask)}`] : []),
     ...(only.withHelper.length > 0 ? [`With a helper: ${ids(only.withHelper)}`] : []),
     ...(only.waitingOnYou.length > 0 ? [`Waiting on the Developer: ${ids(only.waitingOnYou)}`] : []),
+    ...(minutes === undefined ? [] : [`updated ${ago(minutes)}${minutes > STALE_AFTER_MINUTES ? `, ${STALE}; call get_status` : ""}`]),
   ].join(" · ");
 }
 
@@ -136,6 +159,8 @@ export interface HookRun {
   isAlive?: (pid: number) => boolean;
   /** Whether this computer has a command; looked up on PATH unless given. */
   canRun?: (command: string) => boolean;
+  /** The time the reminder's ages count from. */
+  now?: () => Date;
 }
 
 /**
@@ -143,7 +168,7 @@ export interface HookRun {
  * hook's plain stdout to the Agent's context. It never throws: a hook must not get in the way of
  * the session, so anything unexpected prints nothing.
  */
-export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, env, process.platform) }: HookRun): string {
+export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, env, process.platform), now = () => new Date() }: HookRun): string {
   try {
     const data = JSON.parse(input) as { cwd?: unknown; hook_event_name?: unknown };
     const kind = EVENTS[event ?? String(data.hook_event_name)];
@@ -151,7 +176,7 @@ export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, 
     if (!kind || !root || !existsSync(join(root, PROGRESSOR_DIR))) return "";
     const overview = new Project({ root, session: { id: "hook", pid: process.pid }, isAlive }).overview();
     const warning = kind === "session-start" ? launcherWarning(root, canRun) : undefined;
-    const status = kind === "session-start" ? sessionStatus(overview) : promptReminder(overview);
+    const status = kind === "session-start" ? sessionStatus(overview) : promptReminder(overview, now());
     const text = [...(warning ? [`${PREFIX} ${warning}`] : []), ...(status ? [status] : [])].join("\n");
     return text.length <= MAX_CONTEXT ? text : text.slice(0, MAX_CONTEXT - CUT.length) + CUT;
   } catch {

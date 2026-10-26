@@ -317,6 +317,8 @@ a.card { text-decoration: none; color: var(--ink); }
 .context-page .rules { list-style: none; margin: 0; padding: 0; }
 .context-page .rules li { display: flex; gap: 12px; padding: 10px 12px; margin-bottom: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; line-height: 1.5; }
 .context-page .rules .rid { flex: none; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 2em; }
+.context-page .rules li.must { box-shadow: inset 3px 0 0 var(--you); background: color-mix(in srgb, var(--you) 8%, var(--panel)); }
+.context-page .must-badge { display: inline-block; margin-right: 8px; padding: 0 8px; border: 1px solid currentColor; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 18px; letter-spacing: .03em; text-transform: uppercase; color: var(--you-ink); vertical-align: 1px; }
 .context-page .ctx-list { margin: 0 0 12px; padding-left: 22px; line-height: 1.55; }
 
 /* The newer step states. A badge (.mk) is the same shape in the list, the legend, the Help panel and the popover as the stop on the map:

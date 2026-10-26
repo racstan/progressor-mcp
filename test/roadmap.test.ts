@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRoadmap } from "../src/roadmap.js";
+import { hardFirst, parseRoadmap } from "../src/roadmap.js";
 
 const example = `# Roadmap
 
@@ -53,8 +53,8 @@ describe("Roadmap parsing", () => {
 
   it("reads Standing Instructions", () => {
     expect(parseRoadmap(example).standingInstructions).toEqual([
-      { id: "s1", ref: "progressor://roadmap/s1", text: "Ask me before recalibrating", line: 19 },
-      { id: "s2", ref: "progressor://roadmap/s2", text: "Run the tests before completing a Task", line: 20 },
+      { id: "s1", ref: "progressor://roadmap/s1", text: "Ask me before recalibrating", line: 19, hard: false },
+      { id: "s2", ref: "progressor://roadmap/s2", text: "Run the tests before completing a Task", line: 20, hard: false },
     ]);
   });
 
@@ -133,7 +133,7 @@ describe("changing Standing Instructions", () => {
 
   it("changes a rule's text, keeping its ID", () => {
     const r = roadmap();
-    r.setStandingInstruction("s1", "Ask before pushing\nor publishing");
+    r.setStandingInstruction("s1", { text: "Ask before pushing\nor publishing" });
     expect(parseRoadmap(r.toString()).standingInstructions.map((s) => [s.id, s.text])).toEqual([
       ["s1", "Ask before pushing or publishing"],
       ["s2", "Write tests first"],
@@ -147,7 +147,50 @@ describe("changing Standing Instructions", () => {
   });
 
   it("names an unknown rule", () => {
-    expect(() => roadmap().setStandingInstruction("s9", "x")).toThrow(/s9/);
+    expect(() => roadmap().setStandingInstruction("s9", { text: "x" })).toThrow(/s9/);
     expect(() => roadmap().removeStandingInstruction("s9")).toThrow(/s9/);
+  });
+});
+
+describe("hard rules", () => {
+  const roadmap = () => {
+    const r = parseRoadmap("# Roadmap\n\n## Goals\n");
+    r.addStandingInstruction("Ask before pushing");
+    r.addStandingInstruction("Never commit secrets", true);
+    return r;
+  };
+
+  it("writes the flag as a `hard: yes` line under the rule, and reads it back", () => {
+    const r = roadmap();
+    expect(r.toString()).toContain("## Standing Instructions\n\n- Ask before pushing ^s1\n- Never commit secrets ^s2\n  - hard: yes\n");
+    expect(parseRoadmap(r.toString()).standingInstructions.map((s) => [s.id, s.hard])).toEqual([
+      ["s1", false],
+      ["s2", true],
+    ]);
+  });
+
+  it("reads `hard: true` and ignores any other value, as an ordinary rule", () => {
+    const r = parseRoadmap("## Standing Instructions\n- A ^s1\n  - hard: true\n- B ^s2\n  - hard: no\n- C ^s3\n  - hard: maybe\n");
+    expect(r.standingInstructions.map((s) => s.hard)).toEqual([true, false, false]);
+  });
+
+  it("changes the flag without touching the text, and the text without touching the flag", () => {
+    const r = roadmap();
+    r.setStandingInstruction("s1", { hard: true });
+    r.setStandingInstruction("s2", { text: "Never commit API keys" });
+    expect(r.standingInstructions.map((s) => [s.text, s.hard])).toEqual([
+      ["Ask before pushing", true],
+      ["Never commit API keys", true],
+    ]);
+    r.setStandingInstruction("s2", { hard: false });
+    expect(r.standingInstructions[1]!.hard).toBe(false);
+    expect(r.toString()).toMatch(/- Never commit API keys \^s2\n$/);
+  });
+
+  it("lists hard rules first, each group in its own order", () => {
+    const r = roadmap();
+    r.addStandingInstruction("Write tests first");
+    r.addStandingInstruction("Never force-push", true);
+    expect(hardFirst(r.standingInstructions).map((s) => s.id)).toEqual(["s2", "s4", "s1", "s3"]);
   });
 });

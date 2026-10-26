@@ -21,6 +21,7 @@ Your AI keeps a little more in the plan than a list of ticks, so that you can se
 - **Waiting on you.** If a step needs you, for example to try something out by hand, your AI marks it **Waiting on you** and tells you in the chat. The dashboard shows the goal in amber until you've done it, so you don't have to hunt for what's holding things up. When you're done, tell your AI and it carries on.
 - **Decisions.** When a choice is made that's worth remembering (*"Sessions end after 30 minutes"*), your AI records it under the goal, so a later conversation doesn't reopen it.
 - **Notes.** When your AI spots something along the way, such as a bug in a part it isn't working on, it adds a note to the goal that it belongs to and carries on with what it was doing. The note says where it was found, and your AI crosses it off when it's dealt with.
+- **Moving a step.** If a step turns out to belong to another goal, your AI moves it there: it keeps its title, details and progress, and the old goal shows it as cancelled, with where it went.
 - **Several goals at once.** One conversation can work on more than one goal at the same time, for instance while a helper builds one and you try out another. The dashboard shows each goal's own status.
 
 All of it shows on the dashboard: see [the dashboard](dashboard.md). It's read-only there; to change something, tell your AI.
@@ -60,6 +61,8 @@ You can use your own words for all of this:
 ## Rules your AI keeps
 
 When you tell your AI how you always want something done, such as *"always ask me before adding a new library"*, it saves that as a lasting rule in the plan. Every new conversation starts with your rules, so you don't have to repeat yourself. To change or drop one, just say so: *"You don't need to ask about libraries any more."*
+
+Some rules matter more than others. If you say a rule must never be broken (*"never touch the billing code, no exceptions"*), your AI saves it as a **must** rule. It lists those first, tells its helpers about them too, and the dashboard marks them with a **Must** label. Anything you say more casually stays an ordinary rule, a preference.
 
 ## Important context
 

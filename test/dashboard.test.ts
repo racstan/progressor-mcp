@@ -315,6 +315,124 @@ describe("who serves the dashboard", () => {
     expect(d.role).toBe("serving");
     expect(d.url).toBe(`http://localhost:${port + 1}/?project=${entry(agent).id}`);
   });
+
+  /** A stand-in for another Progressor's hub that answers /api/info, and can be asked to step down. */
+  async function fakeHub(port: number, info: Record<string, unknown>) {
+    const asked: Record<string, string | undefined>[] = [];
+    const http = createHttpServer((req, res) => {
+      if (req.method === "POST" && req.url === "/api/hub/step-down") {
+        asked.push({ progressor: req.headers["x-progressor"] as string, hub: req.headers["x-progressor-hub"] as string });
+        res.writeHead(202).end("{}");
+        http.closeAllConnections();
+        http.close();
+        return;
+      }
+      res.end(JSON.stringify({ app: "progressor", version: "0.1.0", pid: 4242, ...info }));
+    });
+    await new Promise<void>((done) => http.listen(port, "127.0.0.1", done));
+    closers.push(() => {
+      http.closeAllConnections();
+      http.close();
+    });
+    return { http, asked };
+  }
+
+  it("shares a hub from a newer Progressor rather than moving to another port", async () => {
+    const port = freePort();
+    await fakeHub(port, { hub: 99 });
+    const d = await start(agent, { port });
+    expect(d.role).toBe("shared");
+    expect(d.url).toBe(`http://localhost:${port}/?project=${entry(agent).id}`);
+    expect(d.notice).toBeUndefined();
+  });
+
+  it("asks an older hub that can step down to hand the port over, and serves it", async () => {
+    const port = freePort();
+    const old = await fakeHub(port, { hub: 1, stepDown: true });
+    const d = await start(agent, { port });
+    expect(old.asked).toEqual([{ progressor: "step-down", hub: expect.stringMatching(/^\d+$/) }]);
+    expect(d.role).toBe("serving");
+    expect(d.url).toBe(`http://localhost:${port}/?project=${entry(agent).id}`);
+  });
+
+  it("moves to the next port past an older hub that cannot step down, and says why", async () => {
+    const port = freePort();
+    await fakeHub(port, { hub: 1, version: "0.5.0" });
+    const d = await start(agent, { port });
+    expect(d.role).toBe("serving");
+    expect(new URL(d.url).port).toBe(String(port + 1));
+    expect(d.notice).toMatch(new RegExp(`${port}.*older Progressor \\(0\\.5\\.0, process 4242\\)`));
+  });
+
+  it("moves back to the first port once the older hub there has gone", async () => {
+    const port = freePort();
+    const old = await fakeHub(port, { hub: 1 });
+    const d = await start(agent, { port });
+    expect(new URL(d.url).port).toBe(String(port + 1));
+    old.http.closeAllConnections();
+    await new Promise<void>((done) => old.http.close(() => done()));
+    await d.refresh();
+    expect(d.role).toBe("serving");
+    expect(d.url).toBe(`http://localhost:${port}/?project=${entry(agent).id}`);
+    expect(d.notice).toBeUndefined();
+    expect((await get(d, "/api/projects")).status).toBe(200);
+  });
+
+  it("stops serving on another port and shares the hub on the first port when one is there again", async () => {
+    const port = freePort();
+    const old = await fakeHub(port, { hub: 1 });
+    const d = await start(agent, { port });
+    old.http.closeAllConnections();
+    await new Promise<void>((done) => old.http.close(() => done()));
+    const hub = await start(billing, { port });
+    expect(hub.role).toBe("serving");
+    await d.refresh();
+    expect(d.role).toBe("shared");
+    expect(d.url).toBe(`http://localhost:${port}/?project=${entry(agent).id}`);
+    const { body } = await get(hub, "/api/projects");
+    expect(body.map((p: ProjectEntry) => p.id)).toContain(entry(agent).id);
+  });
+
+  it("steps down when a newer Progressor asks, then shares that newer hub", async () => {
+    const port = freePort();
+    const d = await start(agent, { port });
+    expect((await get(d, "/api/info")).body.stepDown).toBe(true);
+    const res = await fetch(`http://127.0.0.1:${port}/api/hub/step-down`, {
+      method: "POST",
+      headers: { "x-progressor": "step-down", "x-progressor-hub": "99" },
+    });
+    expect(res.status).toBe(202);
+    const end = Date.now() + 2000;
+    while (d.role !== "shared" && Date.now() < end) await new Promise((r) => setTimeout(r, 10));
+    expect(d.role).toBe("shared");
+    // the newer one takes the port; the old one keeps pointing there instead of opening another
+    await fakeHub(port, { hub: 99 });
+    await d.refresh();
+    expect(d.role).toBe("shared");
+    expect(new URL(d.url).port).toBe(String(port));
+  });
+
+  it("takes the port back after stepping down if the newer hub never came", async () => {
+    const port = freePort();
+    const d = await start(agent, { port });
+    await fetch(`http://127.0.0.1:${port}/api/hub/step-down`, { method: "POST", headers: { "x-progressor": "step-down", "x-progressor-hub": "99" } });
+    const end = Date.now() + 2000;
+    while (d.role !== "shared" && Date.now() < end) await new Promise((r) => setTimeout(r, 10));
+    await d.refresh();
+    expect(d.role).toBe("serving");
+    expect(new URL(d.url).port).toBe(String(port));
+  });
+
+  it("does not step down for the same or an older version, or for a web page", async () => {
+    const port = freePort();
+    const d = await start(agent, { port });
+    const ask = (headers: Record<string, string>) => fetch(`http://127.0.0.1:${port}/api/hub/step-down`, { method: "POST", headers });
+    expect((await ask({ "x-progressor": "step-down", "x-progressor-hub": "1" })).status).toBe(409);
+    expect((await ask({ "x-progressor-hub": "99" })).status).toBe(403);
+    expect((await ask({ "x-progressor": "step-down", "x-progressor-hub": "99", origin: "https://evil.example" })).status).toBe(403);
+    expect(d.role).toBe("serving");
+    expect((await get(d, "/api/projects")).status).toBe(200);
+  });
 });
 
 describe("running servers", () => {
@@ -351,6 +469,15 @@ describe("running servers", () => {
       serving: true,
     });
     expect(byPid[process.ppid]).toMatchObject({ project: entry(billing).id, goal: { title: "Billing page" }, serving: false });
+  });
+
+  it("shows a Goal's chat as stopped when its process now runs another Session: the pid was reused", async () => {
+    announced.push(
+      announceServer({ kind: "session", root: billing.root, session: "s-other" }, { dir: serversDir(), pid: process.pid, version: "9.9.9", onStop: () => {} }),
+    );
+    const d = await start(agent);
+    const { body } = await get(d, `/api/projects/${entry(agent).id}/roadmap`);
+    expect(body.sessions).toEqual([{ session: "s-a", pid: process.pid, goal: "ship-oauth-login", running: false }]);
   });
 
   it("lists every Goal a Session holds, since a chat can work on several at once", async () => {

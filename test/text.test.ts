@@ -46,6 +46,10 @@ describe("plainText", () => {
     expect(plainText("`progressor-mcp hook <event>` reads stdin")).toBe("progressor-mcp hook <event> reads stdin");
   });
 
+  it("leaves out refs in brackets, which only the AI needs", () => {
+    expect(plainText('Moved to the goal "Voice" (progressor://voice/t3)')).toBe('Moved to the goal "Voice"');
+  });
+
   it("keeps unmatched backticks", () => {
     expect(plainText("a ` stray")).toBe("a ` stray");
   });
