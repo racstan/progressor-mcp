@@ -99,7 +99,33 @@ export type GoalStatus = {
   waitingOnYou?: boolean;
   /** How many of its steps are with a helper. */
   helpers?: number;
+  /** The latest change an AI chat in another project made to the Goal, if any. */
+  fromElsewhere?: FromElsewhere;
 };
+
+/** Where and when something was changed from another project (an `updated from` line). */
+export type FromElsewhere = { project: string; at?: string };
+
+/**
+ * The tag on a goal, step, decision or note an AI chat in another project changed, such as
+ * "Updated from rachitkdeaichat", with its hover. Undefined when it was not changed from elsewhere.
+ */
+export function elsewhereTag(origin: FromElsewhere | undefined, now = Date.now()): { label: string; hint: string } | undefined {
+  if (!origin) return undefined;
+  const at = origin.at ? Date.parse(origin.at) : NaN;
+  return {
+    label: `Updated from ${origin.project}`,
+    hint: `This was changed by an AI chat working in another project, ${origin.project}${Number.isNaN(at) ? "" : `, ${ago(at, now)}`}. Your AI in this project is told about it.`,
+  };
+}
+
+/** Whether a Goal's latest change came from another project: no change of its own is newer. */
+export function lastChangeFromElsewhere(goal: Pick<GoalStatus, "fromElsewhere" | "updatedAt">): boolean {
+  const at = goal.fromElsewhere?.at ? Date.parse(goal.fromElsewhere.at) : NaN;
+  if (!goal.fromElsewhere || Number.isNaN(at)) return false;
+  // The file is written just after the time in it is taken.
+  return goal.updatedAt === undefined || at >= goal.updatedAt - 2000;
+}
 
 /**
  * What the AI is doing about a Goal. `running` says whether the chat working on it is still open
@@ -155,11 +181,13 @@ export function statusLine(goal: GoalStatus, statuses: readonly string[], now = 
   const { state, label } = goalState({ ...goal, helpers }, now);
   const { step, of } = stepOf(statuses);
   const when = goal.updatedAt === undefined ? undefined : ago(goal.updatedAt, now);
-  if (state === "cancelled") return label;
-  if (state === "planned") return `${label} · ${steps(of)}`;
-  if (state === "finished") return `${label}${when ? ` ${when}` : ""} · ${steps(of)}`;
+  // "updated from rachitkdeaichat" while the latest change came from an AI chat in another project.
+  const elsewhere = lastChangeFromElsewhere(goal) ? ` · updated from ${goal.fromElsewhere!.project}` : "";
+  if (state === "cancelled") return `${label}${elsewhere}`;
+  if (state === "planned") return `${label} · ${steps(of)}${elsewhere}`;
+  if (state === "finished") return `${label}${when ? ` ${when}` : ""} · ${steps(of)}${elsewhere}`;
   const where = label === "Helpers working" ? `${helpers} of ${of} ${of === 1 ? "step" : "steps"} with ${helpers === 1 ? "a helper" : "helpers"}` : of ? `step ${step} of ${of}` : "no steps yet";
-  return [label, where, when && `last update ${when}`].filter(Boolean).join(" · ");
+  return [label, where, when && `last update ${when}`].filter(Boolean).join(" · ") + elsewhere;
 }
 
 /** The steps in the states that need a person's eye, as "1 waiting on you · 2 with a helper". Empty when none. */

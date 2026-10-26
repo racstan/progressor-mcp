@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod";
 import type { Dashboard } from "./dashboard/http.js";
+import { projectEntry } from "./dashboard/registry.js";
+import { resolveProject, sameFolder, seenFile, takeElsewhereLine } from "./elsewhere.js";
 import { launchFor, startedViaNpx } from "./init.js";
+import { withLock } from "./lock.js";
 import type { Decision, Detour, Note, Task, TaskStatus } from "./planFile.js";
 import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, type Project, type SessionStatus, type Status } from "./project.js";
 import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
@@ -23,7 +26,8 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 7. When the Developer gives a lasting rule ("always...", "never..."), save it with add_standing_instruction; change or remove one with update_standing_instruction. A rule that must never be broken (the Developer says "never", "under no circumstances", "this is a hard rule") is saved with hard: true; get_status lists those first as HARD RULE.
 8. Keep lasting background about the project on its Important context page with update_context: what the project is, key facts, where things live, choices that hold for the whole project. get_status shows it; keep it short and true.
 9. Record a choice made along the way that is not a lasting project rule (such as "old models get thinking on/off only") with add_decision, so it survives context compression. When you spot something that belongs to a Goal, this one or another (a bug found during cleanup that belongs to the Voice Goal), add_note on that Goal instead of fixing it now; once it is dealt with, resolve it with update_note.
-10. When you brief a helper agent, call get_rules and paste its block into the brief: helpers don't see the Standing Instructions, and the hard rules apply to them too.`;
+10. When you brief a helper agent, call get_rules and paste its block into the brief: helpers don't see the Standing Instructions, and the hard rules apply to them too.
+11. Work you do here that belongs to another project using Progressor (releasing it, say) goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it. Those changes are marked as made from this project, and a Goal an AI chat there is working on can only get a note.`;
 
 const taskInput = z.object({
   title: z.string().min(1).describe("A short title for the Task, a few words, such as 'Fix callback redirect loop'."),
@@ -40,6 +44,13 @@ const newTaskInput = taskInput.extend({
 });
 
 const goalId = z.string().describe("The Goal ID, such as 'ship-oauth-login'.");
+/** Another project's plan to act on instead of this one's. */
+const otherProject = z
+  .string()
+  .optional()
+  .describe(
+    "Another project's plan to use instead of this one's: its name or ID on the dashboard, or its folder's full path. Changes there are marked as made from this project. Leave out for this project.",
+  );
 /** The claimed Goal a tool acts on; only needed while the Session holds several. */
 const heldGoal = z
   .string()
@@ -272,6 +283,30 @@ function respond(body: () => string) {
 export interface ServerOptions {
   /** The dashboard, so get_status can say where the Developer can open it; its url may come later. */
   dashboard?: { readonly url: string | undefined; readonly notice?: string | undefined; refresh(): Promise<void> };
+  /** The project registry, for finding other projects; `~/.progressor/projects.json` unless set. */
+  registryFile?: string;
+}
+
+/** Another project's plan, as get_status shows it when given project: read-only, for changing it from here. */
+export function formatOtherProject(other: Project, name: string): string {
+  const roadmap = other.roadmap();
+  const lines = roadmap.goals.map((g) => {
+    if (other.heldElsewhere(g)) return `- ${g.id}: ${g.title} (${g.status}; an AI chat in that project is working on it, so only add_note can change it)`;
+    if (g.status === "done" || g.status === "dropped") return goalLine(g);
+    let tasks: Task[] = [];
+    try {
+      tasks = other.plan(g.id).tasks.filter((t) => t.status !== "dropped");
+    } catch {
+      // a Goal whose Plan File cannot be read still shows
+    }
+    return [goalLine(g), ...(tasks.length > 0 ? [`  Tasks: ${tasks.map((t) => `${taskLine(t)} (${t.status})`).join("; ")}`] : [])].join("\n");
+  });
+  const rules = hardFirst(roadmap.standingInstructions);
+  return [
+    `Project ${name} (${other.root}): another project's plan, seen from ${other.from}. Changes you make to it are marked as made from ${other.from}.`,
+    ...(lines.length > 0 ? ["Goals:", ...lines] : ["Its Roadmap has no Goals yet."]),
+    ...(rules.length > 0 ? ["Its Standing Instructions (they apply to work on it):", ...rules.map((r) => `- ${ruleText(r)}`)] : []),
+  ].join("\n");
 }
 
 /**
@@ -294,27 +329,47 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   // Apps without Claude Code's hooks never hand the Agent the plan between calls, so results that
   // don't show the whole status end with where the work stands.
   const withNow = (text: string) => `${text}\n${nowLine(project.sessionStatus())}`;
-  const { dashboard } = options;
+  const { dashboard, registryFile } = options;
+  // The plan a tool acts on: this project's, or with `project` another one's, changed from here.
+  const planOf = (wanted: string | undefined): Project => {
+    if (!wanted?.trim()) return project;
+    const target = resolveProject(wanted, { registryFile });
+    return sameFolder(target.root, project.root) ? project : project.elsewhere(target.root, projectEntry(project.root).name);
+  };
+  // Every tool holds the plan it acts on while it reads and rewrites it (lock.ts).
+  const respondIn = (wanted: string | undefined, body: (p: Project) => string) =>
+    respond(() => {
+      const p = planOf(wanted);
+      return withLock(p.root, () => body(p));
+    });
+  const nameOf = (p: Project) => projectEntry(p.root).name;
+  // What a change to another project's plan answers with, instead of where this project's work stands.
+  const doneIn = (p: Project, text: string) =>
+    p === project ? withNow(text) : `${text}\nThat was in project ${nameOf(p)}; it is marked there as updated from ${p.from}.`;
 
   server.registerTool(
     "get_status",
     {
       title: "Get status",
       description:
-        "Compact summary of every Goal this Session holds (current Task, open Detour, Tasks with a helper or waiting on the Developer, next Task, decisions and open notes) and the Developer's Standing Instructions. Call it at the start of every conversation and after context compression.",
+        "Compact summary of every Goal this Session holds (current Task, open Detour, Tasks with a helper or waiting on the Developer, next Task, decisions and open notes) and the Developer's Standing Instructions. Call it at the start of every conversation and after context compression. With project, another project's Goals and Tasks instead, to change them from here.",
+      inputSchema: { project: otherProject },
       annotations: { readOnlyHint: true },
     },
-    async () => {
+    async ({ project: wanted }) => {
       // The Session serving the dashboard may have ended; if so, this one takes over.
       await dashboard?.refresh().catch(() => undefined);
-      return respond(() =>
-        [
+      return respondIn(wanted, (p) => {
+        if (p !== project) return formatOtherProject(p, nameOf(p));
+        const elsewhere = takeElsewhereLine(project, seenFile(registryFile));
+        return [
           status(),
+          ...(elsewhere ? [elsewhere] : []),
           `Project folder: ${project.root}`,
           ...(dashboard?.url ? [`Dashboard: ${dashboard.url}`] : []),
           ...(dashboard?.url && dashboard.notice ? [`Dashboard note: ${dashboard.notice}`] : []),
-        ].join("\n"),
-      );
+        ].join("\n");
+      });
     },
   );
 
@@ -327,7 +382,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       inputSchema: { ref: z.string().describe("A ref such as progressor://login/t2 or progressor://roadmap/i1.") },
       annotations: { readOnlyHint: true },
     },
-    ({ ref }) => respond(() => formatItem(project.getItem(ref))),
+    ({ ref }) => respondIn(undefined, () => formatItem(project.getItem(ref))),
   );
 
   server.registerTool(
@@ -338,7 +393,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         "The project's Standing Instructions as a block to paste into the brief of a helper agent you start, hard rules first. Helpers don't see the Standing Instructions, so include this block whenever you brief one.",
       annotations: { readOnlyHint: true },
     },
-    () => respond(() => formatRules(project.roadmap().standingInstructions)),
+    () => respondIn(undefined, () => formatRules(project.roadmap().standingInstructions)),
   );
 
   server.registerTool(
@@ -358,12 +413,17 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         allow_duplicate: z.boolean().optional().describe("Add the Goal even though another Goal has the same title."),
         done: z.boolean().optional().describe("Record a Goal that is already finished. Every Task must then have done: true."),
         claim: z.boolean().optional().describe("Claim the new Goal straight away, to start working on it."),
+        project: otherProject,
       },
     },
-    ({ title, id, outcome, tasks, allow_duplicate, done, claim }) =>
-      respond(() => {
-        const goal = project.addGoal(title, tasks ?? [], { id, outcome, allowDuplicate: allow_duplicate, done });
+    ({ title, id, outcome, tasks, allow_duplicate, done, claim, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        if (p !== project && claim)
+          throw new Error("A Goal added to another project's plan cannot be claimed from here; leave out claim (or record finished work with done).");
+        const goal = p.addGoal(title, tasks ?? [], { id, outcome, allowDuplicate: allow_duplicate, done });
         const n = tasks?.length ?? 0;
+        if (p !== project)
+          return doneIn(p, done ? `Recorded finished Goal ${goal.id} (${goal.ref}) with ${n} done Tasks.` : `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks.`);
         if (done) return `Recorded finished Goal ${goal.id} (${goal.ref}) with ${n} done Tasks.`;
         if (claim) {
           project.claimGoal(goal.id);
@@ -383,12 +443,14 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         goal: goalId,
         title: z.string().min(1).optional().describe("The new title."),
         outcome: outcome.optional().describe("The new Outcome; an empty string removes it."),
+        project: otherProject,
       },
     },
-    ({ goal, title, outcome }) =>
-      respond(() => {
-        const g = project.updateGoal(goal, { title, outcome });
-        return formatItem(project.getItem(g.ref));
+    ({ goal, title, outcome, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        const g = p.updateGoal(goal, { title, outcome });
+        const item = formatItem(p.getItem(g.ref));
+        return p === project ? item : doneIn(p, item);
       }),
   );
 
@@ -405,7 +467,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       },
     },
     ({ goal, before, after }) =>
-      respond(() => ["Goals in order:", ...project.moveGoal(goal, { before, after }).map(goalLine)].join("\n")),
+      respondIn(undefined, () => ["Goals in order:", ...project.moveGoal(goal, { before, after }).map(goalLine)].join("\n")),
   );
 
   server.registerTool(
@@ -417,7 +479,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       inputSchema: { goal: goalId, reason: z.string().min(1).describe("Why the Goal will not be done.") },
     },
     ({ goal, reason }) =>
-      respond(() => {
+      respondIn(undefined, () => {
         const g = project.dropGoal(goal, reason);
         return `Dropped Goal ${g.id}: ${g.reason}`;
       }),
@@ -438,7 +500,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       },
     },
     ({ goal, takeover }) =>
-      respond(() => {
+      respondIn(undefined, () => {
         project.claimGoal(goal, { takeover });
         return status();
       }),
@@ -452,7 +514,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       inputSchema: { goal: heldGoal },
     },
     ({ goal: id }) =>
-      respond(() => {
+      respondIn(undefined, () => {
         const goal = project.releaseGoal(id);
         return goal ? `Released Goal ${goal.id}; it is now paused.` : "This Session had no Goal to release.";
       }),
@@ -464,10 +526,11 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       title: "Complete Goal",
       description:
         "Mark the claimed Goal done and release it, once its Outcome is true and its Tasks are done, released or dropped (not with a helper, waiting on the Developer or only checked). If more work turns up later, claim_goal reopens it.",
-      inputSchema: { goal: heldGoal },
+      inputSchema: { goal: heldGoal, project: otherProject },
     },
-    ({ goal: id }) =>
-      respond(() => {
+    ({ goal: id, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        if (p !== project) return doneIn(p, `Goal ${p.completeGoal(id).id} is done.`);
         const goal = project.completeGoal(id);
         return `Goal ${goal.id} is done. Tell the Developer in one plain sentence that "${goal.title}" is finished${dashboard?.url ? `, and that they can see it at ${dashboard.url}` : ""}.`;
       }),
@@ -479,12 +542,12 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       title: "Add Tasks",
       description:
         "Append Tasks to the claimed Goal's plan. For work that is not part of the plan, declare a Detour instead. Set done on a Task that is already finished.",
-      inputSchema: { goal: heldGoal, tasks: z.array(newTaskInput).min(1) },
+      inputSchema: { goal: heldGoal, tasks: z.array(newTaskInput).min(1), project: otherProject },
     },
-    ({ goal, tasks }) =>
-      respond(() => {
-        const added = project.addTasks(tasks, goal);
-        return withNow(`Added: ${added.map(taskLine).join("; ")}`);
+    ({ goal, tasks, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        const added = p.addTasks(tasks, goal);
+        return doneIn(p, `Added: ${added.map(taskLine).join("; ")}`);
       }),
   );
 
@@ -497,7 +560,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       inputSchema: { goal: heldGoal, task: taskId },
     },
     ({ goal, task }) =>
-      respond(() => {
+      respondIn(undefined, () => {
         project.startTask(task, goal);
         return status();
       }),
@@ -509,12 +572,12 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       title: "Set Task state",
       description:
         "Set a Task's state. 'with a helper': handed to a helper agent that is working on it (several Tasks can be). 'waiting on you': you are waiting on the Developer, such as for them to test something by hand; the dashboard shows the Goal as waiting on them, so tell them what you need. 'checked': you checked a helper's work (tests, review) but it is not merged or released yet. 'released': merged and out (shipped, installed or published); counts as done. 'pending', 'in progress' and 'done' work too (in progress follows start_task's one-at-a-time rule). Set a state as soon as it changes, such as 'checked' right after you check a helper's work, so the Developer's dashboard keeps moving. To drop a Task, use drop_task.",
-      inputSchema: { goal: heldGoal, task: taskId, state: z.enum(states) },
+      inputSchema: { goal: heldGoal, task: taskId, state: z.enum(states), project: otherProject },
     },
-    ({ goal, task, state }) =>
-      respond(() => {
-        const t = project.setTaskState(task, state, goal);
-        return withNow(`Task ${taskLine(t)} is now ${t.status}.`);
+    ({ goal, task, state, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        const t = p.setTaskState(task, state, goal);
+        return doneIn(p, `Task ${taskLine(t)} is now ${t.status}.`);
       }),
   );
 
@@ -533,13 +596,13 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       title: "Update Tasks",
       description:
         "Change several Tasks in one call, such as completing two and starting the next, instead of one call each. The operations are applied in order, so a start can follow the complete of the Task that was in progress; if any one fails, none is applied. Each operation can name its own claimed Goal with goal, else the call's goal (or the only Goal held) is used. Answers with one line per call, not the whole status.",
-      inputSchema: { goal: heldGoal, operations: z.array(operation).min(1).max(25) },
+      inputSchema: { goal: heldGoal, operations: z.array(operation).min(1).max(25), project: otherProject },
     },
-    ({ goal, operations }) =>
-      respond(() => {
-        const held = project.claimedGoals().length > 1;
-        const changed = project.updateTasks(operations, goal);
-        return withNow(`Updated: ${changed.map((c) => `${held ? `${c.goal}/` : ""}${taskLine(c.task)} is ${c.task.status}`).join("; ")}.`);
+    ({ goal, operations, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        const held = p !== project || project.claimedGoals().length > 1;
+        const changed = p.updateTasks(operations, goal);
+        return doneIn(p, `Updated: ${changed.map((c) => `${held ? `${c.goal}/` : ""}${taskLine(c.task)} is ${c.task.status}`).join("; ")}.`);
       }),
   );
 
@@ -558,7 +621,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       },
     },
     ({ goal, task, to_goal, before, after }) =>
-      respond(() => {
+      respondIn(undefined, () => {
         const from = goal ?? project.claimedGoal()?.id;
         const moved = project.moveTask(task, to_goal, { before, after }, goal);
         return withNow(
@@ -578,11 +641,13 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         task: taskId,
         code: z.array(z.string()).optional().describe("Files the Task touched, optionally with :line; added to the ones it has."),
         summary: taskInput.shape.summary,
+        project: otherProject,
       },
     },
-    ({ goal, task, code, summary }) =>
-      respond(() => {
-        project.completeTask(task, code ?? [], summary, goal);
+    ({ goal, task, code, summary, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        const t = p.completeTask(task, code ?? [], summary, goal);
+        if (p !== project) return doneIn(p, `Task ${taskLine(t)} is now ${t.status}.`);
         return status();
       }),
   );
@@ -599,12 +664,14 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         title: taskInput.shape.title.optional(),
         summary: taskInput.shape.summary,
         code: z.array(z.string()).optional().describe("The Task's files, optionally with :line; replaces the ones it has."),
+        project: otherProject,
       },
     },
-    ({ goal, task, title, summary, code }) =>
-      respond(() => {
-        const t = project.updateTask(task, { title, summary, code }, goal);
-        return formatItem(project.getItem(t.ref!));
+    ({ goal, task, title, summary, code, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        const t = p.updateTask(task, { title, summary, code }, goal);
+        const item = formatItem(p.getItem(t.ref!));
+        return p === project ? item : doneIn(p, item);
       }),
   );
 
@@ -621,7 +688,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       },
     },
     ({ goal, task, reason }) =>
-      respond(() => {
+      respondIn(undefined, () => {
         project.dropTask(task, reason, goal);
         return status();
       }),
@@ -640,7 +707,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       },
     },
     ({ goal, title, reason }) =>
-      respond(() => {
+      respondIn(undefined, () => {
         const d = project.startDetour(title, reason, goal);
         return withNow(`Started ${formatDetour(d)}. End it with end_detour when done.`);
       }),
@@ -660,7 +727,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       },
     },
     ({ goal, ending, tasks }) =>
-      respond(() => {
+      respondIn(undefined, () => {
         const { detour, added, dropped } = project.endDetour(ending, tasks ?? [], goal);
         return [
           `Ended ${formatDetour(detour)}`,
@@ -678,12 +745,12 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       title: "Add decision",
       description:
         "Record a choice made for a claimed Goal along the way, such as 'old models get thinking on/off only', so it survives context compression; get_status shows it. Not for lasting project rules (add_standing_instruction) or project-wide background (update_context).",
-      inputSchema: { goal: heldGoal, text: z.string().min(1).describe("The decision, in one line.") },
+      inputSchema: { goal: heldGoal, text: z.string().min(1).describe("The decision, in one line."), project: otherProject },
     },
-    ({ goal, text }) =>
-      respond(() => {
-        const d = project.addDecision(text, goal);
-        return withNow(`Saved decision ${d.id} in Goal ${goal ?? project.claimedGoal()?.id}: ${d.text}`);
+    ({ goal, text, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        const d = p.addDecision(text, goal);
+        return doneIn(p, `Saved decision ${d.id} in Goal ${goal ?? project.claimedGoal()?.id}: ${d.text}`);
       }),
   );
 
@@ -699,7 +766,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       },
     },
     ({ goal, id, text }) =>
-      respond(() => {
+      respondIn(undefined, () => {
         const d = project.updateDecision(id, text, goal);
         return d ? `Changed decision ${d.id}: ${d.text}` : `Removed decision ${id}.`;
       }),
@@ -711,12 +778,16 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       title: "Add note",
       description:
         "Note something you spotted that belongs to a Goal, such as a bug found during cleanup that belongs to the Voice Goal, instead of dealing with it now. Any Goal on the Roadmap that is not dropped, claimed or not. get_status shows the open notes of the Goals this Session holds.",
-      inputSchema: { goal: goalId.describe("The ID of the Goal the note belongs to."), text: z.string().min(1).describe("What you spotted, in one line.") },
+      inputSchema: {
+        goal: goalId.describe("The ID of the Goal the note belongs to."),
+        text: z.string().min(1).describe("What you spotted, in one line."),
+        project: otherProject,
+      },
     },
-    ({ goal, text }) =>
-      respond(() => {
-        const n = project.addNote(goal, text);
-        return withNow(`Saved note ${n.id} in Goal ${goal}: ${n.text}`);
+    ({ goal, text, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        const n = p.addNote(goal, text);
+        return doneIn(p, `Saved note ${n.id} in Goal ${goal}: ${n.text}`);
       }),
   );
 
@@ -731,13 +802,14 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         id: z.string().describe("The note ID, such as 'n2'."),
         text: z.string().optional().describe("The new wording; empty to remove the note."),
         resolved: z.boolean().optional().describe("true once the note is dealt with; false to reopen it."),
+        project: otherProject,
       },
     },
-    ({ goal, id, text, resolved }) =>
-      respond(() => {
-        const n = project.updateNote(goal, id, { text, resolved });
-        if (!n) return `Removed note ${id}.`;
-        return `${resolved === true ? "Resolved" : resolved === false ? "Reopened" : "Changed"} note ${n.id}: ${n.text}`;
+    ({ goal, id, text, resolved, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        const n = p.updateNote(goal, id, { text, resolved });
+        const said = n ? `${resolved === true ? "Resolved" : resolved === false ? "Reopened" : "Changed"} note ${n.id}: ${n.text}` : `Removed note ${id}.`;
+        return p === project ? said : doneIn(p, said);
       }),
   );
 
@@ -753,7 +825,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       },
     },
     ({ text, hard }) =>
-      respond(() => {
+      respondIn(undefined, () => {
         const s = project.addStandingInstruction(text, hard);
         return withNow(`Saved ${s.hard ? "HARD RULE" : "Standing Instruction"} ${s.id}: ${s.text}`);
       }),
@@ -772,7 +844,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       },
     },
     ({ id, text, hard }) =>
-      respond(() => {
+      respondIn(undefined, () => {
         const s = project.updateStandingInstruction(id, { text, hard });
         return s ? `Changed ${s.hard ? "HARD RULE" : "Standing Instruction"} ${s.id}: ${s.text}` : `Removed Standing Instruction ${id}.`;
       }),
@@ -789,7 +861,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       inputSchema: { text: z.string().describe("The whole Important context, in plain words; short paragraphs or a list.") },
     },
     ({ text }) =>
-      respond(() => {
+      respondIn(undefined, () => {
         const context = project.setContext(text);
         return context
           ? `Saved the Important context (${context.length} of ${MAX_CONTEXT_LENGTH} characters).`

@@ -7,6 +7,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
+import { type Origin, latestOrigin } from "../origin.js";
 import type { Decision, Note, TaskStatus } from "../planFile.js";
 import { PROGRESSOR_DIR, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
@@ -101,8 +102,12 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
       released: 0,
       dropped: 0,
     };
+    // The latest change an AI chat in another project made to the Goal, its Tasks, decisions or notes.
+    let fromElsewhere: Origin | undefined = goal.updatedFrom;
     try {
-      for (const t of project.plan(goalId).tasks) counts[t.status]++;
+      const plan = project.plan(goalId);
+      for (const t of plan.tasks) counts[t.status]++;
+      fromElsewhere = latestOrigin([goal.updatedFrom, ...[...plan.tasks, ...plan.decisions, ...plan.notes].map((i) => i.updatedFrom)]);
       done = counts.done + counts.released;
       total = Object.values(counts).reduce((a, b) => a + b, 0) - counts.dropped;
     } catch {
@@ -119,7 +124,7 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
     const planFile = project.planFilePath(goalId);
     // A Goal with a Task waiting on the Developer is waiting on them, rather than being worked on.
     const waitingOnYou = counts["waiting on you"] > 0;
-    return { ...goal, planFile, done, total, counts, waitingOnYou, updatedAt: changed(planFile) ?? changed(roadmapFile) };
+    return { ...goal, planFile, done, total, counts, waitingOnYou, updatedAt: changed(planFile) ?? changed(roadmapFile), fromElsewhere };
   };
   return {
     roadmap: () => {

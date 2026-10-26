@@ -1,3 +1,4 @@
+import type { Origin } from "../origin.js";
 import type { Detour, DetourStatus, Task, TaskStatus } from "../planFile.js";
 
 interface NodeBase {
@@ -24,6 +25,8 @@ export interface TaskNode extends NodeBase {
   reason: string | undefined;
   /** Added to the end of the plan by a Detour's Return, rather than starting a new line. */
   fromDetour: boolean;
+  /** Set when the Task was last added or changed from another project. */
+  updatedFrom?: Origin;
 }
 
 export interface DetourNode extends NodeBase {
@@ -87,6 +90,7 @@ export function buildGoalGraph(plan: { tasks: Task[]; detours: Detour[] }): Goal
     droppedBy: t.droppedBy,
     reason: t.reason,
     fromDetour: endedBy(t.addedBy, "returned"),
+    ...(t.updatedFrom ? { updatedFrom: t.updatedFrom } : {}),
     step: 0,
     lane: 0,
   }));
