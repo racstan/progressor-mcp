@@ -37,7 +37,7 @@ claude mcp add --scope user progressor -- progressor-mcp
 
 Then type **/progressor:setup** in any project's chat: your AI adds the hooks, the notes and the empty plan to that folder for you. Use one way or the other, not both, or Claude Code starts two copies.
 
-**On Windows**, `init` writes the right command for you. If you add Progressor by hand, put `cmd /c` before the command: `claude mcp add --scope user progressor -- cmd /c progressor-mcp`.
+**On Windows**, `init` sets up the right command for you. `.mcp.json` gets the same command on every system, and Claude Code is told to start Progressor through `cmd /c` on your computer only, so a project set up on Windows still works on a Mac or Linux. If you add Progressor by hand, put `cmd /c` before the command: `claude mcp add --scope user progressor -- cmd /c progressor-mcp`.
 
 The Claude desktop app's **Code** tab is Claude Code, so all of this applies there too.
 

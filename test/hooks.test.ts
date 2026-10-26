@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { MAX_CONTEXT, promptReminder, runHook, sessionStatus } from "../src/hooks.js";
 import { Project } from "../src/project.js";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { tempDir } from "./tmp.js";
 
 let root: string;
@@ -134,8 +136,38 @@ describe("runHook", () => {
   const sessionStart = (source = "startup") =>
     JSON.stringify({ session_id: "abc", cwd: root, hook_event_name: "SessionStart", source });
   const prompt = () => JSON.stringify({ session_id: "abc", cwd: root, hook_event_name: "UserPromptSubmit", prompt: "carry on" });
-  const run = (event: string | undefined, input: string, env: Record<string, string | undefined> = {}) =>
-    runHook({ event, input, env, isAlive: (p) => alive.has(p) });
+  const run = (event: string | undefined, input: string, env: Record<string, string | undefined> = {}, canRun = (_: string) => true) =>
+    runHook({ event, input, env, isAlive: (p) => alive.has(p), canRun });
+  const mcp = (command: string) =>
+    writeFileSync(join(root, ".mcp.json"), JSON.stringify({ mcpServers: { progressor: { command, args: ["/c", "progressor-mcp"] } } }));
+  const noCmd = (command: string) => command !== "cmd";
+
+  it("warns at session start when .mcp.json starts Progressor with a command this computer doesn't have", () => {
+    oauthInProgress();
+    mcp("cmd");
+    const out = run("session-start", sessionStart(), {}, noCmd);
+    expect(out.split("\n")[0]).toBe(
+      '[Progressor] Warning: Claude Code can\'t start Progressor\'s MCP server in this folder: .mcp.json starts it with "cmd", which this computer doesn\'t have. Tell the Developer, and offer to run `progressor-mcp init` in this folder, which fixes it.',
+    );
+    expect(out).toContain("Current Task: t2 Fix callback redirect loop");
+    expect(run("prompt", prompt(), {}, noCmd)).not.toContain("Warning");
+  });
+
+  it("warns even when the project has no Goals yet", () => {
+    mkdirSync(join(root, ".progressor"));
+    mcp("cmd");
+    expect(run("session-start", sessionStart(), {}, noCmd)).toMatch(/^\[Progressor\] Warning: .*"cmd"/);
+  });
+
+  it("doesn't warn when the command is there, or when .mcp.json doesn't start Progressor", () => {
+    oauthInProgress();
+    mcp("progressor-mcp");
+    expect(run("session-start", sessionStart(), {}, noCmd)).not.toContain("Warning");
+    writeFileSync(join(root, ".mcp.json"), JSON.stringify({ mcpServers: { other: { command: "cmd" } } }));
+    expect(run("session-start", sessionStart(), {}, noCmd)).not.toContain("Warning");
+    writeFileSync(join(root, ".mcp.json"), "not json");
+    expect(run("session-start", sessionStart(), {}, noCmd)).toContain("Current Task: t2");
+  });
 
   it("prints the session status at startup and after compaction", () => {
     oauthInProgress();

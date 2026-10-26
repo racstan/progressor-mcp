@@ -20,7 +20,8 @@ Usually Node is too old, or the app can't find the `progressor-mcp` command.
 
 - **Node older than 22:** install the LTS version from [nodejs.org](https://nodejs.org), then restart the app.
 - **`progressor-mcp: command not found`:** npm's install folder isn't on your computer's search path. `npm prefix -g` prints that folder (on macOS and Linux, its `bin` folder); add it to your `PATH` and restart. Or, in the app's MCP settings, use `npx` with the arguments `-y progressor-mcp` instead, which needs no install.
-- **On Windows**, some apps need the command wrapped: `"command": "cmd"`, `"args": ["/c", "progressor-mcp"]`.
+- **On Windows**, some apps need the command wrapped: `"command": "cmd"`, `"args": ["/c", "progressor-mcp"]`. In Claude Code, run `progressor-mcp init` in the project folder, which does this for you.
+- **On a Mac or Linux, with the error `Executable not found in $PATH: cmd`:** the project was set up on Windows with an older Progressor, which put the Windows-only `cmd /c` in `.mcp.json`. Run `progressor-mcp init` in the project folder to replace it, then restart the app.
 
 ## "Progressor will not start a plan in …"
 
