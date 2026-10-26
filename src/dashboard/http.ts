@@ -8,10 +8,10 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import type { Decision, Note, TaskStatus } from "../planFile.js";
-import { PROGRESSOR_DIR, Project, ROADMAP_FILE, processIsAlive } from "../project.js";
+import { PROGRESSOR_DIR, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
-import { defaultServersDir, listServers, requestStop } from "../servers.js";
+import { defaultServersDir, listServers, requestStop, sessionOfProcess } from "../servers.js";
 import { type SearchableProject, search } from "./search.js";
 import {
   type ProjectEntry,
@@ -59,6 +59,8 @@ export interface Dashboard {
   readonly url: string;
   /** "serving" when this process is the hub, "shared" when another Progressor process is. */
   readonly role: "serving" | "shared";
+  /** Why the dashboard is not on the port asked for, when an older Progressor still holds it. */
+  readonly notice: string | undefined;
   readonly project: ProjectEntry | undefined;
   /** If the hub has gone, become the hub. */
   refresh(): Promise<void>;
@@ -77,8 +79,11 @@ const MIME: Record<string, string> = {
 
 export const VERSION: string = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
 
-/** The JSON views of one project. Each call re-reads the markdown, which is the source of truth. */
-export function dashboardApi(project: Project) {
+/**
+ * The JSON views of one project. Each call re-reads the markdown, which is the source of truth.
+ * `sessionOf` names the Session a running process has announced, to spot a Claim whose pid was reused.
+ */
+export function dashboardApi(project: Project, sessionOf?: (pid: number) => string | undefined) {
   const roadmapFile = `${PROGRESSOR_DIR}/${ROADMAP_FILE}`;
   const goalSummary = (goalId: string) => {
     const goal = project.roadmap().goal(goalId);
@@ -127,8 +132,9 @@ export function dashboardApi(project: Project) {
           .filter((g) => g.claim && g.status === "active")
           .map((g) => {
             const { session, pid } = g.claim!;
-            // A Claim whose process has died is stale: the next Session to claim the Goal takes it over.
-            return { session, pid, goal: g.id, running: pid === undefined || processIsAlive(pid) };
+            // A Claim whose process has died, or now runs another Session, is stale: the next Session
+            // to read the plan clears it. The dashboard only shows what the files say.
+            return { session, pid, goal: g.id, running: claimMayBeLive(g.claim!, { isAlive: processIsAlive, sessionOf }) };
           }),
         ideas: roadmap.ideas,
         standingInstructions: roadmap.standingInstructions,
@@ -202,6 +208,8 @@ class Hub {
     rescanMs: number,
     private readonly workspaceScanMs: number,
     private readonly serversDir: string,
+    /** Called once a newer Progressor has asked this hub to hand the port over. */
+    private readonly onStepDown: () => void,
   ) {
     this.sync();
     this.timer = setInterval(() => this.sync(), rescanMs);
@@ -237,9 +245,10 @@ class Hub {
       }
     for (const entry of entries)
       if (!this.projects.has(entry.id)) {
-        const project = new Project({ root: entry.root, session: { id: "dashboard", pid: process.pid } });
+        // The dashboard is not a Session: it never changes the plan, not even to clear stale Claims.
+        const project = new Project({ root: entry.root, session: { id: "dashboard", pid: process.pid }, clearStaleClaims: false });
         const stop = watchProgress(entry.root, (files) => this.send("change", { project: entry.id, files }));
-        this.projects.set(entry.id, { api: dashboardApi(project), stop });
+        this.projects.set(entry.id, { api: dashboardApi(project, (pid) => sessionOfProcess(this.serversDir, pid)), stop });
         changed = true;
       }
     // a project that moved into or out of a Workspace changes the list too
@@ -315,17 +324,34 @@ class Hub {
     return json(res, 202, { stopping: pid });
   }
 
+  /**
+   * A newer Progressor asks for the port, so the dashboard is served by the newest version. Only
+   * the serving stops: this process's Session goes on, and it shares the newer hub from then on.
+   * Browsers always send Origin on a POST, and cannot send the custom header to another site
+   * without a CORS preflight, which is never answered, so web pages cannot ask.
+   */
+  private stepDown(req: IncomingMessage, res: ServerResponse): void {
+    if (req.headers["x-progressor"] !== "step-down" || req.headers.origin !== undefined)
+      return json(res, 403, { error: "Only another Progressor can ask the dashboard to step down." });
+    if (!(Number(req.headers["x-progressor-hub"]) > HUB_VERSION))
+      return json(res, 409, { error: "Only a newer Progressor can take the dashboard over." });
+    res.once("finish", () => this.onStepDown());
+    return json(res, 202, { steppingDown: process.pid });
+  }
+
   handle = (req: IncomingMessage, res: ServerResponse): void => {
     if (!isLocalHost(req)) return json(res, 403, { error: "The dashboard only answers on localhost." });
     const url = new URL(`http://localhost${req.url ?? "/"}`);
     const path = url.pathname;
     const stop = /^\/api\/servers\/(\d+)\/stop$/.exec(path);
     if (req.method === "POST" && stop) return this.stopServer(req, res, Number(stop[1]));
+    if (req.method === "POST" && path === "/api/hub/step-down") return this.stepDown(req, res);
     if (req.method !== "GET" && req.method !== "HEAD") return json(res, 405, { error: "The dashboard is view-only." });
     try {
       if (path === "/api/servers") return json(res, 200, this.servers());
       if (path === "/api/search") return json(res, 200, this.search(url.searchParams.get("q") ?? ""));
-      if (path === "/api/info") return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, editor: this.editor, pid: process.pid });
+      if (path === "/api/info")
+        return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, editor: this.editor, pid: process.pid, stepDown: true });
       if (path === "/api/projects") return json(res, 200, this.sync(url.searchParams.has("rescan")));
       if (path === "/api/workspaces") return json(res, 200, listWorkspaces(this.registryFile));
       if (path === "/api/overview") return json(res, 200, this.overview());
@@ -388,12 +414,51 @@ function listen(server: Server, port: number, host = HOST): Promise<"ok" | "in u
   });
 }
 
-/** Whether a port is held by a Progressor hub this version can share. */
-async function isHub(port: number): Promise<boolean> {
+/** What /api/info says about the Progressor hub on a port. */
+interface HubInfo {
+  app?: string;
+  hub?: number;
+  version?: string;
+  pid?: number;
+  /** Whether the hub hands the port over when a newer Progressor asks (from hub version 3). */
+  stepDown?: boolean;
+}
+
+/**
+ * Asks whatever holds a port what it is: its /api/info, null when it answered but is not a
+ * Progressor dashboard, or undefined when it did not answer. A hub that is busy (scanning a big
+ * Workspace, say) gets a second, longer chance, so it is not mistaken for something else.
+ */
+async function hubInfo(port: number): Promise<HubInfo | null | undefined> {
+  for (const timeout of [1500, 5000]) {
+    let res: Response;
+    try {
+      res = await fetch(`http://${HOST}:${port}/api/info`, { signal: AbortSignal.timeout(timeout) });
+    } catch {
+      continue;
+    }
+    try {
+      const info = (await res.json()) as HubInfo;
+      return info && typeof info === "object" && info.app === "progressor" ? info : null;
+    } catch {
+      return null;
+    }
+  }
+  return undefined;
+}
+
+/** A hub this version can share: the same version, or a newer one, which serves its own page. */
+const canShare = (info: HubInfo | null | undefined): boolean => typeof info?.hub === "number" && info.hub >= HUB_VERSION;
+
+/** Asks an older hub to hand its port over; true when it agreed. */
+async function askToStepDown(port: number): Promise<boolean> {
   try {
-    const res = await fetch(`http://${HOST}:${port}/api/info`, { signal: AbortSignal.timeout(1500) });
-    const info = (await res.json()) as { app?: string; hub?: number };
-    return info.app === "progressor" && info.hub === HUB_VERSION;
+    const res = await fetch(`http://${HOST}:${port}/api/hub/step-down`, {
+      method: "POST",
+      headers: { "x-progressor": "step-down", "x-progressor-hub": String(HUB_VERSION) },
+      signal: AbortSignal.timeout(1500),
+    });
+    return res.status === 202;
   } catch {
     return false;
   }
@@ -401,8 +466,10 @@ async function isHub(port: number): Promise<boolean> {
 
 /**
  * Joins the dashboard: registers this Session's project and serves every registered project from
- * the first free port starting at 4747, or, when a Progressor hub already holds it, shares that.
- * Ports held by anything else are skipped for the next one.
+ * the first free port starting at 4747, or, when a Progressor hub of this version or a newer one
+ * already holds it, shares that. An older hub that can step down is asked to hand the port over;
+ * past one that cannot (it is still running), and past anything else, the next port is used, and
+ * the hub moves back to the first port once it is free again.
  */
 export async function startDashboard(options: DashboardOptions): Promise<Dashboard> {
   const { project, uiDir, editor = DEFAULT_EDITOR, attempts = 20, rescanMs = 5000, workspaceScanMs = 300_000, hubCheckMs = 5000 } = options;
@@ -417,44 +484,116 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
   let hub: Hub | undefined;
   let port = firstPort;
   let role: "serving" | "shared" = "shared";
+  let notice: string | undefined;
+
+  const closeServers = async (closing: Server[]) => {
+    await Promise.all(
+      closing.map((s) => {
+        s.closeAllConnections();
+        return new Promise<void>((done) => s.close(() => done()));
+      }),
+    );
+  };
+
+  /** Stops serving the dashboard; the Session goes on. */
+  const stopServing = async () => {
+    hub?.close();
+    hub = undefined;
+    role = "shared";
+    const closing = servers;
+    servers = [];
+    await closeServers(closing);
+  };
+
+  /** Serves the dashboard on a port, moving there from the port it was served on before, if any. */
+  const serveOn = async (p: number): Promise<"ok" | "in use" | "unavailable"> => {
+    const http = createServer();
+    const result = await listen(http, p);
+    if (result !== "ok") return result;
+    hub ??= new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs, serversDir, () => void stopServing());
+    http.on("request", hub.handle);
+    const previous = servers;
+    [servers, port, role] = [[http], p, "serving"];
+    const ipv6 = createServer();
+    if ((await listen(ipv6, p, "::1").catch(() => "unavailable")) === "ok") {
+      ipv6.on("request", hub.handle);
+      servers.push(ipv6);
+    }
+    await closeServers(previous);
+    return "ok";
+  };
+
+  /** Serves a port once an older hub that agreed to step down has let it go. */
+  const serveWhenFree = async (p: number): Promise<boolean> => {
+    const end = Date.now() + 3000;
+    do {
+      if ((await serveOn(p)) === "ok") return true;
+      await new Promise((r) => setTimeout(r, 100));
+    } while (Date.now() < end);
+    return false;
+  };
+
+  /** An older Progressor's hub that holds the first port, for the notice. */
+  let blocker: HubInfo | undefined;
+
+  /** Serves or shares the dashboard on one port; false when the port is held by something this cannot use. */
+  const tryPort = async (p: number): Promise<boolean> => {
+    const result = await serveOn(p);
+    if (result === "ok") return true;
+    if (result !== "in use") return false;
+    const info = await hubInfo(p);
+    if (canShare(info)) {
+      if (role === "serving") await stopServing();
+      [port, role] = [p, "shared"];
+      // Tell the hub about this project now, rather than at its next rescan; a new Workspace is scanned straight away.
+      await fetch(`http://${HOST}:${p}/api/projects${workspace ? "?rescan" : ""}`, { signal: AbortSignal.timeout(workspace ? 30_000 : 1500) }).catch(
+        () => undefined,
+      );
+      return true;
+    }
+    if (!info) return false; // something that is not Progressor, or does not answer: never disturbed
+    if (info.stepDown && (await askToStepDown(p)) && (await serveWhenFree(p))) return true;
+    if (p === firstPort) blocker = info;
+    return false;
+  };
+
+  const about = (info: HubInfo) => [info.version, info.pid !== undefined && `process ${info.pid}`].filter(Boolean).join(", ");
+  const updateNotice = () => {
+    notice =
+      port !== firstPort && blocker
+        ? `Port ${firstPort} is held by an older Progressor${about(blocker) ? ` (${about(blocker)})` : ""} that is still running, ` +
+          `so the dashboard is on port ${port} until it stops. Closing the chats that started before Progressor was updated frees it.`
+        : undefined;
+  };
 
   const claimPort = async (): Promise<void> => {
-    for (let p = firstPort; p < firstPort + attempts; p++) {
-      const http = createServer();
-      const result = await listen(http, p);
-      if (result === "ok") {
-        hub = new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs, serversDir);
-        http.on("request", hub.handle);
-        [servers, port, role] = [[http], p, "serving"];
-        const ipv6 = createServer();
-        if ((await listen(ipv6, p, "::1").catch(() => "unavailable")) === "ok") {
-          ipv6.on("request", hub.handle);
-          servers.push(ipv6);
-        }
-        return;
-      }
-      if (result === "in use" && (await isHub(p))) {
-        [port, role] = [p, "shared"];
-        // Tell the hub about this project now, rather than at its next rescan; a new Workspace is scanned straight away.
-        await fetch(`http://${HOST}:${p}/api/projects${workspace ? "?rescan" : ""}`, { signal: AbortSignal.timeout(workspace ? 30_000 : 1500) }).catch(
-          () => undefined,
-        );
-        return;
-      }
+    blocker = undefined;
+    try {
+      for (let p = firstPort; p < firstPort + attempts; p++) if (await tryPort(p)) return;
+      throw new Error(`No free port for the dashboard between ${firstPort} and ${firstPort + attempts - 1}.`);
+    } finally {
+      updateNotice();
     }
-    throw new Error(`No free port for the dashboard between ${firstPort} and ${firstPort + attempts - 1}.`);
   };
 
   await claimPort();
 
-  // While another process serves the dashboard, check now and then that it still does, and take
+  // Now and then: while another process serves the dashboard, check that it still does, and take
   // over when it has gone (stopped from the dashboard, or its Session ended), so the page stays up.
+  // While this one serves it on another port than the first, move back to the first port as soon as
+  // it is free, or share the hub there, so the dashboard's address goes back to the usual one.
   let checking = false;
   const refresh = async () => {
-    if (role === "serving" || checking) return;
+    if (checking) return;
     checking = true;
     try {
-      if (!(await isHub(port))) await claimPort();
+      if (role === "serving") {
+        if (port !== firstPort) {
+          blocker = undefined;
+          await tryPort(firstPort);
+          updateNotice();
+        }
+      } else if (!canShare(await hubInfo(port))) await claimPort();
     } finally {
       checking = false;
     }
@@ -471,20 +610,14 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
     get role() {
       return role;
     },
+    get notice() {
+      return notice;
+    },
     project: entry,
     refresh,
     async close() {
       clearInterval(watcher);
-      hub?.close();
-      hub = undefined;
-      const closing = servers;
-      servers = [];
-      await Promise.all(
-        closing.map((s) => {
-          s.closeAllConnections();
-          return new Promise<void>((done) => s.close(() => done()));
-        }),
-      );
+      await stopServing();
     },
   };
 }

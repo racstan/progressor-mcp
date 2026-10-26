@@ -271,7 +271,7 @@ function respond(body: () => string) {
 
 export interface ServerOptions {
   /** The dashboard, so get_status can say where the Developer can open it; its url may come later. */
-  dashboard?: { readonly url: string | undefined; refresh(): Promise<void> };
+  dashboard?: { readonly url: string | undefined; readonly notice?: string | undefined; refresh(): Promise<void> };
 }
 
 /**
@@ -312,6 +312,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           status(),
           `Project folder: ${project.root}`,
           ...(dashboard?.url ? [`Dashboard: ${dashboard.url}`] : []),
+          ...(dashboard?.url && dashboard.notice ? [`Dashboard note: ${dashboard.notice}`] : []),
         ].join("\n"),
       );
     },

@@ -183,6 +183,17 @@ describe("the MCP server", () => {
     expect(result.content[0]!.text.split("\n").at(-1)).toBe("Dashboard: http://localhost:4747/");
     expect(refreshed).toBe(1);
   });
+
+  it("says why the dashboard is not at its usual address, when it is not", async () => {
+    const project = new Project({ root: tempDir("progressor-"), session: { id: "s-a", pid: process.pid } });
+    const notice = "Port 4747 is held by an older Progressor (0.5.0, process 42) that is still running, so the dashboard is on port 4748 until it stops.";
+    const server = createServer(project, { dashboard: { url: "http://localhost:4748/", notice, refresh: async () => {} } });
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "test", version: "0" });
+    await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
+    const result = (await client.callTool({ name: "get_status", arguments: {} })) as { content: { text: string }[] };
+    expect(result.content[0]!.text.split("\n").slice(-2)).toEqual(["Dashboard: http://localhost:4748/", `Dashboard note: ${notice}`]);
+  });
 });
 
 describe("shaping Goals through the tools", () => {

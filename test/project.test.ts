@@ -224,6 +224,117 @@ describe("Claims", () => {
   });
 });
 
+describe("Claims left by Sessions that have ended", () => {
+  beforeEach(() => {
+    session("s-setup", 1).addGoal("Login", [{ title: "one" }]);
+    session("s-setup", 1).addGoal("Billing");
+  });
+
+  it("clears a Claim whose process has died when another Session gets its status, leaving the Goal paused", () => {
+    session("s-a", 100).claimGoal("login");
+    alive.delete(100);
+
+    session("s-b", 200).sessionStatus();
+    expect(read("roadmap.md")).not.toContain("claimed by: s-a");
+    expect(session("s-b", 200).roadmap().goal("login")!.status).toBe("paused");
+  });
+
+  it("leaves Claims of Sessions that are still running alone, and every other Goal too", () => {
+    session("s-a", 100).claimGoal("login");
+    session("s-c", 300).claimGoal("billing");
+    alive.delete(300);
+
+    session("s-b", 200).sessionStatus();
+    expect(read("roadmap.md")).toContain("claimed by: s-a (pid 100)");
+    expect(read("roadmap.md")).not.toContain("claimed by: s-c");
+  });
+
+  it("clears every dead Claim when a Session claims a Goal, not only the one it takes", () => {
+    const a = session("s-a", 100);
+    a.claimGoal("login");
+    a.claimGoal("billing");
+    alive.delete(100);
+
+    session("s-b", 200).claimGoal("login");
+    expect(read("roadmap.md")).toContain("claimed by: s-b (pid 200)");
+    expect(read("roadmap.md")).not.toContain("claimed by: s-a");
+    expect(session("s-b", 200).roadmap().goal("billing")!.status).toBe("paused");
+  });
+
+  it("clears dead Claims in the overview, which then shows their Goals as paused", () => {
+    session("s-a", 100).claimGoal("login");
+    alive.delete(100);
+
+    const overview = session("hook", 500).overview();
+    expect(overview.active).toEqual([]);
+    expect(overview.paused.map((s) => s.goal?.id)).toEqual(["login"]);
+    expect(read("roadmap.md")).not.toContain("claimed by:");
+  });
+
+  it("does not rewrite the Roadmap when no Claim is stale", () => {
+    session("s-a", 100).claimGoal("login");
+    const before = read("roadmap.md");
+    write("roadmap.md", `${before}\n`);
+    session("s-b", 200).sessionStatus();
+    expect(read("roadmap.md")).toBe(`${before}\n`);
+  });
+
+  it("treats a Claim with this process's pid but another Session's ID as stale: the pid was reused", () => {
+    session("s-old", 200).claimGoal("login");
+    // the Session that held it ended without releasing, and its pid now belongs to this Session
+    session("s-b", 200).sessionStatus();
+    expect(read("roadmap.md")).not.toContain("claimed by: s-old");
+  });
+
+  it("treats a Claim as stale when its pid now belongs to another Progressor Session", () => {
+    session("s-old", 300).claimGoal("login");
+    const b = new Project({
+      root,
+      session: { id: "s-b", pid: 200 },
+      isAlive: () => true,
+      sessionOf: (pid) => (pid === 300 ? "s-new" : undefined),
+      now: () => NOW,
+    });
+    b.sessionStatus();
+    expect(read("roadmap.md")).not.toContain("claimed by: s-old");
+  });
+
+  it("keeps a Claim whose pid is running the same Session, or a process Progressor knows nothing about", () => {
+    session("s-a", 300).claimGoal("login");
+    session("s-c", 400).claimGoal("billing");
+    const b = new Project({
+      root,
+      session: { id: "s-b", pid: 200 },
+      isAlive: () => true,
+      sessionOf: (pid) => (pid === 300 ? "s-a" : undefined),
+      now: () => NOW,
+    });
+    b.sessionStatus();
+    expect(read("roadmap.md")).toContain("claimed by: s-a (pid 300)");
+    expect(read("roadmap.md")).toContain("claimed by: s-c (pid 400)");
+  });
+
+  it("keeps a Claim with no pid, since nothing says its Session has ended", () => {
+    session("s-a", 100).claimGoal("login");
+    write("roadmap.md", read("roadmap.md").replace("s-a (pid 100)", "s-a"));
+    alive.clear();
+    session("s-b", 200).sessionStatus();
+    expect(read("roadmap.md")).toContain("claimed by: s-a since");
+  });
+
+  it("still answers when the Roadmap cannot be written", () => {
+    session("s-a", 100).claimGoal("login");
+    alive.delete(100);
+    const b = new Project({ root, session: { id: "s-b", pid: 200 }, isAlive: (p) => alive.has(p), now: () => NOW });
+    const save = (b as any).saveRoadmap;
+    (b as any).saveRoadmap = () => {
+      throw new Error("read-only");
+    };
+    expect(b.overview().paused.map((s) => s.goal?.id)).toEqual(["login"]);
+    (b as any).saveRoadmap = save;
+  });
+});
+
 describe("Detours", () => {
   let agent: Project;
   beforeEach(() => {

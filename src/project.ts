@@ -15,7 +15,7 @@ import {
   parsePlanFile,
 } from "./planFile.js";
 import { unsafeRoot } from "./root.js";
-import { type Goal, type Idea, ROADMAP_REF, type Roadmap, type StandingInstruction, parseRoadmap } from "./roadmap.js";
+import { type Claim, type Goal, type Idea, ROADMAP_REF, type Roadmap, type StandingInstruction, parseRoadmap } from "./roadmap.js";
 
 export interface SessionIdentity {
   id: string;
@@ -28,6 +28,16 @@ export interface ProjectOptions {
   session: SessionIdentity;
   /** Whether a process is still running; used to spot stale Claims. */
   isAlive?: (pid: number) => boolean;
+  /**
+   * The Session a running Progressor process has announced (see servers.ts), when it is known; a
+   * Claim whose pid now runs another Session is stale, because the pid was reused.
+   */
+  sessionOf?: (pid: number) => string | undefined;
+  /**
+   * Whether reading the status clears Claims whose Session has ended (on by default). Off for
+   * readers that are not a Session, such as the dashboard, which only shows what is in the files.
+   */
+  clearStaleClaims?: boolean;
   now?: () => Date;
   /** Why a folder is the wrong place to start a progress record, if it is (see unsafeRoot). */
   unsafe?: (root: string) => string | undefined;
@@ -123,6 +133,23 @@ export const CONTEXT_FILE = "context.md";
 export const MAX_CONTEXT_LENGTH = 4000;
 const CONTEXT_HEADING = "# Important context";
 
+/**
+ * Whether the Session holding a Claim may still be running. It has ended when its process has died,
+ * when its pid is this process's but this process is another Session (one process is one Session),
+ * or when its pid now runs another Progressor Session; in each case the pid may have been reused.
+ * A Claim without a pid, or whose live process Progressor knows nothing more about, may be live.
+ */
+export function claimMayBeLive(
+  claim: Claim,
+  options: { isAlive: (pid: number) => boolean; sessionOf?: (pid: number) => string | undefined; self?: SessionIdentity },
+): boolean {
+  if (claim.pid === undefined) return true;
+  if (options.self && claim.pid === options.self.pid) return claim.session === options.self.id;
+  if (!options.isAlive(claim.pid)) return false;
+  const running = options.sessionOf?.(claim.pid);
+  return running === undefined || running === claim.session;
+}
+
 export function processIsAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -137,6 +164,8 @@ export class Project {
   private folder: string;
   readonly session: SessionIdentity;
   private readonly isAlive: (pid: number) => boolean;
+  private readonly sessionOf: ((pid: number) => string | undefined) | undefined;
+  private readonly tidy: boolean;
   private readonly now: () => Date;
   private readonly unsafe: (root: string) => string | undefined;
 
@@ -144,6 +173,8 @@ export class Project {
     this.folder = options.root;
     this.session = options.session;
     this.isAlive = options.isAlive ?? processIsAlive;
+    this.sessionOf = options.sessionOf;
+    this.tidy = options.clearStaleClaims ?? true;
     this.now = options.now ?? (() => new Date());
     this.unsafe =
       options.unsafe ?? ((root) => unsafeRoot(root, { home: homedir(), systemRoot: process.env.SystemRoot, platform: process.platform }));
@@ -248,11 +279,36 @@ export class Project {
     return { goal: held[0]!, plan: planOf(held[0]!) };
   }
 
-  /** A Claim is stale when the process that holds it is no longer running. */
+  /** Whether a Claim's Session may still be running (see claimMayBeLive). */
+  private claimMayBeLive(claim: Claim): boolean {
+    return claimMayBeLive(claim, { isAlive: this.isAlive, sessionOf: this.sessionOf, self: this.session });
+  }
+
+  /** Whether a Goal is held by another Session that may still be running. A Claim whose Session has ended is stale. */
   private claimIsLive(goal: Goal): boolean {
     const claim = goal.claim;
     if (!claim || claim.session === this.session.id) return false;
-    return claim.pid === undefined || this.isAlive(claim.pid);
+    return this.claimMayBeLive(claim);
+  }
+
+  /**
+   * The Roadmap, with the Claims of Sessions that have ended cleared, so a chat that closed without
+   * releasing its Goals stops showing them as held; their Goals are paused. Claims of Sessions that
+   * may still be running are left alone. When the Roadmap cannot be written the cleared one is still
+   * returned, so reading the status never fails because of this.
+   */
+  private tidyRoadmap(): Roadmap {
+    const roadmap = this.roadmap();
+    if (!this.tidy) return roadmap;
+    const stale = roadmap.goals.filter((g) => g.claim && g.claim.session !== this.session.id && !this.claimMayBeLive(g.claim));
+    if (stale.length === 0) return roadmap;
+    for (const g of stale) roadmap.setClaim(g.id, undefined);
+    try {
+      this.saveRoadmap(roadmap);
+    } catch {
+      // cleared in what is returned; the next reader tries again
+    }
+    return roadmap;
   }
 
   /**
@@ -260,7 +316,7 @@ export class Project {
    * reopens it, so Tasks found in a later review join the same list; its finished Tasks stay done.
    */
   claimGoal(goalId: string, options: { takeover?: boolean } = {}): Goal {
-    const roadmap = this.roadmap();
+    const roadmap = this.tidyRoadmap();
     const goal = roadmap.goal(goalId);
     if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
     if (goal.status === "dropped") throw new Error(`Goal ${goalId} is dropped; add a new Goal instead.`);
@@ -735,7 +791,7 @@ export class Project {
 
   /** Every Goal this Session holds, for get_status. */
   sessionStatus(): SessionStatus {
-    const roadmap = this.roadmap();
+    const roadmap = this.tidyRoadmap();
     return {
       held: this.claimedGoals(roadmap).map((g) => this.goalStatus(g, roadmap)),
       standingInstructions: roadmap.standingInstructions,
@@ -749,8 +805,8 @@ export class Project {
    * readers that are not a Session themselves, such as the Claude Code hooks.
    */
   overview(): ProjectOverview {
-    const roadmap = this.roadmap();
-    const held = (g: Goal) => g.status === "active" && g.claim !== undefined && (g.claim.pid === undefined || this.isAlive(g.claim.pid));
+    const roadmap = this.tidyRoadmap();
+    const held = (g: Goal) => g.status === "active" && g.claim !== undefined && this.claimMayBeLive(g.claim);
     const started = roadmap.goals.filter((g) => g.status === "active" || g.status === "paused");
     return {
       active: started.filter(held).map((g) => this.goalStatus(g, roadmap)),
