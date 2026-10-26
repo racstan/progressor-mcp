@@ -11,8 +11,14 @@
   - summary: update_tasks applies up to 25 start/complete/state/drop operations in order, all or nothing, one write per goal.
   - code: `src/project.ts`
   - code: `src/server.ts`
-- [ ] Clean up after dead sessions ^t3
-  - summary: Notice when the owner of a claim or of the dashboard on port 4747 is dead; free the claim and take the port back instead of moving to 4748.
+- [x] Clean up after dead sessions ^t3
+  - summary: Progressor exits and releases its goals however its chat ends; goals held by ended chats are cleared when read; an older dashboard on 4747 can be asked to step down, a fallback moves back to 4747 once free, and a fallback is reported.
+  - code: `src/lifecycle.ts`
+  - code: `src/serve.ts`
+  - code: `src/project.ts`
+  - code: `src/servers.ts`
+  - code: `src/dashboard/http.ts`
+  - code: `docs/troubleshooting.md`
 - [x] Rules block for helper-agent briefs ^t4
   - summary: get_rules returns the rules, hard ones first, as a block to paste into helper briefs.
   - code: `src/server.ts`
