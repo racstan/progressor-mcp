@@ -90,7 +90,7 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
 ## Standing Instructions
 
 - Ask the Developer about product and UX decisions; make technical ones yourself and say what you chose ^s1
-- Merge finished, tested branches into main yourself; ask before pushing or publishing ^s2
+- Merge finished, tested branches into main yourself. After each finished Goal, commit and push main to GitHub, then go on to the next Goal. Still ask before pushing a version tag or publishing (s5). ^s2
 - Write tests first for anything with logic ^s3
 - A release bundles several finished Goals into one version, through its own release Goal; the Developer runs npm publish with their one-time code ^s4
 - A release bundles several finished Goals into one version, through its own release Goal. Pushing a version tag (v0.4.1) makes the release workflow publish to npm and the MCP Registry by itself; ask the Developer before pushing the tag. This replaces s4. ^s5
