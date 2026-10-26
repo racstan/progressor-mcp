@@ -24,6 +24,14 @@ Your AI keeps a little more in the plan than a list of ticks, so that you can se
 - **Moving a step.** If a step turns out to belong to another goal, your AI moves it there: it keeps its title, details and progress, and the old goal shows it as cancelled, with where it went.
 - **Several goals at once.** One conversation can work on more than one goal at the same time, for instance while a helper builds one and you try out another. The dashboard shows each goal's own status.
 
+## How long things take
+
+When your AI plans, it guesses how long each step will take, such as *45 minutes* or *2 hours*, and updates the guess when it learns more. It can also give a whole goal a rough time before the steps are worked out. Progressor records how long each step really took, from when the AI starts it or hands it to a helper until it's done; time while a step is set back to *To do* doesn't count. You see both side by side in the step's details (*Took 1 h 10 m, estimated 45 m*), which helps the AI guess better next time.
+
+From those guesses, the order of your goals and how many helpers may work at once, the dashboard shows a rough schedule: what's running now, what comes next, and when each goal should be done. Steps without a guess are counted, not guessed: *(3 steps not estimated)*.
+
+**How many helpers at once.** Running too many helpers at the same time can overload your computer and leave your AI more work to check and merge than it can keep up with. Tell your AI a limit, such as *"never more than 2 helpers at a time"*, and it saves it as a rule that holds the limit. It then hands out at most that many steps to helpers at once; if it ever goes over, it gets a warning saying so.
+
 All of it shows on the dashboard: see [the dashboard](dashboard.md). It's read-only there; to change something, tell your AI.
 
 ## Work for another project

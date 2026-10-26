@@ -20,6 +20,10 @@ _Avoid_: AI, assistant, bot, model
 A lasting rule from the Developer about how the Agent should behave, such as "ask me before recalibrating", kept so it survives context compression and new Sessions. One the Developer says must never be broken is a **hard rule**: it is listed first, marked HARD RULE (the dashboard says *Must*), and goes into every helper agent's brief.
 _Avoid_: Preference, setting, rule
 
+**Helper limit**:
+The most Tasks that may be with a helper at once in a Project, set on one Standing Instruction (such as "at most 2 helpers in parallel"). Handing out one more is not refused, but warned about. Without one there is no limit.
+_Avoid_: Concurrency, max parallel, quota
+
 **Important context**:
 The one page per Project holding its lasting background (what it is, key facts, choices that hold project-wide), written by the Agent and shown in full with the Standing Instructions at every session start. Not for rules, which are Standing Instructions.
 _Avoid_: Notes, memory, project info
@@ -63,6 +67,18 @@ _Avoid_: Audit file, progress file, todo file
 **Task**:
 A planned step toward a Goal, with a short title, the files it touches and a summary of the change it makes. It is pending, in progress (the Agent's own current work, one per Goal), with a helper, waiting on you (the Agent is waiting on the Developer), checked (a helper's work checked, not yet merged), done, released (merged and out) or dropped. A Task that belongs in another Goal can be moved there: it gets a new ID in the other Goal, and the old one stays as a dropped trace saying where it went.
 _Avoid_: Todo, item, step, ticket
+
+**Estimate**:
+How long a Task, or a Goal as a whole, is expected to take, such as 45m or 2h, set by the Agent when it plans and updated when it learns more. A Goal's estimate is the sum of its open Tasks' unless the Goal has one of its own.
+_Avoid_: Points, effort, size
+
+**Time spent**:
+How long a Task actually took: clocked from when it is started or handed to a helper until it is done, released or dropped. Time while it is pending again (paused) does not count.
+_Avoid_: Actual, duration, logged time
+
+**Schedule**:
+A rough plan in time worked out from the Estimates, the Roadmap's order and the Helper limit: what runs now, what comes next, and when each open Goal and the whole Roadmap should be done. Tasks without an Estimate are counted as not estimated, never guessed.
+_Avoid_: Timeline, forecast, Gantt
 
 **Decision**:
 A choice made along the way for one Goal that is not a lasting project rule, such as "old models get thinking on/off only", kept in the Goal's Plan File so it survives context compression.

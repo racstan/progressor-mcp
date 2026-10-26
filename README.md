@@ -59,6 +59,7 @@ Open **http://localhost:4747** while your AI's app is open (your AI gives you th
 - **What the AI is doing**: *AI working · step 3 of 7 · last update 2 min ago*, or *AI stopped* when its chat has closed.
 - **The plan as a map**: each step is a stop on a line, ticked off as it's done. When the AI steps off the plan to deal with something, a **side trip** branches off, with the reason.
 - **Your goals**: everything planned for the project, with how far along each one is.
+- **How long it will take**: your AI estimates each step and the page shows a rough schedule: *Now: 2 helpers busy, at most 2 at once · Next: Add logout · Login done in about 3 h (2 steps not estimated)*. Each step shows how long it took next to its estimate. Tell your AI *"at most 2 helpers at a time"* and it keeps to that, so your computer and its checking keep up.
 - **What's waiting on you**: when the AI needs you, say to try something by hand, the goal turns amber and says *Waiting on you*. Steps handed to helper agents, checked or released show as such, and each goal lists the decisions made along the way.
 
 **Work for one project, recorded in another.** When a chat in one project does work for another (say it releases a library your app uses), your AI can record it in that project's plan without opening a chat there. Those changes carry an **Updated from** tag, and the AI in that project is told about them.
