@@ -2,6 +2,11 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## 0.7.1 · The dashboard keeps up while helpers work
+
+- A goal whose steps are with helper agents now says **Helpers working** in the sidebar and at the top of the goal, with how many steps are with helpers: *Helpers working · 3 of 5 steps with helpers · last update 19 min ago*. Before, it said *AI waiting* once the plan had been quiet for 15 minutes, though helpers were busy for most of an hour. *AI waiting* now means nothing is with a helper and nothing has changed for 15 minutes.
+- The AI is told to mark each step as soon as it moves on (checked once it has checked a helper's work, released once it is merged), not all at the end, so the page moves while the work goes on.
+
 ## 0.7.0 · Progress that survives, and plans that match how the AI works
 
 Your progress no longer depends on the chat: everything the AI knows about the project is saved where both of you can see it, so a new chat, a compressed memory or a different app picks up exactly where things stopped.
