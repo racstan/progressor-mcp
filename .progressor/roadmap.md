@@ -69,7 +69,7 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: The dashboard shows parallel goals, helper agents, checked and installed steps, decisions, notes and anything waiting on the Developer.
 - [x] [Smaller plan fixes](goals/smaller-fixes.md) ^smaller-fixes
   - outcome: Fewer tool calls, clean recovery from dead sessions, and reliable rules for helper agents.
-- [/] [Release 0.7.0](goals/v0-7-0.md) ^v0-7-0
+- [x] [Release 0.7.0](goals/v0-7-0.md) ^v0-7-0
   - outcome: progressor-mcp 0.7.0 is on npm and the MCP Registry with goals 1-4 of this round, and the README says why progress survives app changes, memory compression and new chats.
 
 ## Ideas
