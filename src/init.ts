@@ -4,27 +4,34 @@
 // list before anything is written; running it again changes nothing, and --remove undoes it all
 // except the progress record.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, isAbsolute, join } from "node:path";
 import { PROGRESSOR_DIR, ROADMAP_FILE } from "./project.js";
 
 /** How the Agent's app starts Progressor, and the command the hooks run. */
 export interface Launch {
+  /** The entry for the shared .mcp.json, the same on every system. */
   server: { command: string; args: string[] };
   /** The hook command without its event, such as "progressor-mcp hook". */
   hook: string;
+  /** On Windows, the entry Claude Code needs on this computer; it goes in Claude Code's local settings. */
+  local?: { command: string; args: string[] };
 }
 
-/**
- * The global command when Progressor is installed globally, else npx. On Windows the app starts the
- * server without a shell, so the npm launcher needs `cmd /c` in front of it; hooks run in a shell.
- */
 /** Started through npx when the running script sits in npm's npx cache. */
 export const startedViaNpx = (script = process.argv[1] ?? "") => /[\\/]_npx[\\/]/.test(script);
 
+/**
+ * The global command when Progressor is installed globally, else npx. On Windows the app starts the
+ * server without a shell, so the npm launcher needs `cmd /c` in front of it. That would break the
+ * server on macOS and Linux, so .mcp.json, which teammates share, gets the plain command and the
+ * wrapped one goes in Claude Code's local settings for this folder, which win over .mcp.json and
+ * stay on this computer. Hooks run in a shell, so they need no wrapper.
+ */
 export function launchFor({ viaNpx, platform }: { viaNpx: boolean; platform: NodeJS.Platform }): Launch {
   const base = viaNpx ? ["npx", "-y", "progressor-mcp"] : ["progressor-mcp"];
-  const server = platform === "win32" ? { command: "cmd", args: ["/c", ...base] } : { command: base[0]!, args: base.slice(1) };
-  return { server, hook: `${base.join(" ")} hook` };
+  const launch: Launch = { server: { command: base[0]!, args: base.slice(1) }, hook: `${base.join(" ")} hook` };
+  if (platform === "win32") launch.local = { command: "cmd", args: ["/c", ...base] };
+  return launch;
 }
 
 export interface Change {
@@ -47,6 +54,64 @@ export function applyChanges(changes: Change[]): void {
       writeFileSync(c.path, c.contents);
     }
   }
+}
+
+/** `claude` commands to run in the project folder, for settings Claude Code keeps outside it. */
+export interface LocalStep {
+  what: string;
+  commands: string[][];
+}
+
+/** Claude Code's ~/.claude.json keeps local servers per folder; on Windows it may write the folder with forward slashes. */
+function localServer(root: string, config: Json | undefined): Json | undefined {
+  const projects = config?.projects;
+  if (!projects || typeof projects !== "object") return undefined;
+  return (projects[root] ?? projects[root.split("\\").join("/")])?.mcpServers?.[SERVER_NAME];
+}
+
+const removeLocal = () => ["mcp", "remove", "--scope", "local", SERVER_NAME];
+
+/** On Windows, registers the wrapped command for this folder in Claude Code's local settings, unless it is there already. */
+export function planLocal(root: string, launch: Launch, config: Json | undefined): LocalStep | undefined {
+  if (!launch.local) return undefined;
+  const current = localServer(root, config);
+  if (current?.command === launch.local.command && JSON.stringify(current.args ?? []) === JSON.stringify(launch.local.args)) return undefined;
+  const how = [launch.local.command, ...launch.local.args];
+  return {
+    what: `${current ? "update" : "add"} the "${SERVER_NAME}" MCP server for this folder on this computer (${how.join(" ")}), which Windows needs`,
+    commands: [...(current ? [removeLocal()] : []), ["mcp", "add", "--scope", "local", SERVER_NAME, "--", ...how]],
+  };
+}
+
+/** Takes the local entry that planLocal added out again. */
+export function planLocalRemove(root: string, config: Json | undefined): LocalStep | undefined {
+  if (localServer(root, config) === undefined) return undefined;
+  return { what: `remove the "${SERVER_NAME}" MCP server for this folder on this computer`, commands: [removeLocal()] };
+}
+
+/** Whether a command can be found the way an app finds it: as a path, or in a PATH folder, with PATHEXT's extensions on Windows. */
+export function onPath(command: string, env: Record<string, string | undefined>, platform: NodeJS.Platform): boolean {
+  const exts = platform === "win32" ? ["", ...(env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean)] : [""];
+  const dirs = isAbsolute(command) ? [""] : (env.PATH ?? env.Path ?? "").split(delimiter).filter(Boolean);
+  return dirs.some((dir) => exts.some((ext) => existsSync(join(dir, command + ext))));
+}
+
+/**
+ * A warning for the Agent when .mcp.json starts Progressor with a command this computer doesn't
+ * have, such as Windows' cmd on a Mac. Claude Code then fails quietly, while the hooks still run.
+ */
+export function launcherWarning(root: string, canRun: (command: string) => boolean): string | undefined {
+  let command: unknown;
+  try {
+    command = readJson(root, MCP_FILE)?.mcpServers?.[SERVER_NAME]?.command;
+  } catch {
+    return undefined;
+  }
+  if (typeof command !== "string" || canRun(command)) return undefined;
+  return (
+    `Warning: Claude Code can't start Progressor's MCP server in this folder: .mcp.json starts it with "${command}", ` +
+    "which this computer doesn't have. Tell the Developer, and offer to run `progressor-mcp init` in this folder, which fixes it."
+  );
 }
 
 const MCP_FILE = ".mcp.json";

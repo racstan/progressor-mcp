@@ -3,6 +3,7 @@
 // reads .progressor/ straight from disk; it has no Session, so it describes every Goal in progress.
 import type { Task } from "./planFile.js";
 import { PROGRESSOR_DIR, Project, type ProjectOverview, type Status } from "./project.js";
+import { launcherWarning, onPath } from "./init.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -96,6 +97,8 @@ export interface HookRun {
   input: string;
   env: Record<string, string | undefined>;
   isAlive?: (pid: number) => boolean;
+  /** Whether this computer has a command; looked up on PATH unless given. */
+  canRun?: (command: string) => boolean;
 }
 
 /**
@@ -103,14 +106,16 @@ export interface HookRun {
  * hook's plain stdout to the Agent's context. It never throws: a hook must not get in the way of
  * the session, so anything unexpected prints nothing.
  */
-export function runHook({ event, input, env, isAlive }: HookRun): string {
+export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, env, process.platform) }: HookRun): string {
   try {
     const data = JSON.parse(input) as { cwd?: unknown; hook_event_name?: unknown };
     const kind = EVENTS[event ?? String(data.hook_event_name)];
     const root = env.PROGRESSOR_ROOT ?? env.CLAUDE_PROJECT_DIR ?? (typeof data.cwd === "string" ? data.cwd : undefined);
     if (!kind || !root || !existsSync(join(root, PROGRESSOR_DIR))) return "";
     const overview = new Project({ root, session: { id: "hook", pid: process.pid }, isAlive }).overview();
-    const text = (kind === "session-start" ? sessionStatus(overview) : promptReminder(overview)) ?? "";
+    const warning = kind === "session-start" ? launcherWarning(root, canRun) : undefined;
+    const status = kind === "session-start" ? sessionStatus(overview) : promptReminder(overview);
+    const text = [...(warning ? [`${PREFIX} ${warning}`] : []), ...(status ? [status] : [])].join("\n");
     return text.length <= MAX_CONTEXT ? text : text.slice(0, MAX_CONTEXT - CUT.length) + CUT;
   } catch {
     return "";

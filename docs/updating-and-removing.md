@@ -38,4 +38,4 @@ Progressor also keeps a short list of your projects for the dashboard in a `.pro
 
 ## Working with others
 
-Each person needs Progressor installed once (`npm install -g progressor-mcp`). The commands `init` writes suit the computer it ran on: on Windows the server is started through `cmd /c`. If you commit `.mcp.json` and teammates use another system, each of them runs `progressor-mcp init` once in their copy.
+Each person needs Progressor installed once (`npm install -g progressor-mcp`). You can commit `.mcp.json`: the command `init` puts in it works on Windows, macOS and Linux. On Windows, Claude Code also needs `cmd /c` in front of it, so each Windows user runs `progressor-mcp init` once in their copy, which sets that up on their computer only.
