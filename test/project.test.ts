@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { Project } from "../src/project.js";
+import { MAX_CONTEXT_LENGTH, Project } from "../src/project.js";
 import { tempDir } from "./tmp.js";
 
 let root: string;
@@ -330,6 +330,31 @@ describe("Ideas and Standing Instructions", () => {
   it("keeps Standing Instructions in the status, with or without a Claim", () => {
     agent.addStandingInstruction("Ask me before recalibrating");
     expect(agent.status().standingInstructions.map((s) => s.text)).toEqual(["Ask me before recalibrating"]);
+  });
+});
+
+describe("Important context", () => {
+  it("is empty until the Agent writes it, then kept in .progressor/context.md", () => {
+    const agent = session("s-a", 100);
+    expect(agent.context()).toBe("");
+    agent.setContext("Progressor is an MCP server.\n\nReleases go out by pushing a tag.");
+    expect(read("context.md")).toBe("# Important context\n\nProgressor is an MCP server.\n\nReleases go out by pushing a tag.\n");
+    expect(session("s-b", 200).context()).toBe("Progressor is an MCP server.\n\nReleases go out by pushing a tag.");
+  });
+
+  it("is part of the status and the overview", () => {
+    const agent = session("s-a", 100);
+    agent.setContext("Dashboard on port 4747.");
+    expect(agent.status().context).toBe("Dashboard on port 4747.");
+    expect(agent.overview().context).toBe("Dashboard on port 4747.");
+  });
+
+  it("can be emptied, and refuses text over the size limit", () => {
+    const agent = session("s-a", 100);
+    agent.setContext("Something");
+    agent.setContext("  ");
+    expect(agent.context()).toBe("");
+    expect(() => agent.setContext("x".repeat(MAX_CONTEXT_LENGTH + 1))).toThrow(/too long.*4000/);
   });
 });
 

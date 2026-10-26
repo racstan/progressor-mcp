@@ -43,6 +43,8 @@ export interface Status {
   done: number;
   total: number;
   standingInstructions: StandingInstruction[];
+  /** The project's Important context: lasting background, kept by the Agent. */
+  context: string;
   /** Every Goal on the Roadmap, so a Session without a Claim can pick one. */
   goals: Goal[];
 }
@@ -54,6 +56,7 @@ export interface ProjectOverview {
   paused: Status[];
   planned: Goal[];
   standingInstructions: StandingInstruction[];
+  context: string;
 }
 
 export type FoundItem =
@@ -65,6 +68,10 @@ export type FoundItem =
 
 export const PROGRESSOR_DIR = ".progressor";
 export const ROADMAP_FILE = "roadmap.md";
+export const CONTEXT_FILE = "context.md";
+/** The Important context goes to the Agent in full at every session start, so it stays short. */
+export const MAX_CONTEXT_LENGTH = 4000;
+const CONTEXT_HEADING = "# Important context";
 
 export function processIsAlive(pid: number): boolean {
   try {
@@ -431,6 +438,26 @@ export class Project {
     return result;
   }
 
+  // --- Important context -----------------------------------------------------
+
+  /** The Important context, without the file's heading; empty when there is none. */
+  context(): string {
+    const text = this.readText(this.path(CONTEXT_FILE)) ?? "";
+    return text.replace(/^\s*# Important context[^\S\n]*\n/, "").trim();
+  }
+
+  /** Replaces the Important context; empty text clears it. */
+  setContext(text: string): string {
+    const context = text.trim();
+    if (context.length > MAX_CONTEXT_LENGTH)
+      throw new Error(
+        `The Important context is too long: ${context.length} characters, and the limit is ${MAX_CONTEXT_LENGTH}. ` +
+          "Keep only what matters in every conversation, and shorten the rest.",
+      );
+    this.writeText(this.path(CONTEXT_FILE), context ? `${CONTEXT_HEADING}\n\n${context}\n` : `${CONTEXT_HEADING}\n`);
+    return context;
+  }
+
   // --- lookup ----------------------------------------------------------------
 
   /** Finds any item by its ref, such as `progressor://login/t2` or `progressor://roadmap/i1`. */
@@ -481,11 +508,12 @@ export class Project {
       paused: started.filter((g) => !held(g)).map((g) => this.goalStatus(g, roadmap)),
       planned: roadmap.goals.filter((g) => g.status === "planned"),
       standingInstructions: roadmap.standingInstructions,
+      context: this.context(),
     };
   }
 
   private goalStatus(goal: Goal | undefined, roadmap: Roadmap): Status {
-    const common = { standingInstructions: roadmap.standingInstructions, goals: roadmap.goals };
+    const common = { standingInstructions: roadmap.standingInstructions, context: this.context(), goals: roadmap.goals };
     if (!goal)
       return {
         goal,
