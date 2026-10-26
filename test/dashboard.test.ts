@@ -353,6 +353,20 @@ describe("running servers", () => {
     expect(byPid[process.ppid]).toMatchObject({ project: entry(billing).id, goal: { title: "Billing page" }, serving: false });
   });
 
+  it("lists every Goal a Session holds, since a chat can work on several at once", async () => {
+    announce(agent, process.pid);
+    const second = agent.addGoal("Invoicing", [{ title: "Invoices" }]);
+    agent.claimGoal(second.id);
+    const d = await start(agent);
+    const { body } = await get(d, "/api/servers");
+    const mine = body.servers.find((s: any) => s.pid === process.pid);
+    expect(mine.goals).toEqual([
+      { id: "ship-oauth-login", title: "Ship OAuth login" },
+      { id: second.id, title: "Invoicing" },
+    ]);
+    expect(mine.goal).toEqual(mine.goals[0]);
+  });
+
   it("asks a server to stop when the dashboard's own page says so", async () => {
     const stopped: number[] = [];
     announce(billing, process.ppid, () => stopped.push(process.ppid));

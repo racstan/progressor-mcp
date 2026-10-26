@@ -5,6 +5,8 @@
   --accent: #6d5efc; --done: #17a673; --detour: #e0650f; --faded: #bdbacc; --on-accent: #fff;
   --lane0: #6d5efc; --lane1: #d9409a; --lane2: #0e9fb5; --lane3: #7a9a1c;
   --shadow: 0 6px 24px rgba(40, 30, 90, .08);
+  /* the newer step states: with a helper (blue), waiting on you (amber), checked (teal) */
+  --helper: #2f6fe0; --you: #f0a30a; --you-ink: #a35c00; --on-you: #2a1c00; --checked: #0b8277;
   color-scheme: light;
 }
 :root[data-theme="dark"] {
@@ -12,6 +14,7 @@
   --accent: #8d81ff; --done: #3ccf95; --detour: #ff9a52; --faded: #4a4864; --on-accent: #fff;
   --lane0: #8d81ff; --lane1: #ff6bbd; --lane2: #3fd0e6; --lane3: #b5d65a;
   --shadow: 0 6px 24px rgba(0, 0, 0, .4);
+  --helper: #6aa5ff; --you: #ffc233; --you-ink: #ffc233; --on-you: #2a1c00; --checked: #2dd4bf;
   color-scheme: dark;
 }
 
@@ -315,3 +318,63 @@ a.card { text-decoration: none; color: var(--ink); }
 .context-page .rules li { display: flex; gap: 12px; padding: 10px 12px; margin-bottom: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; line-height: 1.5; }
 .context-page .rules .rid { flex: none; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 2em; }
 .context-page .ctx-list { margin: 0 0 12px; padding-left: 22px; line-height: 1.55; }
+
+/* The newer step states. A badge (.mk) is the same shape in the list, the legend, the Help panel and the popover as the stop on the map:
+   with a helper is a half-filled ring, waiting on you a filled amber "!", checked a ringed tick, released a filled tick with an outer ring. */
+.mk { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; border: 2px solid currentColor; box-sizing: border-box; font-size: 11px; font-weight: 800; line-height: 1; flex: none; }
+.mk.with-a-helper { color: var(--helper); background: linear-gradient(90deg, var(--helper) 50%, transparent 50%); }
+.mk.waiting-on-you { color: var(--on-you); background: var(--you); border-color: var(--you); font-size: 12px; }
+.mk.checked { color: var(--checked); }
+.mk.released { color: #fff; background: var(--done); border-color: var(--done); box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px var(--done); }
+.checklist .mark.mk { width: 18px; }
+.checklist .row.waiting-on-you { background: color-mix(in srgb, var(--you) 14%, transparent); border-radius: 10px; box-shadow: inset 3px 0 0 var(--you); }
+.checklist .tag.state.with-a-helper { color: var(--helper); border-color: currentColor; }
+.checklist .tag.state.waiting-on-you { color: var(--you-ink); border-color: currentColor; font-weight: 700; }
+.checklist .tag.state.checked { color: var(--checked); border-color: currentColor; }
+.checklist .tag.state.released { color: var(--done); border-color: currentColor; }
+.step-key { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+.step-key > span { display: inline-flex; align-items: center; gap: 6px; }
+.step-key.all { flex-direction: column; align-items: stretch; gap: 10px; list-style: none; margin: 0; padding: 0; }
+.step-key.all li { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; }
+.step-key.all small { display: block; color: var(--muted); font-size: 12px; }
+.step-key.all .mk { margin-top: 1px; }
+.checklist-key { max-width: 860px; margin: 14px auto 0; padding: 0 12px; font-size: 12px; color: var(--muted); }
+.pop-state { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; margin: 0 0 8px; padding: 7px 9px; border-radius: 9px; background: var(--panel2); }
+.pop-state.waiting-on-you { background: color-mix(in srgb, var(--you) 18%, var(--panel)); }
+.pop-state .mk { margin-top: 1px; }
+
+/* A Goal waiting on the Developer: amber in the sidebar, the overview and the banner. */
+.you-dot { display: inline-block; width: 8px; height: 8px; margin-left: 7px; vertical-align: middle; border-radius: 50%; background: var(--you); box-shadow: 0 0 0 0 var(--you); animation: fresh 1.8s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) { .you-dot { animation: none; } }
+.state-dot.you { background: var(--you); }
+.goal .s .state.you { color: var(--you-ink); font-weight: 700; }
+.goal.you { border-color: color-mix(in srgb, var(--you) 55%, transparent); background: color-mix(in srgb, var(--you) 10%, transparent); }
+.goal.you .bar i { background: linear-gradient(90deg, var(--lane0), var(--you)); }
+.goal.you[aria-current="true"] { border-color: var(--you); }
+.you-note { font-size: 12px; font-weight: 700; color: var(--you-ink); display: inline-flex; align-items: center; gap: 2px; }
+.you-note .you-dot { margin: 0 6px 0 0; }
+.banner.you { background: linear-gradient(100deg, color-mix(in srgb, var(--you) 22%, var(--panel)), var(--panel)); border-color: color-mix(in srgb, var(--you) 60%, var(--line)); }
+.you-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 8px; font-size: 13px; font-weight: 700; color: var(--you-ink); }
+.you-step { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--you); background: var(--panel); border-radius: 999px; padding: 2px 10px 2px 4px; font-weight: 600; font-size: 13px; }
+.you-step:hover { background: color-mix(in srgb, var(--you) 18%, var(--panel)); }
+
+/* The map and its legend sit in a stage, so the decisions and notes can dock under them. */
+.stage { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.legend .step-key { gap: 4px 12px; }
+.goal-notes { flex: none; margin: 0; }
+.goal-notes h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); display: flex; align-items: baseline; gap: 8px; }
+.goal-notes h3 .count { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--ink); background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; }
+.goal-notes .notes-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px 28px; }
+.goal-notes ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.goal-notes li { padding: 7px 11px; border-radius: 10px; background: var(--panel2); border: 1px solid var(--line); }
+.goal-notes .text { margin: 0; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.goal-notes .origin { margin-top: 3px; font-size: 12px; color: var(--muted); }
+.goal-notes .quiet { margin: 0; font-size: 13px; color: var(--muted); }
+.goal-notes .settled { margin-top: 8px; }
+.goal-notes .settled summary { margin: 0 0 6px; }
+.goal-notes li.resolved { background: none; border-style: dashed; opacity: .65; }
+.goal-notes li.resolved .text { text-decoration: line-through; color: var(--muted); }
+.goal-notes.dock { border-top: 1px solid var(--line); background: var(--panel); max-height: 38%; overflow: auto; padding: 0 16px 12px; }
+.goal-notes.dock > summary { position: sticky; top: 0; z-index: 1; background: var(--panel); margin: 0 -16px 10px; padding: 8px 16px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+section.goal-notes { max-width: 860px; margin: 22px auto 0; padding: 14px 12px 0; border-top: 1px solid var(--line); }
+@media (max-width: 720px) { .goal-notes.dock { max-height: 45%; } }

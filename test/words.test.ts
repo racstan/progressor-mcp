@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GOAL_WORD, STEP_WORD, ago, goalState, statusLine, stepOf } from "../src/ui/words.js";
+import { GOAL_WORD, STEP_HINT, STEP_MARK, STEP_WORD, ago, countsLine, goalState, isBadge, noteOrigin, statusClass, statusLine, stepOf, underWay } from "../src/ui/words.js";
 
 const MIN = 60_000;
 const now = Date.parse("2026-10-20T12:00:00Z");
@@ -11,6 +11,11 @@ describe("plain words", () => {
     expect(STEP_WORD["in progress"]).toBe("Working on it");
     expect(STEP_WORD.dropped).toBe("Cancelled");
     expect(STEP_WORD.open).toBe("Side trip under way");
+    expect(STEP_WORD["with a helper"]).toBe("With a helper");
+    expect(STEP_WORD["waiting on you"]).toBe("Waiting on you");
+    expect(STEP_WORD.checked).toBe("Checked");
+    expect(STEP_WORD.released).toBe("Released");
+    for (const hint of Object.values(STEP_HINT)) expect(hint).not.toMatch(/agent|task|detour|merge[^d]|helper agent/i);
     for (const word of Object.values(STEP_WORD)) expect(word).not.toMatch(/detour|recalibrat|merge|pending|dropped/i);
   });
 
@@ -80,5 +85,57 @@ describe("the status line", () => {
   });
   it("says when a Goal has no steps yet", () => {
     expect(statusLine({ status: "active", updatedAt: now, running: true }, [], now)).toBe("AI working · no steps yet · last update just now");
+  });
+});
+
+describe("the newer step states", () => {
+  it("has a word, a mark and a CSS class for every status a step can have", () => {
+    for (const status of ["pending", "in progress", "with a helper", "waiting on you", "checked", "done", "released", "dropped"]) {
+      expect(STEP_WORD[status], status).toBeTruthy();
+      expect(STEP_MARK[status], status).toBeDefined();
+      expect(statusClass(status)).not.toMatch(/ /);
+    }
+    expect(statusClass("waiting on you")).toBe("waiting-on-you");
+    expect(["with a helper", "waiting on you", "checked", "released"].every(isBadge)).toBe(true);
+    expect(["pending", "in progress", "done", "dropped"].some(isBadge)).toBe(false);
+  });
+
+  it("counts released steps as done, and any step under way as the current one", () => {
+    expect(stepOf(["released", "done", "waiting on you", "pending"])).toEqual({ step: 3, of: 4 });
+    expect(stepOf(["done", "with a helper", "in progress"])).toEqual({ step: 2, of: 3 });
+    expect(stepOf(["released", "released"])).toEqual({ step: 2, of: 2 });
+  });
+
+  it("puts a Goal waiting on the Developer ahead of every other state while it is open", () => {
+    const g = { status: "active", updatedAt: now - 60 * MIN, running: false, waitingOnYou: true };
+    expect(goalState(g, now)).toMatchObject({ state: "you", label: "Waiting on you" });
+    expect(goalState({ ...g, status: "paused", running: undefined }, now).state).toBe("you");
+    expect(goalState({ ...g, status: "done" }, now).state).toBe("finished");
+    expect(goalState({ ...g, status: "planned" }, now).state).toBe("planned");
+    expect(goalState({ ...g, waitingOnYou: false }, now).state).toBe("stopped");
+    expect(statusLine(g, ["done", "waiting on you", "pending"], now)).toBe("Waiting on you · step 2 of 3 · last update 1 h ago");
+  });
+
+  it("sums up the steps that need an eye, in plain words", () => {
+    expect(countsLine({ pending: 2, "waiting on you": 1, "with a helper": 2, checked: 0, done: 3 })).toBe("1 waiting on you · 2 with a helper");
+    expect(countsLine({ pending: 2, done: 1 })).toBe("");
+  });
+
+  it("says what a Goal's steps are doing, the Developer's own first", () => {
+    const step = (title: string, status: string) => ({ title, status });
+    expect(underWay([step("A", "in progress"), step("B", "waiting on you")])).toBe('waiting on you for "B"');
+    expect(underWay([step("A", "waiting on you"), step("B", "waiting on you")])).toBe("waiting on you for 2 steps");
+    expect(underWay([step("A", "done"), step("B", "in progress")])).toBe('working on "B"');
+    expect(underWay([step("A", "with a helper"), step("B", "pending")])).toBe('"A" is with a helper');
+    expect(underWay([step("A", "with a helper"), step("B", "with a helper")])).toBe("2 steps are with helpers");
+    expect(underWay([step("A", "checked")])).toBe('"A" is checked, not released yet');
+    expect(underWay([step("A", "done"), step("B", "pending")])).toBeUndefined();
+  });
+
+  it("says where a note was found, by the title of that Goal", () => {
+    const goals = [{ ref: "progressor://login", title: "Let people sign in" }];
+    expect(noteOrigin("progressor://login", goals)).toBe("Found while working on Let people sign in");
+    expect(noteOrigin("progressor://gone", goals)).toBe("Found while working on another goal");
+    expect(noteOrigin(undefined, goals)).toBeUndefined();
   });
 });

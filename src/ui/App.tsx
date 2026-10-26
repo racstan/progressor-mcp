@@ -15,7 +15,9 @@ import { ServersPanel } from "./Servers.js";
 import { inlineCode, plainText } from "./text.js";
 import { VIEWS, VIEW_LABELS, type View, pickView } from "./views.js";
 import { sortProjects } from "./projectList.js";
-import { GOAL_WORD, SIDE_TRIP_HINT, STEP_WORD, goalState, statusLine } from "./words.js";
+import { GoalNotes } from "./GoalNotes.js";
+import { StepKey, StepMark } from "./StepKey.js";
+import { GOAL_WORD, SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, countsLine, goalState, statusClass, statusLine, underWay } from "./words.js";
 
 type Goal = RoadmapView["goals"][number];
 type Theme = "light" | "dark" | "system";
@@ -53,8 +55,10 @@ const SHOW_OPTIONS: { key: keyof Show; label: string; hint: string }[] = [
   { key: "files", label: "File names", hint: "The files each step changes, and buttons to open them in your code editor." },
 ];
 
-/** The Goal shown first: the one being worked on, else a paused one, else the next planned one. */
+/** The Goal shown first: one waiting on the Developer, else one being worked on, else a paused one, else the next planned one. */
 function defaultGoal(goals: Goal[]): string | undefined {
+  const waiting = goals.find((g) => g.waitingOnYou && (g.status === "active" || g.status === "paused"));
+  if (waiting) return waiting.id;
   for (const status of ["active", "paused", "planned", "done"])
     for (const g of goals) if (g.status === status) return g.id;
   return goals[0]?.id;
@@ -337,9 +341,9 @@ export function App() {
 
   // The chat working on a Goal, if one holds it: whether it is still open says if the AI stopped.
   const sessionChips = roadmap?.sessions ?? [];
-  const stateOf = (g: Pick<Goal, "id" | "status" | "updatedAt">) => {
+  const stateOf = (g: Pick<Goal, "id" | "status" | "updatedAt" | "waitingOnYou">) => {
     const s = sessionChips.find((x) => x.goal === g.id);
-    return { status: g.status, updatedAt: g.updatedAt, running: s?.running };
+    return { status: g.status, updatedAt: g.updatedAt, running: s?.running, waitingOnYou: g.waitingOnYou };
   };
   // "last update 2 min ago" moves on by itself.
   const [, tick] = useState(0);
@@ -357,9 +361,9 @@ export function App() {
     const pct = g.total ? Math.round((100 * g.done) / g.total) : 0;
     const fresh = grouped.fresh.has(g.id);
     const state = goalState(stateOf(g));
-    const hover = [fresh ? "Finished: open it to take a look." : state.hint, g.outcome && `Finished when: ${plainText(g.outcome)}`, "Right-click to hide it from this list."];
+    const hover = [fresh ? "Finished: open it to take a look." : state.hint, countsLine(g.counts), g.outcome && `Finished when: ${plainText(g.outcome)}`, "Right-click to hide it from this list."];
     return (
-      <button key={g.id} className={`goal ${g.status} ${fresh ? "fresh" : ""}`} aria-current={!onContext && g.id === effectiveGoal}
+      <button key={g.id} className={`goal ${g.status} ${fresh ? "fresh" : ""} ${state.state === "you" ? "you" : ""}`} aria-current={!onContext && g.id === effectiveGoal}
         title={hover.filter(Boolean).join("\n")}
         onClick={() => pickGoal(g.id)}
         onContextMenu={(e) => {
@@ -369,6 +373,7 @@ export function App() {
         <div className="t">
           {g.title}
           {fresh && <span className="fresh-dot" role="img" aria-label="finished, not looked at yet" />}
+          {state.state === "you" && <span className="you-dot" role="img" aria-label="waiting on you" />}
         </div>
         <div className="bar"><i style={{ width: `${pct}%` }} /></div>
         <div className="s">
@@ -515,6 +520,10 @@ export function App() {
       {menuOpen && (
         <MenuPanel label="Help" onClose={() => setMenuOpen(false)}>
           <section>
+            <h3>What the marks on a step mean</h3>
+            <StepKey statuses={[]} all />
+          </section>
+          <section>
             <h3>Facing a problem?</h3>
             <a className="card" href={issueUrl("bug", { version: info?.version, system: describeSystem(navigator.userAgent) })} target="_blank" rel="noopener noreferrer">
               🐞 Report a problem
@@ -639,28 +648,36 @@ export function App() {
           ) : (
             <>
               <Banner view={shownGoal} detours={detours} state={stateOf(shownGoal.goal)}
+                onOpenStep={(node, at) => setSelected({ key: node.id, at })}
                 planLink={show.files ? fileLink(shownGoal.goal.planFile) : undefined}
                 onCopy={() => copy(copyAsPrompt({ kind: "goal", goal: shownGoal.goal, graph: shownGoal.graph }))} />
               {graph.nodes.length === 0 ? (
                 <div className="placeholder"><h2>No steps yet</h2>Your AI adds the steps as it plans. This page updates by itself.</div>
               ) : view === "checklist" ? (
-                <Checklist graph={graph} fileLink={fileLink} files={show.files} onOpen={(node, at) => setSelected({ key: node.id, at })} />
+                <Checklist graph={graph} fileLink={fileLink} files={show.files} onOpen={(node, at) => setSelected({ key: node.id, at })}
+                  footer={<GoalNotes view={shownGoal} goals={goals} />} />
               ) : (
-                <MetroMap
-                  graph={graph}
-                  orientation={view}
-                  viewKey={`${projectId}:${shownGoal.goal.id}:${view}:${detours}:${show.cancelled}`}
-                  focusId={focus(graph, detours)}
-                  files={show.files}
-                  onOpen={(node, at) => setSelected({ key: node.id, at })}
-                />
+                <>
+                  <div className="stage">
+                    <MetroMap
+                      graph={graph}
+                      orientation={view}
+                      viewKey={`${projectId}:${shownGoal.goal.id}:${view}:${detours}:${show.cancelled}`}
+                      focusId={focus(graph, detours)}
+                      files={show.files}
+                      onOpen={(node, at) => setSelected({ key: node.id, at })}
+                    />
+                    <div className="legend" aria-hidden="true">
+                      <span>━ the plan</span>
+                      {detours && <span style={{ color: "var(--detour)" }}>◆┈ side trip</span>}
+                      {show.cancelled && <span style={{ color: "var(--faded)" }}>┅ cancelled</span>}
+                      <StepKey statuses={tasksOf(graph).map((t) => t.status)} />
+                      <span>click a stop for details · {view === "vertical" ? "scroll to move · Ctrl+scroll to zoom" : "scroll to zoom"}</span>
+                    </div>
+                  </div>
+                  <GoalNotes view={shownGoal} goals={goals} dock />
+                </>
               )}
-              {view !== "checklist" && graph.nodes.length > 0 && <div className="legend" aria-hidden="true">
-                <span>━ the plan</span>
-                {detours && <span style={{ color: "var(--detour)" }}>◆┈ side trip</span>}
-                {show.cancelled && <span style={{ color: "var(--faded)" }}>┅ cancelled</span>}
-                <span>click a stop for details · {view === "vertical" ? "scroll to move · Ctrl+scroll to zoom" : "scroll to zoom"}</span>
-              </div>}
             </>
           )}
         </main>
@@ -797,13 +814,18 @@ const openDetourOf = (g: GoalGraph) => g.nodes.find((n): n is DetourNode => n.ki
 function focus(g: GoalGraph, detours: boolean): string | undefined {
   const open = detours ? openDetourOf(g) : undefined;
   const tasks = tasksOf(g);
-  return open?.id ?? tasks.find((t) => t.status === "in progress")?.id ?? tasks.find((t) => t.status === "pending")?.id ?? tasks[0]?.id;
+  const first = (status: string) => tasks.find((t) => t.status === status)?.id;
+  return (
+    first("waiting on you") ?? open?.id ?? first("in progress") ?? first("with a helper") ?? first("checked") ?? first("pending") ?? tasks[0]?.id
+  );
 }
 
 type FileLink = (path: string, line?: number) => { href: string | undefined; onClick: () => void };
 
-function Banner({ view, detours, state, planLink, onCopy }: {
+function Banner({ view, detours, state, planLink, onCopy, onOpenStep }: {
   view: GoalView;
+  /** Opens a step's details, from the list of steps waiting on the Developer. */
+  onOpenStep: (node: TaskNode, at: { x: number; y: number }) => void;
   detours: boolean;
   /** Whether a chat is working on the Goal, for the status line. */
   state: Parameters<typeof goalState>[0];
@@ -813,7 +835,7 @@ function Banner({ view, detours, state, planLink, onCopy }: {
 }) {
   const { goal, graph } = view;
   const tasks = tasksOf(graph);
-  const current = tasks.find((t) => t.status === "in progress");
+  const waiting = tasks.filter((t) => t.status === "waiting on you");
   const next = tasks.find((t) => t.status === "pending");
   const open = detours ? openDetourOf(graph) : undefined;
   const from = open?.branchedFrom ? tasks.find((t) => t.id === open.branchedFrom) : undefined;
@@ -821,7 +843,7 @@ function Banner({ view, detours, state, planLink, onCopy }: {
   const line = statusLine(state, tasks.map((t) => t.status));
   return (
     <div className={`banner ${open ? "detour" : ""} ${now}`}>
-      <span className="big" aria-hidden="true">{open ? "🚧" : goal.status === "done" ? "🏁" : "🚇"}</span>
+      <span className="big" aria-hidden="true">{now === "you" ? "🙋" : open ? "🚧" : goal.status === "done" ? "🏁" : "🚇"}</span>
       <div className="text">
         {open ? (
           <>
@@ -835,7 +857,7 @@ function Banner({ view, detours, state, planLink, onCopy }: {
           <>
             <div>
               <b>{goal.title}:</b>{" "}
-              {current ? `working on "${current.title}"` : goal.status === "done" ? "finished" : goal.status === "dropped" ? `cancelled${goal.reason ? `: ${plainText(goal.reason)}` : ""}` : "nothing under way"}
+              {underWay(tasks) ?? (goal.status === "done" ? "finished" : goal.status === "dropped" ? `cancelled${goal.reason ? `: ${plainText(goal.reason)}` : ""}` : "nothing under way")}
             </div>
             {goal.outcome && <div className="k outcome" title="What finished looks like: the AI checks the work against this before it calls the goal finished">🎯 Finished when: {plainText(goal.outcome)}</div>}
           </>
@@ -845,6 +867,16 @@ function Banner({ view, detours, state, planLink, onCopy }: {
           {line}
           {next && !open ? ` · next: ${next.title}` : ""}
         </div>
+        {waiting.length > 0 && (
+          <div className="you-steps" title={STEP_HINT["waiting on you"]}>
+            <span>Waiting on you:</span>
+            {waiting.map((t) => (
+              <button key={t.id} className="you-step" onClick={(e) => onOpenStep(t, { x: e.clientX, y: e.clientY })}>
+                <StepMark status="waiting on you" /> {t.title}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div className="actions">
         {planLink && <a className="btn ghost" title="Open the file the plan of this goal is kept in" {...planLink}>Open plan file</a>}
@@ -860,7 +892,7 @@ interface Location {
   label: string;
 }
 
-function describe(subject: PromptSubject): { title: string; meta: string; summary?: string; reason?: string; locations: Location[] } {
+function describe(subject: PromptSubject): { title: string; meta: string; state?: string; summary?: string; reason?: string; locations: Location[] } {
   switch (subject.kind) {
     case "node": {
       const { node: n, goal, graph } = subject;
@@ -874,6 +906,7 @@ function describe(subject: PromptSubject): { title: string; meta: string; summar
       return {
         title: n.title,
         meta: `${which} · ${STEP_WORD[n.status]}${n.fromDetour ? " · added after a side trip" : ""}`,
+        state: n.status,
         summary: n.summary,
         reason: n.status === "dropped" && n.reason ? `Why it was cancelled: ${n.reason}` : undefined,
         locations: [main, ...code],
@@ -930,6 +963,9 @@ function Popover({ subject, at, onClose, fileLink, files, onCopy }: {
       <button className="x" aria-label="Close" onClick={onClose}>✕</button>
       <h4>{d.title}</h4>
       <div className="meta">{d.meta}</div>
+      {d.state && STEP_HINT[d.state] && (
+        <div className={`pop-state ${statusClass(d.state)}`}><StepMark status={d.state} /> <span>{STEP_HINT[d.state]}</span></div>
+      )}
       {d.summary && <RichText className="summary" text={d.summary} />}
       {d.reason && <RichText className="reason" text={d.reason} />}
       {files && <div className="locs">

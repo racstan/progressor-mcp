@@ -13,13 +13,49 @@ export const GOAL_WORD: Record<string, string> = {
 export const STEP_WORD: Record<string, string> = {
   pending: "To do",
   "in progress": "Working on it",
+  "with a helper": "With a helper",
+  "waiting on you": "Waiting on you",
+  checked: "Checked",
   done: "Done",
+  released: "Released",
   dropped: "Cancelled",
   open: "Side trip under way",
   "merged back": "Side trip done",
   returned: "Back to the plan",
   recalibrated: "Plan changed",
 };
+
+/** What each of the newer step states means, for the hover, the details and the legend. */
+export const STEP_HINT: Record<string, string> = {
+  "with a helper": "The AI handed this step to a helper, another AI that works on it on the side.",
+  "waiting on you": "The AI needs you for this step, for example to try something out by hand.",
+  checked: "The AI looked over the helper's work and it holds up. It is not merged or released yet.",
+  released: "Done and out: merged, shipped, installed or published.",
+};
+
+/**
+ * The mark in front of a step in the list. The newer states are badges drawn in CSS (`.mk`), the same
+ * shapes as on the map: a half-filled ring, a filled amber "!", a ringed tick, a filled tick with an outer ring.
+ */
+export const STEP_MARK: Record<string, string> = {
+  done: "✓",
+  "in progress": "▶",
+  pending: "○",
+  dropped: "✕",
+  "with a helper": "",
+  "waiting on you": "!",
+  checked: "✓",
+  released: "✓",
+};
+
+/** Whether a step's mark is one of the badges. */
+export const isBadge = (status: string) => status === "with a helper" || status === "waiting on you" || status === "checked" || status === "released";
+
+/** The class that names a status in CSS: "waiting on you" is "waiting-on-you". */
+export const statusClass = (status: string) => status.replace(/ /g, "-");
+
+/** The steps that are under way in some way, rather than waiting to start or over. */
+const UNDER_WAY = ["in progress", "with a helper", "waiting on you", "checked"];
 
 /** What a side trip's ending means, for its hover. */
 export const SIDE_TRIP_HINT: Record<string, string> = {
@@ -45,12 +81,12 @@ export function ago(at: number, now = Date.now()): string {
 /** Which step the work is on, counting only the steps that are not cancelled. */
 export function stepOf(statuses: readonly string[]): { step: number; of: number } {
   const live = statuses.filter((s) => s !== "dropped");
-  const current = live.indexOf("in progress");
-  const done = live.filter((s) => s === "done").length;
+  const current = live.findIndex((s) => UNDER_WAY.includes(s));
+  const done = live.filter((s) => s === "done" || s === "released").length;
   return { step: current >= 0 ? current + 1 : Math.min(done + 1, live.length), of: live.length };
 }
 
-export type GoalState = "working" | "waiting" | "stopped" | "paused" | "planned" | "finished" | "cancelled";
+export type GoalState = "you" | "working" | "waiting" | "stopped" | "paused" | "planned" | "finished" | "cancelled";
 
 /** How long the plan can stay unchanged while the AI's chat is open before it counts as waiting. */
 const QUIET = 15 * MIN;
@@ -61,7 +97,7 @@ const QUIET = 15 * MIN;
  * likely waiting for the person.
  */
 export function goalState(
-  goal: { status: string; updatedAt: number | undefined; running: boolean | undefined },
+  goal: { status: string; updatedAt: number | undefined; running: boolean | undefined; waitingOnYou?: boolean },
   now = Date.now(),
 ): { state: GoalState; label: string; hint: string } {
   switch (goal.status) {
@@ -72,6 +108,9 @@ export function goalState(
     case "planned":
       return { state: "planned", label: "Not started", hint: "Your AI has planned this but not started it yet." };
   }
+  // A step that needs the person comes before everything else: it is what they should look at.
+  if (goal.waitingOnYou)
+    return { state: "you", label: "Waiting on you", hint: "A step in this goal is waiting on you. Open the goal to see which one." };
   if (goal.running === false)
     return {
       state: "stopped",
@@ -93,7 +132,7 @@ const steps = (n: number) => `${n} ${n === 1 ? "step" : "steps"}`;
 
 /** One line on where a Goal stands: "AI working · step 3 of 7 · last update 2 min ago". */
 export function statusLine(
-  goal: { status: string; updatedAt: number | undefined; running: boolean | undefined },
+  goal: { status: string; updatedAt: number | undefined; running: boolean | undefined; waitingOnYou?: boolean },
   statuses: readonly string[],
   now = Date.now(),
 ): string {
@@ -104,4 +143,33 @@ export function statusLine(
   if (state === "planned") return `${label} · ${steps(of)}`;
   if (state === "finished") return `${label}${when ? ` ${when}` : ""} · ${steps(of)}`;
   return [label, of ? `step ${step} of ${of}` : "no steps yet", when && `last update ${when}`].filter(Boolean).join(" · ");
+}
+
+/** The steps in the states that need a person's eye, as "1 waiting on you · 2 with a helper". Empty when none. */
+export function countsLine(counts: Partial<Record<string, number>>): string {
+  return (["waiting on you", "with a helper", "checked"] as const)
+    .filter((k) => (counts[k] ?? 0) > 0)
+    .map((k) => `${counts[k]} ${STEP_WORD[k]!.toLowerCase()}`)
+    .join(" · ");
+}
+
+/** What a Goal's steps are doing right now, in a few words; undefined when none is under way. */
+export function underWay(steps: readonly { title: string; status: string }[]): string | undefined {
+  const quoted = (list: readonly { title: string }[]) => (list.length === 1 ? `"${list[0]!.title}"` : `${list.length} steps`);
+  const waiting = steps.filter((t) => t.status === "waiting on you");
+  if (waiting.length > 0) return `waiting on you for ${quoted(waiting)}`;
+  const working = steps.filter((t) => t.status === "in progress");
+  if (working.length > 0) return `working on ${quoted(working)}`;
+  const helped = steps.filter((t) => t.status === "with a helper");
+  if (helped.length > 0) return helped.length === 1 ? `${quoted(helped)} is with a helper` : `${helped.length} steps are with helpers`;
+  const checked = steps.filter((t) => t.status === "checked");
+  if (checked.length > 0) return checked.length === 1 ? `${quoted(checked)} is checked, not released yet` : `${checked.length} steps are checked, not released yet`;
+  return undefined;
+}
+
+/** Where a note was filed from, in plain words; `goals` are the Roadmap's, matched by their refs. */
+export function noteOrigin(from: string | undefined, goals: readonly { ref: string; title: string }[]): string | undefined {
+  if (!from) return undefined;
+  const title = goals.find((g) => g.ref === from)?.title;
+  return title ? `Found while working on ${title}` : "Found while working on another goal";
 }

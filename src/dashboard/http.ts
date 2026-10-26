@@ -295,14 +295,15 @@ class Hub {
       hub: process.pid,
       servers: listServers(this.serversDir).map((s) => {
         const entry = entries.find((e) => pathKey(e.root) === pathKey(s.root));
-        let goal: { id: string; title: string } | undefined;
+        // A Session can hold several Goals at once: `goals` has them all, `goal` the first.
+        let goals: { id: string; title: string }[] = [];
         try {
-          const g = s.session && this.projects.get(entry?.id ?? "")?.api.roadmap().goals.find((x) => x.claim?.session === s.session);
-          if (g) goal = { id: g.id, title: g.title };
+          const held = s.session ? (this.projects.get(entry?.id ?? "")?.api.roadmap().goals.filter((x) => x.claim?.session === s.session) ?? []) : [];
+          goals = held.map((g) => ({ id: g.id, title: g.title }));
         } catch {
-          // a Roadmap that cannot be read shows the server without its Goal
+          // a Roadmap that cannot be read shows the server without its Goals
         }
-        return { ...s, name: entry?.name ?? projectEntry(s.root).name, project: entry?.id, goal, serving: s.pid === process.pid };
+        return { ...s, name: entry?.name ?? projectEntry(s.root).name, project: entry?.id, goal: goals[0], goals, serving: s.pid === process.pid };
       }),
     };
   }

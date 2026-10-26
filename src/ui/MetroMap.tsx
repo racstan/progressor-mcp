@@ -6,6 +6,14 @@ import { type BandEdge, rubberBand } from "./rubberBand.js";
 import { plainText } from "./text.js";
 import { STEP_WORD } from "./words.js";
 
+/** The newer step states that get a word above their stop, and the colour of that word. */
+const STOP_TAG: Record<string, { word: string; color: string }> = {
+  "with a helper": { word: "WITH A HELPER", color: "var(--helper)" },
+  "waiting on you": { word: "WAITING ON YOU", color: "var(--you-ink)" },
+  checked: { word: "CHECKED", color: "var(--checked)" },
+  released: { word: "RELEASED", color: "var(--done)" },
+};
+
 /** Zoom and pan per Goal (and view and Detours setting) survive live updates and switching back and forth. */
 const views = new Map<string, View>();
 
@@ -192,6 +200,7 @@ function Stop({ node: n, at, vertical, files, onKey }: { node: GraphNode; at: Po
   const { x, y } = at;
   const dropped = n.kind === "task" && n.status === "dropped";
   const active = n.kind === "task" && n.status === "in progress";
+  const attention = n.kind === "task" && n.status === "waiting on you";
   const lines = wrapLabel(n.title, vertical ? 26 : 20);
   const label = `${n.kind === "task" ? "Step" : "Side trip"}: ${n.title} (${STEP_WORD[n.status]})`;
   // Labels sit under the stop on the horizontal map and beside it on the vertical one.
@@ -213,13 +222,39 @@ function Stop({ node: n, at, vertical, files, onKey }: { node: GraphNode; at: Po
     );
   } else {
     const c = dropped ? "var(--faded)" : laneColor(n.lane);
+    const tag = STOP_TAG[n.status];
+    const waiting = n.status === "waiting on you";
+    // The states that need an eye take their own colour; the others keep the colour of their line.
+    const ring = waiting ? "var(--you)" : n.status === "with a helper" ? "var(--helper)" : n.status === "checked" ? "var(--checked)" : c;
+    const finishedStop = n.status === "done" || n.status === "released";
     shape = (
       <>
-        {active && <circle className="pulse" cx={x} cy={y} r={14} fill={c} />}
-        <circle className="shape" cx={x} cy={y} r={active ? 15 : 12} fill={n.status === "done" ? c : "var(--panel)"} stroke={c} strokeWidth={5} />
-        {n.status === "done" && <path d={`M${x - 5},${y} l4,4 l7,-8`} stroke="#fff" strokeWidth={2.5} fill="none" strokeLinecap="round" />}
+        {(active || waiting) && <circle className="pulse" cx={x} cy={y} r={14} fill={ring} />}
+        {n.status === "released" && <circle cx={x} cy={y} r={19} fill="none" stroke={c} strokeWidth={2} opacity={0.55} />}
+        <circle
+          className="shape"
+          cx={x}
+          cy={y}
+          r={active || waiting ? 15 : 12}
+          fill={finishedStop ? c : waiting ? "var(--you)" : "var(--panel)"}
+          stroke={ring}
+          strokeWidth={5}
+        />
+        {finishedStop && <path d={`M${x - 5},${y} l4,4 l7,-8`} stroke="#fff" strokeWidth={2.5} fill="none" strokeLinecap="round" />}
+        {n.status === "checked" && <path d={`M${x - 5},${y} l4,4 l7,-8`} stroke="var(--checked)" strokeWidth={2.5} fill="none" strokeLinecap="round" />}
+        {n.status === "with a helper" && <path d={`M${x},${y - 6} a6,6 0 0 0 0,12 z`} fill="var(--helper)" />}
+        {waiting && (
+          <text x={x} y={y + 6} textAnchor="middle" fontSize={17} fontWeight={800} style={{ fill: "var(--on-you)" }}>
+            !
+          </text>
+        )}
+        {tag && (
+          <text x={textX} y={tagY} textAnchor={anchor} fontSize={11} fontWeight={700} style={{ fill: tag.color }}>
+            {tag.word}
+          </text>
+        )}
         {n.fromDetour && (
-          <text x={textX} y={tagY} textAnchor={anchor} fontSize={11} style={{ fill: "var(--detour)" }}>
+          <text x={textX} y={tag ? tagY - 14 : tagY} textAnchor={anchor} fontSize={11} style={{ fill: "var(--detour)" }}>
             from a side trip
           </text>
         )}
@@ -243,7 +278,7 @@ function Stop({ node: n, at, vertical, files, onKey }: { node: GraphNode; at: Po
     >
       <title>{n.kind === "task" && n.summary ? `${label}\n${plainText(n.summary)}` : label}</title>
       {shape}
-      <text x={textX} y={titleY} textAnchor={anchor} fontSize={13} fontWeight={active ? 700 : 500} textDecoration={dropped ? "line-through" : undefined}>
+      <text x={textX} y={titleY} textAnchor={anchor} fontSize={13} fontWeight={active || attention ? 700 : 500} textDecoration={dropped ? "line-through" : undefined}>
         {lines.map((l, i) => (
           <tspan key={i} x={textX} dy={i ? 15 : 0}>
             {l}

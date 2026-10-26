@@ -9,9 +9,21 @@ When you ask for something, your AI turns it into a **goal**, such as *"Contact 
 - **Finished when**: one sentence on what done looks like, such as *"Visitors can send a message from the home page and it arrives by email."* Your AI checks its work against this before it calls the goal finished.
 - **Steps**: the pieces of work in order, such as *"Add the form"*, *"Send the email"*, *"Show a thank-you message"*.
 
-Your AI works through the steps one at a time and ticks each off when it's done. When every step is done and the work matches *Finished when*, it marks the goal finished and tells you in a sentence.
+Your AI works through the steps and ticks each off when it's done. When every step is done and the work matches *Finished when*, it marks the goal finished and tells you in a sentence.
 
 A project can have several goals. **Your goals** on the dashboard lists them all, in the order they'll be done.
+
+## Helpers, waiting on you, decisions and notes
+
+Your AI keeps a little more in the plan than a list of ticks, so that you can see what is going on:
+
+- **Helpers.** Your AI may hand a step to a helper, another AI that works on it on the side. The step shows as **With a helper**. When your AI has looked over the helper's work and it holds up, the step is **Checked**. Once it's merged and out (shipped, installed or published) it's **Released**.
+- **Waiting on you.** If a step needs you, for example to try something out by hand, your AI marks it **Waiting on you** and tells you in the chat. The dashboard shows the goal in amber until you've done it, so you don't have to hunt for what's holding things up. When you're done, tell your AI and it carries on.
+- **Decisions.** When a choice is made that's worth remembering (*"Sessions end after 30 minutes"*), your AI records it under the goal, so a later conversation doesn't reopen it.
+- **Notes.** When your AI spots something along the way, such as a bug in a part it isn't working on, it adds a note to the goal that it belongs to and carries on with what it was doing. The note says where it was found, and your AI crosses it off when it's dealt with.
+- **Several goals at once.** One conversation can work on more than one goal at the same time, for instance while a helper builds one and you try out another. The dashboard shows each goal's own status.
+
+All of it shows on the dashboard: see [the dashboard](dashboard.md). It's read-only there; to change something, tell your AI.
 
 ## Side trips
 
