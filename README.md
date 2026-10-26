@@ -61,6 +61,8 @@ Open **http://localhost:4747** while your AI's app is open (your AI gives you th
 - **Your goals**: everything planned for the project, with how far along each one is.
 - **What's waiting on you**: when the AI needs you, say to try something by hand, the goal turns amber and says *Waiting on you*. Steps handed to helper agents, checked or released show as such, and each goal lists the decisions made along the way.
 
+**Work for one project, recorded in another.** When a chat in one project does work for another (say it releases a library your app uses), your AI can record it in that project's plan without opening a chat there. Those changes carry an **Updated from** tag, and the AI in that project is told about them.
+
 **One dashboard for all your projects.** You don't need a Progressor per project to see them all. As long as one AI chat is running Progressor, in any project and any app, the same page shows every project you've used it in. Switch between them at the top of the sidebar, or pick **🗂 All projects** to see them side by side. Each project's plan stays in its own folder, so chats in different projects, even in different apps, never get in each other's way.
 
 The page only shows; you change the plan by talking to your AI. More in the [dashboard guide](docs/dashboard.md).

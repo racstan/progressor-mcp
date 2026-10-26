@@ -99,7 +99,7 @@ Every item also has a line number: the 1-based line of its item line (for a Deto
 
 Every Task has three parts. Its **title** is the item line: a few words, such as "Fix callback redirect loop". Its **files** are its `code` lines. Its **summary** is a `summary` line: one or two sentences on the fix or change it makes. The title is required; files and summary are optional, so a Task typed by hand as a single line is still valid. A summary is kept on one line: line breaks given to the tools become spaces.
 
-When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `moved from`, `added by`, `dropped by`, `reason`. Unknown details follow in the order they were in.
+When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `moved from`, `added by`, `dropped by`, `reason`, `updated from`. Unknown details follow in the order they were in.
 
 ## Status markers
 
@@ -147,6 +147,7 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 | Idea     | `promoted to`  | The ref of the Task or Goal it was promoted to.                          |
 | Idea     | `note`         | Free text recorded with the Idea.                                        |
 | Note     | `from`         | The ref of the Goal being worked on when the note was made, if another one. |
+| Goal, Task, decision, note | `updated from` | The project an Agent working elsewhere changed it from, and when: `<project name> at <ISO time>` (see [below](#changes-from-another-project)). |
 
 A Detour's facts are the list lines directly under its heading:
 
@@ -171,6 +172,17 @@ A Standing Instruction is a preference unless it has a `hard: yes` line, which m
 ## Moving a Task between Goals
 
 `move_task` copies a Task into another Goal's Plan File, at the end of its `## Tasks` or right before or after one of its Tasks, with a new ID (one more than the highest in that file). The copy has the same checkbox and `state`, title, `summary` and `code` lines, plus `moved from: progressor://<old goal>/<old id>`. The old Task stays in its Plan File as `[-]` with `reason: Moved to the goal "<title>" (progressor://<new goal>/<new id>)` (the dashboard leaves out the bracketed ref), so its ID is never reused, `progressor://` refs to it still resolve, and any Detour that `branched from` it or Task it `added by` still points at a line that exists. Nothing is deleted: the Goal's counts leave the old Task out, as for any dropped Task.
+
+## Changes from another project
+
+An Agent working in another project can change this project's plan through the tools' `project` input. Each Goal, Task, decision or note it adds or changes gets an `updated from` line naming the project it worked in (the folder name) and when:
+
+```markdown
+- [x] [Release 0.7.1](goals/v0-7-1.md) ^v0-7-1
+  - updated from: rachitkdeaichat at 2026-10-26T12:00:00.000Z
+```
+
+A later change from elsewhere replaces the line; a change made in the project itself leaves it. A value without ` at <time>` (written by hand) still names the project. The line is read by the dashboard (the **Updated from** tag) and by the project's own Session, which is told about changes newer than the last time it looked.
 
 ## How the Detour endings show up
 

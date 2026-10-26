@@ -72,6 +72,10 @@ _Avoid_: Rule, choice, ADR
 Something spotted that belongs to a Goal, often while working on another one, such as a bug found during cleanup that belongs to the Voice Goal; open until it is resolved.
 _Avoid_: Todo, comment, issue
 
+**Change from elsewhere**:
+A change an Agent working in one Project makes to another Project's Roadmap or Plan Files, through the tools' `project` input. Each item it adds or changes there is marked `updated from` the Project it came from (the dashboard shows *Updated from …*), it never takes a Claim there, and it leaves Goals that a running Session holds alone, but for Notes. That Project's own Session is told about it once.
+_Avoid_: Remote update, cross-project write, external change
+
 **Detour**:
 A point where the work actually being done splits off from a Goal's planned Tasks, with a Reason explaining why.
 _Avoid_: Side quest, distraction, tangent

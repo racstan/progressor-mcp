@@ -26,6 +26,12 @@ Your AI keeps a little more in the plan than a list of ticks, so that you can se
 
 All of it shows on the dashboard: see [the dashboard](dashboard.md). It's read-only there; to change something, tell your AI.
 
+## Work for another project
+
+Sometimes the work in one project is really for another one: a chat in your app's project fixes and releases the library it uses, say. Your AI records that work in the other project's plan, without you opening a chat there: say *"Record that in the library's plan."* Only a project that already uses Progressor can be changed this way, and only through a goal no chat in that project is working on (a note can always be added).
+
+Every change made that way is marked with the project it came from, and the dashboard shows it with an **Updated from** tag. The AI in the other project is told what changed the next time it looks at the plan.
+
 ## Side trips
 
 Sometimes your AI has to step off the plan: a test was already broken, something needs fixing first, or what it learned changes the plan. Instead of drifting off quietly, it declares a **side trip**, with the reason. On the dashboard it shows as a branch off the line.

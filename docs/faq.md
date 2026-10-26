@@ -36,6 +36,10 @@ That's up to you. Committing it keeps the history of how the project was built, 
 
 Yes, on different goals. Each chat works on one goal at a time, and Progressor stops two chats from working on the same goal at once.
 
+## Can my AI update another project's plan?
+
+Yes, if that project already uses Progressor. When work in one project is for another one (say a chat in your app releases a library it uses), your AI can record it in the library's plan without a chat there. Those changes show an **Updated from** tag with the project they came from, and the AI in that project is told about them. A goal that a chat in that project is working on only takes notes from outside.
+
 ## What happens when my AI's conversation runs out of room?
 
 When an AI's conversation gets long, the app summarises it, and the AI forgets details. Progressor keeps the plan outside the conversation, so the AI picks up the plan again after the summary (in Claude Code, automatically). A new conversation picks it up too: say *"carry on"*.
