@@ -179,7 +179,7 @@ function heldGoalLines(s: Status): string[] {
 /** A Goal's expected finish, for the Agent: "login done in about 3 h (2 Tasks not estimated)". */
 function finishText(g: GoalSchedule, name: string): string {
   const unknown = g.unknown > 0 ? `${g.unknown} ${g.unknown === 1 ? "Task" : "Tasks"} not estimated` : "";
-  if (g.left === 0 && g.finish === 0) return unknown ? `${name}: ${unknown}` : `${name}: no work left`;
+  if (g.left === 0) return unknown ? `${name}: ${unknown}` : `${name}: no work left`;
   return `${name} done in about ${roughDuration(g.finish)}${unknown ? ` (${unknown})` : ""}`;
 }
 
@@ -283,7 +283,7 @@ function goalTime(g: Goal, s: GoalSchedule | undefined): string[] {
   const estimate = s.estimate === undefined ? "none" : `${sayDuration(s.estimate)} ${s.estimateSet ? "(set on the Goal)" : "from its open Tasks"}`;
   return [
     `Estimate: ${estimate}${s.unknown > 0 ? `; ${s.unknown} open ${s.unknown === 1 ? "Task has" : "Tasks have"} none` : ""}`,
-    ...(s.left > 0 || s.finish > 0
+    ...(s.left > 0
       ? [`Expected done in about ${roughDuration(s.finish)}${s.unknown > 0 ? ", not counting the Tasks without an estimate" : ""}`]
       : []),
   ];

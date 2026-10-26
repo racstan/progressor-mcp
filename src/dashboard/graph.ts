@@ -27,6 +27,12 @@ export interface TaskNode extends NodeBase {
   fromDetour: boolean;
   /** Set when the Task was last added or changed from another project. */
   updatedFrom?: Origin;
+  /** How long it is expected to take, in minutes, when estimated. */
+  estimate?: number;
+  /** Minutes worked on it in earlier stretches, when any. */
+  spent?: number;
+  /** When the stretch still running started, while it is timed. */
+  timingSince?: string;
 }
 
 export interface DetourNode extends NodeBase {
@@ -91,6 +97,9 @@ export function buildGoalGraph(plan: { tasks: Task[]; detours: Detour[] }): Goal
     reason: t.reason,
     fromDetour: endedBy(t.addedBy, "returned"),
     ...(t.updatedFrom ? { updatedFrom: t.updatedFrom } : {}),
+    ...(t.estimate !== undefined ? { estimate: t.estimate } : {}),
+    ...(t.spent > 0 ? { spent: t.spent } : {}),
+    ...(t.timingSince ? { timingSince: t.timingSince } : {}),
     step: 0,
     lane: 0,
   }));

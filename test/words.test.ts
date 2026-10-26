@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { GOAL_WORD, STEP_HINT, STEP_MARK, STEP_WORD, ago, countsLine, goalState, isBadge, noteOrigin, statusClass, statusLine, stepOf, underWay } from "../src/ui/words.js";
+import { computeSchedule } from "../src/schedule.js";
+import {
+  GOAL_WORD,
+  STEP_HINT,
+  STEP_MARK,
+  STEP_WORD,
+  ago,
+  countsLine,
+  finishWords,
+  goalState,
+  goalTime,
+  isBadge,
+  noteOrigin,
+  scheduleLine,
+  statusClass,
+  statusLine,
+  stepOf,
+  stepTime,
+  underWay,
+} from "../src/ui/words.js";
 
 const MIN = 60_000;
 const now = Date.parse("2026-10-20T12:00:00Z");
@@ -159,5 +178,40 @@ describe("the newer step states", () => {
     expect(noteOrigin("progressor://login", goals)).toBe("Found while working on Let people sign in");
     expect(noteOrigin("progressor://gone", goals)).toBe("Found while working on another goal");
     expect(noteOrigin(undefined, goals)).toBeUndefined();
+  });
+});
+
+describe("the schedule in plain words", () => {
+  const at = new Date(now);
+  const task = (id: string, status: string, estimate?: number) => ({ id, title: `Step ${id}`, status: status as any, spent: 0, ...(estimate ? { estimate } : {}), ...(status === "with a helper" ? { timingSince: at.toISOString() } : {}) });
+  const phase8 = { goal: { id: "phase-8", title: "Phase 8", status: "active" as const }, tasks: [task("t1", "with a helper", 120), task("t2", "with a helper", 60), task("t3", "pending", 240), task("t4", "pending"), task("t5", "pending"), task("t6", "pending")] };
+  const later = { goal: { id: "later", title: "Later", status: "planned" as const, estimate: 120 }, tasks: [] };
+
+  it("says what runs now, what is next and when the goal and the whole plan should be done", () => {
+    const s = computeSchedule([phase8, later], 2, at);
+    expect(scheduleLine(s, "phase-8")).toBe(
+      "Now: 2 helpers busy, at most 2 at once · Next: Step t3, then Step t4 · Phase 8 done in about 5 h (3 steps not estimated) · all goals done in about 5 h (3 steps not estimated)",
+    );
+  });
+
+  it("says when more helpers are busy than allowed, and says nothing without estimates or a limit", () => {
+    const busy = { goal: phase8.goal, tasks: [task("t1", "with a helper"), task("t2", "with a helper"), task("t3", "with a helper")] };
+    expect(scheduleLine(computeSchedule([busy], 2, at))).toBe("Now: 3 helpers busy, more than the 2 allowed at once");
+    expect(scheduleLine(computeSchedule([busy], undefined, at))).toBeUndefined();
+  });
+
+  it("says a goal's estimate and finish, and steps not estimated instead of a time", () => {
+    const s = computeSchedule([phase8, { goal: { id: "x", title: "X", status: "planned" as const }, tasks: [task("t1", "pending")] }], undefined, at);
+    expect(goalTime(s.goals[0])).toBe("Estimated 7 h · done in about 5 h (3 steps not estimated)");
+    expect(goalTime(s.goals[1])).toBe("1 step not estimated");
+    expect(finishWords({ finish: 0, left: 0, unknown: 0 })).toBeUndefined();
+    expect(goalTime(undefined)).toBeUndefined();
+  });
+
+  it("compares a step's estimate with its time, counting a stretch still running", () => {
+    expect(stepTime({ status: "done", estimate: 45, spent: 70 })).toBe("Took 1 h 10 m, estimated 45 m");
+    expect(stepTime({ status: "with a helper", estimate: 45, spent: 10, timingSince: new Date(now - 20 * MIN).toISOString() }, now)).toBe("30 m so far, estimated 45 m");
+    expect(stepTime({ status: "pending", estimate: 45 })).toBe("Estimated 45 m");
+    expect(stepTime({ status: "pending" })).toBeUndefined();
   });
 });
