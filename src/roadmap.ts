@@ -14,6 +14,7 @@ import {
   serialiseMarkdown,
   setDetail,
 } from "./markdown.js";
+import { ORIGIN_KEY, type Origin, formatOrigin, parseOrigin } from "./origin.js";
 
 /** What the checkbox says; whether a started Goal is active or paused depends on its Claim. */
 export type GoalMarker = "planned" | "started" | "done" | "dropped";
@@ -36,6 +37,8 @@ export interface Goal {
   outcome: string | undefined;
   /** Why the Goal was dropped. */
   reason: string | undefined;
+  /** Set when the Goal was last added or changed from another project. */
+  updatedFrom?: Origin;
 }
 
 export interface Idea {
@@ -118,6 +121,7 @@ export class Roadmap {
   get goals(): Goal[] {
     return this.goalBlocks().map((b) => {
       const claim = parseClaim(getDetail(b, "claimed by"));
+      const origin = parseOrigin(getDetail(b, ORIGIN_KEY));
       const link = LINK.exec(b.text);
       const status: GoalStatus =
         b.marker === "x" ? "done" : b.marker === "-" ? "dropped" : claim ? "active" : b.marker === "/" ? "paused" : "planned";
@@ -130,6 +134,7 @@ export class Roadmap {
         claim,
         outcome: getDetail(b, "outcome"),
         reason: getDetail(b, "reason"),
+        ...(origin ? { updatedFrom: origin } : {}),
       };
     });
   }
@@ -240,6 +245,11 @@ export class Roadmap {
 
   setGoalStatus(id: string, status: GoalMarker): void {
     this.goalBlock(id).marker = GOAL_MARKER[status];
+  }
+
+  /** Marks a Goal as last changed from another project (an `updated from` line). */
+  setGoalOrigin(id: string, origin: Origin): void {
+    setDetail(this.goalBlock(id), ORIGIN_KEY, formatOrigin(origin));
   }
 
   setClaim(id: string, claim: Claim | undefined): void {

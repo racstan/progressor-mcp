@@ -1,6 +1,6 @@
 {
   "name": "progressor-mcp",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "mcpName": "io.github.racstan/progressor-mcp",
   "description": "An MCP server that keeps an AI Agent and the Developer focused on their Goals across context compression and distractions.",
   "author": "Rachit Asthana",

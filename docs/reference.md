@@ -21,6 +21,7 @@ The dashboard and the guides use everyday words; the AI's tools and the files us
 | a rule your AI keeps | Standing Instruction |
 | a rule marked Must | a hard Standing Instruction |
 | a chat working on a goal | a Session holding a Claim |
+| Updated from *project* | a change from elsewhere (an `updated from` line) |
 
 The [glossary](../GLOSSARY.md) defines each term.
 
@@ -71,6 +72,22 @@ The AI calls these; the server's instructions tell it when.
 | `update_standing_instruction` | Changes a rule's text and/or its `hard` flag, or removes it when the text is empty. |
 | `update_context` | Replaces the project's Important context (at most 4000 characters), or clears it with an empty text. |
 
+### Changing another project's plan
+
+`get_status`, `add_goal`, `update_goal`, `move_goal`, `complete_goal`, `add_tasks`, `set_task_state`, `update_task`, `complete_task`, `update_tasks`, `add_decision`, `add_note` and `update_note` take an optional `project`: another project's plan to act on instead of this one's. Give its name or ID as the dashboard's project list shows them (the names of the projects in the registry and in the dashboard's Workspaces, without case), or the full path of its folder. A path is followed to its real folder, which must already have a `.progressor/` folder: a plan is never started in a folder from another project. An unknown project, a name two projects share, or a folder without a plan is refused with a message saying so. Naming this project itself is the same as leaving `project` out.
+
+In another project's plan:
+
+- `get_status` shows its Goals, with the Tasks of each Goal that can be changed from here, and its Standing Instructions.
+- Nothing is claimed there, so the tools that change a Goal need `goal`. `add_goal` refuses `claim: true`; with `done: true` it records finished work.
+- A Goal held by a Session that may still be running in that project can't be changed from here: every tool but `add_note` is refused with *Goal … is being worked on by an AI chat in that project (Session …, still running), so it cannot be changed from here.* A finished Goal takes only notes and `update_goal`; a dropped one, nothing. A Goal whose Session has ended can be changed; its old Claim is left for that project to clear.
+- Each Goal, Task, decision or note added or changed gets an `updated from: <this project's name> at <ISO time>` line (see [the file format](markdown-format.md#changes-from-another-project)). A Goal not started yet whose Tasks move on is set to started, so it reads as paused.
+- The answer ends with *That was in project …; it is marked there as updated from …* instead of where this project's work stands.
+
+The project's own Session hears about those changes once: `get_status`, and Claude Code's hooks, add *Changed from elsewhere since you last looked (by an AI chat working in another project): …* listing the items (at most 8, then how many more). When it last looked is kept per project in `~/.progressor/seen.json`, beside the project registry.
+
+While a tool reads and rewrites a plan, it holds that plan, so a Session in the project and a change from another project take turns instead of one overwriting the other. The hold is a small file in the system's temp folder; one left by a process that ended is taken over. If another Progressor holds the plan for more than 5 seconds, the tool answers *The plan in … is busy: another Progressor is changing it. Try again in a moment.*
+
 Every tool that changes a claimed Goal (`add_tasks`, `start_task`, `set_task_state`, `update_task`, `complete_task`, `drop_task`, `update_tasks`, `move_task` (the Goal the Task is in), `start_detour`, `end_detour`, `add_decision`, `update_decision`, `complete_goal`, `release_goal`) takes an optional `goal`: the Goal's ID. It is needed only while the Session holds several Goals.
 
 ## `progressor-mcp` commands
@@ -101,6 +118,7 @@ Set these in the `env` of the `progressor` server in your app's MCP settings.
 Two hooks put the plan in front of the AI without it having to ask:
 
 - **At session start, on resume and after the conversation is summarised**, the full status: the Goal, the current Task, any open Detour, the Tasks with a helper or waiting on the Developer, the next Task, the Goal's decisions and open notes, and the Standing Instructions (hard rules first, marked `HARD RULE`).
+- **After an AI chat in another project changed this plan**, at the next session start or message, one more line: *Changed from elsewhere since you last looked (by an AI chat working in another project): …*, said once.
 - **On every message**, one line, such as `[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Next: t3 End-to-end tests · updated 12 min ago`. It ends with how long ago the Goal's plan last changed (the Plan File's time), such as `· updated 12 min ago`; after 30 minutes it adds `, may be out of date; call get_status`, since the line can still name a step a helper finished long ago. With several Goals in progress, only a Goal whose plan is that old is flagged. It is left out when no Goal is being worked on.
 
 `progressor-mcp init` adds them. By hand, with Progressor installed globally, add this to `.claude/settings.json` in the project (or `~/.claude/settings.json` for every project), merging into any `hooks` already there:

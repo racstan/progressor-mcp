@@ -20,6 +20,7 @@ import {
   serialiseMarkdown,
   setDetail,
 } from "./markdown.js";
+import { ORIGIN_KEY, type Origin, formatOrigin, parseOrigin } from "./origin.js";
 
 export type TaskStatus =
   | "pending"
@@ -47,6 +48,8 @@ export interface Task {
   addedBy: string | undefined;
   droppedBy: string | undefined;
   reason: string | undefined;
+  /** Set when the Task was last added or changed from another project. */
+  updatedFrom?: Origin;
 }
 
 export interface Detour {
@@ -65,6 +68,8 @@ export interface Decision {
   ref: string | undefined;
   text: string;
   line: number;
+  /** Set when the decision was last added or changed from another project. */
+  updatedFrom?: Origin;
 }
 
 /** Something spotted that belongs to a Goal, possibly while working on another one. */
@@ -76,6 +81,8 @@ export interface Note {
   resolved: boolean;
   /** The Goal that was being worked on when the note was made, if another one. */
   from: string | undefined;
+  /** Set when the note was last added or changed from another project. */
+  updatedFrom?: Origin;
 }
 
 export const TASKS = "Tasks";
@@ -116,6 +123,12 @@ function taskStatus(b: ItemBlock): TaskStatus {
 }
 const DETOUR_STATUSES: DetourStatus[] = ["open", "merged back", "returned", "recalibrated"];
 
+/** The `updatedFrom` of an item, left out when the item has no `updated from` line. */
+function withOrigin(b: ItemBlock): { updatedFrom?: Origin } {
+  const origin = parseOrigin(getDetail(b, ORIGIN_KEY));
+  return origin ? { updatedFrom: origin } : {};
+}
+
 const stripRef = (v: string | undefined) => v?.replace(/^\^/, "").trim();
 const stripTicks = (v: string) => v.replace(/^`(.*)`$/, "$1");
 
@@ -136,7 +149,7 @@ export interface TaskChanges {
 }
 
 /** Known Task details come first, in this order, when a Task is rewritten; unknown ones follow as they were. */
-const DETAIL_ORDER = ["state", "summary", "code", "moved from", "added by", "dropped by", "reason"];
+const DETAIL_ORDER = ["state", "summary", "code", "moved from", "added by", "dropped by", "reason", ORIGIN_KEY];
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 
 function sortDetails(b: ItemBlock): void {
@@ -189,6 +202,7 @@ export class PlanFile {
       addedBy: stripRef(getDetail(b, "added by")),
       droppedBy: stripRef(getDetail(b, "dropped by")),
       reason: getDetail(b, "reason"),
+      ...withOrigin(b),
     }));
   }
 
@@ -372,7 +386,7 @@ export class PlanFile {
   // --- decisions and notes ------------------------------------------------------
 
   get decisions(): Decision[] {
-    return itemsIn(this.doc, DECISIONS).map((b) => ({ id: b.id, ref: this.ref(b.id), text: b.text, line: b.line }));
+    return itemsIn(this.doc, DECISIONS).map((b) => ({ id: b.id, ref: this.ref(b.id), text: b.text, line: b.line, ...withOrigin(b) }));
   }
 
   get notes(): Note[] {
@@ -383,6 +397,7 @@ export class PlanFile {
       line: b.line,
       resolved: b.marker === "x",
       from: getDetail(b, "from"),
+      ...withOrigin(b),
     }));
   }
 
@@ -449,6 +464,17 @@ export class PlanFile {
 
   removeNote(id: string): void {
     this.removeBlock(this.entryBlock(NOTES, "note", id));
+  }
+
+  /** Marks a Task, decision or note as last changed from another project (an `updated from` line). */
+  markOrigin(id: string, origin: Origin): void {
+    const b =
+      this.taskBlocks().find((t) => t.id === id) ??
+      itemsIn(this.doc, DECISIONS).find((d) => d.id === id) ??
+      itemsIn(this.doc, NOTES).find((n) => n.id === id);
+    if (!b) throw new Error(`No Task, decision or note ${id} in Goal ${this.goalId}.`);
+    setDetail(b, ORIGIN_KEY, formatOrigin(origin));
+    if (this.taskBlocks().includes(b)) sortDetails(b);
   }
 
   toString(): string {

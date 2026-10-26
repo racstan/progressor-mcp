@@ -21,6 +21,8 @@ A banner says, in one glance:
 
 When the AI is on a side trip, the banner turns orange and says what it's doing and why.
 
+If the latest change to the goal came from an AI chat working in another project, the status line ends with *updated from* and that project's name. See *Updated from another project* below.
+
 **Copy for your AI** copies a description of the goal that you can paste into any AI chat, to ask about it or change it.
 
 ## The map
@@ -65,6 +67,12 @@ Under the map, or under the list, a goal shows what your AI decided and what it 
 - **Notes**: things spotted that need dealing with, such as a bug found nearby. A note found while working on a different goal says so: *"Found while working on Let people sign in."* When a note has been dealt with it's crossed out and folded into *notes dealt with*.
 
 A goal with neither shows nothing there. Under the map you can fold the section away by clicking its heading.
+
+## Updated from another project
+
+An AI chat working in one project can record work in another project's plan, for example when it released that other project. Everything it adds or changes there carries a pink **Updated from** tag with the project it came from, such as **Updated from kdeaichat**: on the goal (at the top, and in the sidebar's hover), on each step in the list and its details, and under decisions and notes. Hover the tag: *This was changed by an AI chat working in another project*, and when.
+
+The AI working in this project is told about such changes the next time it looks at the plan. A goal that an AI chat in this project is working on can't be changed from outside, except for adding a note.
 
 ## The Show menu
 

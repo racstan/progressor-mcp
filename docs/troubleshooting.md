@@ -79,6 +79,22 @@ A chat started before you updated is still running the old version. Close that c
 
 Claude's app only allows plain words after a command. Send the command on its own, such as **/progressor:plan**, and your AI asks you in the chat, where links, code and pasted text are fine.
 
+## "No project called …" or "… has no Progressor plan"
+
+Your AI tried to record work in another project's plan and named it in a way Progressor doesn't know. It takes the project's name or ID as the dashboard's project list shows them, or the full path of its folder, and only a project that already uses Progressor: a plan is never started in a folder from outside. Paste this to your AI:
+
+> Look at the projects on the Progressor dashboard and use that project's exact name, or the full path of its folder.
+
+If the project doesn't use Progressor yet, open it in your AI app with Progressor first.
+
+## "Goal … is being worked on by an AI chat in that project"
+
+An AI chat in the other project is working on that goal, so it can't be changed from outside. Your AI can still add a note to it, or you can ask that chat to make the change.
+
+## "The plan in … is busy"
+
+Another Progressor was changing the same plan for more than a few seconds. Ask your AI to try again. If it keeps happening, a Progressor may be stuck: stop it under **⚙️ Settings → Advanced** on the dashboard.
+
 ## Still stuck?
 
 [Report a problem](https://github.com/racstan/progressor-mcp/issues/new?template=bug_report.yml), or use **❓ Help → Report a problem** on the dashboard, which fills in your version and system. Include what you did, what you expected and what happened.

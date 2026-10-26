@@ -4,6 +4,7 @@
 import type { Task } from "./planFile.js";
 import { PROGRESSOR_DIR, Project, type ProjectOverview, type Status } from "./project.js";
 import { launcherWarning, onPath } from "./init.js";
+import { seenFile, takeElsewhereLine } from "./elsewhere.js";
 import { hardFirst, ruleText } from "./roadmap.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -174,10 +175,17 @@ export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, 
     const kind = EVENTS[event ?? String(data.hook_event_name)];
     const root = env.PROGRESSOR_ROOT ?? env.CLAUDE_PROJECT_DIR ?? (typeof data.cwd === "string" ? data.cwd : undefined);
     if (!kind || !root || !existsSync(join(root, PROGRESSOR_DIR))) return "";
-    const overview = new Project({ root, session: { id: "hook", pid: process.pid }, isAlive }).overview();
+    const project = new Project({ root, session: { id: "hook", pid: process.pid }, isAlive });
+    const overview = project.overview();
     const warning = kind === "session-start" ? launcherWarning(root, canRun) : undefined;
     const status = kind === "session-start" ? sessionStatus(overview) : promptReminder(overview, now());
-    const text = [...(warning ? [`${PREFIX} ${warning}`] : []), ...(status ? [status] : [])].join("\n");
+    // Changes an AI chat in another project made to this plan, told once (elsewhere.ts).
+    const elsewhere = takeElsewhereLine(project, env.PROGRESSOR_REGISTRY ? seenFile(env.PROGRESSOR_REGISTRY) : seenFile());
+    const text = [
+      ...(warning ? [`${PREFIX} ${warning}`] : []),
+      ...(status ? [status] : []),
+      ...(elsewhere ? [`${PREFIX} ${elsewhere}`] : []),
+    ].join("\n");
     return text.length <= MAX_CONTEXT ? text : text.slice(0, MAX_CONTEXT - CUT.length) + CUT;
   } catch {
     return "";

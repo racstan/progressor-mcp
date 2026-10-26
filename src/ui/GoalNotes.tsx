@@ -1,6 +1,6 @@
 import type { GoalView, RoadmapView } from "./data.js";
 import { RichText } from "./RichText.js";
-import { noteOrigin } from "./words.js";
+import { elsewhereTag, noteOrigin } from "./words.js";
 
 type Goals = RoadmapView["goals"];
 
@@ -23,7 +23,7 @@ export function GoalNotes({ view, goals, dock }: { view: Pick<GoalView, "decisio
           <h3>Decisions <span className="count">{decisions.length}</span></h3>
           <ul className="decisions">
             {decisions.map((d, i) => (
-              <li key={d.id ?? i}><RichText className="text" text={d.text} /></li>
+              <li key={d.id ?? i}><RichText className="text" text={d.text} /><Elsewhere item={d} /></li>
             ))}
           </ul>
         </div>
@@ -62,6 +62,13 @@ function Note({ note, goals }: { note: GoalView["notes"][number]; goals: Goals }
     <li className={note.resolved ? "resolved" : undefined}>
       <RichText className="text" text={note.text} />
       {origin && <div className="origin">{origin}</div>}
+      <Elsewhere item={note} />
     </li>
   );
+}
+
+/** "Updated from rachitkdeaichat", under a decision or note an AI chat in another project changed. */
+function Elsewhere({ item }: { item: { updatedFrom?: GoalView["notes"][number]["updatedFrom"] } }) {
+  const tag = elsewhereTag(item.updatedFrom);
+  return tag ? <div className="origin elsewhere" title={tag.hint}>{tag.label}</div> : null;
 }

@@ -18,7 +18,7 @@ import { VIEWS, VIEW_LABELS, type View, pickView } from "./views.js";
 import { sortProjects } from "./projectList.js";
 import { GoalNotes } from "./GoalNotes.js";
 import { StepKey, StepMark } from "./StepKey.js";
-import { GOAL_WORD, SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, countsLine, goalState, statusClass, statusLine, underWay } from "./words.js";
+import { GOAL_WORD, SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, countsLine, elsewhereTag, goalState, statusClass, statusLine, underWay } from "./words.js";
 
 type Goal = RoadmapView["goals"][number];
 type Theme = "light" | "dark" | "system";
@@ -343,9 +343,16 @@ export function App() {
   // The chat working on a Goal, if one holds it: whether it is still open says if the AI stopped.
   const sessionChips = roadmap?.sessions ?? [];
   // Steps with a helper are work going on, however long the plan stays unchanged.
-  const stateOf = (g: Pick<Goal, "id" | "status" | "updatedAt" | "waitingOnYou" | "counts">) => {
+  const stateOf = (g: Pick<Goal, "id" | "status" | "updatedAt" | "waitingOnYou" | "counts" | "fromElsewhere">) => {
     const s = sessionChips.find((x) => x.goal === g.id);
-    return { status: g.status, updatedAt: g.updatedAt, running: s?.running, waitingOnYou: g.waitingOnYou, helpers: g.counts["with a helper"] };
+    return {
+      status: g.status,
+      updatedAt: g.updatedAt,
+      running: s?.running,
+      waitingOnYou: g.waitingOnYou,
+      helpers: g.counts["with a helper"],
+      fromElsewhere: g.fromElsewhere,
+    };
   };
   // "last update 2 min ago" moves on by itself.
   const [, tick] = useState(0);
@@ -363,7 +370,14 @@ export function App() {
     const pct = g.total ? Math.round((100 * g.done) / g.total) : 0;
     const fresh = grouped.fresh.has(g.id);
     const state = goalState(stateOf(g));
-    const hover = [fresh ? "Finished: open it to take a look." : state.hint, countsLine(g.counts), g.outcome && `Finished when: ${plainText(g.outcome)}`, "Right-click to hide it from this list."];
+    const elsewhere = elsewhereTag(g.fromElsewhere);
+    const hover = [
+      fresh ? "Finished: open it to take a look." : state.hint,
+      countsLine(g.counts),
+      g.outcome && `Finished when: ${plainText(g.outcome)}`,
+      elsewhere && `${elsewhere.label}: ${elsewhere.hint}`,
+      "Right-click to hide it from this list.",
+    ];
     return (
       <button key={g.id} className={`goal ${g.status} ${fresh ? "fresh" : ""} ${state.state === "you" ? "you" : ""}`} aria-current={!onContext && g.id === effectiveGoal}
         title={hover.filter(Boolean).join("\n")}
@@ -849,6 +863,7 @@ function Banner({ view, detours, state, planLink, onCopy, onOpenStep }: {
   const from = open?.branchedFrom ? tasks.find((t) => t.id === open.branchedFrom) : undefined;
   const { state: now, hint } = goalState(state);
   const line = statusLine(state, tasks.map((t) => t.status));
+  const elsewhere = elsewhereTag(goal.fromElsewhere);
   return (
     <div className={`banner ${open ? "detour" : ""} ${now}`}>
       <span className="big" aria-hidden="true">{now === "you" ? "🙋" : open ? "🚧" : goal.status === "done" ? "🏁" : "🚇"}</span>
@@ -866,6 +881,7 @@ function Banner({ view, detours, state, planLink, onCopy, onOpenStep }: {
             <div>
               <b>{goal.title}:</b>{" "}
               {underWay(tasks) ?? (goal.status === "done" ? "finished" : goal.status === "dropped" ? `cancelled${goal.reason ? `: ${plainText(goal.reason)}` : ""}` : "nothing under way")}
+              {elsewhere && <> <span className="tag elsewhere" title={elsewhere.hint}>{elsewhere.label}</span></>}
             </div>
             {goal.outcome && <div className="k outcome" title="What finished looks like: the AI checks the work against this before it calls the goal finished">🎯 Finished when: {plainText(goal.outcome)}</div>}
           </>
@@ -911,9 +927,10 @@ function describe(subject: PromptSubject): { title: string; meta: string; state?
       const live = tasksOf(graph).filter((t) => t.status !== "dropped").sort((a, b) => a.line - b.line);
       const number = live.findIndex((t) => t.id === n.id);
       const which = number >= 0 ? `Step ${number + 1} of ${live.length}` : "Step";
+      const elsewhere = elsewhereTag(n.updatedFrom);
       return {
         title: n.title,
-        meta: `${which} · ${STEP_WORD[n.status]}${n.fromDetour ? " · added after a side trip" : ""}`,
+        meta: `${which} · ${STEP_WORD[n.status]}${n.fromDetour ? " · added after a side trip" : ""}${elsewhere ? ` · ${elsewhere.label.toLowerCase()}` : ""}`,
         state: n.status,
         summary: n.summary,
         reason: n.status === "dropped" && n.reason ? `Why it was cancelled: ${plainText(n.reason)}` : undefined,

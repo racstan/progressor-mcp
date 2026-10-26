@@ -2,6 +2,15 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## 0.8.0 · Record work in another project's plan
+
+An AI chat working in one project can now record work it did for another project in that project's plan, without you opening a chat there. Say a chat in your app fixes and releases a library the app uses: it adds *Release 0.7.1*, finished, to the library's plan.
+
+- **The tools take a project.** Your AI can look at another project's plan and add a goal (finished or not) and put it in order, add and move along steps, finish a goal, and add decisions and notes there, naming the project as the dashboard does or by its folder. Only a project that already uses Progressor can be changed: a plan is never started from outside.
+- **Clearly marked.** Everything changed from outside carries a pink **Updated from** tag with the project it came from, such as **Updated from kdeaichat**, on the goal, its steps, decisions and notes. Hover it: *This was changed by an AI chat working in another project*. While the latest change to a goal came from elsewhere, its status line says so too. In the plan's files it is an `updated from` line with the project and the time.
+- **The other project's AI is told.** The next time the AI in that project looks at the plan, it reads what was changed from elsewhere since it last looked, once.
+- **Work in progress is safe.** A goal that a chat in that project is working on can't be changed from outside, only given a note. Nothing is claimed from outside, and chats in both projects take turns writing a plan, so neither overwrites the other's change.
+
 ## 0.7.1 · The dashboard keeps up while helpers work
 
 - A goal whose steps are with helper agents now says **Helpers working** in the sidebar and at the top of the goal, with how many steps are with helpers: *Helpers working · 3 of 5 steps with helpers · last update 19 min ago*. Before, it said *AI waiting* once the plan had been quiet for 15 minutes, though helpers were busy for most of an hour. *AI waiting* now means nothing is with a helper and nothing has changed for 15 minutes.

@@ -14,6 +14,7 @@ import {
   newPlanFile,
   parsePlanFile,
 } from "./planFile.js";
+import { type Origin } from "./origin.js";
 import { unsafeRoot } from "./root.js";
 import { type Claim, type Goal, type Idea, ROADMAP_REF, type Roadmap, type StandingInstruction, parseRoadmap } from "./roadmap.js";
 
@@ -41,6 +42,12 @@ export interface ProjectOptions {
   now?: () => Date;
   /** Why a folder is the wrong place to start a progress record, if it is (see unsafeRoot). */
   unsafe?: (root: string) => string | undefined;
+  /**
+   * Set when this is another project's plan, changed from elsewhere: the name of the project the
+   * Agent works in. Every item changed is then marked `updated from` it, nothing is claimed, Goals a
+   * running Session holds are left alone (but for notes), and no plan is ever started (see elsewhere.ts).
+   */
+  from?: string;
 }
 
 export type DetourEnding = "merge back" | "return" | "recalibrate";
@@ -168,6 +175,8 @@ export class Project {
   private readonly tidy: boolean;
   private readonly now: () => Date;
   private readonly unsafe: (root: string) => string | undefined;
+  /** The project the changes come from, when this is another project's plan (see ProjectOptions.from). */
+  readonly from: string | undefined;
 
   constructor(options: ProjectOptions) {
     this.folder = options.root;
@@ -178,6 +187,29 @@ export class Project {
     this.now = options.now ?? (() => new Date());
     this.unsafe =
       options.unsafe ?? ((root) => unsafeRoot(root, { home: homedir(), systemRoot: process.env.SystemRoot, platform: process.platform }));
+    this.from = options.from?.trim() || undefined;
+  }
+
+  /**
+   * Another project's plan, to change from this one: what changes there is marked as coming from
+   * `from` (this project's name). The folder must already have a .progressor/ (see resolveProject).
+   */
+  elsewhere(root: string, from: string): Project {
+    return new Project({
+      root,
+      session: this.session,
+      isAlive: this.isAlive,
+      sessionOf: this.sessionOf,
+      now: this.now,
+      unsafe: this.unsafe,
+      clearStaleClaims: false,
+      from,
+    });
+  }
+
+  /** The `updated from` mark for a change made now, when this is another project's plan. */
+  private origin(): Origin | undefined {
+    return this.from ? { project: this.from, at: this.now().toISOString() } : undefined;
   }
 
   /** The project folder; progress lives in `<root>/.progressor`. */
@@ -206,6 +238,8 @@ export class Project {
   }
 
   private writeText(path: string, text: string): void {
+    if (this.from && !existsSync(join(this.root, PROGRESSOR_DIR)))
+      throw new Error(`${this.root} has no Progressor plan, and a plan is never started from another project.`);
     if (!existsSync(join(this.root, PROGRESSOR_DIR))) {
       const why = this.unsafe(this.root);
       if (why)
@@ -264,6 +298,10 @@ export class Project {
    * one it holds.
    */
   private requireClaim(goalId?: string, loaded?: Map<string, PlanFile>): { goal: Goal; plan: PlanFile } {
+    if (this.from) {
+      const goal = this.changeable(goalId);
+      return { goal, plan: loaded?.get(goal.id) ?? this.plan(goal.id) };
+    }
     const roadmap = this.roadmap();
     const held = this.claimedGoals(roadmap);
     const planOf = (g: Goal) => loaded?.get(g.id) ?? this.plan(g.id);
@@ -279,9 +317,33 @@ export class Project {
     return { goal: held[0]!, plan: planOf(held[0]!) };
   }
 
+  /**
+   * A Goal of another project's plan that may be changed from here: named, not dropped, not done
+   * (unless `done` is allowed) and not held by a Session that may still be running. Nothing is claimed.
+   */
+  private changeable(goalId: string | undefined, options: { done?: boolean } = {}): Goal {
+    if (goalId === undefined) throw new Error("Say which Goal with goal: a change to another project's plan needs the Goal's ID.");
+    const goal = this.roadmap().goal(goalId);
+    if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
+    if (goal.status === "dropped") throw new Error(`Goal ${goalId} is dropped; it cannot be changed.`);
+    if (goal.status === "done" && !options.done)
+      throw new Error(`Goal ${goalId} is finished. To add to it, reopen it from its own project.`);
+    if (this.claimIsLive(goal))
+      throw new Error(
+        `Goal ${goalId} is being worked on by an AI chat in that project (Session ${goal.claim!.session}, still running), so it cannot be changed from here. ` +
+          "Add a note to it with add_note instead, or make the change from that project.",
+      );
+    return goal;
+  }
+
   /** Whether a Claim's Session may still be running (see claimMayBeLive). */
   private claimMayBeLive(claim: Claim): boolean {
     return claimMayBeLive(claim, { isAlive: this.isAlive, sessionOf: this.sessionOf, self: this.session });
+  }
+
+  /** Whether a Goal is held by another Session that may still be running, which alone may change it. */
+  heldElsewhere(goal: Goal): boolean {
+    return this.claimIsLive(goal);
   }
 
   /** Whether a Goal is held by another Session that may still be running. A Claim whose Session has ended is stale. */
@@ -365,8 +427,21 @@ export class Project {
     const roadmap = this.roadmap();
     roadmap.setClaim(goal.id, undefined);
     roadmap.setGoalStatus(goal.id, "done");
+    this.markGoal(roadmap, goal.id);
     this.saveRoadmap(roadmap);
     return roadmap.goal(goal.id)!;
+  }
+
+  /** Marks a Goal changed from elsewhere, when this is another project's plan. */
+  private markGoal(roadmap: Roadmap, goalId: string): void {
+    const origin = this.origin();
+    if (origin) roadmap.setGoalOrigin(goalId, origin);
+  }
+
+  /** Marks Tasks, decisions or notes changed from elsewhere, when this is another project's plan. */
+  private markItems(plan: PlanFile, ids: (string | undefined)[]): void {
+    const origin = this.origin();
+    if (origin) for (const id of new Set(ids)) if (id) plan.markOrigin(id, origin);
   }
 
   /**
@@ -386,8 +461,9 @@ export class Project {
     if (unfinished) throw new Error(`Task "${unfinished.title}" is not done, so the Goal cannot be recorded as done.`);
     const goal = roadmap.addGoal(title, { id: options.id, outcome: options.outcome });
     if (options.done) roadmap.setGoalStatus(goal.id, "done");
+    this.markGoal(roadmap, goal.id);
     const plan = newPlanFile(goal.id, title);
-    if (tasks.length > 0) plan.addTasks(tasks);
+    if (tasks.length > 0) this.markItems(plan, plan.addTasks(tasks).map((t) => t.id));
     this.saveRoadmap(roadmap);
     this.savePlan(plan);
     return roadmap.goal(goal.id)!;
@@ -395,8 +471,10 @@ export class Project {
 
   /** Renames a Goal or changes its Outcome; its ID, refs and Plan File stay the same. Needs no Claim. */
   updateGoal(goalId: string, changes: { title?: string; outcome?: string }): Goal {
+    if (this.from) this.changeable(goalId, { done: true });
     const roadmap = this.roadmap();
     roadmap.updateGoal(goalId, changes);
+    this.markGoal(roadmap, goalId);
     this.saveRoadmap(roadmap);
     if (changes.title?.trim()) {
       const plan = this.plan(goalId);
@@ -408,8 +486,10 @@ export class Project {
 
   /** Moves a Goal right before or after another, to put the Roadmap in the order the work should happen. */
   moveGoal(goalId: string, to: { before?: string; after?: string }): Goal[] {
+    if (this.from) this.changeable(goalId, { done: true });
     const roadmap = this.roadmap();
     roadmap.moveGoal(goalId, to);
+    this.markGoal(roadmap, goalId);
     this.saveRoadmap(roadmap);
     return this.roadmap().goals;
   }
@@ -433,8 +513,9 @@ export class Project {
   addTasks(tasks: NewTask[], goalId?: string): Task[] {
     const { plan } = this.requireClaim(goalId);
     const added = plan.addTasks(tasks);
+    this.markItems(plan, added.map((t) => t.id));
     this.savePlan(plan);
-    return added;
+    return added.map((t) => plan.task(t.id!)!);
   }
 
   /** Puts a Task in the Agent's own hands; only one Task of a Goal can be in progress. */
@@ -488,7 +569,11 @@ export class Project {
         throw new Error(`Operation ${i + 1} (${op.action} ${op.task}): ${(e as Error).message} Nothing was changed.`);
       }
     });
-    for (const plan of plans.values()) this.savePlan(plan);
+    for (const plan of plans.values()) {
+      this.markItems(plan, results.filter((r) => r.goal === plan.goalId).map((r) => r.task.id));
+      this.savePlan(plan);
+    }
+    this.startedFromElsewhere(results.map((r) => r.goal));
     // A Task changed twice is reported as it ended up.
     return results.map((r) => ({ goal: r.goal, task: plans.get(r.goal)!.task(r.task.id!)! }));
   }
@@ -539,12 +624,30 @@ export class Project {
     return plan.task(id)!;
   }
 
-  /** Runs a change on a claimed Goal's plan and saves it. */
-  private change<T>(goalId: string | undefined, body: (plan: PlanFile) => T): T {
-    const { plan } = this.requireClaim(goalId);
+  /** Runs a change to one Task of a claimed Goal's plan and saves it. */
+  private change(goalId: string | undefined, body: (plan: PlanFile) => Task): Task {
+    const { goal, plan } = this.requireClaim(goalId);
     const result = body(plan);
+    this.markItems(plan, [result.id]);
     this.savePlan(plan);
-    return result;
+    if (result.status !== "pending" && result.status !== "dropped") this.startedFromElsewhere([goal.id]);
+    return plan.task(result.id!)!;
+  }
+
+  /**
+   * A Goal not started yet whose Tasks were moved on from another project is started (it reads as
+   * paused, since nothing there holds it), so it does not say "not started" with steps done.
+   */
+  private startedFromElsewhere(goalIds: string[]): void {
+    if (!this.from) return;
+    const roadmap = this.roadmap();
+    const planned = [...new Set(goalIds)].filter((id) => roadmap.goal(id)?.status === "planned");
+    if (planned.length === 0) return;
+    for (const id of planned) {
+      roadmap.setGoalStatus(id, "started");
+      this.markGoal(roadmap, id);
+    }
+    this.saveRoadmap(roadmap);
   }
 
   /**
@@ -629,8 +732,9 @@ export class Project {
   addDecision(text: string, goalId?: string): Decision {
     const { plan } = this.requireClaim(goalId);
     const decision = plan.addDecision(text);
+    this.markItems(plan, [decision.id]);
     this.savePlan(plan);
-    return decision;
+    return plan.decision(decision.id!)!;
   }
 
   /** Rewords a decision, or removes it when the text is empty; returns undefined when removed. */
@@ -638,8 +742,10 @@ export class Project {
     const { plan } = this.requireClaim(goalId);
     plan.assignMissingIds();
     let result: Decision | undefined;
-    if (text.trim()) result = plan.setDecision(id, text);
-    else plan.removeDecision(id);
+    if (text.trim()) {
+      this.markItems(plan, [plan.setDecision(id, text).id]);
+      result = plan.decision(id);
+    } else plan.removeDecision(id);
     this.savePlan(plan);
     return result;
   }
@@ -658,19 +764,26 @@ export class Project {
    */
   addNote(goalId: string, text: string): Note {
     const plan = this.notable(goalId);
-    const working = this.claimedGoal();
+    const working = this.from ? undefined : this.claimedGoal();
     const note = plan.addNote(text, working && working.id !== goalId ? working.ref : undefined);
+    this.markItems(plan, [note.id]);
     this.savePlan(plan);
-    return note;
+    return plan.note(note.id!)!;
   }
 
   /** Rewords or resolves a note, or removes it when the text is empty; returns undefined when removed. */
   updateNote(goalId: string, id: string, changes: { text?: string; resolved?: boolean }): Note | undefined {
+    // From another project, only adding a note is allowed on a Goal a running Session holds.
+    if (this.from) this.changeable(goalId, { done: true });
     const plan = this.notable(goalId);
     plan.assignMissingIds();
     let result: Note | undefined;
     if (changes.text !== undefined && !changes.text.trim()) plan.removeNote(id);
-    else result = plan.updateNote(id, changes);
+    else {
+      plan.updateNote(id, changes);
+      this.markItems(plan, [id]);
+      result = plan.note(id);
+    }
     this.savePlan(plan);
     return result;
   }
