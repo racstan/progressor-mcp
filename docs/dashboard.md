@@ -8,9 +8,10 @@ The dashboard only shows. To change anything in the plan, tell your AI.
 
 A banner says, in one glance:
 
-- **What the AI is working on**: *Contact form: working on "Send the email"*.
+- **What the AI is working on**: *Contact form: working on "Send the email"*. If a step is waiting on you, that comes first (see below).
 - **Finished when**: what done looks like for this goal.
 - **The status line**, with a coloured dot:
+  - 🟡 **Waiting on you**: a step needs you, for example to try something out by hand. It comes before every other status. See *Waiting on you* below.
   - 🟢 **AI working** · step 3 of 7 · last update 2 min ago: your AI is on it.
   - 🟠 **AI waiting**: your AI's chat is open, but nothing has changed for 15 minutes. It's most likely waiting for you: check the chat.
   - 🟠 **AI stopped**: the chat that was working on this has closed. Open a chat and say *"carry on"*.
@@ -25,6 +26,17 @@ When the AI is on a side trip, the banner turns orange and says what it's doing 
 
 Each step is a stop on a line, left to right. A filled stop with a tick is done; the pulsing one is being worked on now; empty ones are still to do. Long plans wrap onto several rows.
 
+Besides *to do*, *working on it*, *done* and *cancelled*, a step can be in one of four more states. Each has its own colour and mark, in the map, the list and the legend under the map (the ❓ Help panel lists them all):
+
+| Looks like | Means |
+| --- | --- |
+| 🔵 A half-filled blue ring, **With a helper** | The AI handed this step to a helper, another AI that works on it on the side. Several steps can be with helpers at once. |
+| 🟡 A filled amber **!**, **Waiting on you** | The AI needs you for this step, for example to try something out by hand. |
+| 🟢 A teal ring with a tick, **Checked** | The AI looked over the helper's work and it holds up. It isn't merged or released yet. |
+| ✅ A filled tick with an outer ring, **Released** | Done and out: merged, shipped, installed or published. It counts as done in a goal's progress. |
+
+Click a stop and its details say in a sentence what its state means.
+
 **Click any stop** to see what the step does, and to copy it for your AI. Scroll to zoom, drag the background to move around, and use **⤢** to fit the whole map on screen.
 
 Three buttons at the top switch how you see it:
@@ -32,6 +44,26 @@ Three buttons at the top switch how you see it:
 - **⇢ Across**: the map, left to right (the default).
 - **⇣ Down**: the map, top to bottom, for long plans.
 - **☰ List**: the steps as a plain list, with what each one does.
+
+## Waiting on you
+
+When any step of a goal is waiting on you, the whole goal says so, so you can see at a glance that something needs you:
+
+- In the sidebar, the goal turns amber with a pulsing dot and says **Waiting on you** instead of *AI working*. Hover it to see how many steps are waiting.
+- At the top of the goal, the banner turns amber and lists the step or steps waiting on you. Click one to see its details.
+- On the map the step has an amber **!** and **WAITING ON YOU** above it; in the list its row is highlighted.
+- In **All projects**, the goal says **Waiting on you** and its project shows the same note and comes first in the list.
+
+Once you've done what the step needed, tell your AI in the chat: it moves the step along, and the goal goes back to normal by itself.
+
+## Decisions and notes
+
+Under the map, or under the list, a goal shows what your AI decided and what it noticed while working. Both are read-only: your AI writes them as it goes, and you can ask it to change one.
+
+- **Decisions**: choices made along the way that are worth remembering, such as *"Use email links, not codes, for password resets."*
+- **Notes**: things spotted that need dealing with, such as a bug found nearby. A note found while working on a different goal says so: *"Found while working on Let people sign in."* When a note has been dealt with it's crossed out and folded into *notes dealt with*.
+
+A goal with neither shows nothing there. Under the map you can fold the section away by clicking its heading.
 
 ## The Show menu
 
@@ -45,7 +77,7 @@ Your choices are remembered in your browser.
 
 ## Your goals
 
-The sidebar lists **Your goals** for the project, in the order they'll be done, each with a progress bar and its status. Click one to see its map.
+The sidebar lists **Your goals** for the project, in the order they'll be done, each with a progress bar and its status. Click one to see its map. Your AI can have several goals in progress at once, and each shows its own status.
 
 A goal that finishes turns green and gets a green dot until you've looked at it; then it moves to **Finished** at the bottom. Right-click a goal to hide it from the list (the plan keeps it), or to move a finished one along without opening it.
 
@@ -97,4 +129,4 @@ Progressor looks through that folder and its subfolders (5 levels deep, skipping
 
 ### Running servers
 
-**⚙️ Settings → Advanced** lists the Progressor servers running on your computer: one per open AI chat, plus any `progressor-mcp dashboard`. For each it shows the project, the goal it's working on, its memory and when it started. **Stop** ends one after you confirm; that chat loses Progressor until it starts again. Stopping the one serving the dashboard hands it to another within a few seconds.
+**⚙️ Settings → Advanced** lists the Progressor servers running on your computer: one per open AI chat, plus any `progressor-mcp dashboard`. For each it shows the project, the goals it's working on (a chat can work on several at once), its memory and when it started. **Stop** ends one after you confirm; that chat loses Progressor until it starts again. Stopping the one serving the dashboard hands it to another within a few seconds.

@@ -107,8 +107,11 @@ export function copyAsPrompt(subject: PromptSubject): string {
         ...(goal.outcome ? [`Outcome: ${goal.outcome}`] : []),
         `Location: .progressor/roadmap.md:${goal.line}`,
         `Plan File: ${goal.planFile}`,
-        `Progress: ${live.filter((t) => t.status === "done").length} of ${live.length} Tasks done`,
+        `Progress: ${live.filter((t) => t.status === "done" || t.status === "released").length} of ${live.length} Tasks done`,
         ...(current ? [`Current Task: ${current.id} ${quote(current.title)} (line ${current.line})`, ...summaryOf(current)] : []),
+        ...tasks
+          .filter((t) => t.status === "with a helper" || t.status === "waiting on you" || t.status === "checked")
+          .map((t) => `${t.status[0]!.toUpperCase()}${t.status.slice(1)}: ${t.id} ${quote(t.title)} (line ${t.line})`),
         ...(open
           ? [
               `Open Detour: ${open.id} ${quote(open.title)} (line ${open.line})${open.branchedFrom ? `, branched from ${open.branchedFrom}` : ""}. Reason: ${open.reason ?? "none given"}`,

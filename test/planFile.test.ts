@@ -72,7 +72,7 @@ const handEdited = [
   "- [ ] Handle the OAuth callback",
   "- [ ] Add logout ^t4",
   "",
-  "## Notes",
+  "## Scratch",
   "```",
   "- [ ] not a task ^t9",
   "```",
@@ -207,5 +207,129 @@ describe("text with line breaks", () => {
     const again = parsePlanFile(plan.toString(), "login");
     expect(again.detours[0]).toMatchObject({ title: "Fix the build", reason: "It is red since this morning", status: "open" });
     expect(again.task("t2")).toMatchObject({ status: "dropped", reason: "Not needed any more" });
+  });
+});
+
+describe("the states a Task can be in beyond the checkbox", () => {
+  const withStates = `# Voice
+
+## Tasks
+
+- [x] Record the clip ^t1
+  - state: released
+- [/] Transcribe it ^t2
+  - state: with a helper
+- [/] Try it on the phone ^t3
+  - state: waiting on you
+- [/] Wire up the button ^t4
+  - state: checked
+  - summary: The helper's branch passes the tests.
+- [/] Polish the copy ^t5
+- [ ] Ship it ^t6
+  - state: released
+`;
+
+  it("reads them from the state line, which only counts under the checkbox it belongs to", () => {
+    const plan = parsePlanFile(withStates, "voice");
+    expect(plan.tasks.map((t) => [t.id, t.status])).toEqual([
+      ["t1", "released"],
+      ["t2", "with a helper"],
+      ["t3", "waiting on you"],
+      ["t4", "checked"],
+      ["t5", "in progress"],
+      ["t6", "pending"],
+    ]);
+    expect(plan.currentTask?.id).toBe("t5");
+    expect(plan.nextTask?.id).toBe("t6");
+    expect(plan.toString()).toBe(withStates);
+  });
+
+  it("writes a state as the checkbox plus a state line first among the details, and removes the line when it no longer applies", () => {
+    const plan = parsePlanFile("# Voice\n\n## Tasks\n\n- [ ] Transcribe it ^t1\n  - summary: Use the API.\n- [ ] Ship it ^t2\n", "voice");
+    plan.setTaskStatus("t1", "with a helper");
+    expect(plan.toString()).toContain("- [/] Transcribe it ^t1\n  - state: with a helper\n  - summary: Use the API.\n");
+    plan.setTaskStatus("t1", "checked");
+    expect(plan.toString()).toContain("- [/] Transcribe it ^t1\n  - state: checked\n");
+    plan.setTaskStatus("t1", "released");
+    expect(plan.toString()).toContain("- [x] Transcribe it ^t1\n  - state: released\n");
+    plan.setTaskStatus("t1", "done");
+    expect(plan.toString()).toContain("- [x] Transcribe it ^t1\n  - summary: Use the API.\n");
+    plan.setTaskStatus("t2", "waiting on you");
+    plan.dropTask("t2", { reason: "Not needed" });
+    expect(plan.toString()).toContain("- [-] Ship it ^t2\n  - reason: Not needed\n");
+  });
+});
+
+describe("decisions and notes", () => {
+  const withNotes = `# Voice
+
+## Tasks
+
+- [/] Transcribe it ^t1
+
+## Decisions
+
+- Old models get thinking on/off only ^c1
+- Keep clips under a minute
+
+## Notes
+
+- [ ] The mic stays on after cancelling ^n1
+  - from: progressor://cleanup
+- [x] Typo on the record button ^n2
+- Odd echo on Android
+
+## Detour: Fix the build ^d1
+
+- reason: It is red
+- status: merged back
+`;
+
+  it("reads decisions and notes, with IDs, lines, whether a note is resolved and where it came from", () => {
+    const plan = parsePlanFile(withNotes, "voice");
+    expect(plan.decisions).toEqual([
+      { id: "c1", ref: "progressor://voice/c1", text: "Old models get thinking on/off only", line: 9 },
+      { id: undefined, ref: undefined, text: "Keep clips under a minute", line: 10 },
+    ]);
+    expect(plan.notes.map((n) => [n.id, n.text, n.resolved, n.from, n.line])).toEqual([
+      ["n1", "The mic stays on after cancelling", false, "progressor://cleanup", 14],
+      ["n2", "Typo on the record button", true, undefined, 16],
+      [undefined, "Odd echo on Android", false, undefined, 17],
+    ]);
+    expect(plan.toString()).toBe(withNotes);
+    plan.assignMissingIds();
+    expect(plan.decisions.map((d) => d.id)).toEqual(["c1", "c2"]);
+    expect(plan.notes.map((n) => n.id)).toEqual(["n1", "n2", "n3"]);
+  });
+
+  it("adds them in their own sections, after the Tasks and before any Detour", () => {
+    const plan = parsePlanFile("# Voice\n\n## Tasks\n\n- [/] Transcribe it ^t1\n\n## Detour: Fix the build ^d1\n\n- status: open\n", "voice");
+    expect(plan.addDecision("Old models get\nthinking on/off only")).toMatchObject({ id: "c1", text: "Old models get thinking on/off only" });
+    expect(plan.addNote("The mic stays on", "progressor://cleanup")).toMatchObject({ id: "n1", resolved: false, from: "progressor://cleanup" });
+    plan.addNote("Echo on Android");
+    expect(plan.toString()).toBe(
+      "# Voice\n\n## Tasks\n\n- [/] Transcribe it ^t1\n\n" +
+        "## Decisions\n\n- Old models get thinking on/off only ^c1\n\n" +
+        "## Notes\n\n- [ ] The mic stays on ^n1\n  - from: progressor://cleanup\n- [ ] Echo on Android ^n2\n\n" +
+        "## Detour: Fix the build ^d1\n\n- status: open\n",
+    );
+  });
+
+  it("rewords, resolves and removes them", () => {
+    const plan = parsePlanFile(withNotes, "voice");
+    plan.assignMissingIds();
+    plan.setDecision("c1", "Old models get thinking on/off, nothing finer");
+    plan.removeDecision("c2");
+    plan.updateNote("n1", { resolved: true });
+    plan.updateNote("n2", { text: "Typo on the stop button", resolved: false });
+    plan.removeNote("n3");
+    expect(plan.decisions.map((d) => [d.id, d.text])).toEqual([["c1", "Old models get thinking on/off, nothing finer"]]);
+    expect(plan.notes.map((n) => [n.id, n.text, n.resolved])).toEqual([
+      ["n1", "The mic stays on after cancelling", true],
+      ["n2", "Typo on the stop button", false],
+    ]);
+    expect(plan.addDecision("Another").id).toBe("c2");
+    expect(() => plan.setDecision("c9", "x")).toThrow(/No decision c9/);
+    expect(() => plan.updateNote("n9", { resolved: true })).toThrow(/No note n9/);
   });
 });

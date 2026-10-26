@@ -65,7 +65,7 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: A project set up with progressor-mcp init on one operating system connects on Windows, macOS and Linux alike.
 - [x] [Important context page for each project](goals/project-context.md) ^project-context
   - outcome: Each project has one Important context page holding its lasting information, background and rules, which the Agent reads at the start and the Developer sees on the dashboard.
-- [ ] [Plans that match how the Agent really works](goals/real-workflow.md) ^real-workflow
+- [x] [Plans that match how the Agent really works](goals/real-workflow.md) ^real-workflow
   - outcome: The dashboard shows parallel goals, helper agents, checked and installed steps, decisions, notes and anything waiting on the Developer.
 - [ ] [Smaller plan fixes](goals/smaller-fixes.md) ^smaller-fixes
   - outcome: Fewer tool calls, clean recovery from dead sessions, and reliable rules for helper agents.

@@ -100,6 +100,34 @@ describe("sessionStatus", () => {
   });
 });
 
+describe("one Session holding several Goals", () => {
+  it("gives the full status of each Goal, since they are most likely this conversation's own", () => {
+    const a = oauthInProgress();
+    a.addGoal("Voice", [{ title: "Try on phone" }, { title: "Ship" }]);
+    a.claimGoal("voice");
+    a.setTaskState("t1", "waiting on you", "voice");
+    a.addDecision("Old models get thinking on/off only", "voice");
+    a.addNote("voice", "The mic stays on");
+    const text = sessionStatus(reader().overview()) ?? "";
+    expect(text).toContain("[Progressor] One Session is working on 2 Goals in this project:");
+    expect(text).toContain("Goal: Ship OAuth login (progressor://ship-oauth-login), 1 of 3 Tasks done");
+    expect(text).toContain(
+      [
+        "Goal: Voice (progressor://voice), 0 of 2 Tasks done",
+        "Current Task: none started",
+        "Waiting on the Developer: t1 Try on phone",
+        "Next Task: t2 Ship",
+        "Decisions: c1 Old models get thinking on/off only",
+        "Notes: n1 The mic stays on",
+      ].join("\n"),
+    );
+    expect(text).toContain("pass goal");
+    expect(promptReminder(reader().overview())).toBe(
+      "[Progressor] Goals in progress: Ship OAuth login (t2 Fix callback redirect loop), Voice (no Task started; waiting on the Developer). Call get_status if unsure which is yours.",
+    );
+  });
+});
+
 describe("promptReminder", () => {
   it("is silent when no Goal is being worked on", () => {
     expect(promptReminder(reader().overview())).toBeUndefined();
@@ -111,6 +139,18 @@ describe("promptReminder", () => {
     oauthInProgress();
     expect(promptReminder(reader().overview())).toBe(
       "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Next: t3 End-to-end tests",
+    );
+  });
+
+  it("says when Tasks are with a helper or waiting on the Developer", () => {
+    const a = oauthInProgress();
+    a.setTaskState("t3", "with a helper");
+    expect(promptReminder(reader().overview())).toBe(
+      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · With a helper: t3",
+    );
+    a.setTaskState("t3", "waiting on you");
+    expect(promptReminder(reader().overview())).toBe(
+      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Waiting on the Developer: t3",
     );
   });
 
@@ -214,6 +254,14 @@ describe("runHook", () => {
   it("shows the Important context even before there are Goals", () => {
     session("s-a", 100).setContext("Dashboard on port 4747.");
     expect(run("session-start", sessionStart())).toContain("Important context:\nDashboard on port 4747.");
+  });
+
+  it("adds the Goal's decisions and open notes at session start", () => {
+    const a = oauthInProgress();
+    a.addDecision("Keep the old cookie name");
+    a.addNote("ship-oauth-login", "Logout button overlaps on mobile");
+    const out = run("session-start", sessionStart());
+    expect(out).toContain("Next Task: t3 End-to-end tests\nDecisions: c1 Keep the old cookie name\nNotes: n1 Logout button overlaps on mobile");
   });
 
   it("keeps the text under Claude Code's context limit", () => {

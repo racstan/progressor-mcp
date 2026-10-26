@@ -155,15 +155,16 @@ describe("Claims", () => {
     expect(agent.roadmap().goal("login")!.status).toBe("active");
   });
 
-  it("releases the previous Goal when a Session claims another", () => {
+  it("keeps the Goals a Session already holds when it claims another", () => {
     const agent = session("s-a", 100);
     agent.claimGoal("login");
     agent.claimGoal("billing");
 
     expect(agent.roadmap().goals.map((g) => [g.id, g.status])).toEqual([
-      ["login", "paused"],
+      ["login", "active"],
       ["billing", "active"],
     ]);
+    expect(agent.claimedGoals().map((g) => g.id)).toEqual(["login", "billing"]);
   });
 
   it("marks a Goal done and releases it", () => {
@@ -522,5 +523,172 @@ describe("the project folder", () => {
     agent.addGoal("Login");
     expect(agent.root).toBe(other);
     expect(readFileSync(join(other, ".progressor", "roadmap.md"), "utf8")).toContain("Login");
+  });
+});
+
+describe("a Session holding several Goals", () => {
+  let agent: Project;
+  beforeEach(() => {
+    agent = session("s-a", 100);
+    agent.addGoal("Login", [{ title: "Route" }]);
+    agent.addGoal("Voice", [{ title: "Record" }]);
+    agent.addGoal("Billing", [{ title: "Checkout" }]);
+    agent.claimGoal("login");
+  });
+
+  it("works on its one Goal without being told which", () => {
+    agent.startTask("t1");
+    expect(agent.plan("login").task("t1")!.status).toBe("in progress");
+  });
+
+  it("asks which Goal once it holds several, and works on the one named", () => {
+    agent.claimGoal("voice");
+    expect(() => agent.startTask("t1")).toThrow(/holds several Goals \(login, voice\).*goal/);
+    expect(() => agent.addTasks([{ title: "x" }])).toThrow(/several Goals/);
+    agent.startTask("t1", "voice");
+    agent.startTask("t1", "login");
+    agent.addTasks([{ title: "Stop" }], "voice");
+    agent.startDetour("Fix mic", "It stays on", "voice");
+    expect(agent.plan("voice").openDetour?.branchedFrom).toBe("t1");
+    expect(agent.plan("login").openDetour).toBeUndefined();
+    agent.endDetour("merge back", [], "voice");
+    agent.completeTask("t1", [], undefined, "login");
+    agent.completeGoal("login");
+    expect(agent.claimedGoals().map((g) => g.id)).toEqual(["voice"]);
+    agent.updateTask("t2", { title: "Stop recording" });
+    expect(agent.plan("voice").task("t2")!.title).toBe("Stop recording");
+  });
+
+  it("refuses a Goal it has not claimed", () => {
+    expect(() => agent.startTask("t1", "billing")).toThrow(/Goal billing is not claimed by this Session.*claim_goal/);
+    expect(() => agent.startTask("t1", "nope")).toThrow(/No Goal nope/);
+  });
+
+  it("releases one Goal by name, and every Goal when the Session ends", () => {
+    agent.claimGoal("voice");
+    expect(() => agent.releaseGoal()).toThrow(/several Goals/);
+    expect(agent.releaseGoal("voice")!.status).toBe("paused");
+    agent.claimGoal("voice");
+    agent.releaseAll();
+    expect(agent.claimedGoals()).toEqual([]);
+    expect(agent.roadmap().goals.map((g) => g.status)).toEqual(["paused", "paused", "planned"]);
+  });
+
+  it("gives the status of every Goal it holds, in Roadmap order", () => {
+    agent.claimGoal("billing");
+    agent.claimGoal("voice");
+    const s = agent.sessionStatus();
+    expect(s.held.map((h) => h.goal?.id)).toEqual(["login", "voice", "billing"]);
+    expect(s.held[0]!.nextTask?.id).toBe("t1");
+    expect(s.goals).toHaveLength(3);
+  });
+});
+
+describe("Task states for helpers and the Developer", () => {
+  let agent: Project;
+  beforeEach(() => {
+    agent = session("s-a", 100);
+    agent.addGoal("Voice", [{ title: "Record" }, { title: "Transcribe" }, { title: "Try on phone" }, { title: "Ship" }]);
+    agent.claimGoal("voice");
+  });
+
+  it("lets several Tasks be with a helper while the Agent works on one of its own", () => {
+    agent.setTaskState("t1", "with a helper");
+    agent.setTaskState("t2", "with a helper");
+    agent.startTask("t3");
+    expect(() => agent.startTask("t4")).toThrow(/t3 is already in progress/);
+    const s = agent.status();
+    expect(s.currentTask?.id).toBe("t3");
+    expect(s.withHelper.map((t) => t.id)).toEqual(["t1", "t2"]);
+    expect(s.nextTask?.id).toBe("t4");
+  });
+
+  it("puts in progress through start_task's rule, and refuses to change a dropped Task", () => {
+    agent.startTask("t1");
+    expect(() => agent.setTaskState("t2", "in progress")).toThrow(/t1 is already in progress/);
+    agent.dropTask("t4", "Not needed");
+    expect(() => agent.setTaskState("t4", "released")).toThrow(/dropped/);
+  });
+
+  it("says the Goal is waiting on the Developer while any Task is", () => {
+    expect(agent.status().waitingOnYou).toEqual([]);
+    agent.setTaskState("t3", "waiting on you");
+    expect(agent.status().waitingOnYou.map((t) => t.id)).toEqual(["t3"]);
+    expect(agent.overview().active[0]!.waitingOnYou.map((t) => t.id)).toEqual(["t3"]);
+  });
+
+  it("counts released as done, and only lets the Goal finish once nothing is with a helper, waiting or merely checked", () => {
+    agent.setTaskState("t1", "released");
+    agent.setTaskState("t2", "checked");
+    agent.setTaskState("t3", "waiting on you");
+    agent.setTaskState("t4", "with a helper");
+    expect(agent.status()).toMatchObject({ done: 1, total: 4 });
+    expect(agent.status().checked.map((t) => t.id)).toEqual(["t2"]);
+    expect(() => agent.completeGoal()).toThrow(/t2 Transcribe \(checked\), t3 Try on phone \(waiting on you\), t4 Ship \(with a helper\)/);
+    agent.setTaskState("t2", "released");
+    agent.completeTask("t3");
+    agent.dropTask("t4", "Later");
+    agent.completeGoal();
+    expect(agent.roadmap().goal("voice")!.status).toBe("done");
+  });
+
+  it("keeps a released Task released when it is completed again", () => {
+    agent.setTaskState("t1", "released");
+    agent.completeTask("t1", ["src/record.ts"]);
+    expect(agent.plan("voice").task("t1")).toMatchObject({ status: "released", code: ["src/record.ts"] });
+  });
+});
+
+describe("decisions and notes", () => {
+  let agent: Project;
+  beforeEach(() => {
+    agent = session("s-a", 100);
+    agent.addGoal("Cleanup", [{ title: "Tidy" }]);
+    agent.addGoal("Voice", [{ title: "Record" }]);
+    agent.addGoal("Old", []);
+    agent.dropGoal("old", "Not wanted");
+  });
+
+  it("records a decision in a claimed Goal, and changes or removes it", () => {
+    expect(() => agent.addDecision("x")).toThrow(/claim a Goal first/);
+    agent.claimGoal("cleanup");
+    expect(agent.addDecision("Old models get thinking on/off only")).toMatchObject({ id: "c1", ref: "progressor://cleanup/c1" });
+    agent.addDecision("Keep the old settings file");
+    expect(agent.updateDecision("c1", "Old models: thinking on/off only")!.text).toBe("Old models: thinking on/off only");
+    expect(agent.updateDecision("c2", "")).toBeUndefined();
+    expect(agent.status().decisions.map((d) => d.text)).toEqual(["Old models: thinking on/off only"]);
+    expect(read("goals/cleanup.md")).toContain("## Decisions\n\n- Old models: thinking on/off only ^c1\n");
+  });
+
+  it("adds a note to any Goal that is not dropped, saying which Goal it was spotted from", () => {
+    agent.claimGoal("cleanup");
+    const note = agent.addNote("voice", "The mic stays on after cancelling");
+    expect(note).toMatchObject({ id: "n1", ref: "progressor://voice/n1", resolved: false, from: "progressor://cleanup" });
+    expect(agent.addNote("cleanup", "Two copies of the logger").from).toBeUndefined();
+    expect(() => agent.addNote("old", "x")).toThrow(/dropped/);
+    expect(() => agent.addNote("nope", "x")).toThrow(/No Goal nope/);
+  });
+
+  it("resolves, rewords and removes notes, and the status shows only the open ones", () => {
+    agent.claimGoal("voice");
+    agent.addNote("voice", "The mic stays on");
+    agent.addNote("voice", "Echo on Android");
+    agent.addNote("voice", "Typo");
+    agent.updateNote("voice", "n1", { resolved: true });
+    agent.updateNote("voice", "n2", { text: "Echo on Android 14" });
+    expect(agent.updateNote("voice", "n3", { text: "" })).toBeUndefined();
+    expect(agent.status().notes.map((n) => [n.id, n.text])).toEqual([["n2", "Echo on Android 14"]]);
+    expect(agent.plan("voice").notes.map((n) => [n.id, n.resolved])).toEqual([
+      ["n1", true],
+      ["n2", false],
+    ]);
+  });
+
+  it("finds decisions and notes by ref", () => {
+    agent.claimGoal("cleanup");
+    agent.addDecision("Keep it simple");
+    agent.addNote("voice", "Mic stays on");
+    expect(agent.getItem("progressor://cleanup/c1")).toMatchObject({ kind: "decision", file: ".progressor/goals/cleanup.md", item: { text: "Keep it simple" } });
+    expect(agent.getItem("progressor://voice/n1")).toMatchObject({ kind: "note", item: { text: "Mic stays on", resolved: false } });
   });
 });

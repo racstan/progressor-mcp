@@ -110,7 +110,7 @@ export function buildGoalGraph(plan: { tasks: Task[]; detours: Detour[] }): Goal
   for (const d of detours) {
     let anchor = d.branchedFrom ? taskById.get(d.branchedFrom) : undefined;
     if (!anchor) {
-      const before = tasks.filter((t) => t.status === "done" && lineOfTask.get(t.id) === lines.length - 1);
+      const before = tasks.filter((t) => (t.status === "done" || t.status === "released") && lineOfTask.get(t.id) === lines.length - 1);
       anchor = before[before.length - 1];
     }
     anchorOf.set(d.id, anchor);

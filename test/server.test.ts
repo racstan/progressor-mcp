@@ -33,7 +33,9 @@ describe("the MCP server", () => {
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
+        "add_decision",
         "add_goal",
+        "add_note",
         "add_standing_instruction",
         "add_tasks",
         "claim_goal",
@@ -46,10 +48,13 @@ describe("the MCP server", () => {
         "get_status",
         "move_goal",
         "release_goal",
+        "set_task_state",
         "start_detour",
         "start_task",
         "update_context",
+        "update_decision",
         "update_goal",
+        "update_note",
         "update_standing_instruction",
         "update_task",
       ].sort(),
@@ -447,5 +452,120 @@ describe("the Agent runs the loop itself", () => {
     expect(added.split("\n").at(-1)).toBe("Now: t1 Route · Next: t2 Logout");
     const detour = (await call("start_detour", { title: "Fix the build", reason: "It is red" })).text;
     expect(detour.split("\n").at(-1)).toBe('Now: side trip "Fix the build" (end it with end_detour) · then t1 Route');
+  });
+});
+
+describe("several Goals in one Session", () => {
+  beforeEach(async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Route" }, { title: "Callback" }] });
+    await call("add_goal", { title: "Voice", tasks: [{ title: "Try on phone" }, { title: "Ship" }] });
+    await call("claim_goal", { goal: "login" });
+    await call("complete_task", { task: "t1" });
+    await call("start_task", { task: "t2" });
+    await call("add_note", { goal: "voice", text: "The mic stays on" });
+    await call("claim_goal", { goal: "voice" });
+  });
+
+  it("describes every Goal the Session holds, compactly", async () => {
+    await call("set_task_state", { goal: "voice", task: "t1", state: "waiting on you" });
+    await call("add_decision", { goal: "voice", text: "Old models get thinking on/off only" });
+    await call("add_standing_instruction", { text: "Write tests first" });
+    expect((await call("get_status")).text).toBe(
+      [
+        "This Session holds 2 Goals; pass goal (the Goal ID) to the tools that change one.",
+        "Goal login: Login (progressor://login), 1 of 2 Tasks done",
+        "  Current Task: t2 Callback (.progressor/goals/login.md:6)",
+        "  Next Task: none; every Task is done or dropped",
+        "Goal voice: Voice (progressor://voice), 0 of 2 Tasks done, waiting on the Developer",
+        "  Current Task: none",
+        "  Waiting on the Developer: t1 Try on phone",
+        "  Next Task: t2 Ship",
+        "  Decisions: c1 Old models get thinking on/off only",
+        "  Notes: n1 The mic stays on (from progressor://login)",
+        "Standing Instructions:",
+        "- s1 Write tests first",
+        `Project folder: ${root}`,
+      ].join("\n"),
+    );
+  });
+
+  it("asks which Goal a change is for, and ends other results with each Goal's Now", async () => {
+    const r = await call("start_task", { task: "t2" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toMatch(/several Goals \(login, voice\)/);
+    const added = (await call("add_tasks", { goal: "voice", tasks: [{ title: "Docs" }] })).text;
+    expect(added.split("\n").at(-1)).toBe("Now: login: t2 Callback · voice: next t1 Try on phone");
+    expect((await call("release_goal", { goal: "login" })).text).toBe("Released Goal login; it is now paused.");
+    expect((await call("get_status")).text).toContain("Goal: Voice (progressor://voice), claimed by this Session");
+  });
+
+  it("refuses a Goal the Session has not claimed", async () => {
+    await call("add_goal", { title: "Billing" });
+    const r = await call("add_decision", { goal: "billing", text: "x" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toMatch(/not claimed by this Session/);
+  });
+});
+
+describe("Task states, decisions and notes through the tools", () => {
+  beforeEach(async () => {
+    await call("add_goal", {
+      title: "Voice",
+      tasks: [{ title: "Record" }, { title: "Transcribe" }, { title: "Try on phone" }, { title: "Ship" }],
+      claim: true,
+    });
+  });
+
+  it("sets a Task's state and shows the ones that are with a helper, waiting or checked", async () => {
+    const r = await call("set_task_state", { task: "t1", state: "with a helper" });
+    expect(r.text.split("\n")[0]).toBe("Task t1 Record is now with a helper.");
+    await call("set_task_state", { task: "t2", state: "checked" });
+    await call("set_task_state", { task: "t3", state: "waiting on you" });
+    const status = (await call("get_status")).text.split("\n");
+    expect(status.slice(2, 8)).toEqual([
+      "Progress: 0 of 4 Tasks done",
+      "Current Task: none (start one with start_task)",
+      "With a helper: t1 Record",
+      "Waiting on the Developer: t3 Try on phone",
+      "Checked, not yet released: t2 Transcribe",
+      "Next Task: t4 Ship",
+    ]);
+    await call("set_task_state", { task: "t2", state: "released" });
+    expect((await call("get_status")).text).toContain("Progress: 1 of 4 Tasks done");
+    const done = await call("complete_goal");
+    expect(done.isError).toBe(true);
+    expect(done.text).toContain("t1 Record (with a helper)");
+  });
+
+  it("says what is left when only other hands hold the remaining Tasks", async () => {
+    await call("complete_task", { task: "t1" });
+    await call("complete_task", { task: "t2" });
+    await call("set_task_state", { task: "t3", state: "with a helper" });
+    const r = await call("set_task_state", { task: "t4", state: "waiting on you" });
+    expect(r.text.split("\n").at(-1)).toBe("Now: no Task in progress · Waiting: t3 Try on phone (with a helper), t4 Ship (waiting on you)");
+  });
+
+  it("records decisions and notes, shows them in the status, and changes them", async () => {
+    await call("add_goal", { title: "Cleanup" });
+    expect((await call("add_decision", { text: "Old models get thinking on/off only" })).text.split("\n")[0]).toBe(
+      "Saved decision c1 in Goal voice: Old models get thinking on/off only",
+    );
+    expect((await call("add_note", { goal: "cleanup", text: "Two loggers" })).text.split("\n")[0]).toBe("Saved note n1 in Goal cleanup: Two loggers");
+    await call("add_note", { goal: "voice", text: "Mic stays on" });
+    const status = (await call("get_status")).text;
+    expect(status).toContain(["Next Task: t1 Record", "Decisions:", "- c1 Old models get thinking on/off only", "Notes:", "- n1 Mic stays on"].join("\n"));
+    expect(status).not.toContain("Two loggers");
+
+    expect((await call("update_decision", { id: "c1", text: "Old models: on/off only" })).text).toBe("Changed decision c1: Old models: on/off only");
+    expect((await call("update_decision", { id: "c1", text: "" })).text).toBe("Removed decision c1.");
+    expect((await call("update_note", { goal: "voice", id: "n1", resolved: true })).text).toBe("Resolved note n1: Mic stays on");
+    expect((await call("update_note", { goal: "cleanup", id: "n1", text: "" })).text).toBe("Removed note n1.");
+    expect((await call("get_status")).text).not.toMatch(/Decisions|Notes/);
+    expect((await call("get_item", { ref: "progressor://voice/n1" })).text).toContain("Note n1: Mic stays on (resolved)");
+  });
+
+  it("tells the Agent when to use them", () => {
+    const instructions = client.getInstructions() ?? "";
+    for (const tool of ["set_task_state", "add_decision", "add_note", "goal"]) expect(instructions).toContain(tool);
   });
 });

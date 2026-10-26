@@ -3,8 +3,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod";
 import type { Dashboard } from "./dashboard/http.js";
 import { launchFor, startedViaNpx } from "./init.js";
-import type { Detour, Task } from "./planFile.js";
-import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, type Project, type Status } from "./project.js";
+import type { Decision, Detour, Note, Task, TaskStatus } from "./planFile.js";
+import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, type Project, type SessionStatus, type Status } from "./project.js";
 import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
 import type { Goal } from "./roadmap.js";
 
@@ -14,12 +14,14 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 
 1. First thing in every conversation, and again after your context is compressed or summarised, call get_status. Follow the Standing Instructions it lists.
 2. No Goal claimed? If get_status says one Goal is paused, claim it and carry on. When the Developer asks for work no Goal covers, plan it yourself as a Goal: a short title, an Outcome (one sentence on what done looks like) and Tasks, each with a short title, the files it touches and a one-line summary of the change. Tell the Developer the plan in a few plain lines, then call add_goal with claim: true. A quick question needs no Goal.
-3. Before you change code for a Task, call start_task; call complete_task when it is done, with the files you touched. Keep summaries true with update_task, and drop_task what is no longer needed.
+3. Before you change code for a Task, call start_task; call complete_task when it is done, with the files you touched. Keep summaries true with update_task, and drop_task what is no longer needed. You work on one Task of a Goal at a time; set_task_state records the rest: "with a helper" when you hand a Task to a helper agent (several can be), "waiting on you" when you need the Developer (to test something by hand, to decide; tell them what you need), "checked" once you have checked a helper's work (tests, review) but it is not merged yet, and "released" once it is merged and out (shipped, installed, published).
+3a. You can hold several Goals at once, for instance with helper agents on different Goals: claim each one. While you hold more than one, pass goal (the Goal ID) to the tools that change a Goal.
 4. About to change code for something that is not the current Task (an unrelated bug, a missing prerequisite, a change of plan)? Call start_detour with the reason first. When it is done, call end_detour: "merge back" for a small fix, "return" to go back to the plan (adding Tasks for any work left), or "recalibrate" to replace the remaining Tasks with a new list.
-5. When every Task is done or dropped and the Outcome is true, call complete_goal and tell the Developer in one sentence. If more work turns up for a finished Goal, claim it again to reopen it, then add_tasks.
+5. When every Task is done, released or dropped and the Outcome is true, call complete_goal and tell the Developer in one sentence. If more work turns up for a finished Goal, claim it again to reopen it, then add_tasks.
 6. Talk to the Developer in everyday words: say "step" for Task and "side trip" for Detour, and leave out tool names, IDs and the files in .progressor/. Give them the dashboard link from get_status once at the start of a conversation, and again when a Goal is finished.
 7. When the Developer gives a lasting rule ("always...", "never..."), save it with add_standing_instruction; change or remove one with update_standing_instruction.
-8. Keep lasting background about the project on its Important context page with update_context: what the project is, key facts, where things live, choices that hold for the whole project. get_status shows it; keep it short and true.`;
+8. Keep lasting background about the project on its Important context page with update_context: what the project is, key facts, where things live, choices that hold for the whole project. get_status shows it; keep it short and true.
+9. Record a choice made along the way that is not a lasting project rule (such as "old models get thinking on/off only") with add_decision, so it survives context compression. When you spot something that belongs to a Goal, this one or another (a bug found during cleanup that belongs to the Voice Goal), add_note on that Goal instead of fixing it now; once it is dealt with, resolve it with update_note.`;
 
 const taskInput = z.object({
   title: z.string().min(1).describe("A short title for the Task, a few words, such as 'Fix callback redirect loop'."),
@@ -36,6 +38,13 @@ const newTaskInput = taskInput.extend({
 });
 
 const goalId = z.string().describe("The Goal ID, such as 'ship-oauth-login'.");
+/** The claimed Goal a tool acts on; only needed while the Session holds several. */
+const heldGoal = z
+  .string()
+  .optional()
+  .describe("The claimed Goal's ID, such as 'ship-oauth-login'. Needed only when this Session holds several Goals.");
+const taskId = z.string().describe("The Task ID, such as 't3'.");
+const states = ["pending", "in progress", "with a helper", "waiting on you", "checked", "done", "released"] as const satisfies readonly TaskStatus[];
 const outcome = z
   .string()
   .describe("What done looks like, in one sentence, such as 'Users can sign in with Google and stay signed in for 30 days'.");
@@ -49,29 +58,95 @@ function taskLine(t: Task): string {
 }
 
 const summaryLine = (t: Task | undefined) => (t?.summary ? [`  Summary: ${t.summary}`] : []);
+const noteText = (n: Note) => `${n.id} ${n.text}${n.from ? ` (from ${n.from})` : ""}`;
+const decisionText = (d: Decision) => `${d.id} ${d.text}`;
+
+/** The Tasks in other hands than the Agent's: a helper's, or the Developer's. */
+function elsewhereLines(s: Status): string[] {
+  const line = (label: string, tasks: Task[]) => (tasks.length > 0 ? [`${label}: ${tasks.map(taskLine).join("; ")}`] : []);
+  return [
+    ...line("With a helper", s.withHelper),
+    ...line("Waiting on the Developer", s.waitingOnYou),
+    ...line("Checked, not yet released", s.checked),
+  ];
+}
+
+const elsewhere = (s: Status) => [
+  ...s.withHelper.map((t) => [t, "with a helper"] as const),
+  ...s.waitingOnYou.map((t) => [t, "waiting on you"] as const),
+  ...s.checked.map((t) => [t, "checked"] as const),
+];
+
+const nextLine = (s: Status) =>
+  s.nextTask
+    ? `Next Task: ${taskLine(s.nextTask)}`
+    : elsewhere(s).length > 0
+      ? "Next Task: none pending"
+      : "Next Task: none; every Task is done or dropped";
 
 /** One line on where the work stands, for the end of results that don't show the whole status. */
-export function nowLine(s: Status): string {
-  if (!s.goal) return "Now: no Goal claimed; call get_status.";
+export function nowLine(session: SessionStatus): string {
+  const { held } = session;
+  if (held.length === 0) return "Now: no Goal claimed; call get_status.";
+  if (held.length > 1) return `Now: ${held.map((s) => `${s.goal!.id}: ${goalNow(s)}`).join(" · ")}`;
+  const s = held[0]!;
   const next = s.currentTask ?? s.nextTask;
   if (s.openDetour) return `Now: side trip "${s.openDetour.title}" (end it with end_detour) · then ${next ? taskLine(next) : "complete_goal"}`;
   if (s.currentTask) return `Now: ${taskLine(s.currentTask)} · Next: ${s.nextTask ? taskLine(s.nextTask) : "complete_goal"}`;
-  return s.nextTask ? `Now: no Task in progress · Next: start_task ${taskLine(s.nextTask)}` : "Now: every Task is done or dropped · Next: complete_goal";
+  if (s.nextTask) return `Now: no Task in progress · Next: start_task ${taskLine(s.nextTask)}`;
+  const waiting = elsewhere(s);
+  return waiting.length > 0
+    ? `Now: no Task in progress · Waiting: ${waiting.map(([t, state]) => `${taskLine(t)} (${state})`).join(", ")}`
+    : "Now: every Task is done or dropped · Next: complete_goal";
 }
 
-export function formatStatus(s: Status): string {
+/** A few words on where one of several Goals stands. */
+function goalNow(s: Status): string {
+  if (s.openDetour) return `side trip "${s.openDetour.title}"`;
+  if (s.currentTask) return taskLine(s.currentTask);
+  if (s.nextTask) return `next ${taskLine(s.nextTask)}`;
+  const waiting = elsewhere(s);
+  return waiting.length > 0 ? `waiting (${waiting.map(([t, state]) => `${t.id} ${state}`).join(", ")})` : "complete_goal";
+}
+
+/** One of several Goals, in a few lines: what get_status shows for one Goal, minus the summaries. */
+function heldGoalLines(s: Status): string[] {
+  const g = s.goal!;
+  const d = s.openDetour;
+  return [
+    `Goal ${g.id}: ${g.title} (${g.ref}), ${s.done} of ${s.total} Tasks done${s.waitingOnYou.length > 0 ? ", waiting on the Developer" : ""}`,
+    ...[
+      ...(g.outcome ? [`Outcome: ${g.outcome}`] : []),
+      s.currentTask ? `Current Task: ${taskLine(s.currentTask)} (${s.planFile}:${s.currentTask.line})` : "Current Task: none",
+      ...(d ? [`Open Detour: ${d.id} ${d.title}. Reason: ${d.reason ?? "none given"}`] : []),
+      ...elsewhereLines(s),
+      nextLine(s),
+      ...(s.decisions.length > 0 ? [`Decisions: ${s.decisions.map(decisionText).join("; ")}`] : []),
+      ...(s.notes.length > 0 ? [`Notes: ${s.notes.map(noteText).join("; ")}`] : []),
+    ].map((line) => `  ${line}`),
+  ];
+}
+
+export function formatStatus(session: SessionStatus): string {
   const instructions =
-    s.standingInstructions.length > 0
-      ? ["Standing Instructions:", ...s.standingInstructions.map((i) => `- ${i.id} ${i.text}`)]
+    session.standingInstructions.length > 0
+      ? ["Standing Instructions:", ...session.standingInstructions.map((i) => `- ${i.id} ${i.text}`)]
       : [];
-  if (s.context) instructions.push("Important context:", s.context);
-  if (!s.goal) {
-    const paused = s.goals.filter((g) => g.status === "paused");
+  if (session.context) instructions.push("Important context:", session.context);
+  if (session.held.length > 1)
+    return [
+      `This Session holds ${session.held.length} Goals; pass goal (the Goal ID) to the tools that change one.`,
+      ...session.held.flatMap(heldGoalLines),
+      ...instructions,
+    ].join("\n");
+  const s = session.held[0];
+  if (!s?.goal) {
+    const paused = session.goals.filter((g) => g.status === "paused");
     return [
       paused.length === 1
         ? `No Goal is claimed by this Session. Goal ${paused[0]!.id} ("${paused[0]!.title}") is paused: claim it with claim_goal and carry on.`
         : "No Goal is claimed by this Session. Claim one with claim_goal, or plan one and add it with add_goal (claim: true).",
-      ...(s.goals.length > 0 ? ["Goals:", ...s.goals.map(goalLine)] : ["The Roadmap has no Goals yet."]),
+      ...(session.goals.length > 0 ? ["Goals:", ...session.goals.map(goalLine)] : ["The Roadmap has no Goals yet."]),
       ...instructions,
     ].join("\n");
   }
@@ -88,8 +163,11 @@ export function formatStatus(s: Status): string {
     ...(d
       ? [`Open Detour: ${d.id} ${d.title}${d.branchedFrom ? `, branched from ${d.branchedFrom}` : ""}. Reason: ${d.reason ?? "none given"}`]
       : []),
-    s.nextTask ? `Next Task: ${taskLine(s.nextTask)}` : "Next Task: none; every Task is done or dropped",
+    ...elsewhereLines(s),
+    nextLine(s),
     ...summaryLine(s.nextTask),
+    ...(s.decisions.length > 0 ? ["Decisions:", ...s.decisions.map((x) => `- ${decisionText(x)}`)] : []),
+    ...(s.notes.length > 0 ? ["Notes:", ...s.notes.map((n) => `- ${noteText(n)}`)] : []),
     ...instructions,
   ].join("\n");
 }
@@ -128,6 +206,17 @@ export function formatItem(found: FoundItem): string {
     }
     case "detour":
       return [formatDetour(found.item), `Ref: ${found.ref}`, `Plan File: ${where}`].join("\n");
+    case "decision":
+      return [`Decision ${found.item.id}: ${found.item.text}`, `Ref: ${found.ref}`, `Plan File: ${where}`].join("\n");
+    case "note": {
+      const n = found.item;
+      return [
+        `Note ${n.id}: ${n.text} (${n.resolved ? "resolved" : "open"})`,
+        `Ref: ${found.ref}`,
+        `Plan File: ${where}`,
+        ...(n.from ? [`Spotted while working on: ${n.from}`] : []),
+      ].join("\n");
+    }
     case "idea": {
       const i = found.item;
       return [
@@ -175,10 +264,10 @@ export async function appRoots(server: McpServer, timeoutMs: number): Promise<st
 
 export function createServer(project: Project, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: "progressor", version: VERSION }, { instructions: INSTRUCTIONS });
-  const status = () => formatStatus(project.status());
+  const status = () => formatStatus(project.sessionStatus());
   // Apps without Claude Code's hooks never hand the Agent the plan between calls, so results that
   // don't show the whole status end with where the work stands.
-  const withNow = (text: string) => `${text}\n${nowLine(project.status())}`;
+  const withNow = (text: string) => `${text}\n${nowLine(project.sessionStatus())}`;
   const { dashboard } = options;
 
   server.registerTool(
@@ -186,7 +275,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Get status",
       description:
-        "Compact summary of this Session's Goal, current Task, open Detour, next Task and the Developer's Standing Instructions. Call it at the start of every conversation and after context compression.",
+        "Compact summary of every Goal this Session holds (current Task, open Detour, Tasks with a helper or waiting on the Developer, next Task, decisions and open notes) and the Developer's Standing Instructions. Call it at the start of every conversation and after context compression.",
       annotations: { readOnlyHint: true },
     },
     async () => {
@@ -207,7 +296,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Get item",
       description:
-        "Look up one Goal, Task, Detour or Standing Instruction by its ref (progressor://<goal>/<item>, or progressor://roadmap/<instruction>), with its file and line. Use it when the Developer pastes a ref or you need one item's details; for where the work stands overall, use get_status.",
+        "Look up one Goal, Task, Detour, decision, note or Standing Instruction by its ref (progressor://<goal>/<item>, or progressor://roadmap/<instruction>), with its file and line. Use it when the Developer pastes a ref or you need one item's details; for where the work stands overall, use get_status.",
       inputSchema: { ref: z.string().describe("A ref such as progressor://login/t2 or progressor://roadmap/i1.") },
       annotations: { readOnlyHint: true },
     },
@@ -301,7 +390,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Claim Goal",
       description:
-        "Claim a Goal for this Session, so only this Session works on it. Releases (pauses) any Goal this Session held before. Fails if another running Session holds it. Claiming a done Goal reopens it: its finished Tasks stay done, and add_tasks adds the new work to the same list.",
+        "Claim a Goal for this Session, so only this Session works on it. The Session keeps any other Goals it holds; while it holds several, pass goal to the tools that change one. Fails if another running Session holds it. Claiming a done Goal reopens it: its finished Tasks stay done, and add_tasks adds the new work to the same list.",
       inputSchema: {
         goal: goalId,
         takeover: z
@@ -321,11 +410,12 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     "release_goal",
     {
       title: "Release Goal",
-      description: "Release this Session's Claim, leaving the Goal paused for a later Session.",
+      description: "Release this Session's Claim on a Goal, leaving it paused for a later Session.",
+      inputSchema: { goal: heldGoal },
     },
-    () =>
+    ({ goal: id }) =>
       respond(() => {
-        const goal = project.releaseGoal();
+        const goal = project.releaseGoal(id);
         return goal ? `Released Goal ${goal.id}; it is now paused.` : "This Session had no Goal to release.";
       }),
   );
@@ -335,11 +425,12 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Complete Goal",
       description:
-        "Mark the claimed Goal done and release it, once its Outcome is true and its Tasks are done or dropped. If more work turns up later, claim_goal reopens it.",
+        "Mark the claimed Goal done and release it, once its Outcome is true and its Tasks are done, released or dropped (not with a helper, waiting on the Developer or only checked). If more work turns up later, claim_goal reopens it.",
+      inputSchema: { goal: heldGoal },
     },
-    () =>
+    ({ goal: id }) =>
       respond(() => {
-        const goal = project.completeGoal();
+        const goal = project.completeGoal(id);
         return `Goal ${goal.id} is done. Tell the Developer in one plain sentence that "${goal.title}" is finished${dashboard?.url ? `, and that they can see it at ${dashboard.url}` : ""}.`;
       }),
   );
@@ -350,11 +441,11 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       title: "Add Tasks",
       description:
         "Append Tasks to the claimed Goal's plan. For work that is not part of the plan, declare a Detour instead. Set done on a Task that is already finished.",
-      inputSchema: { tasks: z.array(newTaskInput).min(1) },
+      inputSchema: { goal: heldGoal, tasks: z.array(newTaskInput).min(1) },
     },
-    ({ tasks }) =>
+    ({ goal, tasks }) =>
       respond(() => {
-        const added = project.addTasks(tasks);
+        const added = project.addTasks(tasks, goal);
         return withNow(`Added: ${added.map(taskLine).join("; ")}`);
       }),
   );
@@ -363,13 +454,29 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     "start_task",
     {
       title: "Start Task",
-      description: "Mark a Task in progress. Only one Task can be in progress at a time.",
-      inputSchema: { task: z.string().describe("The Task ID, such as 't3'.") },
+      description:
+        "Mark a Task in progress: you are working on it yourself. Only one Task of a Goal can be in progress at a time; for Tasks in other hands, use set_task_state.",
+      inputSchema: { goal: heldGoal, task: taskId },
     },
-    ({ task }) =>
+    ({ goal, task }) =>
       respond(() => {
-        project.startTask(task);
+        project.startTask(task, goal);
         return status();
+      }),
+  );
+
+  server.registerTool(
+    "set_task_state",
+    {
+      title: "Set Task state",
+      description:
+        "Set a Task's state. 'with a helper': handed to a helper agent that is working on it (several Tasks can be). 'waiting on you': you are waiting on the Developer, such as for them to test something by hand; the dashboard shows the Goal as waiting on them, so tell them what you need. 'checked': you checked a helper's work (tests, review) but it is not merged or released yet. 'released': merged and out (shipped, installed or published); counts as done. 'pending', 'in progress' and 'done' work too (in progress follows start_task's one-at-a-time rule). To drop a Task, use drop_task.",
+      inputSchema: { goal: heldGoal, task: taskId, state: z.enum(states) },
+    },
+    ({ goal, task, state }) =>
+      respond(() => {
+        const t = project.setTaskState(task, state, goal);
+        return withNow(`Task ${taskLine(t)} is now ${t.status}.`);
       }),
   );
 
@@ -380,14 +487,15 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       description:
         "Mark a Task of the claimed Goal done, recording the files it touched and, if it changed, the final summary of what it did. Works whether or not the Task was started. For a Task that turned out unnecessary, use drop_task instead; to change a Task without finishing it, use update_task.",
       inputSchema: {
-        task: z.string().describe("The Task ID, such as 't3'."),
+        goal: heldGoal,
+        task: taskId,
         code: z.array(z.string()).optional().describe("Files the Task touched, optionally with :line; added to the ones it has."),
         summary: taskInput.shape.summary,
       },
     },
-    ({ task, code, summary }) =>
+    ({ goal, task, code, summary }) =>
       respond(() => {
-        project.completeTask(task, code ?? [], summary);
+        project.completeTask(task, code ?? [], summary, goal);
         return status();
       }),
   );
@@ -399,15 +507,16 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       description:
         "Change a Task's title, summary or files, for instance when the fix turns out different from the plan. Leaves its status alone.",
       inputSchema: {
-        task: z.string().describe("The Task ID, such as 't3'."),
+        goal: heldGoal,
+        task: taskId,
         title: taskInput.shape.title.optional(),
         summary: taskInput.shape.summary,
         code: z.array(z.string()).optional().describe("The Task's files, optionally with :line; replaces the ones it has."),
       },
     },
-    ({ task, title, summary, code }) =>
+    ({ goal, task, title, summary, code }) =>
       respond(() => {
-        const t = project.updateTask(task, { title, summary, code });
+        const t = project.updateTask(task, { title, summary, code }, goal);
         return formatItem(project.getItem(t.ref!));
       }),
   );
@@ -419,13 +528,14 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       description:
         "Drop one Task of the claimed Goal that is no longer needed, with the reason; it stays in the Plan File, struck through. To replace the whole remaining plan, end a Detour with 'recalibrate' instead; to drop the whole Goal, use drop_goal.",
       inputSchema: {
-        task: z.string().describe("The Task ID, such as 't3'."),
+        goal: heldGoal,
+        task: taskId,
         reason: z.string().min(1).describe("Why the Task is no longer needed."),
       },
     },
-    ({ task, reason }) =>
+    ({ goal, task, reason }) =>
       respond(() => {
-        project.dropTask(task, reason);
+        project.dropTask(task, reason, goal);
         return status();
       }),
   );
@@ -437,13 +547,14 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       description:
         "Declare that the work is splitting off from the planned Tasks, before doing it. Branches from the current Task. Only one Detour can be open.",
       inputSchema: {
+        goal: heldGoal,
         title: z.string().min(1).describe("What the Detour does, such as 'Fix flaky token refresh'."),
         reason: z.string().min(1).describe("Why the work has to split off from the plan now."),
       },
     },
-    ({ title, reason }) =>
+    ({ goal, title, reason }) =>
       respond(() => {
-        const d = project.startDetour(title, reason);
+        const d = project.startDetour(title, reason, goal);
         return withNow(`Started ${formatDetour(d)}. End it with end_detour when done.`);
       }),
   );
@@ -456,13 +567,14 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       description:
         "End the open Detour. 'merge back': it was small and is done; the plan is unchanged. 'return': go back to the plan, appending `tasks` for the Detour's intended work if any. 'recalibrate': drop every remaining Task and replace them with `tasks`.",
       inputSchema: {
+        goal: heldGoal,
         ending: z.enum(endings),
         tasks: z.array(taskInput).optional().describe("Tasks to append (return) or the new Task list (recalibrate)."),
       },
     },
-    ({ ending, tasks }) =>
+    ({ goal, ending, tasks }) =>
       respond(() => {
-        const { detour, added, dropped } = project.endDetour(ending, tasks ?? []);
+        const { detour, added, dropped } = project.endDetour(ending, tasks ?? [], goal);
         return [
           `Ended ${formatDetour(detour)}`,
           ...(dropped.length > 0 ? [`Dropped: ${dropped.map((t) => t.id).join(", ")}`] : []),
@@ -470,6 +582,75 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           "",
           status(),
         ].join("\n");
+      }),
+  );
+
+  server.registerTool(
+    "add_decision",
+    {
+      title: "Add decision",
+      description:
+        "Record a choice made for a claimed Goal along the way, such as 'old models get thinking on/off only', so it survives context compression; get_status shows it. Not for lasting project rules (add_standing_instruction) or project-wide background (update_context).",
+      inputSchema: { goal: heldGoal, text: z.string().min(1).describe("The decision, in one line.") },
+    },
+    ({ goal, text }) =>
+      respond(() => {
+        const d = project.addDecision(text, goal);
+        return withNow(`Saved decision ${d.id} in Goal ${goal ?? project.claimedGoal()?.id}: ${d.text}`);
+      }),
+  );
+
+  server.registerTool(
+    "update_decision",
+    {
+      title: "Update decision",
+      description: "Reword a decision of a claimed Goal, or remove it with an empty text. The IDs (c1, c2...) are in get_status.",
+      inputSchema: {
+        goal: heldGoal,
+        id: z.string().describe("The decision ID, such as 'c2'."),
+        text: z.string().describe("The new wording; empty to remove the decision."),
+      },
+    },
+    ({ goal, id, text }) =>
+      respond(() => {
+        const d = project.updateDecision(id, text, goal);
+        return d ? `Changed decision ${d.id}: ${d.text}` : `Removed decision ${id}.`;
+      }),
+  );
+
+  server.registerTool(
+    "add_note",
+    {
+      title: "Add note",
+      description:
+        "Note something you spotted that belongs to a Goal, such as a bug found during cleanup that belongs to the Voice Goal, instead of dealing with it now. Any Goal on the Roadmap that is not dropped, claimed or not. get_status shows the open notes of the Goals this Session holds.",
+      inputSchema: { goal: goalId.describe("The ID of the Goal the note belongs to."), text: z.string().min(1).describe("What you spotted, in one line.") },
+    },
+    ({ goal, text }) =>
+      respond(() => {
+        const n = project.addNote(goal, text);
+        return withNow(`Saved note ${n.id} in Goal ${goal}: ${n.text}`);
+      }),
+  );
+
+  server.registerTool(
+    "update_note",
+    {
+      title: "Update note",
+      description:
+        "Resolve a note once it is dealt with (resolved: true), reopen it (false), reword it, or remove it with an empty text.",
+      inputSchema: {
+        goal: goalId.describe("The ID of the Goal the note belongs to."),
+        id: z.string().describe("The note ID, such as 'n2'."),
+        text: z.string().optional().describe("The new wording; empty to remove the note."),
+        resolved: z.boolean().optional().describe("true once the note is dealt with; false to reopen it."),
+      },
+    },
+    ({ goal, id, text, resolved }) =>
+      respond(() => {
+        const n = project.updateNote(goal, id, { text, resolved });
+        if (!n) return `Removed note ${id}.`;
+        return `${resolved === true ? "Resolved" : resolved === false ? "Reopened" : "Changed"} note ${n.id}: ${n.text}`;
       }),
   );
 
@@ -530,7 +711,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
 
   server.registerPrompt(
     "status",
-    { title: "Progressor status", description: "Where the work stands: the Goal, its Outcome, the current Task, any open Detour and what comes next." },
+    { title: "Progressor status", description: "Where the work stands: the Goals, their Outcomes, the current Tasks, any open Detour and what comes next." },
     () => message(statusPrompt(status())),
   );
 
@@ -565,7 +746,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   server.registerPrompt(
     "next",
     { title: "Pick up the work", description: "Carry on where the plan left off: the open Detour, the Task in progress, or the next Task, claiming a Goal if needed." },
-    () => message(nextPrompt(project.status(), status())),
+    () => message(nextPrompt(project.sessionStatus(), status())),
   );
 
   server.registerPrompt(

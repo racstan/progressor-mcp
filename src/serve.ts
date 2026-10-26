@@ -33,9 +33,9 @@ function releaseAndExit(code = 0): void {
     released = true;
     record?.close();
     try {
-      project.releaseGoal();
+      project.releaseAll();
     } catch (e) {
-      console.error(`progressor: could not release the Claim: ${(e as Error).message}`);
+      console.error(`progressor: could not release the Claims: ${(e as Error).message}`);
     }
   }
   process.exit(code);

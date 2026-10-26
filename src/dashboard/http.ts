@@ -7,6 +7,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
+import type { Decision, Note, TaskStatus } from "../planFile.js";
 import { PROGRESSOR_DIR, Project, ROADMAP_FILE, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
@@ -28,7 +29,7 @@ import { allProjects, findProjects } from "./workspace.js";
 export const DEFAULT_PORT = 4747;
 const HOST = "127.0.0.1";
 /** Bumped when the hub's API changes, so a hub from an older version is not shared. */
-const HUB_VERSION = 2;
+const HUB_VERSION = 3;
 
 export interface DashboardOptions {
   /** This Session's project; it is added to the registry. Absent when only a Workspace is opened. */
@@ -84,10 +85,21 @@ export function dashboardApi(project: Project) {
     if (!goal) return undefined;
     let done = 0;
     let total = 0;
+    // How many of the Goal's Tasks are in each state.
+    const counts: Record<TaskStatus, number> = {
+      pending: 0,
+      "in progress": 0,
+      "with a helper": 0,
+      "waiting on you": 0,
+      checked: 0,
+      done: 0,
+      released: 0,
+      dropped: 0,
+    };
     try {
-      const live = project.plan(goalId).tasks.filter((t) => t.status !== "dropped");
-      done = live.filter((t) => t.status === "done").length;
-      total = live.length;
+      for (const t of project.plan(goalId).tasks) counts[t.status]++;
+      done = counts.done + counts.released;
+      total = Object.values(counts).reduce((a, b) => a + b, 0) - counts.dropped;
     } catch {
       // A Goal whose Plan File is missing or unreadable still shows, with no progress.
     }
@@ -100,7 +112,9 @@ export function dashboardApi(project: Project) {
       }
     };
     const planFile = project.planFilePath(goalId);
-    return { ...goal, planFile, done, total, updatedAt: changed(planFile) ?? changed(roadmapFile) };
+    // A Goal with a Task waiting on the Developer is waiting on them, rather than being worked on.
+    const waitingOnYou = counts["waiting on you"] > 0;
+    return { ...goal, planFile, done, total, counts, waitingOnYou, updatedAt: changed(planFile) ?? changed(roadmapFile) };
   };
   return {
     roadmap: () => {
@@ -123,7 +137,11 @@ export function dashboardApi(project: Project) {
     },
     goal: (goalId: string) => {
       const goal = goalSummary(goalId);
-      return goal ? { goal, graph: buildGoalGraph(project.plan(goalId)) } : undefined;
+      if (!goal) return undefined;
+      const plan = project.plan(goalId);
+      const decisions: Decision[] = plan.decisions;
+      const notes: Note[] = plan.notes;
+      return { goal, graph: buildGoalGraph(plan), decisions, notes };
     },
     item: (ref: string) => project.getItem(ref),
   };
@@ -235,9 +253,9 @@ class Hub {
   overview() {
     return this.sync().map((entry) => {
       const api = this.projects.get(entry.id)?.api;
-      let goals: { id: string; title: string; status: string; done: number; total: number }[] = [];
+      let goals: { id: string; title: string; status: string; done: number; total: number; waitingOnYou: boolean }[] = [];
       try {
-        goals = (api?.roadmap().goals ?? []).map(({ id, title, status, done, total }) => ({ id, title, status, done, total }));
+        goals = (api?.roadmap().goals ?? []).map(({ id, title, status, done, total, waitingOnYou }) => ({ id, title, status, done, total, waitingOnYou }));
       } catch {
         // a Roadmap that cannot be read shows as a project with no Goals
       }
@@ -277,14 +295,15 @@ class Hub {
       hub: process.pid,
       servers: listServers(this.serversDir).map((s) => {
         const entry = entries.find((e) => pathKey(e.root) === pathKey(s.root));
-        let goal: { id: string; title: string } | undefined;
+        // A Session can hold several Goals at once: `goals` has them all, `goal` the first.
+        let goals: { id: string; title: string }[] = [];
         try {
-          const g = s.session && this.projects.get(entry?.id ?? "")?.api.roadmap().goals.find((x) => x.claim?.session === s.session);
-          if (g) goal = { id: g.id, title: g.title };
+          const held = s.session ? (this.projects.get(entry?.id ?? "")?.api.roadmap().goals.filter((x) => x.claim?.session === s.session) ?? []) : [];
+          goals = held.map((g) => ({ id: g.id, title: g.title }));
         } catch {
-          // a Roadmap that cannot be read shows the server without its Goal
+          // a Roadmap that cannot be read shows the server without its Goals
         }
-        return { ...s, name: entry?.name ?? projectEntry(s.root).name, project: entry?.id, goal, serving: s.pid === process.pid };
+        return { ...s, name: entry?.name ?? projectEntry(s.root).name, project: entry?.id, goal: goals[0], goals, serving: s.pid === process.pid };
       }),
     };
   }

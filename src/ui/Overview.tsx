@@ -2,6 +2,7 @@ import type { OverviewView, SearchView, WorkspaceEntry } from "./data.js";
 import { readJson } from "./data.js";
 import { type Seen, doneMark } from "./goalList.js";
 import { sortProjects } from "./projectList.js";
+import { goalState } from "./words.js";
 
 type ProjectOverview = OverviewView[number];
 
@@ -52,10 +53,16 @@ export function Overview({ overview, workspaces, only, query, hits, finishedWait
               const planned = p.goals.filter((x) => x.status === "planned").length;
               const done = p.goals.filter((x) => x.status === "done").length;
               const fresh = unseen(p, finishedWaits);
+              const needYou = p.goals.filter((x) => x.waitingOnYou && (x.status === "active" || x.status === "paused")).length;
               return (
                 <div key={p.id} className="project-card">
                   <button className="head" onClick={() => onOpen(p.id)} title={p.root}>
                     <span className="t">{p.name}</span>
+                    {needYou > 0 && (
+                      <span className="you-note" title="A step is waiting on you in this project">
+                        <span className="you-dot" aria-hidden="true" /> {needYou === 1 ? "Waiting on you" : `${needYou} goals waiting on you`}
+                      </span>
+                    )}
                     {fresh > 0 && (
                       <span className="fresh-note">
                         <span className="fresh-dot" aria-hidden="true" /> {fresh} finished
@@ -64,12 +71,13 @@ export function Overview({ overview, workspaces, only, query, hits, finishedWait
                   </button>
                   {working.map((x) => {
                     const pct = x.total ? Math.round((100 * x.done) / x.total) : 0;
+                    const you = goalState({ status: x.status, updatedAt: undefined, running: true, waitingOnYou: x.waitingOnYou }).state === "you";
                     return (
-                      <button key={x.id} className={`goal ${x.status}`} onClick={() => onOpen(p.id, x.id)}>
+                      <button key={x.id} className={`goal ${x.status} ${you ? "you" : ""}`} onClick={() => onOpen(p.id, x.id)}>
                         <div className="t">{x.title}</div>
                         <div className="bar"><i style={{ width: `${pct}%` }} /></div>
                         <div className="s">
-                          <span>{x.status === "active" ? "In progress" : "Paused"}</span>
+                          <span className={you ? "state you" : undefined}>{you ? "Waiting on you" : x.status === "active" ? "In progress" : "Paused"}</span>
                           <span>{x.total ? `${x.done} of ${x.total} steps` : "no steps yet"}</span>
                         </div>
                       </button>
