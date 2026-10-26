@@ -11,6 +11,7 @@ import { Overview } from "./Overview.js";
 import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
 import { RichText } from "./RichText.js";
 import { type SearchHit, SearchBox } from "./Search.js";
+import { hardFirst } from "../roadmap.js";
 import { ServersPanel } from "./Servers.js";
 import { inlineCode, plainText } from "./text.js";
 import { VIEWS, VIEW_LABELS, type View, pickView } from "./views.js";
@@ -748,7 +749,7 @@ function Choice<T extends string>({ value, options, onChange }: {
 }
 
 /** The project's rules and background, as its AI wrote them. Read-only. */
-function ContextPage({ rules, context }: { rules: { id?: string; text: string }[]; context: string }) {
+function ContextPage({ rules, context }: { rules: { id?: string; text: string; hard?: boolean }[]; context: string }) {
   const code = (text: string) => inlineCode(text).map((s, i) => (s.code ? <code key={i}>{s.text}</code> : s.text));
   const blocks = contextBlocks(context);
   return (
@@ -760,8 +761,14 @@ function ContextPage({ rules, context }: { rules: { id?: string; text: string }[
         <p className="empty">No rules yet. When you tell the AI a lasting rule, it shows up here.</p>
       ) : (
         <ol className="rules">
-          {rules.map((r, i) => (
-            <li key={r.id ?? i}><span className="rid">{r.id ?? `s${i + 1}`}</span><span>{code(r.text)}</span></li>
+          {hardFirst(rules.map((r) => ({ ...r, hard: r.hard === true }))).map((r, i) => (
+            <li key={r.id ?? i} className={r.hard ? "must" : undefined}>
+              <span className="rid">{r.id ?? `s${i + 1}`}</span>
+              <span>
+                {r.hard && <b className="must-badge" title="A rule your AI must never break, as opposed to a preference">Must</b>}
+                {code(r.text)}
+              </span>
+            </li>
           ))}
         </ol>
       )}
@@ -908,7 +915,7 @@ function describe(subject: PromptSubject): { title: string; meta: string; state?
         meta: `${which} · ${STEP_WORD[n.status]}${n.fromDetour ? " · added after a side trip" : ""}`,
         state: n.status,
         summary: n.summary,
-        reason: n.status === "dropped" && n.reason ? `Why it was cancelled: ${n.reason}` : undefined,
+        reason: n.status === "dropped" && n.reason ? `Why it was cancelled: ${plainText(n.reason)}` : undefined,
         locations: [main, ...code],
       };
     }

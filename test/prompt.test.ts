@@ -139,7 +139,7 @@ This Idea is parked, not planned: do not build it unless I ask you to promote it
       copyAsPrompt({
         kind: "standing instruction",
         file: ROADMAP,
-        instruction: { id: "s1", ref: "progressor://roadmap/s1", text: "Ask me before recalibrating", line: 25 },
+        instruction: { id: "s1", ref: "progressor://roadmap/s1", text: "Ask me before recalibrating", line: 25, hard: false },
       }),
     ).toBe(`[Progressor] Standing Instruction s1 "Ask me before recalibrating"
 Ref: progressor://roadmap/s1

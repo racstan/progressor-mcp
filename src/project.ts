@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -46,6 +46,20 @@ export interface NewGoalOptions {
   done?: boolean;
 }
 
+/** One change in an update_tasks call; `state` is needed for "state", `reason` for "drop". */
+export interface TaskOperation {
+  action: "start" | "complete" | "state" | "drop";
+  task: string;
+  /** The claimed Goal the Task is in; the call's own Goal when absent. */
+  goal?: string;
+  state?: Exclude<TaskStatus, "dropped">;
+  reason?: string;
+  /** For "complete": files the Task touched. */
+  code?: string[];
+  /** For "complete": the Task's final summary. */
+  summary?: string;
+}
+
 export interface Status {
   goal: Goal | undefined;
   planFile: string | undefined;
@@ -70,6 +84,8 @@ export interface Status {
   context: string;
   /** Every Goal on the Roadmap, so a Session without a Claim can pick one. */
   goals: Goal[];
+  /** When the Goal's plan last changed (the Plan File's time, else the Roadmap's), in ms since 1970. */
+  updatedAt: number | undefined;
 }
 
 /** Every Goal this Session holds, with what get_status shows besides. */
@@ -216,19 +232,20 @@ export class Project {
    * The claimed Goal a change is for: the one named, which this Session must hold, or else the only
    * one it holds.
    */
-  private requireClaim(goalId?: string): { goal: Goal; plan: PlanFile } {
+  private requireClaim(goalId?: string, loaded?: Map<string, PlanFile>): { goal: Goal; plan: PlanFile } {
     const roadmap = this.roadmap();
     const held = this.claimedGoals(roadmap);
+    const planOf = (g: Goal) => loaded?.get(g.id) ?? this.plan(g.id);
     if (goalId !== undefined) {
       const goal = held.find((g) => g.id === goalId);
-      if (goal) return { goal, plan: this.plan(goal.id) };
+      if (goal) return { goal, plan: planOf(goal) };
       if (!roadmap.goal(goalId)) throw new Error(`No Goal ${goalId} on the Roadmap.`);
       throw new Error(`Goal ${goalId} is not claimed by this Session; claim it first (claim_goal).`);
     }
     if (held.length === 0) throw new Error("This Session has no Goal; claim a Goal first (claim_goal).");
     if (held.length > 1)
       throw new Error(`This Session holds several Goals (${held.map((g) => g.id).join(", ")}); say which with goal.`);
-    return { goal: held[0]!, plan: this.plan(held[0]!.id) };
+    return { goal: held[0]!, plan: planOf(held[0]!) };
   }
 
   /** A Claim is stale when the process that holds it is no longer running. */
@@ -366,15 +383,7 @@ export class Project {
 
   /** Puts a Task in the Agent's own hands; only one Task of a Goal can be in progress. */
   startTask(id: string, goalId?: string): Task {
-    const { plan } = this.requireClaim(goalId);
-    const task = this.taskIn(plan, id);
-    const current = plan.currentTask;
-    if (current && current.id !== id)
-      throw new Error(`Task ${current.id} is already in progress; complete or drop it first.`);
-    if (FINISHED.includes(task.status)) throw new Error(`Task ${id} is already ${task.status}.`);
-    plan.setTaskStatus(id, "in progress");
-    this.savePlan(plan);
-    return plan.task(id)!;
+    return this.change(goalId, (plan) => this.start(plan, id));
   }
 
   /**
@@ -382,22 +391,16 @@ export class Project {
    * start_task's rule; several Tasks may be with a helper, waiting on the Developer or checked.
    */
   setTaskState(id: string, state: Exclude<TaskStatus, "dropped">, goalId?: string): Task {
-    if (state === "in progress") return this.startTask(id, goalId);
-    const { plan } = this.requireClaim(goalId);
-    const task = this.taskIn(plan, id);
-    if (task.status === "dropped") throw new Error(`Task ${id} is dropped; add a new Task instead.`);
-    plan.setTaskStatus(id, state);
-    this.savePlan(plan);
-    return plan.task(id)!;
+    return this.change(goalId, (plan) => this.setState(plan, id, state));
   }
 
   /** Changes a Task's title, summary or files (which replace the old ones). */
   updateTask(id: string, changes: TaskChanges, goalId?: string): Task {
-    const { plan } = this.requireClaim(goalId);
-    this.taskIn(plan, id);
-    plan.updateTask(id, changes);
-    this.savePlan(plan);
-    return plan.task(id)!;
+    return this.change(goalId, (plan) => {
+      this.taskIn(plan, id);
+      plan.updateTask(id, changes);
+      return plan.task(id)!;
+    });
   }
 
   /**
@@ -405,20 +408,118 @@ export class Project {
    * A released Task stays released.
    */
   completeTask(id: string, code: string[] = [], summary?: string, goalId?: string): Task {
-    const { plan } = this.requireClaim(goalId);
-    if (this.taskIn(plan, id).status !== "released") plan.setTaskStatus(id, "done");
-    if (code.length > 0) plan.addCode(id, code);
-    if (summary?.trim()) plan.updateTask(id, { summary });
-    this.savePlan(plan);
-    return plan.task(id)!;
+    return this.change(goalId, (plan) => this.complete(plan, id, code, summary));
   }
 
   dropTask(id: string, reason: string, goalId?: string): Task {
-    const { plan } = this.requireClaim(goalId);
+    return this.change(goalId, (plan) => this.drop(plan, id, reason));
+  }
+
+  /**
+   * Applies several Task changes in order, such as completing two Tasks and starting the next, all
+   * or nothing: if one fails, none is saved. Each change can name its own claimed Goal; each Goal's
+   * Plan File is written once. Returns the Tasks as they ended up, one per change.
+   */
+  updateTasks(operations: TaskOperation[], goalId?: string): { goal: string; task: Task }[] {
+    if (operations.length === 0) throw new Error("Give at least one operation.");
+    const plans = new Map<string, PlanFile>();
+    const results = operations.map((op, i) => {
+      try {
+        const { goal, plan } = this.requireClaim(op.goal ?? goalId, plans);
+        plans.set(goal.id, plan);
+        return { goal: goal.id, task: this.operate(plan, op) };
+      } catch (e) {
+        throw new Error(`Operation ${i + 1} (${op.action} ${op.task}): ${(e as Error).message} Nothing was changed.`);
+      }
+    });
+    for (const plan of plans.values()) this.savePlan(plan);
+    // A Task changed twice is reported as it ended up.
+    return results.map((r) => ({ goal: r.goal, task: plans.get(r.goal)!.task(r.task.id!)! }));
+  }
+
+  private operate(plan: PlanFile, op: TaskOperation): Task {
+    switch (op.action) {
+      case "start":
+        return this.start(plan, op.task);
+      case "complete":
+        return this.complete(plan, op.task, op.code ?? [], op.summary);
+      case "state":
+        if (!op.state) throw new Error("The state action needs a state.");
+        return this.setState(plan, op.task, op.state);
+      case "drop":
+        if (!op.reason?.trim()) throw new Error("The drop action needs a reason.");
+        return this.drop(plan, op.task, op.reason);
+    }
+  }
+
+  private start(plan: PlanFile, id: string): Task {
+    const task = this.taskIn(plan, id);
+    const current = plan.currentTask;
+    if (current && current.id !== id)
+      throw new Error(`Task ${current.id} is already in progress; complete or drop it first.`);
+    if (FINISHED.includes(task.status)) throw new Error(`Task ${id} is already ${task.status}.`);
+    plan.setTaskStatus(id, "in progress");
+    return plan.task(id)!;
+  }
+
+  private setState(plan: PlanFile, id: string, state: Exclude<TaskStatus, "dropped">): Task {
+    if (state === "in progress") return this.start(plan, id);
+    const task = this.taskIn(plan, id);
+    if (task.status === "dropped") throw new Error(`Task ${id} is dropped; add a new Task instead.`);
+    plan.setTaskStatus(id, state);
+    return plan.task(id)!;
+  }
+
+  private complete(plan: PlanFile, id: string, code: string[], summary: string | undefined): Task {
+    if (this.taskIn(plan, id).status !== "released") plan.setTaskStatus(id, "done");
+    if (code.length > 0) plan.addCode(id, code);
+    if (summary?.trim()) plan.updateTask(id, { summary });
+    return plan.task(id)!;
+  }
+
+  private drop(plan: PlanFile, id: string, reason: string): Task {
     this.taskIn(plan, id);
     plan.dropTask(id, { reason });
-    this.savePlan(plan);
     return plan.task(id)!;
+  }
+
+  /** Runs a change on a claimed Goal's plan and saves it. */
+  private change<T>(goalId: string | undefined, body: (plan: PlanFile) => T): T {
+    const { plan } = this.requireClaim(goalId);
+    const result = body(plan);
+    this.savePlan(plan);
+    return result;
+  }
+
+  /**
+   * Moves a Task of a claimed Goal to another Goal: a copy with its title, summary, files and state
+   * goes to the end of that Goal's list (or before or after one of its Tasks) under a new ID, with a
+   * `moved from` line. The old Task stays as a trace, dropped with the reason `Moved to the goal "<title>" (<ref>)`, so
+   * its ref still resolves and Detours that branched from it still point somewhere; its ID is not
+   * reused. A Task in progress moves too, unless the other Goal has a Task in progress of its own.
+   * The other Goal must not be dropped, done or held by another running Session.
+   */
+  moveTask(id: string, toGoal: string, to: { before?: string; after?: string } = {}, goalId?: string): Task {
+    const { goal, plan } = this.requireClaim(goalId);
+    if (toGoal === goal.id) throw new Error(`Task ${id} is already in Goal ${goal.id}; give another Goal to move it to.`);
+    const roadmap = this.roadmap();
+    const target = roadmap.goal(toGoal);
+    if (!target) throw new Error(`No Goal ${toGoal} on the Roadmap.`);
+    if (target.status === "dropped") throw new Error(`Goal ${toGoal} is dropped; move the Task to another Goal.`);
+    if (target.status === "done") throw new Error(`Goal ${toGoal} is done; claim it with claim_goal to reopen it, then move the Task.`);
+    if (this.claimIsLive(target)) throw new Error(`Goal ${toGoal} is claimed by Session ${target.claim!.session}, which is still running.`);
+    const task = this.taskIn(plan, id);
+    if (task.status === "dropped") throw new Error(`Task ${id} is dropped; there is nothing to move.`);
+    const targetPlan = this.plan(toGoal);
+    const busy = targetPlan.currentTask;
+    if (task.status === "in progress" && busy)
+      throw new Error(`Task ${busy.id} is already in progress in Goal ${toGoal}; finish it or set the Task to pending first.`);
+    const moved = targetPlan.importTask(task, task.ref!, to);
+    plan.dropTask(id, { reason: `Moved to the goal "${target.title}" (${moved.ref})` });
+    // The Task is written to its new home first, so a failure in between leaves a copy, not a loss.
+    this.savePlan(targetPlan);
+    this.savePlan(plan);
+    return moved;
   }
 
   private taskIn(plan: PlanFile, id: string): Task {
@@ -549,19 +650,23 @@ export class Project {
     return promoted;
   }
 
-  addStandingInstruction(text: string): StandingInstruction {
+  addStandingInstruction(text: string, hard = false): StandingInstruction {
     const roadmap = this.roadmap();
-    const instruction = roadmap.addStandingInstruction(text);
+    const instruction = roadmap.addStandingInstruction(text, hard);
     this.saveRoadmap(roadmap);
     return instruction;
   }
 
-  /** Rewords a Standing Instruction, or removes it when the text is empty; returns undefined when removed. */
-  updateStandingInstruction(id: string, text: string): StandingInstruction | undefined {
+  /**
+   * Rewords a Standing Instruction and/or makes it a hard rule (or a preference again), or removes it
+   * when the text is empty; returns undefined when removed.
+   */
+  updateStandingInstruction(id: string, changes: { text?: string; hard?: boolean }): StandingInstruction | undefined {
+    if (changes.text === undefined && changes.hard === undefined) throw new Error("Give the new text or hard (or both).");
     const roadmap = this.roadmap();
     let result: StandingInstruction | undefined;
-    if (text.trim()) result = roadmap.setStandingInstruction(id, text);
-    else roadmap.removeStandingInstruction(id);
+    if (changes.text !== undefined && !changes.text.trim()) roadmap.removeStandingInstruction(id);
+    else result = roadmap.setStandingInstruction(id, changes);
     this.saveRoadmap(roadmap);
     return result;
   }
@@ -672,6 +777,7 @@ export class Project {
         total: 0,
         decisions: [],
         notes: [],
+        updatedAt: undefined,
         ...common,
       };
     const plan = this.plan(goal.id);
@@ -690,7 +796,17 @@ export class Project {
       total: live.length,
       decisions: plan.decisions,
       notes: plan.notes.filter((n) => !n.resolved),
+      updatedAt: this.changedAt(this.planFilePath(goal.id)) ?? this.changedAt(`${PROGRESSOR_DIR}/${ROADMAP_FILE}`),
       ...common,
     };
+  }
+
+  /** When a file of the project (path from the project folder) last changed, in ms since 1970. */
+  private changedAt(file: string): number | undefined {
+    try {
+      return statSync(join(this.root, file)).mtimeMs;
+    } catch {
+      return undefined;
+    }
   }
 }

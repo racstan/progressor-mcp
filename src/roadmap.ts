@@ -52,6 +52,8 @@ export interface StandingInstruction {
   ref: string | undefined;
   text: string;
   line: number;
+  /** A hard rule must never be broken; any other Standing Instruction is a preference. */
+  hard: boolean;
 }
 
 export const GOALS = "Goals";
@@ -75,6 +77,17 @@ export function slugify(title: string): string {
     .replace(/-+$/, "");
   return slug || "goal";
 }
+
+const HARD_VALUES = ["yes", "true"];
+const isHard = (b: ItemBlock) => HARD_VALUES.includes(getDetail(b, "hard")?.trim().toLowerCase() ?? "");
+
+/** Hard rules first, each group in its own order: how rules are shown to the Agent and the Developer. */
+export function hardFirst<T extends { hard: boolean }>(rules: T[]): T[] {
+  return [...rules.filter((r) => r.hard), ...rules.filter((r) => !r.hard)];
+}
+
+/** A rule as the Agent reads it in a list: `s1 text`, or `HARD RULE s3: text` for a hard rule. */
+export const ruleText = (r: Pick<StandingInstruction, "id" | "text" | "hard">) => (r.hard ? `HARD RULE ${r.id}: ${r.text}` : `${r.id} ${r.text}`);
 
 function parseClaim(value: string | undefined): Claim | undefined {
   const m = value ? CLAIM.exec(value.trim()) : null;
@@ -138,6 +151,7 @@ export class Roadmap {
       ref: b.id ? `progressor://${ROADMAP_REF}/${b.id}` : undefined,
       text: b.text,
       line: b.line,
+      hard: isHard(b),
     }));
   }
 
@@ -248,11 +262,13 @@ export class Roadmap {
     setDetail(b, "promoted to", ref);
   }
 
-  addStandingInstruction(text: string): StandingInstruction {
+  addStandingInstruction(text: string, hard = false): StandingInstruction {
     this.ensureTitle();
     this.assignMissingIds();
     const id = nextId(this.instructionBlocks().map((i) => i.id), "s");
-    appendToSection(this.doc, STANDING_INSTRUCTIONS, [newItem({ marker: undefined, text: oneLine(text), id })]);
+    const b = newItem({ marker: undefined, text: oneLine(text), id });
+    if (hard) addDetail(b, "hard", "yes");
+    appendToSection(this.doc, STANDING_INSTRUCTIONS, [b]);
     return this.standingInstruction(id)!;
   }
 
@@ -262,9 +278,11 @@ export class Roadmap {
     return b;
   }
 
-  /** Rewords a Standing Instruction; it keeps its ID. */
-  setStandingInstruction(id: string, text: string): StandingInstruction {
-    this.instructionBlock(id).text = oneLine(text);
+  /** Rewords a Standing Instruction or makes it a hard rule (or a preference again); it keeps its ID. */
+  setStandingInstruction(id: string, changes: { text?: string; hard?: boolean }): StandingInstruction {
+    const b = this.instructionBlock(id);
+    if (changes.text !== undefined) b.text = oneLine(changes.text);
+    if (changes.hard !== undefined) setDetail(b, "hard", changes.hard ? "yes" : undefined);
     return this.standingInstruction(id)!;
   }
 

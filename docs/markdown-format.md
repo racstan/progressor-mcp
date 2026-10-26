@@ -31,6 +31,8 @@ The files are written by the Agent through Progressor's tools, and they are ordi
 
 - Ask me before recalibrating ^s1
 - Run the tests before completing a Task ^s2
+- Never commit secrets ^s3
+  - hard: yes
 ```
 
 ## Example: goals/ship-oauth-login.md
@@ -97,7 +99,7 @@ Every item also has a line number: the 1-based line of its item line (for a Deto
 
 Every Task has three parts. Its **title** is the item line: a few words, such as "Fix callback redirect loop". Its **files** are its `code` lines. Its **summary** is a `summary` line: one or two sentences on the fix or change it makes. The title is required; files and summary are optional, so a Task typed by hand as a single line is still valid. A summary is kept on one line: line breaks given to the tools become spaces.
 
-When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `added by`, `dropped by`, `reason`. Unknown details follow in the order they were in.
+When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `moved from`, `added by`, `dropped by`, `reason`. Unknown details follow in the order they were in.
 
 ## Status markers
 
@@ -134,12 +136,14 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 | Task     | `state`        | One of the [states beyond the checkbox](#task-states-beyond-the-checkbox). |
 | Task     | `summary`      | One or two sentences on the fix or change the Task makes, on one line.   |
 | Task     | `code`         | A file the Task touches, in backticks; may end in `:line`. Repeatable.   |
+| Task     | `moved from`   | The ref of the Task in another Goal this one was moved from (`progressor://billing/t4`). |
 | Task     | `added by`     | The Detour whose Return or Recalibration added this Task (`^d1`).        |
 | Task     | `dropped by`   | The Detour whose Recalibration dropped this Task (`^d1`).                |
 | Task     | `reason`       | Why the Task was dropped, when dropped directly.                         |
 | Goal     | `claimed by`   | The Claim: `<session> (pid <pid>) since <ISO time>`.                     |
 | Goal     | `outcome`      | The Outcome: what done looks like, on one line.                          |
 | Goal     | `reason`       | Why the Goal was dropped.                                                |
+| Standing Instruction | `hard`  | `yes` (or `true`) for a hard rule that must never be broken; absent for a preference. |
 | Idea     | `promoted to`  | The ref of the Task or Goal it was promoted to.                          |
 | Idea     | `note`         | Free text recorded with the Idea.                                        |
 | Note     | `from`         | The ref of the Goal being worked on when the note was made, if another one. |
@@ -159,6 +163,14 @@ A Detour's facts are the list lines directly under its heading:
 `## Notes` holds things spotted that belong to this Goal, often while working on another one: a checklist line each, `[ ]` while open and `[x]` once resolved. A plain list line with no checkbox reads as open. A note made while the Agent was working on a different Goal says which, with a `from` line.
 
 Both sections are created when their first item is added, after the Tasks and before any Detour. Lines are reworded in place; a removed decision or note is deleted from the file.
+
+## Hard rules
+
+A Standing Instruction is a preference unless it has a `hard: yes` line, which makes it a hard rule: one that must never be broken. Any other value, or no line, reads as a preference, so Roadmaps from before the flag keep working and an older Progressor keeps the line as an unknown detail. Progressor lists hard rules first, marked `HARD RULE`, in `get_status`, at session start and in the rules block of `get_rules`, and the dashboard marks them with a **Must** label. Their order in the file is not changed.
+
+## Moving a Task between Goals
+
+`move_task` copies a Task into another Goal's Plan File, at the end of its `## Tasks` or right before or after one of its Tasks, with a new ID (one more than the highest in that file). The copy has the same checkbox and `state`, title, `summary` and `code` lines, plus `moved from: progressor://<old goal>/<old id>`. The old Task stays in its Plan File as `[-]` with `reason: Moved to the goal "<title>" (progressor://<new goal>/<new id>)` (the dashboard leaves out the bracketed ref), so its ID is never reused, `progressor://` refs to it still resolve, and any Detour that `branched from` it or Task it `added by` still points at a line that exists. Nothing is deleted: the Goal's counts leave the old Task out, as for any dropped Task.
 
 ## How the Detour endings show up
 

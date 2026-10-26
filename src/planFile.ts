@@ -42,6 +42,8 @@ export interface Task {
   summary: string | undefined;
   /** The files the Task touches, each optionally with `:line`. */
   code: string[];
+  /** The ref of the Task this one was moved from, when it came from another Goal. */
+  movedFrom: string | undefined;
   addedBy: string | undefined;
   droppedBy: string | undefined;
   reason: string | undefined;
@@ -134,7 +136,7 @@ export interface TaskChanges {
 }
 
 /** Known Task details come first, in this order, when a Task is rewritten; unknown ones follow as they were. */
-const DETAIL_ORDER = ["state", "summary", "code", "added by", "dropped by", "reason"];
+const DETAIL_ORDER = ["state", "summary", "code", "moved from", "added by", "dropped by", "reason"];
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 
 function sortDetails(b: ItemBlock): void {
@@ -183,6 +185,7 @@ export class PlanFile {
       line: b.line,
       summary: getDetail(b, "summary"),
       code: getDetails(b, "code").map(stripTicks),
+      movedFrom: getDetail(b, "moved from"),
       addedBy: stripRef(getDetail(b, "added by")),
       droppedBy: stripRef(getDetail(b, "dropped by")),
       reason: getDetail(b, "reason"),
@@ -279,6 +282,29 @@ export class PlanFile {
     });
     appendToSection(this.doc, TASKS, blocks);
     return ids.map((id) => this.task(id)!);
+  }
+
+  /**
+   * Adds a copy of a Task from another Goal, with its status, summary and files, and a `moved from`
+   * line saying where it came from. It goes to the end of the list, or right before or after another Task.
+   */
+  importTask(from: Task, movedFrom: string, to: { before?: string; after?: string } = {}): Task {
+    if (to.before && to.after) throw new Error("Say before or after, not both.");
+    const target = to.before ?? to.after;
+    const anchor = target ? this.taskBlock(target) : undefined;
+    this.assignMissingIds();
+    const id = nextId(this.allIds(), "t");
+    const b = newItem({ marker: TASK_MARKER[from.status], text: from.title, id });
+    if (STATE_LINE.includes(from.status)) addDetail(b, "state", from.status);
+    if (from.summary) addDetail(b, "summary", from.summary);
+    for (const c of from.code) addDetail(b, "code", `\`${c}\``);
+    addDetail(b, "moved from", movedFrom);
+    appendToSection(this.doc, TASKS, [b]);
+    if (anchor) {
+      this.doc.blocks.splice(this.doc.blocks.indexOf(b), 1);
+      this.doc.blocks.splice(this.doc.blocks.indexOf(anchor) + (to.after ? 1 : 0), 0, b);
+    }
+    return this.task(id)!;
   }
 
   /** Sets a Task's checkbox, and its `state` line for the states that need one. */

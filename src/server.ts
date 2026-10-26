@@ -6,7 +6,7 @@ import { launchFor, startedViaNpx } from "./init.js";
 import type { Decision, Detour, Note, Task, TaskStatus } from "./planFile.js";
 import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, type Project, type SessionStatus, type Status } from "./project.js";
 import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
-import type { Goal } from "./roadmap.js";
+import { type Goal, type StandingInstruction, hardFirst, ruleText } from "./roadmap.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -16,12 +16,14 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 2. No Goal claimed? If get_status says one Goal is paused, claim it and carry on. When the Developer asks for work no Goal covers, plan it yourself as a Goal: a short title, an Outcome (one sentence on what done looks like) and Tasks, each with a short title, the files it touches and a one-line summary of the change. Tell the Developer the plan in a few plain lines, then call add_goal with claim: true. A quick question needs no Goal.
 3. Before you change code for a Task, call start_task; call complete_task when it is done, with the files you touched. Keep summaries true with update_task, and drop_task what is no longer needed. You work on one Task of a Goal at a time; set_task_state records the rest: "with a helper" when you hand a Task to a helper agent (several can be), "waiting on you" when you need the Developer (to test something by hand, to decide; tell them what you need), "checked" once you have checked a helper's work (tests, review) but it is not merged yet, and "released" once it is merged and out (shipped, installed, published).
 3a. You can hold several Goals at once, for instance with helper agents on different Goals: claim each one. While you hold more than one, pass goal (the Goal ID) to the tools that change a Goal.
+3b. To change several Tasks at once (complete two and start the next), make one update_tasks call with a list of operations, applied in order and all or nothing; it costs far fewer tokens than one call each. A Task that belongs in another Goal moves there with move_task, which keeps its title, summary, files and state.
 4. About to change code for something that is not the current Task (an unrelated bug, a missing prerequisite, a change of plan)? Call start_detour with the reason first. When it is done, call end_detour: "merge back" for a small fix, "return" to go back to the plan (adding Tasks for any work left), or "recalibrate" to replace the remaining Tasks with a new list.
 5. When every Task is done, released or dropped and the Outcome is true, call complete_goal and tell the Developer in one sentence. If more work turns up for a finished Goal, claim it again to reopen it, then add_tasks.
 6. Talk to the Developer in everyday words: say "step" for Task and "side trip" for Detour, and leave out tool names, IDs and the files in .progressor/. Give them the dashboard link from get_status once at the start of a conversation, and again when a Goal is finished.
-7. When the Developer gives a lasting rule ("always...", "never..."), save it with add_standing_instruction; change or remove one with update_standing_instruction.
+7. When the Developer gives a lasting rule ("always...", "never..."), save it with add_standing_instruction; change or remove one with update_standing_instruction. A rule that must never be broken (the Developer says "never", "under no circumstances", "this is a hard rule") is saved with hard: true; get_status lists those first as HARD RULE.
 8. Keep lasting background about the project on its Important context page with update_context: what the project is, key facts, where things live, choices that hold for the whole project. get_status shows it; keep it short and true.
-9. Record a choice made along the way that is not a lasting project rule (such as "old models get thinking on/off only") with add_decision, so it survives context compression. When you spot something that belongs to a Goal, this one or another (a bug found during cleanup that belongs to the Voice Goal), add_note on that Goal instead of fixing it now; once it is dealt with, resolve it with update_note.`;
+9. Record a choice made along the way that is not a lasting project rule (such as "old models get thinking on/off only") with add_decision, so it survives context compression. When you spot something that belongs to a Goal, this one or another (a bug found during cleanup that belongs to the Voice Goal), add_note on that Goal instead of fixing it now; once it is dealt with, resolve it with update_note.
+10. When you brief a helper agent, call get_rules and paste its block into the brief: helpers don't see the Standing Instructions, and the hard rules apply to them too.`;
 
 const taskInput = z.object({
   title: z.string().min(1).describe("A short title for the Task, a few words, such as 'Fix callback redirect loop'."),
@@ -45,6 +47,10 @@ const heldGoal = z
   .describe("The claimed Goal's ID, such as 'ship-oauth-login'. Needed only when this Session holds several Goals.");
 const taskId = z.string().describe("The Task ID, such as 't3'.");
 const states = ["pending", "in progress", "with a helper", "waiting on you", "checked", "done", "released"] as const satisfies readonly TaskStatus[];
+const hardFlag = z
+  .boolean()
+  .optional()
+  .describe("true for a rule that must never be broken (not just a preference); get_status, the session start and get_rules list those first as HARD RULE.");
 const outcome = z
   .string()
   .describe("What done looks like, in one sentence, such as 'Users can sign in with Google and stay signed in for 30 days'.");
@@ -128,9 +134,10 @@ function heldGoalLines(s: Status): string[] {
 }
 
 export function formatStatus(session: SessionStatus): string {
+  const rules = hardFirst(session.standingInstructions);
   const instructions =
-    session.standingInstructions.length > 0
-      ? ["Standing Instructions:", ...session.standingInstructions.map((i) => `- ${i.id} ${i.text}`)]
+    rules.length > 0
+      ? [rules.some((r) => r.hard) ? "Standing Instructions (a HARD RULE must never be broken):" : "Standing Instructions:", ...rules.map((r) => `- ${ruleText(r)}`)]
       : [];
   if (session.context) instructions.push("Important context:", session.context);
   if (session.held.length > 1)
@@ -172,6 +179,24 @@ export function formatStatus(session: SessionStatus): string {
   ].join("\n");
 }
 
+/**
+ * The rules as a block to paste into a helper agent's brief: hard rules first, then the others.
+ * A helper does not see the Standing Instructions, but it is bound by them.
+ */
+export function formatRules(instructions: StandingInstruction[]): string {
+  if (instructions.length === 0) return "No Standing Instructions are set for this project, so there is no rules block to add to the brief.";
+  const hard = instructions.filter((i) => i.hard);
+  const other = instructions.filter((i) => !i.hard);
+  return [
+    "Project rules from the Developer. Follow all of them in this work.",
+    ...(hard.length > 0
+      ? ["HARD RULES: never break these. If the work seems to need breaking one, stop and report back instead.", ...hard.map((i) => `- ${i.text}`)]
+      : []),
+    ...(other.length > 0 ? [...(hard.length > 0 ? ["Other rules:"] : []), ...other.map((i) => `- ${i.text}`)] : []),
+    "Do not edit anything in .progressor/; the Agent that briefed you keeps the plan there.",
+  ].join("\n");
+}
+
 function formatDetour(d: Detour): string {
   return `Detour ${d.id}: ${d.title} (${d.status})${d.branchedFrom ? `, branched from ${d.branchedFrom}` : ""}. Reason: ${d.reason ?? "none given"}`;
 }
@@ -199,6 +224,7 @@ export function formatItem(found: FoundItem): string {
         `Plan File: ${where}`,
         ...(t.summary ? [`Summary: ${t.summary}`] : []),
         ...(t.code.length > 0 ? [`Code: ${t.code.join(", ")}`] : []),
+        ...(t.movedFrom ? [`Moved from: ${t.movedFrom}`] : []),
         ...(t.addedBy ? [`Added by Detour ${t.addedBy}`] : []),
         ...(t.droppedBy ? [`Dropped by Detour ${t.droppedBy}`] : []),
         ...(t.reason ? [`Reason: ${t.reason}`] : []),
@@ -228,7 +254,7 @@ export function formatItem(found: FoundItem): string {
       ].join("\n");
     }
     case "standing instruction":
-      return [`Standing Instruction ${found.item.id}: ${found.item.text}`, `Ref: ${found.ref}`, `Roadmap line: ${where}`].join(
+      return [`${found.item.hard ? "HARD RULE" : "Standing Instruction"} ${found.item.id}: ${found.item.text}`, `Ref: ${found.ref}`, `Roadmap line: ${where}`].join(
         "\n",
       );
   }
@@ -301,6 +327,17 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       annotations: { readOnlyHint: true },
     },
     ({ ref }) => respond(() => formatItem(project.getItem(ref))),
+  );
+
+  server.registerTool(
+    "get_rules",
+    {
+      title: "Get rules",
+      description:
+        "The project's Standing Instructions as a block to paste into the brief of a helper agent you start, hard rules first. Helpers don't see the Standing Instructions, so include this block whenever you brief one.",
+      annotations: { readOnlyHint: true },
+    },
+    () => respond(() => formatRules(project.roadmap().standingInstructions)),
   );
 
   server.registerTool(
@@ -477,6 +514,55 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       respond(() => {
         const t = project.setTaskState(task, state, goal);
         return withNow(`Task ${taskLine(t)} is now ${t.status}.`);
+      }),
+  );
+
+  const operation = z.object({
+    action: z.enum(["start", "complete", "state", "drop"]).describe("start: mark in progress. complete: mark done. state: set the state given in state. drop: drop it, with reason."),
+    task: taskId,
+    goal: heldGoal,
+    state: z.enum(states).optional().describe("For action 'state': the new state, as in set_task_state."),
+    reason: z.string().optional().describe("For action 'drop': why the Task is no longer needed."),
+    code: z.array(z.string()).optional().describe("For action 'complete': files the Task touched, optionally with :line."),
+    summary: taskInput.shape.summary,
+  });
+  server.registerTool(
+    "update_tasks",
+    {
+      title: "Update Tasks",
+      description:
+        "Change several Tasks in one call, such as completing two and starting the next, instead of one call each. The operations are applied in order, so a start can follow the complete of the Task that was in progress; if any one fails, none is applied. Each operation can name its own claimed Goal with goal, else the call's goal (or the only Goal held) is used. Answers with one line per call, not the whole status.",
+      inputSchema: { goal: heldGoal, operations: z.array(operation).min(1).max(25) },
+    },
+    ({ goal, operations }) =>
+      respond(() => {
+        const held = project.claimedGoals().length > 1;
+        const changed = project.updateTasks(operations, goal);
+        return withNow(`Updated: ${changed.map((c) => `${held ? `${c.goal}/` : ""}${taskLine(c.task)} is ${c.task.status}`).join("; ")}.`);
+      }),
+  );
+
+  server.registerTool(
+    "move_task",
+    {
+      title: "Move Task",
+      description:
+        "Move a Task of a claimed Goal to another Goal when it belongs there. It keeps its title, summary, files and state, gets a new ID at the end of the other Goal's list (or right before or after the Task given in before or after) and a 'moved from' line. In the old Goal it stays as a dropped Task whose reason is where it went, so refs and history still work. The other Goal must not be dropped, done or held by another running Session; a Task in progress can move only if the other Goal has none in progress.",
+      inputSchema: {
+        goal: heldGoal.describe("The claimed Goal the Task is in. Needed only when this Session holds several Goals."),
+        task: taskId,
+        to_goal: goalId.describe("The ID of the Goal to move the Task to."),
+        before: z.string().optional().describe("A Task ID in the other Goal to put it in front of."),
+        after: z.string().optional().describe("A Task ID in the other Goal to put it behind."),
+      },
+    },
+    ({ goal, task, to_goal, before, after }) =>
+      respond(() => {
+        const from = goal ?? project.claimedGoal()?.id;
+        const moved = project.moveTask(task, to_goal, { before, after }, goal);
+        return withNow(
+          `Moved ${task} ${moved.title} from ${from} to ${to_goal} as ${moved.ref}. The old ${task} stays in ${from}, dropped with the reason it moved.`,
+        );
       }),
   );
 
@@ -660,12 +746,15 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       title: "Add Standing Instruction",
       description:
         "Save a lasting rule from the Developer about how you should work in this project, such as 'ask me before changing the plan'. get_status lists it from then on. Use it only for rules meant to last; a one-off request is just done.",
-      inputSchema: { text: z.string().min(1).describe("The rule, in the Developer's words where possible.") },
+      inputSchema: {
+        text: z.string().min(1).describe("The rule, in the Developer's words where possible."),
+        hard: hardFlag,
+      },
     },
-    ({ text }) =>
+    ({ text, hard }) =>
       respond(() => {
-        const s = project.addStandingInstruction(text);
-        return withNow(`Saved Standing Instruction ${s.id}: ${s.text}`);
+        const s = project.addStandingInstruction(text, hard);
+        return withNow(`Saved ${s.hard ? "HARD RULE" : "Standing Instruction"} ${s.id}: ${s.text}`);
       }),
   );
 
@@ -674,16 +763,17 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Update Standing Instruction",
       description:
-        "Reword a Standing Instruction when the Developer changes a rule, or remove it with an empty text when they drop it. The IDs (s1, s2...) are in get_status.",
+        "Reword a Standing Instruction when the Developer changes a rule, make it a hard rule (hard: true) or an ordinary one again (hard: false), or remove it with an empty text when they drop it. Give text, hard or both; what you leave out stays. The IDs (s1, s2...) are in get_status.",
       inputSchema: {
         id: z.string().describe("The Standing Instruction ID, such as 's2'."),
-        text: z.string().describe("The new wording; empty to remove the rule."),
+        text: z.string().optional().describe("The new wording; empty to remove the rule. Left out, the wording stays."),
+        hard: hardFlag,
       },
     },
-    ({ id, text }) =>
+    ({ id, text, hard }) =>
       respond(() => {
-        const s = project.updateStandingInstruction(id, text);
-        return s ? `Changed Standing Instruction ${s.id}: ${s.text}` : `Removed Standing Instruction ${id}.`;
+        const s = project.updateStandingInstruction(id, { text, hard });
+        return s ? `Changed ${s.hard ? "HARD RULE" : "Standing Instruction"} ${s.id}: ${s.text}` : `Removed Standing Instruction ${id}.`;
       }),
   );
 

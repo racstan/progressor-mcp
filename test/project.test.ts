@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { MAX_CONTEXT_LENGTH, Project } from "../src/project.js";
@@ -690,5 +690,205 @@ describe("decisions and notes", () => {
     agent.addNote("voice", "Mic stays on");
     expect(agent.getItem("progressor://cleanup/c1")).toMatchObject({ kind: "decision", file: ".progressor/goals/cleanup.md", item: { text: "Keep it simple" } });
     expect(agent.getItem("progressor://voice/n1")).toMatchObject({ kind: "note", item: { text: "Mic stays on", resolved: false } });
+  });
+});
+
+describe("updating several Tasks in one call", () => {
+  let agent: Project;
+  beforeEach(() => {
+    agent = session("s-a", 100);
+    agent.addGoal("Voice", [{ title: "Record" }, { title: "Transcribe" }, { title: "Try on phone" }, { title: "Ship" }]);
+    agent.claimGoal("voice");
+    agent.startTask("t1");
+  });
+
+  it("completes Tasks and starts the next one, in order", () => {
+    const done = agent.updateTasks([
+      { action: "complete", task: "t1", code: ["src/record.ts"], summary: "Records from the mic." },
+      { action: "start", task: "t2" },
+    ]);
+    expect(done.map((d) => [d.goal, d.task.id, d.task.status])).toEqual([
+      ["voice", "t1", "done"],
+      ["voice", "t2", "in progress"],
+    ]);
+    const plan = agent.plan("voice");
+    expect(plan.task("t1")).toMatchObject({ status: "done", code: ["src/record.ts"], summary: "Records from the mic." });
+    expect(plan.currentTask?.id).toBe("t2");
+  });
+
+  it("sets states and drops Tasks too, and the one-in-progress rule sees earlier changes", () => {
+    expect(() => agent.updateTasks([{ action: "start", task: "t2" }])).toThrow(/t1 is already in progress/);
+    agent.updateTasks([
+      { action: "state", task: "t1", state: "with a helper" },
+      { action: "start", task: "t2" },
+      { action: "state", task: "t3", state: "waiting on you" },
+      { action: "drop", task: "t4", reason: "Not needed" },
+    ]);
+    const plan = agent.plan("voice");
+    expect(plan.tasks.map((t) => t.status)).toEqual(["with a helper", "in progress", "waiting on you", "dropped"]);
+    expect(plan.task("t4")!.reason).toBe("Not needed");
+  });
+
+  it("changes nothing when one operation fails, and names it", () => {
+    const before = read("goals/voice.md");
+    expect(() =>
+      agent.updateTasks([
+        { action: "complete", task: "t1" },
+        { action: "start", task: "t2" },
+        { action: "complete", task: "t9" },
+      ]),
+    ).toThrow(/Operation 3 \(complete t9\): No Task t9.*Nothing was changed/);
+    expect(read("goals/voice.md")).toBe(before);
+  });
+
+  it("asks for what each action needs", () => {
+    expect(() => agent.updateTasks([{ action: "state", task: "t1" }])).toThrow(/Operation 1.*state/);
+    expect(() => agent.updateTasks([{ action: "drop", task: "t1" }])).toThrow(/Operation 1.*reason/);
+    expect(() => agent.updateTasks([])).toThrow(/at least one/);
+  });
+
+  it("works across the Goals the Session holds, all or nothing", () => {
+    agent.addGoal("Login", [{ title: "Route" }, { title: "Callback" }]);
+    agent.claimGoal("login");
+    expect(() => agent.updateTasks([{ action: "complete", task: "t1" }])).toThrow(/several Goals/);
+    agent.updateTasks([
+      { action: "complete", task: "t1" },
+      { action: "start", task: "t1", goal: "login" },
+    ], "voice");
+    expect(agent.plan("voice").task("t1")!.status).toBe("done");
+    expect(agent.plan("login").task("t1")!.status).toBe("in progress");
+
+    const login = read("goals/login.md");
+    expect(() =>
+      agent.updateTasks([
+        { action: "complete", task: "t1", goal: "login" },
+        { action: "complete", task: "t2", goal: "voice" },
+        { action: "start", task: "t1", goal: "billing" },
+      ]),
+    ).toThrow(/Operation 3/);
+    expect(read("goals/login.md")).toBe(login);
+    expect(agent.plan("voice").task("t2")!.status).toBe("pending");
+  });
+});
+
+describe("moving a Task to another Goal", () => {
+  let agent: Project;
+  beforeEach(() => {
+    agent = session("s-a", 100);
+    agent.addGoal("Login", [
+      { title: "Route", summary: "Serve the page.", code: ["src/login.ts"] },
+      { title: "Callback" },
+      { title: "Mic check" },
+    ]);
+    agent.addGoal("Voice", [{ title: "Record" }, { title: "Stop" }]);
+    agent.claimGoal("login");
+  });
+
+  it("gives the Task a new ID at the end of the other Goal, and leaves a dropped trace pointing there", () => {
+    agent.setTaskState("t3", "with a helper");
+    const moved = agent.moveTask("t3", "voice");
+    expect(moved.ref).toBe("progressor://voice/t3");
+    expect(agent.plan("voice").tasks.map((t) => [t.id, t.title, t.status])).toEqual([
+      ["t1", "Record", "pending"],
+      ["t2", "Stop", "pending"],
+      ["t3", "Mic check", "with a helper"],
+    ]);
+    expect(agent.plan("voice").task("t3")!.movedFrom).toBe("progressor://login/t3");
+    expect(agent.plan("login").task("t3")).toMatchObject({ status: "dropped", reason: 'Moved to the goal "Voice" (progressor://voice/t3)' });
+    expect(agent.status().total).toBe(2);
+  });
+
+  it("keeps the title, summary and files, and the status of a finished Task", () => {
+    agent.completeTask("t1", ["src/other.ts"], "Serves the login page.");
+    const moved = agent.moveTask("t1", "voice");
+    expect(moved).toMatchObject({ id: "t3", title: "Route", status: "done", summary: "Serves the login page.", code: ["src/login.ts", "src/other.ts"] });
+    expect(read("goals/voice.md")).toContain("- [x] Route ^t3\n  - summary: Serves the login page.\n  - code: `src/login.ts`\n  - code: `src/other.ts`\n  - moved from: progressor://login/t1\n");
+  });
+
+  it("puts the Task before or after a Task of the other Goal", () => {
+    agent.moveTask("t2", "voice", { before: "t1" });
+    agent.moveTask("t3", "voice", { after: "t1" });
+    expect(agent.plan("voice").tasks.map((t) => t.title)).toEqual(["Callback", "Record", "Mic check", "Stop"]);
+    expect(() => agent.moveTask("t1", "voice", { before: "t9" })).toThrow(/No Task t9 in Goal voice/);
+    expect(() => agent.moveTask("t1", "voice", { before: "t1", after: "t2" })).toThrow(/before or after, not both/);
+  });
+
+  it("moves the Task in progress when the other Goal has none of its own, keeping the Agent's place", () => {
+    agent.startTask("t2");
+    expect(agent.moveTask("t2", "voice").status).toBe("in progress");
+    expect(agent.plan("login").currentTask).toBeUndefined();
+  });
+
+  it("refuses a second Task in progress in the other Goal, and writes nothing", () => {
+    agent.claimGoal("voice");
+    agent.startTask("t1", "voice");
+    agent.startTask("t2", "login");
+    const login = read("goals/login.md");
+    expect(() => agent.moveTask("t2", "voice", {}, "login")).toThrow(/t1 is already in progress in Goal voice/);
+    expect(read("goals/login.md")).toBe(login);
+  });
+
+  it("refuses a dropped Task, the same Goal, an unknown Goal, and a Goal that is dropped, done or running elsewhere", () => {
+    agent.dropTask("t2", "No");
+    expect(() => agent.moveTask("t2", "voice")).toThrow(/dropped/);
+    expect(() => agent.moveTask("t1", "login")).toThrow(/already in Goal login/);
+    expect(() => agent.moveTask("t1", "nope")).toThrow(/No Goal nope/);
+    agent.addGoal("Old", []);
+    agent.dropGoal("old", "No");
+    expect(() => agent.moveTask("t1", "old")).toThrow(/dropped/);
+    agent.addGoal("Finished", [{ title: "x", done: true }], { done: true });
+    expect(() => agent.moveTask("t1", "finished")).toThrow(/done.*claim_goal/);
+    const other = session("s-b", 200);
+    other.claimGoal("voice");
+    expect(() => agent.moveTask("t1", "voice")).toThrow(/claimed by Session s-b/);
+  });
+
+  it("needs a Goal named when the Session holds several, and a claimed source Goal", () => {
+    agent.claimGoal("voice");
+    expect(() => agent.moveTask("t1", "voice")).toThrow(/several Goals/);
+    agent.moveTask("t1", "voice", {}, "login");
+    agent.addGoal("Billing", [{ title: "Pay" }]);
+    expect(() => agent.moveTask("t1", "login", {}, "billing")).toThrow(/not claimed by this Session/);
+  });
+
+  it("leaves a Detour that branched from the Task as it was, pointing at the trace", () => {
+    agent.startTask("t2");
+    agent.startDetour("Fix cookie", "Blocks the callback");
+    agent.moveTask("t2", "voice");
+    expect(agent.plan("login").openDetour).toMatchObject({ id: "d1", branchedFrom: "t2" });
+    expect(agent.getItem("progressor://login/t2")).toMatchObject({ kind: "task", item: { status: "dropped" } });
+  });
+});
+
+describe("hard rules", () => {
+  it("are saved with a flag, changed without rewording, and kept in the status and overview", () => {
+    const agent = session("s-a", 100);
+    agent.addStandingInstruction("Prefer small commits");
+    const hard = agent.addStandingInstruction("Never commit secrets", true);
+    expect(hard).toMatchObject({ id: "s2", hard: true });
+    expect(agent.status().standingInstructions.map((s) => s.hard)).toEqual([false, true]);
+    expect(agent.updateStandingInstruction("s1", { hard: true })).toMatchObject({ text: "Prefer small commits", hard: true });
+    expect(agent.updateStandingInstruction("s2", { text: "Never commit API keys" })).toMatchObject({ hard: true });
+    expect(agent.updateStandingInstruction("s2", { hard: false })).toMatchObject({ text: "Never commit API keys", hard: false });
+    expect(agent.updateStandingInstruction("s1", { text: "" })).toBeUndefined();
+    expect(agent.roadmap().standingInstructions.map((s) => s.id)).toEqual(["s2"]);
+  });
+
+  it("need a change to be made", () => {
+    const agent = session("s-a", 100);
+    agent.addStandingInstruction("Be brief");
+    expect(() => agent.updateStandingInstruction("s1", {})).toThrow(/text or hard/);
+  });
+});
+
+describe("when the plan last changed", () => {
+  it("is the Plan File's time, else the Roadmap's, in the status", () => {
+    const agent = session("s-a", 100);
+    agent.addGoal("Login", [{ title: "Route" }]);
+    agent.claimGoal("login");
+    utimesSync(join(root, ".progressor", "goals", "login.md"), new Date("2026-10-18T14:00:00Z"), new Date("2026-10-18T14:00:00Z"));
+    expect(agent.status().updatedAt).toBe(new Date("2026-10-18T14:00:00Z").getTime());
+    rmSync(join(root, ".progressor", "goals", "login.md"));
+    expect(agent.status().updatedAt).toBeGreaterThan(new Date("2026-10-18T14:00:00Z").getTime());
   });
 });

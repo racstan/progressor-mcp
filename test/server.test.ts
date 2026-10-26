@@ -45,8 +45,10 @@ describe("the MCP server", () => {
         "drop_task",
         "end_detour",
         "get_item",
+        "get_rules",
         "get_status",
         "move_goal",
+        "move_task",
         "release_goal",
         "set_task_state",
         "start_detour",
@@ -57,6 +59,7 @@ describe("the MCP server", () => {
         "update_note",
         "update_standing_instruction",
         "update_task",
+        "update_tasks",
       ].sort(),
     );
     const instructions = client.getInstructions() ?? "";
@@ -567,5 +570,114 @@ describe("Task states, decisions and notes through the tools", () => {
   it("tells the Agent when to use them", () => {
     const instructions = client.getInstructions() ?? "";
     for (const tool of ["set_task_state", "add_decision", "add_note", "goal"]) expect(instructions).toContain(tool);
+  });
+});
+
+describe("hard rules and the rules block for helper agents", () => {
+  it("saves a hard rule, lists hard rules first in the status, and changes the flag alone", async () => {
+    await call("add_standing_instruction", { text: "Prefer small commits" });
+    expect((await call("add_standing_instruction", { text: "Never commit secrets", hard: true })).text.split("\n")[0]).toBe(
+      "Saved HARD RULE s2: Never commit secrets",
+    );
+    await call("add_goal", { title: "Login", claim: true });
+    expect((await call("get_status")).text).toContain(
+      ["Standing Instructions (a HARD RULE must never be broken):", "- HARD RULE s2: Never commit secrets", "- s1 Prefer small commits"].join("\n"),
+    );
+    expect((await call("update_standing_instruction", { id: "s1", hard: true })).text).toBe("Changed HARD RULE s1: Prefer small commits");
+    expect((await call("update_standing_instruction", { id: "s2", hard: false })).text).toBe("Changed Standing Instruction s2: Never commit secrets");
+    expect((await call("update_standing_instruction", { id: "s2" })).isError).toBe(true);
+  });
+
+  it("gives a ready-to-paste block for a helper's brief, hard rules first", async () => {
+    expect((await call("get_rules")).text).toMatch(/^No Standing Instructions/);
+    await call("add_standing_instruction", { text: "Ask me before recalibrating" });
+    await call("add_standing_instruction", { text: "Never commit secrets", hard: true });
+    expect((await call("get_rules")).text).toBe(
+      [
+        "Project rules from the Developer. Follow all of them in this work.",
+        "HARD RULES: never break these. If the work seems to need breaking one, stop and report back instead.",
+        "- Never commit secrets",
+        "Other rules:",
+        "- Ask me before recalibrating",
+        "Do not edit anything in .progressor/; the Agent that briefed you keeps the plan there.",
+      ].join("\n"),
+    );
+  });
+
+  it("leaves out the heading of a kind of rule there is none of", async () => {
+    await call("add_standing_instruction", { text: "Ask me before recalibrating" });
+    const soft = (await call("get_rules")).text;
+    expect(soft).not.toContain("HARD RULES");
+    expect(soft).not.toContain("Other rules:");
+    expect(soft).toContain("- Ask me before recalibrating");
+  });
+
+  it("is in the instructions, for briefing helpers", () => {
+    const instructions = client.getInstructions() ?? "";
+    expect(instructions).toMatch(/get_rules/);
+    expect(instructions).toMatch(/brief a helper/);
+    expect(instructions).toMatch(/hard: true/);
+  });
+});
+
+describe("update_tasks", () => {
+  beforeEach(async () => {
+    await call("add_goal", { title: "Voice", tasks: [{ title: "Record" }, { title: "Transcribe" }, { title: "Ship" }], claim: true });
+    await call("start_task", { task: "t1" });
+  });
+
+  it("completes and starts Tasks in one call and answers with one compact status", async () => {
+    const r = await call("update_tasks", {
+      operations: [
+        { action: "complete", task: "t1", code: ["src/record.ts"] },
+        { action: "start", task: "t2" },
+        { action: "state", task: "t3", state: "with a helper" },
+      ],
+    });
+    expect(r.isError).toBe(false);
+    expect(r.text).toBe(
+      ["Updated: t1 Record is done; t2 Transcribe is in progress; t3 Ship is with a helper.", "Now: t2 Transcribe · Next: complete_goal"].join("\n"),
+    );
+  });
+
+  it("changes nothing when an operation fails, and says which", async () => {
+    const r = await call("update_tasks", { operations: [{ action: "complete", task: "t1" }, { action: "drop", task: "t2" }] });
+    expect(r.isError).toBe(true);
+    expect(r.text).toMatch(/Operation 2 \(drop t2\).*reason.*Nothing was changed/);
+    expect((await call("get_status")).text).toContain("Current Task: t1 Record");
+  });
+
+  it("is in the instructions", () => {
+    expect(client.getInstructions() ?? "").toContain("update_tasks");
+  });
+});
+
+describe("move_task", () => {
+  beforeEach(async () => {
+    await call("add_goal", { title: "Login", tasks: [{ title: "Route" }, { title: "Mic check" }], claim: true });
+    await call("add_goal", { title: "Voice", tasks: [{ title: "Record" }] });
+  });
+
+  it("moves a Task to another Goal and says where it went", async () => {
+    const r = await call("move_task", { task: "t2", to_goal: "voice" });
+    expect(r.isError).toBe(false);
+    expect(r.text.split("\n")[0]).toBe(
+      "Moved t2 Mic check from login to voice as progressor://voice/t2. The old t2 stays in login, dropped with the reason it moved.",
+    );
+    expect((await call("get_item", { ref: "progressor://voice/t2" })).text).toContain("Moved from: progressor://login/t2");
+    expect((await call("get_item", { ref: "progressor://login/t2" })).text).toMatch(/Reason: Moved to the goal "[^"]+" \(progressor:\/\/voice\/t2\)/);
+  });
+
+  it("puts the Task before another and reports a refusal", async () => {
+    await call("move_task", { task: "t2", to_goal: "voice", before: "t1" });
+    await call("claim_goal", { goal: "voice" });
+    expect((await call("get_item", { ref: "progressor://voice/t2" })).text).toContain("Mic check");
+    const r = await call("move_task", { goal: "voice", task: "t1", to_goal: "voice" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toMatch(/already in Goal voice/);
+  });
+
+  it("is in the instructions", () => {
+    expect(client.getInstructions() ?? "").toContain("move_task");
   });
 });

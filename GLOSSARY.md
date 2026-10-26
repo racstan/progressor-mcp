@@ -17,7 +17,7 @@ The AI coding assistant that keeps the progress record up to date while it works
 _Avoid_: AI, assistant, bot, model
 
 **Standing Instruction**:
-A lasting rule from the Developer about how the Agent should behave, such as "ask me before recalibrating", kept so it survives context compression and new Sessions.
+A lasting rule from the Developer about how the Agent should behave, such as "ask me before recalibrating", kept so it survives context compression and new Sessions. One the Developer says must never be broken is a **hard rule**: it is listed first, marked HARD RULE (the dashboard says *Must*), and goes into every helper agent's brief.
 _Avoid_: Preference, setting, rule
 
 **Important context**:
@@ -61,7 +61,7 @@ The markdown file that holds one Goal's Tasks, Decisions, Notes and Detours, and
 _Avoid_: Audit file, progress file, todo file
 
 **Task**:
-A planned step toward a Goal, with a short title, the files it touches and a summary of the change it makes. It is pending, in progress (the Agent's own current work, one per Goal), with a helper, waiting on you (the Agent is waiting on the Developer), checked (a helper's work checked, not yet merged), done, released (merged and out) or dropped.
+A planned step toward a Goal, with a short title, the files it touches and a summary of the change it makes. It is pending, in progress (the Agent's own current work, one per Goal), with a helper, waiting on you (the Agent is waiting on the Developer), checked (a helper's work checked, not yet merged), done, released (merged and out) or dropped. A Task that belongs in another Goal can be moved there: it gets a new ID in the other Goal, and the old one stays as a dropped trace saying where it went.
 _Avoid_: Todo, item, step, ticket
 
 **Decision**:
