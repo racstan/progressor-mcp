@@ -16,6 +16,15 @@ You tell your AI coding assistant what you want. Progressor makes it plan the wo
 
 It works with any app that supports [MCP](https://modelcontextprotocol.io) (the standard way AI apps add tools): Claude Code, Claude Desktop, VS Code with Copilot, Cursor, Windsurf, Codex and others.
 
+## Your progress is never lost
+
+AI chats forget. A long chat gets its memory compressed, a new chat starts from nothing, and switching to another app or AI tool usually means explaining your project all over again. With Progressor, none of that costs you your progress:
+
+- **Everything is saved in your project.** The goals, every step and where each one stands, the side trips and why they happened, the decisions made along the way, notes, your rules, and the project's **Important context** (what the project is and the key facts about it) are kept in plain files in your project folder, not in the chat.
+- **New chats pick up where the last one stopped.** Every new chat, and every chat after its memory is compressed, starts by reading the plan. You don't explain anything from scratch: just say *"carry on"*.
+- **Switch apps or AI tools freely.** The plan belongs to the project, not to the app. Start in Claude Code, carry on in Cursor or VS Code, and the next AI sees exactly where things stand.
+- **Clear to you and to the AI.** You see the same plan on the dashboard that the AI reads, so you always know what's done, what's under way, and what's waiting on you.
+
 ## Set it up
 
 You need [Node.js](https://nodejs.org) 22 or later. Then paste this into your AI's chat, in the project you're working on:
@@ -50,6 +59,7 @@ Open **http://localhost:4747** while your AI's app is open (your AI gives you th
 - **What the AI is doing**: *AI working · step 3 of 7 · last update 2 min ago*, or *AI stopped* when its chat has closed.
 - **The plan as a map**: each step is a stop on a line, ticked off as it's done. When the AI steps off the plan to deal with something, a **side trip** branches off, with the reason.
 - **Your goals**: everything planned for the project, with how far along each one is.
+- **What's waiting on you**: when the AI needs you, say to try something by hand, the goal turns amber and says *Waiting on you*. Steps handed to helper agents, checked or released show as such, and each goal lists the decisions made along the way.
 
 **One dashboard for all your projects.** You don't need a Progressor per project to see them all. As long as one AI chat is running Progressor, in any project and any app, the same page shows every project you've used it in. Switch between them at the top of the sidebar, or pick **🗂 All projects** to see them side by side. Each project's plan stays in its own folder, so chats in different projects, even in different apps, never get in each other's way.
 
