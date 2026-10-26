@@ -63,7 +63,7 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: 0.6.2, with the Refresh button and Hide all for finished goals, is on npm and the MCP Registry.
 - [x] [Setup that works on every computer](goals/cross-platform-setup.md) ^cross-platform-setup
   - outcome: A project set up with progressor-mcp init on one operating system connects on Windows, macOS and Linux alike.
-- [/] [Important context page for each project](goals/project-context.md) ^project-context
+- [x] [Important context page for each project](goals/project-context.md) ^project-context
   - outcome: Each project has one Important context page holding its lasting information, background and rules, which the Agent reads at the start and the Developer sees on the dashboard.
 - [ ] [Plans that match how the Agent really works](goals/real-workflow.md) ^real-workflow
   - outcome: The dashboard shows parallel goals, helper agents, checked and installed steps, decisions, notes and anything waiting on the Developer.

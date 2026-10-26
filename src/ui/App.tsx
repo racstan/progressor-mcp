@@ -3,6 +3,7 @@ import { DEFAULT_EDITOR, EDITORS, editorUrl, parseCodeRef } from "../dashboard/e
 import { type DetourNode, type GoalGraph, type TaskNode, withoutDetours, withoutDropped } from "../dashboard/graph.js";
 import { type PromptSubject, copyAsPrompt } from "../dashboard/prompt.js";
 import { type GoalView, type RoadmapView, useDashboard, useOverview, useSearch, useServers, useStored, useStoredJson } from "./data.js";
+import { CONTEXT_HASH, contextBlocks, contextFromHash } from "./context.js";
 import { Checklist } from "./Checklist.js";
 import { type Finished, type Seen, doneMark, groupGoals, groupOpen, hideAll, seenOnFirstVisit } from "./goalList.js";
 import { MetroMap } from "./MetroMap.js";
@@ -11,7 +12,7 @@ import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
 import { RichText } from "./RichText.js";
 import { type SearchHit, SearchBox } from "./Search.js";
 import { ServersPanel } from "./Servers.js";
-import { plainText } from "./text.js";
+import { inlineCode, plainText } from "./text.js";
 import { VIEWS, VIEW_LABELS, type View, pickView } from "./views.js";
 import { sortProjects } from "./projectList.js";
 import { GOAL_WORD, SIDE_TRIP_HINT, STEP_WORD, goalState, statusLine } from "./words.js";
@@ -106,6 +107,7 @@ export function App() {
   const [pickedProject, setPickedProject] = useState<string | undefined>(projectFromUrl);
   const [pickedWorkspace, setPickedWorkspace] = useState<string | undefined>(workspaceFromUrl);
   const [picked, setPicked] = useState<string | undefined>(goalFromHash);
+  const [onContext, setOnContext] = useState(() => contextFromHash(location.hash));
   const [storedShow, setShow] = useStoredJson<Partial<Show>>("progressor.show", {});
   const show: Show = { ...SHOW_DEFAULT, ...storedShow };
   const detours = show.sideTrips;
@@ -203,6 +205,7 @@ export function App() {
       setPickedProject(projectFromUrl());
       setPickedWorkspace(workspaceFromUrl());
       setPicked(goalFromHash());
+      setOnContext(contextFromHash(location.hash));
       setView(pickView(location.search, undefined));
     };
     addEventListener("hashchange", onNavigate);
@@ -219,6 +222,13 @@ export function App() {
     setSelected(undefined);
     history.replaceState(null, "", `${location.search}#/goal/${encodeURIComponent(id)}`);
     setPicked(id);
+    setOnContext(false);
+    closeDrawerOnNarrow();
+  };
+  const openContext = () => {
+    setSelected(undefined);
+    history.replaceState(null, "", `${location.search}${CONTEXT_HASH}`);
+    setOnContext(true);
     closeDrawerOnNarrow();
   };
   const pickProject = (id: string, goalId?: string) => {
@@ -229,6 +239,7 @@ export function App() {
     if (goalId) history.replaceState(null, "", `${location.search}#/goal/${encodeURIComponent(goalId)}`);
     setPickedProject(id);
     setPicked(goalId);
+    setOnContext(false);
     closeDrawerOnNarrow();
   };
   const showAll = () => {
@@ -238,6 +249,7 @@ export function App() {
     setPickedProject(undefined);
     setPickedWorkspace(undefined);
     setPicked(undefined);
+    setOnContext(false);
   };
 
   const openHit = (hit: SearchHit) => {
@@ -347,7 +359,7 @@ export function App() {
     const state = goalState(stateOf(g));
     const hover = [fresh ? "Finished: open it to take a look." : state.hint, g.outcome && `Finished when: ${plainText(g.outcome)}`, "Right-click to hide it from this list."];
     return (
-      <button key={g.id} className={`goal ${g.status} ${fresh ? "fresh" : ""}`} aria-current={g.id === effectiveGoal}
+      <button key={g.id} className={`goal ${g.status} ${fresh ? "fresh" : ""}`} aria-current={!onContext && g.id === effectiveGoal}
         title={hover.filter(Boolean).join("\n")}
         onClick={() => pickGoal(g.id)}
         onContextMenu={(e) => {
@@ -550,6 +562,12 @@ export function App() {
             )}
           </section>
           {!showOverview && <section>
+            <button className="goal context-entry" aria-current={onContext} onClick={openContext}
+              title="The rules and background your AI keeps for this project">
+              <span className="t">📌 Important context</span>
+            </button>
+          </section>}
+          {!showOverview && <section>
             <h3 title="Everything your AI plans to build in this project, in order">
               Your goals
               {roadmap && <span className="count">{goals.length}</span>}
@@ -609,6 +627,8 @@ export function App() {
             </div>
           ) : !roadmap ? (
             <div className="placeholder">Loading…</div>
+          ) : onContext ? (
+            <ContextPage rules={roadmap.standingInstructions} context={roadmap.context} />
           ) : goals.length === 0 ? (
             <div className="placeholder">
               <h2>No goals yet</h2>
@@ -706,6 +726,44 @@ function Choice<T extends string>({ value, options, onChange }: {
           {o.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/** The project's rules and background, as its AI wrote them. Read-only. */
+function ContextPage({ rules, context }: { rules: { id?: string; text: string }[]; context: string }) {
+  const code = (text: string) => inlineCode(text).map((s, i) => (s.code ? <code key={i}>{s.text}</code> : s.text));
+  const blocks = contextBlocks(context);
+  return (
+    <div className="context-page">
+      <h2>Important context</h2>
+      <p className="note">The AI keeps this page up to date. To change something, tell it in the chat.</p>
+      <h3>Rules</h3>
+      {rules.length === 0 ? (
+        <p className="empty">No rules yet. When you tell the AI a lasting rule, it shows up here.</p>
+      ) : (
+        <ol className="rules">
+          {rules.map((r, i) => (
+            <li key={r.id ?? i}><span className="rid">{r.id ?? `s${i + 1}`}</span><span>{code(r.text)}</span></li>
+          ))}
+        </ol>
+      )}
+      <h3>Context</h3>
+      {blocks.length === 0 ? (
+        <p className="empty">Nothing here yet. The AI keeps the project's background here: what it is, key facts and choices that hold for the whole project.</p>
+      ) : (
+        blocks.map((b, i) =>
+          b.kind === "paragraph" ? (
+            <RichText key={i} className="para" text={b.text} />
+          ) : (
+            b.ordered ? (
+              <ol key={i} className="ctx-list">{b.items.map((t, j) => <li key={j}>{code(t)}</li>)}</ol>
+            ) : (
+              <ul key={i} className="ctx-list">{b.items.map((t, j) => <li key={j}>{code(t)}</li>)}</ul>
+            )
+          ),
+        )
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ Progress lives in two kinds of file inside the project (see [ADR 0002](adr/0002-
 
 - `.progressor/roadmap.md`: the Roadmap (Goals) and Standing Instructions. Roadmaps from before 0.6 may also hold Ideas, which are still read but no longer added.
 - `.progressor/goals/<goal-id>.md`: one Plan File per Goal, holding its Tasks and Detours.
+- `.progressor/context.md`: the project's Important context, free-form markdown under a `# Important context` heading (at most 4000 characters). It has no items or IDs; `update_context` replaces it whole.
 
 The files are written by the Agent through Progressor's tools, and they are ordinary markdown that a person can read in any viewer. Changes should go through the tools (ask the Agent), which keep the files consistent; but the parser is forgiving, so a hand edit never breaks a file (see [Hand edits](#hand-edits)). This document is the contract between the files and the tools.
 

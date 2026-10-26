@@ -14,6 +14,15 @@
   - summary: The session-start hook (start of chat and after compression) adds the whole page; the per-prompt line does not.
   - code: `src/hooks.ts`
   - code: `test/hooks.test.ts`
-- [/] Add the Important context page to the dashboard ^t4
-  - summary: One page per project, in plain English.
-- [ ] Docs for the Important context page ^t5
+- [x] Add the Important context page to the dashboard ^t4
+  - summary: A read-only Important context page in the sidebar above Your goals, at #/context: Rules, then Context with paragraphs and lists.
+  - code: `src/ui/App.tsx`
+  - code: `src/ui/context.ts`
+  - code: `src/ui/styles.css`
+  - code: `test/context.test.ts`
+- [x] Docs for the Important context page ^t5
+  - code: `docs/using.md`
+  - code: `docs/dashboard.md`
+  - code: `docs/reference.md`
+  - code: `docs/markdown-format.md`
+  - code: `GLOSSARY.md`
