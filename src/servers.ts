@@ -134,6 +134,21 @@ export function listServers(dir = defaultServersDir(), options: ListOptions = {}
   return live.sort((a, b) => a.startedAt.localeCompare(b.startedAt) || a.pid - b.pid);
 }
 
+/**
+ * The Session a process runs, from its record while that is fresh: "dashboard" for the dashboard
+ * command, undefined when Progressor knows nothing about the process. Lets a Claim whose pid was
+ * reused by another Progressor process be told apart from a live one.
+ */
+export function sessionOfProcess(dir: string, pid: number, now: () => Date = () => new Date()): string | undefined {
+  try {
+    const record = JSON.parse(readFileSync(recordFile(dir, pid), "utf8")) as ServerRecord;
+    if (record.pid !== pid || !(now().getTime() - Date.parse(record.beatAt) <= STALE_MS)) return undefined;
+    return record.kind === "session" ? record.session : "dashboard";
+  } catch {
+    return undefined;
+  }
+}
+
 /** Asks a listed server to stop. False when no running server has that pid. */
 export function requestStop(dir: string, pid: number, options: ListOptions = {}): boolean {
   if (!listServers(dir, options).some((s) => s.pid === pid)) return false;

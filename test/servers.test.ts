@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { announceServer, listServers, requestStop } from "../src/servers.js";
+import { announceServer, listServers, requestStop, sessionOfProcess } from "../src/servers.js";
 import { tempDir } from "./tmp.js";
 
 let dir: string;
@@ -88,5 +88,26 @@ describe("running servers", () => {
     announce(101);
     writeFileSync(join(dir, "55.json"), "not json");
     expect(listServers(dir, { isAlive: () => true }).map((s) => s.pid)).toEqual([101]);
+  });
+});
+
+describe("which Session a process runs", () => {
+  it("is the Session in the process's fresh record", () => {
+    announce(101);
+    expect(sessionOfProcess(dir, 101)).toBe("s-101");
+  });
+
+  it("is unknown when the process has no record, or one it stopped refreshing", () => {
+    announce(101);
+    expect(sessionOfProcess(dir, 102)).toBeUndefined();
+    expect(sessionOfProcess(dir, 101, () => new Date(Date.now() + 120_000))).toBeUndefined();
+    writeFileSync(join(dir, "55.json"), "not json");
+    expect(sessionOfProcess(dir, 55)).toBeUndefined();
+  });
+
+  it("says a dashboard command runs no Session", () => {
+    const s = announceServer({ kind: "dashboard", root: "/work" }, { dir, pid: 103, version: "9.9.9", onStop: () => {} });
+    closers.push(() => s.close());
+    expect(sessionOfProcess(dir, 103)).toBe("dashboard");
   });
 });
