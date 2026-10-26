@@ -167,7 +167,7 @@ describe("promptReminder", () => {
     const a = oauthInProgress();
     a.setTaskState("t3", "with a helper");
     expect(remind()).toBe(
-      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · With a helper: t3 · updated just now",
+      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · With a helper: t3 (mark each checked once you check its work) · updated just now",
     );
     a.setTaskState("t3", "waiting on you");
     expect(remind()).toBe(

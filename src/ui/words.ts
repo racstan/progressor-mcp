@@ -91,15 +91,24 @@ export type GoalState = "you" | "working" | "waiting" | "stopped" | "paused" | "
 /** How long the plan can stay unchanged while the AI's chat is open before it counts as waiting. */
 const QUIET = 15 * MIN;
 
+/** What the status words need to know about a Goal. */
+export type GoalStatus = {
+  status: string;
+  updatedAt: number | undefined;
+  running: boolean | undefined;
+  waitingOnYou?: boolean;
+  /** How many of its steps are with a helper. */
+  helpers?: number;
+};
+
 /**
  * What the AI is doing about a Goal. `running` says whether the chat working on it is still open
- * (undefined when no chat holds it). An open chat that has not changed the plan for a while is most
- * likely waiting for the person.
+ * (undefined when no chat holds it). While a step is with a helper, work is going on even if the plan
+ * has not changed for a long while: helpers often work for most of an hour. Otherwise an open chat
+ * that has not changed the plan for a while is most likely waiting for the person. A checked step
+ * does not count as work going on: it is the AI's own turn to merge and release it.
  */
-export function goalState(
-  goal: { status: string; updatedAt: number | undefined; running: boolean | undefined; waitingOnYou?: boolean },
-  now = Date.now(),
-): { state: GoalState; label: string; hint: string } {
+export function goalState(goal: GoalStatus, now = Date.now()): { state: GoalState; label: string; hint: string } {
   switch (goal.status) {
     case "done":
       return { state: "finished", label: "Finished", hint: "The AI finished this and checked it against what finished looks like." };
@@ -119,6 +128,13 @@ export function goalState(
     };
   if (goal.running === undefined || goal.status === "paused")
     return { state: "paused", label: "Paused", hint: "No AI is working on this right now. Ask your AI to carry on with it." };
+  const helpers = goal.helpers ?? 0;
+  if (helpers > 0)
+    return {
+      state: "working",
+      label: "Helpers working",
+      hint: `Your AI handed ${helpers === 1 ? "a step" : `${helpers} steps`} to helper agents, which work on them on the side and can take a while. The page updates by itself as each one comes back.`,
+    };
   if (goal.updatedAt !== undefined && now - goal.updatedAt > QUIET)
     return {
       state: "waiting",
@@ -130,19 +146,20 @@ export function goalState(
 
 const steps = (n: number) => `${n} ${n === 1 ? "step" : "steps"}`;
 
-/** One line on where a Goal stands: "AI working · step 3 of 7 · last update 2 min ago". */
-export function statusLine(
-  goal: { status: string; updatedAt: number | undefined; running: boolean | undefined; waitingOnYou?: boolean },
-  statuses: readonly string[],
-  now = Date.now(),
-): string {
-  const { state, label } = goalState(goal, now);
+/**
+ * One line on where a Goal stands: "AI working · step 3 of 7 · last update 2 min ago". While helpers
+ * work it counts them instead: "Helpers working · 3 of 5 steps with helpers · last update 19 min ago".
+ */
+export function statusLine(goal: GoalStatus, statuses: readonly string[], now = Date.now()): string {
+  const helpers = statuses.filter((s) => s === "with a helper").length;
+  const { state, label } = goalState({ ...goal, helpers }, now);
   const { step, of } = stepOf(statuses);
   const when = goal.updatedAt === undefined ? undefined : ago(goal.updatedAt, now);
   if (state === "cancelled") return label;
   if (state === "planned") return `${label} · ${steps(of)}`;
   if (state === "finished") return `${label}${when ? ` ${when}` : ""} · ${steps(of)}`;
-  return [label, of ? `step ${step} of ${of}` : "no steps yet", when && `last update ${when}`].filter(Boolean).join(" · ");
+  const where = label === "Helpers working" ? `${helpers} of ${of} ${of === 1 ? "step" : "steps"} with ${helpers === 1 ? "a helper" : "helpers"}` : of ? `step ${step} of ${of}` : "no steps yet";
+  return [label, where, when && `last update ${when}`].filter(Boolean).join(" · ");
 }
 
 /** The steps in the states that need a person's eye, as "1 waiting on you · 2 with a helper". Empty when none. */
