@@ -159,6 +159,28 @@ describe("one dashboard for every project", () => {
     expect(body.context).toBe("");
   });
 
+  it("serves the schedule, the helper limit and each step's estimate and time", async () => {
+    agent.addStandingInstruction("At most 2 helpers in parallel", true, 2);
+    agent.addTasks([{ title: "Add logout", estimate: 90 }]);
+    agent.updateGoal("billing", { estimate: 240 });
+    const d = await start(agent);
+    const { body } = await get(d, `/api/projects/${entry(agent).id}/roadmap`);
+    expect(body.standingInstructions.map((s: any) => s.helpersAtOnce)).toEqual([undefined, 2]);
+    expect(body.schedule).toMatchObject({ limit: 2, capacity: 2, estimated: true, unknown: 1 });
+    expect(body.schedule.next.map((t: any) => t.title)).toEqual(["Add logout", "Billing"]);
+    expect(body.schedule.goals.map((g: any) => [g.id, g.estimate, g.unknown])).toEqual([
+      ["ship-oauth-login", 90, 1],
+      ["billing", 240, 0],
+    ]);
+    const goal = (await get(d, `/api/projects/${entry(agent).id}/goals/ship-oauth-login`)).body;
+    const nodes = goal.graph.nodes.filter((n: any) => n.kind === "task");
+    expect(nodes.map((n: any) => [n.title, n.estimate, typeof n.timingSince])).toEqual([
+      ["Add the /login route", undefined, "undefined"],
+      ["Handle the callback", undefined, "string"],
+      ["Add logout", 90, "undefined"],
+    ]);
+  });
+
   it("serves a Goal's metro map", async () => {
     const d = await start(agent);
     const base = `/api/projects/${entry(agent).id}`;

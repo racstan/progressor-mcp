@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { DEFAULT_EDITOR, EDITORS, editorUrl, parseCodeRef } from "../dashboard/editor.js";
 import { type DetourNode, type GoalGraph, type TaskNode, withoutDetours, withoutDropped } from "../dashboard/graph.js";
 import { type PromptSubject, copyAsPrompt } from "../dashboard/prompt.js";
+import type { GoalSchedule } from "../schedule.js";
 import { type GoalView, type RoadmapView, useDashboard, useOverview, useSearch, useServers, useStored, useStoredJson } from "./data.js";
 import { CONTEXT_HASH, contextBlocks, contextFromHash } from "./context.js";
 import { Checklist } from "./Checklist.js";
@@ -18,7 +19,22 @@ import { VIEWS, VIEW_LABELS, type View, pickView } from "./views.js";
 import { sortProjects } from "./projectList.js";
 import { GoalNotes } from "./GoalNotes.js";
 import { StepKey, StepMark } from "./StepKey.js";
-import { GOAL_WORD, SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, countsLine, elsewhereTag, goalState, statusClass, statusLine, underWay } from "./words.js";
+import {
+  GOAL_WORD,
+  SIDE_TRIP_HINT,
+  STEP_HINT,
+  STEP_WORD,
+  countsLine,
+  elsewhereTag,
+  finishWords,
+  goalState,
+  goalTime,
+  scheduleLine,
+  statusClass,
+  statusLine,
+  stepTime,
+  underWay,
+} from "./words.js";
 
 type Goal = RoadmapView["goals"][number];
 type Theme = "light" | "dark" | "system";
@@ -366,14 +382,19 @@ export function App() {
     setDoneOpen(doneShown ? undefined : "1");
     setDoneClosedFor(doneShown ? effectiveGoal : undefined);
   };
+  // What the schedule says about each open goal (older Progressor servers send no schedule).
+  const scheduleOf = (id: string): GoalSchedule | undefined => roadmap?.schedule?.goals.find((x) => x.id === id);
+  const schedule = roadmap?.schedule ? scheduleLine(roadmap.schedule, effectiveGoal) : undefined;
   const goalButton = (g: Goal) => {
     const pct = g.total ? Math.round((100 * g.done) / g.total) : 0;
     const fresh = grouped.fresh.has(g.id);
     const state = goalState(stateOf(g));
     const elsewhere = elsewhereTag(g.fromElsewhere);
+    const finish = scheduleOf(g.id);
     const hover = [
       fresh ? "Finished: open it to take a look." : state.hint,
       countsLine(g.counts),
+      finish && finishWords(finish) && `Schedule: ${finishWords(finish)}`,
       g.outcome && `Finished when: ${plainText(g.outcome)}`,
       elsewhere && `${elsewhere.label}: ${elsewhere.hint}`,
       "Right-click to hide it from this list.",
@@ -598,6 +619,12 @@ export function App() {
               {roadmap && <span className="count">{goals.length}</span>}
             </h3>
             {roadmap && goals.length === 0 && <p className="empty">No goals yet. Tell your AI what you want to build.</p>}
+            {schedule && (
+              <p className="schedule" title={SCHEDULE_HINT}>
+                <span aria-hidden="true">⏱ </span>
+                {schedule}
+              </p>
+            )}
             {/* One Roadmap, many Goals: the Goals hang off a single rail so they read as parts of one plan. */}
             <div className="goals">{grouped.open.map(goalButton)}</div>
             {grouped.done.length > 0 && (
@@ -663,7 +690,7 @@ export function App() {
             <div className="placeholder">Loading…</div>
           ) : (
             <>
-              <Banner view={shownGoal} detours={detours} state={stateOf(shownGoal.goal)}
+              <Banner view={shownGoal} detours={detours} state={stateOf(shownGoal.goal)} schedule={scheduleOf(shownGoal.goal.id)}
                 onOpenStep={(node, at) => setSelected({ key: node.id, at })}
                 planLink={show.files ? fileLink(shownGoal.goal.planFile) : undefined}
                 onCopy={() => copy(copyAsPrompt({ kind: "goal", goal: shownGoal.goal, graph: shownGoal.graph }))} />
@@ -726,6 +753,10 @@ export function App() {
   );
 }
 
+/** The hover of the schedule, in the sidebar and on a goal. */
+const SCHEDULE_HINT =
+  "A rough schedule: how long your AI expects each step to take, in the order of your goals, with at most as many steps at once as your rules allow. Steps without an estimate are left out of the times and counted instead.";
+
 /** The Developer's Buy Me a Coffee page, shown in the Settings panel; the section is hidden while it is empty. */
 const SUPPORT_URL = "https://buymeacoffee.com/rachitasthana";
 
@@ -764,7 +795,7 @@ function Choice<T extends string>({ value, options, onChange }: {
 }
 
 /** The project's rules and background, as its AI wrote them. Read-only. */
-function ContextPage({ rules, context }: { rules: { id?: string; text: string; hard?: boolean }[]; context: string }) {
+function ContextPage({ rules, context }: { rules: { id?: string; text: string; hard?: boolean; helpersAtOnce?: number }[]; context: string }) {
   const code = (text: string) => inlineCode(text).map((s, i) => (s.code ? <code key={i}>{s.text}</code> : s.text));
   const blocks = contextBlocks(context);
   return (
@@ -782,6 +813,11 @@ function ContextPage({ rules, context }: { rules: { id?: string; text: string; h
               <span>
                 {r.hard && <b className="must-badge" title="A rule your AI must never break, as opposed to a preference">Must</b>}
                 {code(r.text)}
+                {r.helpersAtOnce && (
+                  <b className="limit-badge" title="Your AI hands at most this many steps to helpers at a time, so checking and merging their work keeps up">
+                    At most {r.helpersAtOnce} {r.helpersAtOnce === 1 ? "helper" : "helpers"} at once
+                  </b>
+                )}
               </span>
             </li>
           ))}
@@ -844,8 +880,10 @@ function focus(g: GoalGraph, detours: boolean): string | undefined {
 
 type FileLink = (path: string, line?: number) => { href: string | undefined; onClick: () => void };
 
-function Banner({ view, detours, state, planLink, onCopy, onOpenStep }: {
+function Banner({ view, detours, state, schedule, planLink, onCopy, onOpenStep }: {
   view: GoalView;
+  /** What the schedule says about the goal, when it is open. */
+  schedule: GoalSchedule | undefined;
   /** Opens a step's details, from the list of steps waiting on the Developer. */
   onOpenStep: (node: TaskNode, at: { x: number; y: number }) => void;
   detours: boolean;
@@ -891,6 +929,12 @@ function Banner({ view, detours, state, planLink, onCopy, onOpenStep }: {
           {line}
           {next && !open ? ` · next: ${next.title}` : ""}
         </div>
+        {goalTime(schedule) && (
+          <div className="k schedule" title={SCHEDULE_HINT}>
+            <span aria-hidden="true">⏱ </span>
+            {goalTime(schedule)}
+          </div>
+        )}
         {waiting.length > 0 && (
           <div className="you-steps" title={STEP_HINT["waiting on you"]}>
             <span>Waiting on you:</span>
@@ -916,7 +960,7 @@ interface Location {
   label: string;
 }
 
-function describe(subject: PromptSubject): { title: string; meta: string; state?: string; summary?: string; reason?: string; locations: Location[] } {
+function describe(subject: PromptSubject): { title: string; meta: string; state?: string; time?: string; summary?: string; reason?: string; locations: Location[] } {
   switch (subject.kind) {
     case "node": {
       const { node: n, goal, graph } = subject;
@@ -932,6 +976,7 @@ function describe(subject: PromptSubject): { title: string; meta: string; state?
         title: n.title,
         meta: `${which} · ${STEP_WORD[n.status]}${n.fromDetour ? " · added after a side trip" : ""}${elsewhere ? ` · ${elsewhere.label.toLowerCase()}` : ""}`,
         state: n.status,
+        time: stepTime(n),
         summary: n.summary,
         reason: n.status === "dropped" && n.reason ? `Why it was cancelled: ${plainText(n.reason)}` : undefined,
         locations: [main, ...code],
@@ -988,6 +1033,7 @@ function Popover({ subject, at, onClose, fileLink, files, onCopy }: {
       <button className="x" aria-label="Close" onClick={onClose}>✕</button>
       <h4>{d.title}</h4>
       <div className="meta">{d.meta}</div>
+      {d.time && <div className="meta time" title="How long your AI expected this step to take, and how long it has taken. Time paused (back to To do) does not count.">⏱ {d.time}</div>}
       {d.state && STEP_HINT[d.state] && (
         <div className={`pop-state ${statusClass(d.state)}`}><StepMark status={d.state} /> <span>{STEP_HINT[d.state]}</span></div>
       )}

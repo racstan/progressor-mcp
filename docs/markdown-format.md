@@ -33,6 +33,8 @@ The files are written by the Agent through Progressor's tools, and they are ordi
 - Run the tests before completing a Task ^s2
 - Never commit secrets ^s3
   - hard: yes
+- At most 2 helper agents at a time ^s4
+  - helpers at once: 2
 ```
 
 ## Example: goals/ship-oauth-login.md
@@ -59,6 +61,13 @@ The files are written by the Agent through Progressor's tools, and they are ordi
   - state: waiting on you
 - [x] Publish the auth package ^t7
   - state: released
+  - estimate: 45m
+  - time spent: 1h 10m
+- [/] Add the session store ^t8
+  - state: with a helper
+  - estimate: 2h
+  - time spent: 20m
+  - timing since: 2026-10-26T10:00:00.000Z
 
 ## Decisions
 
@@ -99,7 +108,7 @@ Every item also has a line number: the 1-based line of its item line (for a Deto
 
 Every Task has three parts. Its **title** is the item line: a few words, such as "Fix callback redirect loop". Its **files** are its `code` lines. Its **summary** is a `summary` line: one or two sentences on the fix or change it makes. The title is required; files and summary are optional, so a Task typed by hand as a single line is still valid. A summary is kept on one line: line breaks given to the tools become spaces.
 
-When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `moved from`, `added by`, `dropped by`, `reason`, `updated from`. Unknown details follow in the order they were in.
+When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `estimate`, `time spent`, `timing since`, `moved from`, `added by`, `dropped by`, `reason`, `updated from`. Unknown details follow in the order they were in.
 
 ## Status markers
 
@@ -136,6 +145,9 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 | Task     | `state`        | One of the [states beyond the checkbox](#task-states-beyond-the-checkbox). |
 | Task     | `summary`      | One or two sentences on the fix or change the Task makes, on one line.   |
 | Task     | `code`         | A file the Task touches, in backticks; may end in `:line`. Repeatable.   |
+| Task     | `estimate`     | How long the Task should take: `45m`, `2h`, `1h 30m`. A value that is not a time is ignored (and kept). |
+| Task     | `time spent`   | Time worked on it in earlier stretches, in the same form; written by the tools. |
+| Task     | `timing since` | The ISO time the stretch still running started, while the Task is in progress, with a helper, waiting on you or checked; written by the tools. |
 | Task     | `moved from`   | The ref of the Task in another Goal this one was moved from (`progressor://billing/t4`). |
 | Task     | `added by`     | The Detour whose Return or Recalibration added this Task (`^d1`).        |
 | Task     | `dropped by`   | The Detour whose Recalibration dropped this Task (`^d1`).                |
@@ -143,7 +155,9 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 | Goal     | `claimed by`   | The Claim: `<session> (pid <pid>) since <ISO time>`.                     |
 | Goal     | `outcome`      | The Outcome: what done looks like, on one line.                          |
 | Goal     | `reason`       | Why the Goal was dropped.                                                |
+| Goal     | `estimate`     | How long the Goal should take; it covers its open Tasks that have no estimate. Without it, the Goal's estimate is the sum of its open Tasks'. |
 | Standing Instruction | `hard`  | `yes` (or `true`) for a hard rule that must never be broken; absent for a preference. |
+| Standing Instruction | `helpers at once` | The project's helper limit, a whole number from 1: the most Tasks that may be with a helper at once. One rule holds it; the tools move it rather than add a second. Any other value is ignored. |
 | Idea     | `promoted to`  | The ref of the Task or Goal it was promoted to.                          |
 | Idea     | `note`         | Free text recorded with the Idea.                                        |
 | Note     | `from`         | The ref of the Goal being worked on when the note was made, if another one. |
@@ -168,6 +182,10 @@ Both sections are created when their first item is added, after the Tasks and be
 ## Hard rules
 
 A Standing Instruction is a preference unless it has a `hard: yes` line, which makes it a hard rule: one that must never be broken. Any other value, or no line, reads as a preference, so Roadmaps from before the flag keep working and an older Progressor keeps the line as an unknown detail. Progressor lists hard rules first, marked `HARD RULE`, in `get_status`, at session start and in the rules block of `get_rules`, and the dashboard marks them with a **Must** label. Their order in the file is not changed.
+
+## Estimates and time spent
+
+`estimate` lines on Tasks and Goals and the `helpers at once` line on a Standing Instruction are optional, and only written when the Agent sets them. The tools time a Task by themselves: entering one of the timed states (in progress, with a helper, waiting on you, checked) adds a `timing since` line, unless one is there; leaving them (done, released, dropped, or pending, which pauses it) removes it and adds the stretch to `time spent`, rounded to the minute. A plan from before these lines reads as having no estimates, no time spent and no limit, and reading it changes nothing. A moved Task takes its estimate, time spent and running clock with it. See the [reference](reference.md#estimates-the-helper-limit-and-the-schedule) for how the schedule uses them.
 
 ## Moving a Task between Goals
 

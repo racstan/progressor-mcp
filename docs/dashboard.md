@@ -10,6 +10,7 @@ A banner says, in one glance:
 
 - **What the AI is working on**: *Contact form: working on "Send the email"*. If a step is waiting on you, that comes first (see below).
 - **Finished when**: what done looks like for this goal.
+- **⏱ How long**: *Estimated 4 h 30 m · done in about 1 h (3 steps not estimated)*: what your AI expects the goal's open steps to take, and when, by the schedule, it should be done. It shows once your AI has estimated some steps.
 - **The status line**, with a coloured dot:
   - 🟡 **Waiting on you**: a step needs you, for example to try something out by hand. It comes before every other status. See *Waiting on you* below.
   - 🟢 **AI working** · step 3 of 7 · last update 2 min ago: your AI is on it.
@@ -88,13 +89,15 @@ Your choices are remembered in your browser.
 
 The sidebar lists **Your goals** for the project, in the order they'll be done, each with a progress bar and its status. Click one to see its map. Your AI can have several goals in progress at once, and each shows its own status.
 
+Above the list, once your AI has estimated some steps or you've set a helper limit, a **⏱ schedule** line says what's going on and how long it should take: *Now: 2 helpers busy, at most 2 at once · Next: Memory export, then Translations · Phase 8 done in about 1 h (3 steps not estimated) · all goals done in about 4 h*. It's a rough guide, worked out from the AI's estimates, the order of your goals and how many steps may run at once (your helper limit, or else as many as run now). Steps without an estimate are left out of the times and counted instead. A step's details show its estimate next to how long it took.
+
 A goal that finishes turns green and gets a green dot until you've looked at it; then it moves to **Finished** at the bottom. Right-click a goal to hide it from the list (the plan keeps it), or to move a finished one along without opening it.
 
 If you use Progressor in several projects, click the project name at the top of the sidebar to switch, or pick **🗂 All projects** for an overview of every project at once.
 
 ## Important context
 
-**📌 Important context**, above Your goals, opens the project's one page of rules and background: the rules you've given your AI, then what the project is, key facts and choices that hold for the whole project. Your AI writes it and reads all of it at the start of every conversation. Rules you've said must never be broken come first, each marked with a **Must** label. The page is read-only; to change something, tell your AI in the chat.
+**📌 Important context**, above Your goals, opens the project's one page of rules and background: the rules you've given your AI, then what the project is, key facts and choices that hold for the whole project. Your AI writes it and reads all of it at the start of every conversation. Rules you've said must never be broken come first, each marked with a **Must** label. The rule that holds your helper limit says so: *At most 2 helpers at once*. The page is read-only; to change something, tell your AI in the chat.
 
 ## Search
 

@@ -1,6 +1,9 @@
 // The words the dashboard shows. Its reader may not code, so every status is said in everyday words
 // (step, side trip, cancelled, finished) and never in the Agent's terms (Task, Detour, dropped).
 
+import { roughDuration, sayDuration, timeText } from "../estimate.js";
+import type { GoalSchedule, Schedule } from "../schedule.js";
+
 export const GOAL_WORD: Record<string, string> = {
   planned: "Not started",
   active: "In progress",
@@ -217,4 +220,61 @@ export function noteOrigin(from: string | undefined, goals: readonly { ref: stri
   if (!from) return undefined;
   const title = goals.find((g) => g.ref === from)?.title;
   return title ? `Found while working on ${title}` : "Found while working on another goal";
+}
+
+const stepCount = (n: number) => `${n} ${n === 1 ? "step" : "steps"}`;
+
+/** What the schedule says about one goal, as "done in about 6 h (3 steps not estimated)"; undefined when it has nothing to say. */
+export function finishWords(g: Pick<GoalSchedule, "finish" | "unknown" | "left">): string | undefined {
+  const unknown = g.unknown > 0 ? `${stepCount(g.unknown)} not estimated` : "";
+  // A goal whose open steps are all unknown has no time of its own to give, even if it waits behind others.
+  if (g.left === 0) return unknown || undefined;
+  return `done in about ${roughDuration(g.finish)}${unknown ? ` (${unknown})` : ""}`;
+}
+
+/**
+ * The schedule in one line, from the estimates, the order of the goals and the helper limit: "Now: 2
+ * helpers busy, at most 2 at once · Next: Add logout · Phase 8 done in about 6 h (3 steps not
+ * estimated)". `focus` is the goal the reader is looking at; the whole plan is added when there are
+ * more goals. Undefined when the plan has no estimates and no limit.
+ */
+export function scheduleLine(s: Schedule, focus?: string): string | undefined {
+  if (!s.estimated && s.limit === undefined) return undefined;
+  const own = s.running.length - s.helpers;
+  const helpers =
+    s.helpers > 0
+      ? `${s.helpers} ${s.helpers === 1 ? "helper" : "helpers"} busy${s.limit !== undefined ? (s.helpers > s.limit ? `, more than the ${s.limit} allowed at once` : `, at most ${s.limit} at once`) : ""}`
+      : s.limit !== undefined
+        ? `no helpers busy, at most ${s.limit} at once`
+        : "";
+  const now = [own > 0 ? `your AI on ${stepCount(own)}` : "", helpers].filter(Boolean).join(", ");
+  const parts = [`Now: ${now || "nothing running"}`];
+  if (!s.estimated) return parts[0];
+  if (s.next.length > 0) parts.push(`Next: ${s.next.slice(0, 2).map((t) => t.title).join(", then ")}`);
+  const goal = s.goals.find((g) => g.id === focus) ?? s.goals.find((g) => g.left > 0 || g.unknown > 0);
+  const goalWords = goal && finishWords(goal);
+  if (goal && goalWords) parts.push(`${goal.title}${goalWords.startsWith("done") ? " " : ": "}${goalWords}`);
+  if (s.goals.length > 1) {
+    const all = finishWords({ finish: s.finish, unknown: s.unknown, left: s.goals.reduce((n, g) => n + g.left, 0) });
+    if (all) parts.push(`all goals${all.startsWith("done") ? " " : ": "}${all}`);
+  }
+  return parts.join(" · ");
+}
+
+/** A step's estimate against the time it took, for its details: "Took 1 h 10 m, estimated 45 m". */
+export function stepTime(t: { status: string; estimate?: number; spent?: number; timingSince?: string }, now = Date.now()): string | undefined {
+  const running = !!t.timingSince && ["in progress", "with a helper", "waiting on you", "checked"].includes(t.status);
+  const at = t.timingSince ? Date.parse(t.timingSince) : NaN;
+  const spent = (t.spent ?? 0) + (running && !Number.isNaN(at) ? Math.max(0, (now - at) / MIN) : 0);
+  const text = timeText({ estimate: t.estimate, spent, running });
+  return text && text[0]!.toUpperCase() + text.slice(1);
+}
+
+/** A goal's estimate and expected finish, for its banner: "Estimated 6 h · done in about 3 h (2 steps not estimated)". */
+export function goalTime(g: GoalSchedule | undefined): string | undefined {
+  if (!g) return undefined;
+  const parts = [g.estimate !== undefined ? `Estimated ${sayDuration(g.estimate)}` : undefined, finishWords(g)].filter(Boolean) as string[];
+  if (parts.length === 0) return undefined;
+  const text = parts.join(" · ");
+  return text[0]!.toUpperCase() + text.slice(1);
 }

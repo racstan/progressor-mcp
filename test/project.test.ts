@@ -47,6 +47,7 @@ describe("working through a Goal", () => {
 - [x] Add the /login route ^t1
   - code: \`src/routes/login.ts\`
 - [/] Handle the OAuth callback ^t2
+  - timing since: 2026-10-18T15:00:00.000Z
 `);
     const status = agent.status();
     expect(status.goal?.id).toBe("ship-oauth-login");

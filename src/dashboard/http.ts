@@ -144,6 +144,8 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
         ideas: roadmap.ideas,
         standingInstructions: roadmap.standingInstructions,
         context: project.context(),
+        // What runs now, what comes next and when each open Goal should be done (schedule.ts).
+        schedule: project.schedule(),
       };
     },
     goal: (goalId: string) => {

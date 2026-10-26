@@ -2,6 +2,16 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## Unreleased (0.9.0) · How long things take, and not too much at once
+
+Your AI now says how long it expects each step to take, keeps track of how long it really took, and keeps to a limit on how many helpers work at once, so a big push doesn't overload your computer or leave more work to check and merge than your AI can keep up with.
+
+- **Estimates.** When your AI plans, it gives each step a rough time, such as *45 m* or *2 h*, and can give a whole goal one before its steps are worked out. It updates them when it learns more. In the plan's files each is an `estimate` line.
+- **Time taken.** Progressor clocks each step from when your AI starts it or hands it to a helper until it's done, released or cancelled; while a step is set back to *To do* the clock stops. A step's details show both: *Took 1 h 10 m, estimated 45 m*, and your AI sees the same when it finishes a step, to guess better next time. In the files: `time spent` and, while it runs, `timing since`.
+- **A limit on helpers.** Tell your AI *"at most 2 helpers at a time"* and it saves a rule that holds the limit (a `helpers at once` line). Your AI sees the limit when it starts and in the rules it passes to its helpers. If it hands out one step too many, the step is still handed out, but your AI gets a warning naming the limit. With no limit set, nothing changes.
+- **A rough schedule.** From the estimates, the order of your goals and the limit, the dashboard shows what's running now, what comes next and when each goal should be done: *Now: 2 helpers busy, at most 2 at once · Next: Memory export · Phase 8 done in about 1 h (3 steps not estimated) · all goals done in about 4 h*. Steps without an estimate are counted, never guessed. Each goal's banner shows its estimate and expected finish, and your AI's status has the same in one short line.
+- Plans from before keep working unchanged: without estimates or a limit, nothing new shows.
+
 ## 0.8.0 · Record work in another project's plan
 
 An AI chat working in one project can now record work it did for another project in that project's plan, without you opening a chat there. Say a chat in your app fixes and releases a library the app uses: it adds *Release 0.7.1*, finished, to the library's plan.

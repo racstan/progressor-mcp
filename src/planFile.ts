@@ -20,6 +20,7 @@ import {
   serialiseMarkdown,
   setDetail,
 } from "./markdown.js";
+import { formatDuration, minutesSince, parseDuration } from "./estimate.js";
 import { ORIGIN_KEY, type Origin, formatOrigin, parseOrigin } from "./origin.js";
 
 export type TaskStatus =
@@ -48,6 +49,12 @@ export interface Task {
   addedBy: string | undefined;
   droppedBy: string | undefined;
   reason: string | undefined;
+  /** How long the Task is expected to take, in minutes. */
+  estimate?: number;
+  /** The time worked on it in earlier stretches, in minutes, not counting a stretch still running. */
+  spent: number;
+  /** When the stretch still running started (an ISO time), while the Task is started and not finished. */
+  timingSince?: string;
   /** Set when the Task was last added or changed from another project. */
   updatedFrom?: Origin;
 }
@@ -115,6 +122,20 @@ const STATE_LINE: TaskStatus[] = ["with a helper", "waiting on you", "checked", 
 export const FINISHED: readonly TaskStatus[] = ["done", "released", "dropped"];
 /** Started, but in other hands than the Agent's: a helper's, or the Developer's. */
 export const ELSEWHERE: readonly TaskStatus[] = ["with a helper", "waiting on you", "checked"];
+/**
+ * The states whose time counts as worked: from when a Task is started or handed to a helper until it
+ * is done, released or dropped. A Task set back to pending is paused, and its clock stops.
+ */
+export const TIMED: readonly TaskStatus[] = ["in progress", "with a helper", "waiting on you", "checked"];
+
+/** The time worked on a Task so far, in minutes, counting a stretch still running up to now. */
+export function timeSpent(t: Pick<Task, "spent" | "timingSince">, now: Date): number {
+  return t.spent + (t.timingSince ? minutesSince(t.timingSince, now) : 0);
+}
+
+export const ESTIMATE = "estimate";
+const SPENT = "time spent";
+const SINCE = "timing since";
 
 function taskStatus(b: ItemBlock): TaskStatus {
   const marked = TASK_STATUS[b.marker!];
@@ -129,6 +150,17 @@ function withOrigin(b: ItemBlock): { updatedFrom?: Origin } {
   return origin ? { updatedFrom: origin } : {};
 }
 
+/** A Task's estimate and time spent, from its `estimate`, `time spent` and `timing since` lines. */
+function withTime(b: ItemBlock): { estimate?: number; spent: number; timingSince?: string } {
+  const estimate = parseDuration(getDetail(b, ESTIMATE) ?? "");
+  const since = getDetail(b, SINCE);
+  return {
+    ...(estimate !== undefined ? { estimate } : {}),
+    spent: parseDuration(getDetail(b, SPENT) ?? "") ?? 0,
+    ...(since ? { timingSince: since } : {}),
+  };
+}
+
 const stripRef = (v: string | undefined) => v?.replace(/^\^/, "").trim();
 const stripTicks = (v: string) => v.replace(/^`(.*)`$/, "$1");
 
@@ -138,6 +170,8 @@ export interface NewTask {
   code?: string[];
   /** Added already done, for work that happened before it was recorded. */
   done?: boolean;
+  /** How long it is expected to take, in minutes. */
+  estimate?: number;
 }
 
 export interface TaskChanges {
@@ -146,10 +180,12 @@ export interface TaskChanges {
   summary?: string;
   /** Replaces the Task's files. */
   code?: string[];
+  /** The new estimate in minutes; null removes it. */
+  estimate?: number | null;
 }
 
 /** Known Task details come first, in this order, when a Task is rewritten; unknown ones follow as they were. */
-const DETAIL_ORDER = ["state", "summary", "code", "moved from", "added by", "dropped by", "reason", ORIGIN_KEY];
+const DETAIL_ORDER = ["state", "summary", "code", ESTIMATE, SPENT, SINCE, "moved from", "added by", "dropped by", "reason", ORIGIN_KEY];
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 
 function sortDetails(b: ItemBlock): void {
@@ -165,6 +201,9 @@ function sortDetails(b: ItemBlock): void {
 
 /** One Goal's Plan File: its Tasks and Detours. */
 export class PlanFile {
+  /** The clock that times the Tasks (see TIMED). */
+  now: () => Date = () => new Date();
+
   constructor(
     readonly goalId: string,
     private readonly doc: MarkdownDoc,
@@ -202,6 +241,7 @@ export class PlanFile {
       addedBy: stripRef(getDetail(b, "added by")),
       droppedBy: stripRef(getDetail(b, "dropped by")),
       reason: getDetail(b, "reason"),
+      ...withTime(b),
       ...withOrigin(b),
     }));
   }
@@ -291,6 +331,7 @@ export class PlanFile {
       const b = newItem({ marker: t.done ? "x" : " ", text: oneLine(t.title), id });
       if (t.summary?.trim()) addDetail(b, "summary", oneLine(t.summary));
       for (const c of t.code ?? []) addDetail(b, "code", `\`${c}\``);
+      if (t.estimate !== undefined) addDetail(b, ESTIMATE, formatDuration(t.estimate));
       if (addedBy) addDetail(b, "added by", `^${addedBy}`);
       return b;
     });
@@ -312,6 +353,9 @@ export class PlanFile {
     if (STATE_LINE.includes(from.status)) addDetail(b, "state", from.status);
     if (from.summary) addDetail(b, "summary", from.summary);
     for (const c of from.code) addDetail(b, "code", `\`${c}\``);
+    if (from.estimate !== undefined) addDetail(b, ESTIMATE, formatDuration(from.estimate));
+    if (from.spent > 0) addDetail(b, SPENT, formatDuration(from.spent));
+    if (from.timingSince) addDetail(b, SINCE, from.timingSince);
     addDetail(b, "moved from", movedFrom);
     appendToSection(this.doc, TASKS, [b]);
     if (anchor) {
@@ -321,9 +365,20 @@ export class PlanFile {
     return this.task(id)!;
   }
 
-  /** Sets a Task's checkbox, and its `state` line for the states that need one. */
+  /**
+   * Sets a Task's checkbox, and its `state` line for the states that need one. Its clock starts when it
+   * enters a timed state and stops, adding the stretch to its time spent, when it leaves them.
+   */
   setTaskStatus(id: string, status: TaskStatus): void {
     const b = this.taskBlock(id);
+    const since = getDetail(b, SINCE);
+    if (TIMED.includes(status)) {
+      if (!since) setDetail(b, SINCE, this.now().toISOString());
+    } else if (since !== undefined) {
+      const spent = (parseDuration(getDetail(b, SPENT) ?? "") ?? 0) + minutesSince(since, this.now());
+      setDetail(b, SPENT, spent >= 0.5 ? formatDuration(spent) : getDetail(b, SPENT));
+      setDetail(b, SINCE, undefined);
+    }
     b.marker = TASK_MARKER[status];
     setDetail(b, "state", STATE_LINE.includes(status) ? status : undefined);
     sortDetails(b);
@@ -338,6 +393,7 @@ export class PlanFile {
       b.children = b.children.filter((c) => !("key" in c && c.key === "code"));
       for (const c of changes.code) addDetail(b, "code", `\`${c}\``);
     }
+    if (changes.estimate !== undefined) setDetail(b, ESTIMATE, changes.estimate === null ? undefined : formatDuration(changes.estimate));
     sortDetails(b);
   }
 

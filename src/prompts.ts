@@ -58,7 +58,7 @@ export function planPrompt(goal: string | undefined): string {
     "2. Propose:",
     "   - a title of a few words and a short ID for its refs, such as \"web-ui\";",
     "   - an Outcome: one sentence on what done looks like, so we both know when to complete the Goal;",
-    "   - the Tasks in order, each with a short title, the files it touches and a one-line summary of the change.",
+    "   - the Tasks in order, each with a short title, the files it touches, a one-line summary of the change and an estimate of how long it takes (\"45m\", \"2h\").",
     "3. Show me the plan and wait for my OK. Change it if I ask.",
     "4. Then call add_goal with the title, id, outcome and tasks, and claim_goal to start.",
     "",

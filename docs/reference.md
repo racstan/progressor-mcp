@@ -20,6 +20,8 @@ The dashboard and the guides use everyday words; the AI's tools and the files us
 | Your goals | Roadmap |
 | a rule your AI keeps | Standing Instruction |
 | a rule marked Must | a hard Standing Instruction |
+| estimated, took | `estimate`, `time spent` (Task and Goal details) |
+| at most 2 helpers at once | the helper limit (`helpers at once` on a Standing Instruction) |
 | a chat working on a goal | a Session holding a Claim |
 | Updated from *project* | a change from elsewhere (an `updated from` line) |
 
@@ -44,22 +46,22 @@ The AI calls these; the server's instructions tell it when.
 
 | Tool | What it does |
 | --- | --- |
-| `get_status` | Every Goal this Session holds, each with its current Task, open Detour, Tasks with a helper, waiting on the Developer or checked, next Task, decisions and open notes; then the Standing Instructions, the project folder and the dashboard link. |
-| `get_item` | Looks up any item by its `progressor://` ref, with its file and line. |
-| `get_rules` | The Standing Instructions as a block to paste into a helper agent's brief: hard rules first, then the others, and a line telling the helper not to edit `.progressor/`. |
-| `add_goal` | Adds a Goal with an optional Task list, Outcome and short ID; `claim: true` claims it at once; `done: true` records finished work. |
-| `update_goal` | Renames a Goal or changes its Outcome. |
+| `get_status` | Every Goal this Session holds, each with its current Task, open Detour, Tasks with a helper, waiting on the Developer or checked, next Task, decisions and open notes; the helper limit and the schedule, one short line each, when set; then the Standing Instructions, the project folder and the dashboard link. |
+| `get_item` | Looks up any item by its `progressor://` ref, with its file and line; a Task with its time against its estimate, a Goal with its estimate and expected finish. |
+| `get_rules` | The Standing Instructions as a block to paste into a helper agent's brief: hard rules first, then the others, the helper limit if one is set, and a line telling the helper not to edit `.progressor/`. |
+| `add_goal` | Adds a Goal with an optional Task list, Outcome, `estimate` and short ID; `claim: true` claims it at once; `done: true` records finished work. |
+| `update_goal` | Renames a Goal or changes its Outcome or `estimate` (empty removes it). |
 | `move_goal` | Moves a Goal before or after another. |
 | `drop_goal` | Drops a Goal that is no longer wanted, with a reason. |
 | `claim_goal` | Claims a Goal for this Session, which keeps any others it holds; a done Goal is reopened. |
 | `release_goal` | Releases the Claim; the Goal is paused. |
 | `complete_goal` | Marks the claimed Goal done, once every Task is done, released or dropped and no Detour is open. |
-| `add_tasks` | Appends Tasks (title, files and summary) to the claimed Goal. |
+| `add_tasks` | Appends Tasks (title, files, summary and `estimate`) to the claimed Goal. |
 | `start_task` | Marks a Task in progress (one per Goal at a time). |
-| `set_task_state` | Sets a Task's state: with a helper, waiting on you, checked, released (or pending, in progress, done). |
-| `update_task` | Changes a Task's title, summary or files. |
+| `set_task_state` | Sets a Task's state: with a helper, waiting on you, checked, released (or pending, in progress, done). Setting one Task too many with a helper still works, with a warning naming the helper limit. |
+| `update_task` | Changes a Task's title, summary, files or `estimate` (empty removes it). |
 | `complete_task` | Marks a Task done, with the files it touched and its final summary. |
-| `update_tasks` | Changes several Tasks in one call: a list of `operations`, each `{task, action, goal?}` with `action` `start`, `complete` (with optional `code` and `summary`), `state` (with `state`) or `drop` (with `reason`). Applied in order, all or nothing, with one write per Goal, and answers with one line. |
+| `update_tasks` | Changes several Tasks in one call: a list of `operations`, each `{task, action, goal?}` with `action` `start`, `complete` (with optional `code` and `summary`), `state` (with `state`), `drop` (with `reason`) or `estimate` (with `estimate`); `estimate` can also go with any other action. Applied in order, all or nothing, with one write per Goal, and answers with one line, plus the time taken by completed Tasks and the helper limit's warning when it applies. |
 | `move_task` | Moves a Task to another Goal (`to_goal`, optionally `before` or `after` one of its Tasks). It keeps its title, summary, files and state and gets a new ID there, with a `moved from` line; the old Task stays, dropped with the reason `Moved to the goal "<title>" (<ref>)`. |
 | `drop_task` | Drops a Task, with a reason. |
 | `start_detour` | Declares a Detour, with a Reason, branching from the current Task. |
@@ -68,8 +70,8 @@ The AI calls these; the server's instructions tell it when.
 | `update_decision` | Rewords a decision, or removes it when the text is empty. |
 | `add_note` | Adds a note to any Goal that is not dropped, claimed or not. |
 | `update_note` | Resolves, reopens or rewords a note, or removes it when the text is empty. |
-| `add_standing_instruction` | Saves a lasting rule from the Developer; `hard: true` marks one that must never be broken. |
-| `update_standing_instruction` | Changes a rule's text and/or its `hard` flag, or removes it when the text is empty. |
+| `add_standing_instruction` | Saves a lasting rule from the Developer; `hard: true` marks one that must never be broken; `helpers_at_once: 2` makes it the rule that holds the helper limit. |
+| `update_standing_instruction` | Changes a rule's text, its `hard` flag and/or the helper limit it holds (`helpers_at_once`, 0 removes it), or removes the rule when the text is empty. |
 | `update_context` | Replaces the project's Important context (at most 4000 characters), or clears it with an empty text. |
 
 ### Changing another project's plan
@@ -165,3 +167,10 @@ They are plain markdown, written only by the server's tools. An example Plan Fil
 ```
 
 The full format is in [markdown-format.md](markdown-format.md).
+
+## Estimates, the helper limit and the schedule
+
+- **Estimates** are written like `45m`, `2h` or `1h 30m` (also `90 min`, `1.5h`, `2 hours`; days are not taken). A Task's goes in an `estimate` line; a Goal's, in roadmap.md, covers its open Tasks that have none, else a Goal's estimate is the sum of its open Tasks'.
+- **Time spent** is clocked by the tools: a `timing since` line is added when a Task becomes in progress, with a helper, waiting on you or checked, and when it becomes done, released, dropped or pending again the stretch is added to its `time spent` line. Pausing (back to pending) does not count.
+- **The helper limit** is a `helpers at once: 2` line on one Standing Instruction. It lives on a rule because it is one: it reads as a rule in every place rules are shown (get_status, get_rules, the dashboard), so helpers are told about it in their brief, and it needs no new tool. Handing out one Task too many is not refused, since the AI may have a reason; the answer carries a warning.
+- **The schedule** is a greedy list schedule. The open Tasks of the open Goals are taken in Roadmap order, then Task order. Tasks in progress or with a helper run now, with what is left of their estimate; at most as many Tasks run at once as the helper limit allows (without one, as many as run now, at least one), and each next Task starts as soon as one finishes. Tasks waiting on you or checked add no time. A Task without an estimate counts as no time and is counted as *not estimated*, so a finish leaves those out instead of guessing.
