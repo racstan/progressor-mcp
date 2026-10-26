@@ -2,7 +2,7 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
-## Unreleased (0.9.0) · How long things take, and not too much at once
+## 0.9.0 · How long things take, and not too much at once
 
 Your AI now says how long it expects each step to take, keeps track of how long it really took, and keeps to a limit on how many helpers work at once, so a big push doesn't overload your computer or leave more work to check and merge than your AI can keep up with.
 
