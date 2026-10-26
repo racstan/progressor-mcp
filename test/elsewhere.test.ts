@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -24,7 +24,8 @@ const alive = new Set<number>();
 const isAlive = (pid: number) => alive.has(pid);
 
 function folder(name: string, plan = true): string {
-  const dir = join(tempDir("progressor-"), name);
+  // The real path: on macOS the temp dir is a symlink (/var -> /private/var), and the code resolves it.
+  const dir = join(realpathSync(tempDir("progressor-")), name);
   mkdirSync(plan ? join(dir, ".progressor") : dir, { recursive: true });
   return dir;
 }
