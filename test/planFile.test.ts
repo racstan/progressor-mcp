@@ -97,12 +97,13 @@ describe("Plan Files edited by hand", () => {
   it("rewrites only the item that changed and gives ID-less Tasks the next free ID", () => {
     const plan = parsePlanFile(handEdited, "g");
     plan.assignMissingIds();
+    plan.now = () => new Date("2026-10-26T12:00:00.000Z");
     plan.setTaskStatus("t4", "in progress");
 
     expect(plan.toString()).toBe(
       handEdited
         .replace("- [ ] Handle the OAuth callback", "- [ ] Handle the OAuth callback ^t5")
-        .replace("- [ ] Add logout ^t4", "- [/] Add logout ^t4"),
+        .replace("- [ ] Add logout ^t4", "- [/] Add logout ^t4\r\n  - timing since: 2026-10-26T12:00:00.000Z"),
     );
   });
 

@@ -16,7 +16,8 @@ import {
 } from "./planFile.js";
 import { type Origin } from "./origin.js";
 import { unsafeRoot } from "./root.js";
-import { type Claim, type Goal, type Idea, ROADMAP_REF, type Roadmap, type StandingInstruction, parseRoadmap } from "./roadmap.js";
+import { type Claim, type Goal, type Idea, ROADMAP_REF, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
+import { type Schedule, computeSchedule } from "./schedule.js";
 
 export interface SessionIdentity {
   id: string;
@@ -61,11 +62,16 @@ export interface NewGoalOptions {
   allowDuplicate?: boolean;
   /** Record a Goal that is already finished, with its finished Tasks. */
   done?: boolean;
+  /** How long the Goal is expected to take, in minutes, when its Tasks are not estimated one by one. */
+  estimate?: number;
 }
 
-/** One change in an update_tasks call; `state` is needed for "state", `reason` for "drop". */
+/**
+ * One change in an update_tasks call; `state` is needed for "state", `reason` for "drop" and
+ * `estimate` for "estimate". An `estimate` given with any other action is set too.
+ */
 export interface TaskOperation {
-  action: "start" | "complete" | "state" | "drop";
+  action: "start" | "complete" | "state" | "drop" | "estimate";
   task: string;
   /** The claimed Goal the Task is in; the call's own Goal when absent. */
   goal?: string;
@@ -75,6 +81,8 @@ export interface TaskOperation {
   code?: string[];
   /** For "complete": the Task's final summary. */
   summary?: string;
+  /** The Task's new estimate in minutes; null removes it. */
+  estimate?: number | null;
 }
 
 export interface Status {
@@ -264,10 +272,15 @@ export class Project {
 
   plan(goalId: string): PlanFile {
     const text = this.readText(this.path("goals", `${goalId}.md`));
-    if (text !== undefined) return parsePlanFile(text, goalId);
-    const goal = this.roadmap().goal(goalId);
-    if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
-    return newPlanFile(goalId, goal.title);
+    let plan: PlanFile;
+    if (text !== undefined) plan = parsePlanFile(text, goalId);
+    else {
+      const goal = this.roadmap().goal(goalId);
+      if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
+      plan = newPlanFile(goalId, goal.title);
+    }
+    plan.now = this.now;
+    return plan;
   }
 
   private saveRoadmap(roadmap: Roadmap): void {
@@ -459,18 +472,19 @@ export class Project {
       );
     const unfinished = options.done ? tasks.find((t) => !t.done) : undefined;
     if (unfinished) throw new Error(`Task "${unfinished.title}" is not done, so the Goal cannot be recorded as done.`);
-    const goal = roadmap.addGoal(title, { id: options.id, outcome: options.outcome });
+    const goal = roadmap.addGoal(title, { id: options.id, outcome: options.outcome, estimate: options.estimate });
     if (options.done) roadmap.setGoalStatus(goal.id, "done");
     this.markGoal(roadmap, goal.id);
     const plan = newPlanFile(goal.id, title);
+    plan.now = this.now;
     if (tasks.length > 0) this.markItems(plan, plan.addTasks(tasks).map((t) => t.id));
     this.saveRoadmap(roadmap);
     this.savePlan(plan);
     return roadmap.goal(goal.id)!;
   }
 
-  /** Renames a Goal or changes its Outcome; its ID, refs and Plan File stay the same. Needs no Claim. */
-  updateGoal(goalId: string, changes: { title?: string; outcome?: string }): Goal {
+  /** Renames a Goal or changes its Outcome or estimate; its ID, refs and Plan File stay the same. Needs no Claim. */
+  updateGoal(goalId: string, changes: { title?: string; outcome?: string; estimate?: number | null }): Goal {
     if (this.from) this.changeable(goalId, { done: true });
     const roadmap = this.roadmap();
     roadmap.updateGoal(goalId, changes);
@@ -579,7 +593,14 @@ export class Project {
   }
 
   private operate(plan: PlanFile, op: TaskOperation): Task {
+    if (op.estimate !== undefined) {
+      this.taskIn(plan, op.task);
+      plan.updateTask(op.task, { estimate: op.estimate });
+    }
     switch (op.action) {
+      case "estimate":
+        if (op.estimate === undefined) throw new Error("The estimate action needs an estimate.");
+        return plan.task(op.task)!;
       case "start":
         return this.start(plan, op.task);
       case "complete":
@@ -819,9 +840,10 @@ export class Project {
     return promoted;
   }
 
-  addStandingInstruction(text: string, hard = false): StandingInstruction {
+  /** Adds a Standing Instruction; with `helpersAtOnce`, it sets the project's helper limit. */
+  addStandingInstruction(text: string, hard = false, helpersAtOnce?: number): StandingInstruction {
     const roadmap = this.roadmap();
-    const instruction = roadmap.addStandingInstruction(text, hard);
+    const instruction = roadmap.addStandingInstruction(text, hard, helpersAtOnce);
     this.saveRoadmap(roadmap);
     return instruction;
   }
@@ -830,14 +852,47 @@ export class Project {
    * Rewords a Standing Instruction and/or makes it a hard rule (or a preference again), or removes it
    * when the text is empty; returns undefined when removed.
    */
-  updateStandingInstruction(id: string, changes: { text?: string; hard?: boolean }): StandingInstruction | undefined {
-    if (changes.text === undefined && changes.hard === undefined) throw new Error("Give the new text or hard (or both).");
+  updateStandingInstruction(id: string, changes: { text?: string; hard?: boolean; helpersAtOnce?: number }): StandingInstruction | undefined {
+    if (changes.text === undefined && changes.hard === undefined && changes.helpersAtOnce === undefined)
+      throw new Error("Give the new text or hard, or helpers_at_once.");
     const roadmap = this.roadmap();
     let result: StandingInstruction | undefined;
     if (changes.text !== undefined && !changes.text.trim()) roadmap.removeStandingInstruction(id);
     else result = roadmap.setStandingInstruction(id, changes);
     this.saveRoadmap(roadmap);
     return result;
+  }
+
+  // --- estimates, the helper limit and the schedule ------------------------------
+
+  /** Every open Goal with its Tasks, in Roadmap order; a Goal whose Plan File cannot be read has none. */
+  private plannedGoals(roadmap: Roadmap): { goal: Goal; tasks: Task[] }[] {
+    return roadmap.goals
+      .filter((g) => g.status !== "done" && g.status !== "dropped")
+      .map((goal) => {
+        try {
+          return { goal, tasks: this.plan(goal.id).tasks };
+        } catch {
+          return { goal, tasks: [] };
+        }
+      });
+  }
+
+  /**
+   * How many Tasks are with a helper across the project's open Goals, against the helper limit and
+   * the Standing Instruction that sets it (none when there is no limit).
+   */
+  helperLoad(): { busy: number; limit: number | undefined; rule: StandingInstruction | undefined } {
+    const roadmap = this.roadmap();
+    const busy = this.plannedGoals(roadmap).reduce((n, p) => n + p.tasks.filter((t) => t.status === "with a helper").length, 0);
+    const found = helperLimit(roadmap.standingInstructions);
+    return { busy, limit: found?.limit, rule: found?.rule };
+  }
+
+  /** The schedule of the open work, from the estimates, the Roadmap's order and the helper limit (see schedule.ts). */
+  schedule(): Schedule {
+    const roadmap = this.roadmap();
+    return computeSchedule(this.plannedGoals(roadmap), helperLimit(roadmap.standingInstructions)?.limit, this.now());
   }
 
   // --- Important context -----------------------------------------------------

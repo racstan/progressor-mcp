@@ -14,6 +14,7 @@ import {
   serialiseMarkdown,
   setDetail,
 } from "./markdown.js";
+import { formatDuration, parseDuration } from "./estimate.js";
 import { ORIGIN_KEY, type Origin, formatOrigin, parseOrigin } from "./origin.js";
 
 /** What the checkbox says; whether a started Goal is active or paused depends on its Claim. */
@@ -37,6 +38,11 @@ export interface Goal {
   outcome: string | undefined;
   /** Why the Goal was dropped. */
   reason: string | undefined;
+  /**
+   * The Goal's own estimate in minutes, when one is set. Without one, its estimate is the sum of its
+   * open Tasks' (see schedule.ts); with one, it covers the open Tasks that have none of their own.
+   */
+  estimate?: number;
   /** Set when the Goal was last added or changed from another project. */
   updatedFrom?: Origin;
 }
@@ -57,6 +63,8 @@ export interface StandingInstruction {
   line: number;
   /** A hard rule must never be broken; any other Standing Instruction is a preference. */
   hard: boolean;
+  /** The most Tasks that may be with a helper at once in this project, when this rule sets that limit. */
+  helpersAtOnce?: number;
 }
 
 export const GOALS = "Goals";
@@ -83,6 +91,12 @@ export function slugify(title: string): string {
 
 const HARD_VALUES = ["yes", "true"];
 const isHard = (b: ItemBlock) => HARD_VALUES.includes(getDetail(b, "hard")?.trim().toLowerCase() ?? "");
+/** The detail line on a Standing Instruction that sets the project's helper limit. */
+export const HELPERS_AT_ONCE = "helpers at once";
+function helpersAtOnce(b: ItemBlock): number | undefined {
+  const value = getDetail(b, HELPERS_AT_ONCE)?.trim();
+  return value && /^\d+$/.test(value) && Number(value) > 0 ? Number(value) : undefined;
+}
 
 /** Hard rules first, each group in its own order: how rules are shown to the Agent and the Developer. */
 export function hardFirst<T extends { hard: boolean }>(rules: T[]): T[] {
@@ -90,7 +104,15 @@ export function hardFirst<T extends { hard: boolean }>(rules: T[]): T[] {
 }
 
 /** A rule as the Agent reads it in a list: `s1 text`, or `HARD RULE s3: text` for a hard rule. */
-export const ruleText = (r: Pick<StandingInstruction, "id" | "text" | "hard">) => (r.hard ? `HARD RULE ${r.id}: ${r.text}` : `${r.id} ${r.text}`);
+export const ruleText = (r: Pick<StandingInstruction, "id" | "text" | "hard"> & { helpersAtOnce?: number }) =>
+  (r.hard ? `HARD RULE ${r.id}: ${r.text}` : `${r.id} ${r.text}`) + (r.helpersAtOnce ? ` (limit: at most ${r.helpersAtOnce} Tasks with a helper at once)` : "");
+
+/** The project's helper limit and the rule that sets it: the lowest, if several do. */
+export function helperLimit(rules: StandingInstruction[]): { limit: number; rule: StandingInstruction } | undefined {
+  let found: { limit: number; rule: StandingInstruction } | undefined;
+  for (const rule of rules) if (rule.helpersAtOnce && (!found || rule.helpersAtOnce < found.limit)) found = { limit: rule.helpersAtOnce, rule };
+  return found;
+}
 
 function parseClaim(value: string | undefined): Claim | undefined {
   const m = value ? CLAIM.exec(value.trim()) : null;
@@ -122,6 +144,7 @@ export class Roadmap {
     return this.goalBlocks().map((b) => {
       const claim = parseClaim(getDetail(b, "claimed by"));
       const origin = parseOrigin(getDetail(b, ORIGIN_KEY));
+      const estimate = parseDuration(getDetail(b, "estimate") ?? "");
       const link = LINK.exec(b.text);
       const status: GoalStatus =
         b.marker === "x" ? "done" : b.marker === "-" ? "dropped" : claim ? "active" : b.marker === "/" ? "paused" : "planned";
@@ -134,6 +157,7 @@ export class Roadmap {
         claim,
         outcome: getDetail(b, "outcome"),
         reason: getDetail(b, "reason"),
+        ...(estimate !== undefined ? { estimate } : {}),
         ...(origin ? { updatedFrom: origin } : {}),
       };
     });
@@ -151,13 +175,17 @@ export class Roadmap {
   }
 
   get standingInstructions(): StandingInstruction[] {
-    return this.instructionBlocks().map((b) => ({
-      id: b.id,
-      ref: b.id ? `progressor://${ROADMAP_REF}/${b.id}` : undefined,
-      text: b.text,
-      line: b.line,
-      hard: isHard(b),
-    }));
+    return this.instructionBlocks().map((b) => {
+      const limit = helpersAtOnce(b);
+      return {
+        id: b.id,
+        ref: b.id ? `progressor://${ROADMAP_REF}/${b.id}` : undefined,
+        text: b.text,
+        line: b.line,
+        hard: isHard(b),
+        ...(limit ? { helpersAtOnce: limit } : {}),
+      };
+    });
   }
 
   goal(id: string): Goal | undefined {
@@ -202,7 +230,7 @@ export class Roadmap {
   }
 
   /** Adds a Goal at the end of the Roadmap, under the given ID or one made from its title. */
-  addGoal(title: string, options: { id?: string; outcome?: string } = {}): Goal {
+  addGoal(title: string, options: { id?: string; outcome?: string; estimate?: number } = {}): Goal {
     this.ensureTitle();
     this.assignMissingIds();
     const id = options.id ?? this.freeGoalId(title);
@@ -213,18 +241,23 @@ export class Roadmap {
     }
     const b = newItem({ marker: " ", text: `[${oneLine(title)}](goals/${id}.md)`, id });
     if (options.outcome?.trim()) addDetail(b, "outcome", oneLine(options.outcome));
+    if (options.estimate !== undefined) addDetail(b, "estimate", formatDuration(options.estimate));
     appendToSection(this.doc, GOALS, [b]);
     return this.goal(id)!;
   }
 
-  /** Changes a Goal's title (its ID and Plan File stay) or its Outcome; an empty Outcome removes it. */
-  updateGoal(id: string, changes: { title?: string; outcome?: string }): void {
+  /**
+   * Changes a Goal's title (its ID and Plan File stay), its Outcome (empty removes it) or its estimate
+   * in minutes (null removes it).
+   */
+  updateGoal(id: string, changes: { title?: string; outcome?: string; estimate?: number | null }): void {
     const b = this.goalBlock(id);
     if (changes.title?.trim()) {
       const link = LINK.exec(b.text);
       b.text = `[${oneLine(changes.title)}](${link ? link[2] : `goals/${id}.md`})`;
     }
     if (changes.outcome !== undefined) setDetail(b, "outcome", changes.outcome.trim() ? oneLine(changes.outcome) : undefined);
+    if (changes.estimate !== undefined) setDetail(b, "estimate", changes.estimate === null ? undefined : formatDuration(changes.estimate));
   }
 
   /** Moves a Goal, with its details, right before or after another Goal. */
@@ -272,14 +305,27 @@ export class Roadmap {
     setDetail(b, "promoted to", ref);
   }
 
-  addStandingInstruction(text: string, hard = false): StandingInstruction {
+  /** Adds a Standing Instruction; with `helpersAtOnce`, it also sets the project's helper limit. */
+  addStandingInstruction(text: string, hard = false, helpersAtOnce?: number): StandingInstruction {
     this.ensureTitle();
     this.assignMissingIds();
     const id = nextId(this.instructionBlocks().map((i) => i.id), "s");
     const b = newItem({ marker: undefined, text: oneLine(text), id });
     if (hard) addDetail(b, "hard", "yes");
     appendToSection(this.doc, STANDING_INSTRUCTIONS, [b]);
+    if (helpersAtOnce !== undefined) this.setHelperLimit(id, helpersAtOnce);
     return this.standingInstruction(id)!;
+  }
+
+  /**
+   * Makes a Standing Instruction the one that sets the helper limit (taking the limit off any other, so
+   * there is one), or with 0 takes the limit off it.
+   */
+  private setHelperLimit(id: string, limit: number): void {
+    if (!Number.isInteger(limit) || limit < 0) throw new Error("The helper limit must be a whole number: 1 or more, or 0 to remove it.");
+    const own = this.instructionBlock(id);
+    if (limit > 0) for (const b of this.instructionBlocks()) if (b !== own) setDetail(b, HELPERS_AT_ONCE, undefined);
+    setDetail(own, HELPERS_AT_ONCE, limit > 0 ? String(limit) : undefined);
   }
 
   private instructionBlock(id: string): ItemBlock {
@@ -289,10 +335,11 @@ export class Roadmap {
   }
 
   /** Rewords a Standing Instruction or makes it a hard rule (or a preference again); it keeps its ID. */
-  setStandingInstruction(id: string, changes: { text?: string; hard?: boolean }): StandingInstruction {
+  setStandingInstruction(id: string, changes: { text?: string; hard?: boolean; helpersAtOnce?: number }): StandingInstruction {
     const b = this.instructionBlock(id);
     if (changes.text !== undefined) b.text = oneLine(changes.text);
     if (changes.hard !== undefined) setDetail(b, "hard", changes.hard ? "yes" : undefined);
+    if (changes.helpersAtOnce !== undefined) this.setHelperLimit(id, changes.helpersAtOnce);
     return this.standingInstruction(id)!;
   }
 
