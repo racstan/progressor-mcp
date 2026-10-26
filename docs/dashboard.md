@@ -13,7 +13,8 @@ A banner says, in one glance:
 - **The status line**, with a coloured dot:
   - 🟡 **Waiting on you**: a step needs you, for example to try something out by hand. It comes before every other status. See *Waiting on you* below.
   - 🟢 **AI working** · step 3 of 7 · last update 2 min ago: your AI is on it.
-  - 🟠 **AI waiting**: your AI's chat is open, but nothing has changed for 15 minutes. It's most likely waiting for you: check the chat.
+  - 🟢 **Helpers working** · 3 of 5 steps with helpers · last update 19 min ago: your AI handed steps to helper agents, which can take most of an hour. It stays this way, however long the plan stays unchanged, until each step comes back.
+  - 🟠 **AI waiting**: your AI's chat is open, but nothing has changed for 15 minutes and no step is with a helper. It's most likely waiting for you: check the chat.
   - 🟠 **AI stopped**: the chat that was working on this has closed. Open a chat and say *"carry on"*.
   - **Paused**: no AI is working on this goal right now.
   - **Not started**, **Finished** or **Cancelled**.

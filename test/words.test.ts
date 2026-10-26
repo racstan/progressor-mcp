@@ -47,6 +47,19 @@ describe("what the AI is doing", () => {
     expect(s.state).toBe("waiting");
     expect(s.hint).toMatch(/check the chat/i);
   });
+  it("is working, not waiting, while steps are with helpers, however quiet the plan is", () => {
+    const quiet = { ...active, updatedAt: now - 60 * MIN, running: true };
+    expect(goalState({ ...quiet, helpers: 3 }, now)).toMatchObject({ state: "working", label: "Helpers working" });
+    expect(goalState({ ...quiet, helpers: 1 }, now).hint).toMatch(/a step to helper agents/);
+    expect(goalState({ ...quiet, helpers: 0 }, now).state).toBe("waiting");
+  });
+  it("still puts waiting on you, a closed chat and a paused goal ahead of helpers", () => {
+    const g = { ...active, running: true, helpers: 2 };
+    expect(goalState({ ...g, waitingOnYou: true }, now).state).toBe("you");
+    expect(goalState({ ...g, running: false }, now).state).toBe("stopped");
+    expect(goalState({ ...g, running: undefined }, now).state).toBe("paused");
+    expect(goalState({ ...g, status: "done" }, now).state).toBe("finished");
+  });
   it("has stopped when its chat closed", () => {
     expect(goalState({ ...active, running: false }, now).state).toBe("stopped");
   });
@@ -85,6 +98,15 @@ describe("the status line", () => {
   });
   it("says when a Goal has no steps yet", () => {
     expect(statusLine({ status: "active", updatedAt: now, running: true }, [], now)).toBe("AI working · no steps yet · last update just now");
+  });
+  it("counts the helpers instead of the step while they work", () => {
+    const quiet = { status: "active", updatedAt: now - 19 * MIN, running: true };
+    expect(statusLine(quiet, ["with a helper", "with a helper", "checked", "with a helper", "pending"], now)).toBe(
+      "Helpers working · 3 of 5 steps with helpers · last update 19 min ago",
+    );
+    expect(statusLine(quiet, ["done", "with a helper"], now)).toBe("Helpers working · 1 of 2 steps with a helper · last update 19 min ago");
+    // A checked step is the AI's own turn to merge it: with no helper left, a quiet plan is the AI waiting.
+    expect(statusLine(quiet, ["checked", "pending"], now)).toBe("AI waiting · step 1 of 2 · last update 19 min ago");
   });
 });
 

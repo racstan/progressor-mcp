@@ -73,7 +73,7 @@ A chat started before you updated is still running the old version. Close that c
 
 ## It says "AI waiting" but I think it's working
 
-*AI waiting* means the AI's chat is open but the plan hasn't changed in 15 minutes. Long steps can take that long. Check the chat: if the AI is asking you something, answer it; if it's still busy, there's nothing to do.
+*AI waiting* means the AI's chat is open, no step is with a helper, and the plan hasn't changed in 15 minutes. (While helpers work, it says *Helpers working* instead.) Long steps can take that long. Check the chat: if the AI is asking you something, answer it; if it's still busy, there's nothing to do.
 
 ## "A command takes file @-mentions but no other @-mentions, slash commands, links, or inline formatting"
 

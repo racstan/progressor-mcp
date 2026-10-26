@@ -133,7 +133,7 @@ export function promptReminder(o: ProjectOverview, now = new Date()): string | u
     `${PREFIX} Goal: ${only.goal?.title}`,
     where,
     ...(only.nextTask ? [`Next: ${task(only.nextTask)}`] : []),
-    ...(only.withHelper.length > 0 ? [`With a helper: ${ids(only.withHelper)}`] : []),
+    ...(only.withHelper.length > 0 ? [`With a helper: ${ids(only.withHelper)} (mark each checked once you check its work)`] : []),
     ...(only.waitingOnYou.length > 0 ? [`Waiting on the Developer: ${ids(only.waitingOnYou)}`] : []),
     ...(minutes === undefined ? [] : [`updated ${ago(minutes)}${minutes > STALE_AFTER_MINUTES ? `, ${STALE}; call get_status` : ""}`]),
   ].join(" · ");
