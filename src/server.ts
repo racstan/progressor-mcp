@@ -4,7 +4,7 @@ import * as z from "zod";
 import type { Dashboard } from "./dashboard/http.js";
 import { launchFor, startedViaNpx } from "./init.js";
 import type { Detour, Task } from "./planFile.js";
-import type { DetourEnding, FoundItem, Project, Status } from "./project.js";
+import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, type Project, type Status } from "./project.js";
 import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
 import type { Goal } from "./roadmap.js";
 
@@ -18,7 +18,8 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 4. About to change code for something that is not the current Task (an unrelated bug, a missing prerequisite, a change of plan)? Call start_detour with the reason first. When it is done, call end_detour: "merge back" for a small fix, "return" to go back to the plan (adding Tasks for any work left), or "recalibrate" to replace the remaining Tasks with a new list.
 5. When every Task is done or dropped and the Outcome is true, call complete_goal and tell the Developer in one sentence. If more work turns up for a finished Goal, claim it again to reopen it, then add_tasks.
 6. Talk to the Developer in everyday words: say "step" for Task and "side trip" for Detour, and leave out tool names, IDs and the files in .progressor/. Give them the dashboard link from get_status once at the start of a conversation, and again when a Goal is finished.
-7. When the Developer gives a lasting rule ("always...", "never..."), save it with add_standing_instruction; change or remove one with update_standing_instruction.`;
+7. When the Developer gives a lasting rule ("always...", "never..."), save it with add_standing_instruction; change or remove one with update_standing_instruction.
+8. Keep lasting background about the project on its Important context page with update_context: what the project is, key facts, where things live, choices that hold for the whole project. get_status shows it; keep it short and true.`;
 
 const taskInput = z.object({
   title: z.string().min(1).describe("A short title for the Task, a few words, such as 'Fix callback redirect loop'."),
@@ -63,6 +64,7 @@ export function formatStatus(s: Status): string {
     s.standingInstructions.length > 0
       ? ["Standing Instructions:", ...s.standingInstructions.map((i) => `- ${i.id} ${i.text}`)]
       : [];
+  if (s.context) instructions.push("Important context:", s.context);
   if (!s.goal) {
     const paused = s.goals.filter((g) => g.status === "paused");
     return [
@@ -501,6 +503,25 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       respond(() => {
         const s = project.updateStandingInstruction(id, text);
         return s ? `Changed Standing Instruction ${s.id}: ${s.text}` : `Removed Standing Instruction ${id}.`;
+      }),
+  );
+
+  server.registerTool(
+    "update_context",
+    {
+      title: "Update Important context",
+      description:
+        "Replace the project's Important context: lasting background you and the Developer need in every conversation, such as what the project is, key facts, where things live and choices that hold for the whole project. " +
+        "Not for rules (add_standing_instruction) or for one Goal's details. get_status shows the current text: send the whole new text, or an empty text to clear it. " +
+        `At most ${MAX_CONTEXT_LENGTH} characters.`,
+      inputSchema: { text: z.string().describe("The whole Important context, in plain words; short paragraphs or a list.") },
+    },
+    ({ text }) =>
+      respond(() => {
+        const context = project.setContext(text);
+        return context
+          ? `Saved the Important context (${context.length} of ${MAX_CONTEXT_LENGTH} characters).`
+          : "Cleared the Important context.";
       }),
   );
 

@@ -48,6 +48,7 @@ describe("the MCP server", () => {
         "release_goal",
         "start_detour",
         "start_task",
+        "update_context",
         "update_goal",
         "update_standing_instruction",
         "update_task",
@@ -384,6 +385,29 @@ describe("update_standing_instruction", () => {
     const { text } = await call("get_status");
     expect(text).toContain("- s1 Ask before pushing or publishing");
     expect(text).not.toContain("Write tests first");
+  });
+});
+
+describe("update_context", () => {
+  it("replaces the Important context, which get_status then shows after the rules", async () => {
+    await call("add_standing_instruction", { text: "Write tests first" });
+    expect((await call("update_context", { text: "Progressor is an MCP server.\nReleases go out by pushing a tag." })).text).toMatch(
+      /^Saved the Important context \(\d+ of 4000 characters\)\./,
+    );
+    const { text } = await call("get_status");
+    expect(text).toContain(
+      ["- s1 Write tests first", "Important context:", "Progressor is an MCP server.", "Releases go out by pushing a tag."].join("\n"),
+    );
+  });
+
+  it("says when the text is too long", async () => {
+    const r = await call("update_context", { text: "x".repeat(4001) });
+    expect(r.isError).toBe(true);
+    expect(r.text).toMatch(/too long/);
+  });
+
+  it("is mentioned in the instructions", () => {
+    expect(client.getInstructions() ?? "").toContain("update_context");
   });
 });
 

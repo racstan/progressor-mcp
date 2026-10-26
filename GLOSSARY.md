@@ -20,6 +20,10 @@ _Avoid_: AI, assistant, bot, model
 A lasting rule from the Developer about how the Agent should behave, such as "ask me before recalibrating", kept so it survives context compression and new Sessions.
 _Avoid_: Preference, setting, rule
 
+**Important context**:
+The one page per Project holding its lasting background (what it is, key facts, choices that hold project-wide), written by the Agent and shown in full with the Standing Instructions at every session start. Not for rules, which are Standing Instructions.
+_Avoid_: Notes, memory, project info
+
 **Session**:
 One Agent conversation, including any sub-agents it spawns, working on one claimed Goal.
 _Avoid_: Thread, chat, instance, connection

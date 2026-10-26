@@ -49,6 +49,10 @@ You can use your own words for all of this:
 
 When you tell your AI how you always want something done, such as *"always ask me before adding a new library"*, it saves that as a lasting rule in the plan. Every new conversation starts with your rules, so you don't have to repeat yourself. To change or drop one, just say so: *"You don't need to ask about libraries any more."*
 
+## Important context
+
+Each project has one **Important context** page. It holds your rules and the project's background: what the project is, key facts, where things live, and choices that hold for the whole project. Your AI writes it, keeps it short and reads all of it at the start of every conversation, so it doesn't have to work these things out again. You can read it on the dashboard. To change something, just tell your AI: *"Note that the dashboard always runs on port 4747."*
+
 ## The commands
 
 Most apps list Progressor's commands when you type `/` in the chat. In Claude Code they look like `/progressor:status (MCP)`; other apps name them a little differently. You never need them, since plain words work just as well, but they're handy shortcuts:

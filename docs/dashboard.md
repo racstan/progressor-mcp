@@ -51,6 +51,10 @@ A goal that finishes turns green and gets a green dot until you've looked at it;
 
 If you use Progressor in several projects, click the project name at the top of the sidebar to switch, or pick **🗂 All projects** for an overview of every project at once.
 
+## Important context
+
+**📌 Important context**, above Your goals, opens the project's one page of rules and background: the rules you've given your AI, then what the project is, key facts and choices that hold for the whole project. Your AI writes it and reads all of it at the start of every conversation. The page is read-only; to change something, tell your AI in the chat.
+
 ## Search
 
 The search box at the top (press `/` to jump to it) finds projects, goals and steps across all your projects. Click a result to open it.

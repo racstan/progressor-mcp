@@ -16,9 +16,10 @@ function goalLine(s: Status): string {
 }
 
 function instructions(o: ProjectOverview): string[] {
-  return o.standingInstructions.length > 0
-    ? [`Standing Instructions: ${o.standingInstructions.map((i) => `${i.id} ${i.text}`).join("; ")}`]
-    : [];
+  return [
+    ...(o.standingInstructions.length > 0 ? [`Standing Instructions: ${o.standingInstructions.map((i) => `${i.id} ${i.text}`).join("; ")}`] : []),
+    ...(o.context ? ["Important context:", o.context] : []),
+  ];
 }
 
 function fullStatus(s: Status): string[] {
@@ -38,7 +39,7 @@ function fullStatus(s: Status): string[] {
  * no Goals, so projects that don't use Progressor get nothing.
  */
 export function sessionStatus(o: ProjectOverview): string | undefined {
-  if (o.active.length === 0 && o.paused.length === 0 && o.planned.length === 0) return undefined;
+  if (o.active.length === 0 && o.paused.length === 0 && o.planned.length === 0 && !o.context) return undefined;
   const [only] = o.active;
   if (only && o.active.length === 1)
     return [

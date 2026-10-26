@@ -203,6 +203,19 @@ describe("runHook", () => {
     expect(run("teatime", prompt())).toBe("");
   });
 
+  it("adds the whole Important context at session start, but not to every prompt", () => {
+    const a = oauthInProgress();
+    a.setContext("Dashboard on port 4747.\nReleases go out by pushing a tag.");
+    const out = run("session-start", sessionStart());
+    expect(out).toContain("Important context:\nDashboard on port 4747.\nReleases go out by pushing a tag.");
+    expect(run("prompt", prompt())).not.toContain("Important context");
+  });
+
+  it("shows the Important context even before there are Goals", () => {
+    session("s-a", 100).setContext("Dashboard on port 4747.");
+    expect(run("session-start", sessionStart())).toContain("Important context:\nDashboard on port 4747.");
+  });
+
   it("keeps the text under Claude Code's context limit", () => {
     const a = oauthInProgress();
     a.addStandingInstruction("x".repeat(MAX_CONTEXT + 500));

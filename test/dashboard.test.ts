@@ -156,6 +156,7 @@ describe("one dashboard for every project", () => {
       ["progressor://roadmap/i1", "Remember-me checkbox", ["From the Developer"]],
     ]);
     expect(body.standingInstructions.map((s: any) => s.text)).toEqual(["Ask me before recalibrating"]);
+    expect(body.context).toBe("");
   });
 
   it("serves a Goal's metro map", async () => {

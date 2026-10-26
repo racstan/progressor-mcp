@@ -54,6 +54,7 @@ The AI calls these; the server's instructions tell it when.
 | `end_detour` | Ends the open Detour: merge back, return (optionally adding Tasks) or recalibrate (replacing the remaining Tasks). |
 | `add_standing_instruction` | Saves a lasting rule from the Developer. |
 | `update_standing_instruction` | Changes a rule's text, or removes it when the text is empty. |
+| `update_context` | Replaces the project's Important context (at most 4000 characters), or clears it with an empty text. |
 
 ## `progressor-mcp` commands
 

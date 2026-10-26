@@ -118,6 +118,7 @@ export function dashboardApi(project: Project) {
           }),
         ideas: roadmap.ideas,
         standingInstructions: roadmap.standingInstructions,
+        context: project.context(),
       };
     },
     goal: (goalId: string) => {
