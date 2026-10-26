@@ -126,6 +126,7 @@ describe("Changing another project's plan", () => {
     expect(() => other.completeGoal("ship-it")).toThrow(refused);
     expect(() => other.addDecision("No", "ship-it")).toThrow(refused);
     expect(() => other.updateGoal("ship-it", { title: "Renamed" })).toThrow(refused);
+    expect(() => other.moveGoal("ship-it", { after: "ship-it" })).toThrow(refused);
     expect(() => other.updateNote("ship-it", "n1", { resolved: true })).toThrow(refused);
     const note = other.addNote("ship-it", "Released from the kdeaichat chat");
     expect(note.updatedFrom?.project).toBe("kdeaichat");
@@ -294,7 +295,10 @@ describe("the tools", () => {
     const { tools } = await client.listTools();
     const withProject = tools.filter((t) => "project" in ((t.inputSchema as { properties?: object }).properties ?? {})).map((t) => t.name);
     expect(withProject.sort()).toEqual(
-      ["add_decision", "add_goal", "add_note", "add_tasks", "complete_goal", "complete_task", "get_status", "set_task_state", "update_goal", "update_note", "update_task", "update_tasks"].sort(),
+      [
+        "add_decision", "add_goal", "add_note", "add_tasks", "complete_goal", "complete_task", "get_status",
+        "move_goal", "set_task_state", "update_goal", "update_note", "update_task", "update_tasks",
+      ].sort(),
     );
   });
 
@@ -314,6 +318,11 @@ describe("the tools", () => {
     const status = await call("get_status", { project: there });
     expect(status.text).toContain(`Project progressor-mcp (${there}): another project's plan, seen from kdeaichat.`);
     expect(status.text).toContain("- v0-7-1: Release 0.7.1 (done)");
+    await call("add_goal", { project: "progressor-mcp", title: "Release 0.7.0", id: "v0-7-0", done: true });
+    const moved = await call("move_goal", { project: "progressor-mcp", goal: "v0-7-1", after: "v0-7-0" });
+    expect(moved.text).toBe(
+      "Goals in order:\n- v0-7-0: Release 0.7.0 (done)\n- v0-7-1: Release 0.7.1 (done)\nThat was in project progressor-mcp; it is marked there as updated from kdeaichat.",
+    );
   });
 
   it("refuse to claim a Goal in another project", async () => {

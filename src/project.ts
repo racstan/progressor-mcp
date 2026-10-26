@@ -486,8 +486,10 @@ export class Project {
 
   /** Moves a Goal right before or after another, to put the Roadmap in the order the work should happen. */
   moveGoal(goalId: string, to: { before?: string; after?: string }): Goal[] {
+    if (this.from) this.changeable(goalId, { done: true });
     const roadmap = this.roadmap();
     roadmap.moveGoal(goalId, to);
+    this.markGoal(roadmap, goalId);
     this.saveRoadmap(roadmap);
     return this.roadmap().goals;
   }

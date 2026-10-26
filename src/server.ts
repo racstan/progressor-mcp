@@ -464,10 +464,14 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         goal: goalId,
         before: z.string().optional().describe("The ID of the Goal to move it in front of."),
         after: z.string().optional().describe("The ID of the Goal to move it behind."),
+        project: otherProject,
       },
     },
-    ({ goal, before, after }) =>
-      respondIn(undefined, () => ["Goals in order:", ...project.moveGoal(goal, { before, after }).map(goalLine)].join("\n")),
+    ({ goal, before, after, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        const order = ["Goals in order:", ...p.moveGoal(goal, { before, after }).map(goalLine)].join("\n");
+        return p === project ? order : doneIn(p, order);
+      }),
   );
 
   server.registerTool(

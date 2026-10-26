@@ -74,7 +74,7 @@ The AI calls these; the server's instructions tell it when.
 
 ### Changing another project's plan
 
-`get_status`, `add_goal`, `update_goal`, `complete_goal`, `add_tasks`, `set_task_state`, `update_task`, `complete_task`, `update_tasks`, `add_decision`, `add_note` and `update_note` take an optional `project`: another project's plan to act on instead of this one's. Give its name or ID as the dashboard's project list shows them (the names of the projects in the registry and in the dashboard's Workspaces, without case), or the full path of its folder. A path is followed to its real folder, which must already have a `.progressor/` folder: a plan is never started in a folder from another project. An unknown project, a name two projects share, or a folder without a plan is refused with a message saying so. Naming this project itself is the same as leaving `project` out.
+`get_status`, `add_goal`, `update_goal`, `move_goal`, `complete_goal`, `add_tasks`, `set_task_state`, `update_task`, `complete_task`, `update_tasks`, `add_decision`, `add_note` and `update_note` take an optional `project`: another project's plan to act on instead of this one's. Give its name or ID as the dashboard's project list shows them (the names of the projects in the registry and in the dashboard's Workspaces, without case), or the full path of its folder. A path is followed to its real folder, which must already have a `.progressor/` folder: a plan is never started in a folder from another project. An unknown project, a name two projects share, or a folder without a plan is refused with a message saying so. Naming this project itself is the same as leaving `project` out.
 
 In another project's plan:
 
