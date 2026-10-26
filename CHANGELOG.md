@@ -2,6 +2,30 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## 0.7.0 · Progress that survives, and plans that match how the AI works
+
+Your progress no longer depends on the chat: everything the AI knows about the project is saved where both of you can see it, so a new chat, a compressed memory or a different app picks up exactly where things stopped.
+
+### Important context
+
+- Each project has one **📌 Important context** page: your rules, then the project's background (what it is, key facts, choices that hold for the whole project). The AI keeps it up to date and reads all of it at the start of every chat and after its memory is compressed. Find it in the dashboard's sidebar, above Your goals.
+- Rules can be marked as **must never be broken**. They come first everywhere and carry a **Must** label on the page.
+- When the AI hands work to a helper agent, it can paste your rules into the helper's instructions in one go.
+
+### Plans that match how the AI really works
+
+- One chat can work on **several goals at once**, for example while helper agents work on two of them.
+- Steps have four new states: **With a helper**, **Waiting on you**, **Checked** and **Released**, each with its own mark on the map and the list.
+- A goal with a step **waiting on you** turns amber and says so in the sidebar, at the top of the goal and in All projects, so you see at a glance when something needs you.
+- Each goal lists the **decisions** made along the way and **notes**, including notes found while working on another goal.
+- The AI can move a step to another goal, and update several steps in one go, which uses fewer tokens.
+- The reminder the AI gets with each message says how old it is, and warns when it may be out of date.
+
+### Fixes
+
+- A project set up on Windows now works on macOS and Linux too, and the other way round. Before, Progressor failed to start with "Executable not found in $PATH: cmd". At the start of a chat the AI now warns you if Progressor can't start in that folder.
+- When a chat closes, however it closes, its goals are freed and the dashboard's address (port 4747) is handed back. Goals left behind by chats that ended are cleared the next time the AI reads the plan. If the dashboard has to use another port, the AI tells you why.
+
 ## 0.6.2 · Refresh and hide finished goals
 
 - A **Refresh** button in the top bar loads the latest plan and running servers at once, instead of waiting for the next change.
