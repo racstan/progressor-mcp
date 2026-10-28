@@ -1,14 +1,16 @@
 // The dashboard's web server: one address (localhost:4747) for every project that runs Progressor
 // (ADR 0001). Whichever Progressor process holds the port is the hub: it serves the built UI and a
-// read-only JSON API for each project in the per-user registry or found in one of its Workspaces,
+// JSON API for each project in the per-user registry or found in one of its Workspaces,
 // reading that project's .progressor/
 // markdown straight from disk, and pushes server-sent events when those files change. It binds to
-// the loopback interface only.
+// the loopback interface only. The Developer can change two things there, and nothing else: stop a
+// running Progressor server, and mark a hand test on a Goal (ADR 0004).
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { type Origin, latestOrigin } from "../origin.js";
-import type { Decision, Note, TaskStatus } from "../planFile.js";
+import type { Decision, HandResult, HandTest, Note, TaskStatus } from "../planFile.js";
+import { withLock } from "../lock.js";
 import { PROGRESSOR_DIR, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
@@ -30,7 +32,7 @@ import { allProjects, findProjects } from "./workspace.js";
 export const DEFAULT_PORT = 4747;
 const HOST = "127.0.0.1";
 /** Bumped when the hub's API changes, so a hub from an older version is not shared. */
-const HUB_VERSION = 3;
+const HUB_VERSION = 4;
 
 export interface DashboardOptions {
   /** This Session's project; it is added to the registry. Absent when only a Workspace is opened. */
@@ -154,7 +156,8 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
       const plan = project.plan(goalId);
       const decisions: Decision[] = plan.decisions;
       const notes: Note[] = plan.notes;
-      return { goal, graph: buildGoalGraph(plan), decisions, notes };
+      const handTests: HandTest[] = plan.handTests;
+      return { goal, graph: buildGoalGraph(plan), decisions, notes, handTests };
     },
     item: (ref: string) => project.getItem(ref),
   };
@@ -170,8 +173,8 @@ function json(res: ServerResponse, status: number, body: unknown): void {
  * Origin on a POST, and a custom header cannot be sent from another site without a CORS preflight,
  * which the dashboard never answers, so other web pages cannot stop servers.
  */
-function isFromDashboardPage(req: IncomingMessage): boolean {
-  if (req.headers["x-progressor"] !== "stop") return false;
+function isFromDashboardPage(req: IncomingMessage, header: "stop" | "mark"): boolean {
+  if (req.headers["x-progressor"] !== header) return false;
   try {
     const origin = new URL(String(req.headers.origin ?? ""));
     const port = (req.headers.host ?? "").match(/:(\d+)$/)?.[1] ?? "80";
@@ -179,6 +182,26 @@ function isFromDashboardPage(req: IncomingMessage): boolean {
   } catch {
     return false;
   }
+}
+
+/** What the Developer may send as a mark: a result, or "clear" to undo it. */
+const MARKS: Record<string, HandResult> = { works: "works", "doesn't work": "doesn't work", "won't test": "won't test", clear: "pending" };
+/** A mark is a few words and a short note, so a bigger body is refused unread. */
+const MAX_MARK_BODY = 4096;
+
+/** Reads a request body as text, or undefined when it is bigger than the limit. */
+function readBody(req: IncomingMessage, limit: number): Promise<string | undefined> {
+  return new Promise((done) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (c: Buffer) => {
+      size += c.length;
+      if (size > limit) done(undefined); // the rest is read and dropped
+      else chunks.push(c);
+    });
+    req.on("end", () => done(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", () => done(undefined));
+  });
 }
 
 /** Only answer requests addressed to the loopback host, so other web pages cannot read the record through DNS rebinding. */
@@ -203,7 +226,7 @@ function serveStatic(res: ServerResponse, uiDir: string | undefined, path: strin
 /** The hub: serves every registered project, and watches each one's .progressor/ folder. */
 class Hub {
   private readonly clients = new Set<ServerResponse>();
-  private readonly projects = new Map<string, { api: ReturnType<typeof dashboardApi>; stop: () => void }>();
+  private readonly projects = new Map<string, { api: ReturnType<typeof dashboardApi>; project: Project; stop: () => void }>();
   private readonly timer: NodeJS.Timeout;
   private readonly scans = new Map<string, { at: number; roots: string[] }>();
   private entries: ProjectEntry[] = [];
@@ -255,7 +278,7 @@ class Hub {
         // The dashboard is not a Session: it never changes the plan, not even to clear stale Claims.
         const project = new Project({ root: entry.root, session: { id: "dashboard", pid: process.pid }, clearStaleClaims: false });
         const stop = watchProgress(entry.root, (files) => this.send("change", { project: entry.id, files }));
-        this.projects.set(entry.id, { api: dashboardApi(project, (pid) => sessionOfProcess(this.serversDir, pid)), stop });
+        this.projects.set(entry.id, { api: dashboardApi(project, (pid) => sessionOfProcess(this.serversDir, pid)), project, stop });
         changed = true;
       }
     // a project that moved into or out of a Workspace changes the list too
@@ -326,9 +349,43 @@ class Hub {
 
   /** The one thing the dashboard changes: asking a running server to stop. */
   private stopServer(req: IncomingMessage, res: ServerResponse, pid: number): void {
-    if (!isFromDashboardPage(req)) return json(res, 403, { error: "Servers can only be stopped from the dashboard's own page." });
+    if (!isFromDashboardPage(req, "stop")) return json(res, 403, { error: "Servers can only be stopped from the dashboard's own page." });
     if (!requestStop(this.serversDir, pid)) return json(res, 404, { error: "No running Progressor server has that process ID." });
     return json(res, 202, { stopping: pid });
+  }
+
+  /**
+   * The Developer's mark on a hand test: works, doesn't work (with a note), won't test, or clear to
+   * undo. It is written through the same code the Agent's tools use, holding the plan's lock, and
+   * only for this page: the custom header and the page's own Origin keep other web pages out.
+   */
+  private async markHandTest(req: IncomingMessage, res: ServerResponse, projectId: string, goalId: string, itemId: string): Promise<void> {
+    if (!isFromDashboardPage(req, "mark")) return json(res, 403, { error: "Hand tests can only be marked from the dashboard's own page." });
+    if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) return json(res, 415, { error: "Send the mark as JSON." });
+    if (!this.projects.has(projectId)) this.sync();
+    const project = this.projects.get(projectId)?.project;
+    if (!project) return json(res, 404, { error: "No such project on the dashboard." });
+    const text = await readBody(req, MAX_MARK_BODY);
+    if (text === undefined) {
+      res.once("finish", () => req.destroy());
+      return json(res, 413, { error: "That mark is too big." });
+    }
+    let body: { mark?: unknown; note?: unknown };
+    try {
+      body = JSON.parse(text) as typeof body;
+    } catch {
+      return json(res, 400, { error: "The mark is not valid JSON." });
+    }
+    const result = typeof body.mark === "string" ? MARKS[body.mark] : undefined;
+    if (!result) return json(res, 400, { error: `The mark must be one of: ${Object.keys(MARKS).join(", ")}.` });
+    if (body.note !== undefined && typeof body.note !== "string") return json(res, 400, { error: "The note must be text." });
+    try {
+      const test = withLock(project.root, () => project.markHandTest(goalId, itemId, result, body.note as string | undefined));
+      return json(res, 200, test);
+    } catch (e) {
+      const message = (e as Error).message;
+      return json(res, /^No (Goal|hand test)/.test(message) ? 404 : 400, { error: message });
+    }
   }
 
   /**
@@ -353,7 +410,10 @@ class Hub {
     const stop = /^\/api\/servers\/(\d+)\/stop$/.exec(path);
     if (req.method === "POST" && stop) return this.stopServer(req, res, Number(stop[1]));
     if (req.method === "POST" && path === "/api/hub/step-down") return this.stepDown(req, res);
-    if (req.method !== "GET" && req.method !== "HEAD") return json(res, 405, { error: "The dashboard is view-only." });
+    const mark = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/hand-tests\/([^/]+)$/.exec(path);
+    if (req.method === "POST" && mark)
+      return void this.markHandTest(req, res, decodeURIComponent(mark[1]!), decodeURIComponent(mark[2]!), decodeURIComponent(mark[3]!));
+    if (req.method !== "GET" && req.method !== "HEAD") return json(res, 405, { error: "The dashboard only shows the plan; it changes nothing else." });
     try {
       if (path === "/api/servers") return json(res, 200, this.servers());
       if (path === "/api/search") return json(res, 200, this.search(url.searchParams.get("q") ?? ""));

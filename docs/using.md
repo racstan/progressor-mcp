@@ -21,6 +21,7 @@ Your AI keeps a little more in the plan than a list of ticks, so that you can se
 - **Waiting on you.** If a step needs you, for example to try something out by hand, your AI marks it **Waiting on you** and tells you in the chat. The dashboard shows the goal in amber until you've done it, so you don't have to hunt for what's holding things up. When you're done, tell your AI and it carries on.
 - **Decisions.** When a choice is made that's worth remembering (*"Sessions end after 30 minutes"*), your AI records it under the goal, so a later conversation doesn't reopen it.
 - **Notes.** When your AI spots something along the way, such as a bug in a part it isn't working on, it adds a note to the goal that it belongs to and carries on with what it was doing. The note says where it was found, and your AI crosses it off when it's dealt with.
+- **Things to try by hand.** When only you can test something, your AI adds it to the goal's *Things to try by hand* list instead of burying it in its chat summary. You mark each one on the dashboard: it works, it doesn't (type a few words and your AI gets a new step to fix it), or you won't test it. Your AI can't finish the goal while one is unmarked, unless you say to finish anyway.
 - **Moving a step.** If a step turns out to belong to another goal, your AI moves it there: it keeps its title, details and progress, and the old goal shows it as cancelled, with where it went.
 - **Several goals at once.** One conversation can work on more than one goal at the same time, for instance while a helper builds one and you try out another. The dashboard shows each goal's own status.
 
@@ -32,7 +33,7 @@ From those guesses, the order of your goals and how many helpers may work at onc
 
 **How many helpers at once.** Running too many helpers at the same time can overload your computer and leave your AI more work to check and merge than it can keep up with. Tell your AI a limit, such as *"never more than 2 helpers at a time"*, and it saves it as a rule that holds the limit. It then hands out at most that many steps to helpers at once; if it ever goes over, it gets a warning saying so.
 
-All of it shows on the dashboard: see [the dashboard](dashboard.md). It's read-only there; to change something, tell your AI.
+All of it shows on the dashboard: see [the dashboard](dashboard.md). You only mark your things to try by hand there; to change anything else, tell your AI.
 
 ## Work for another project
 

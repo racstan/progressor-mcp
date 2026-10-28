@@ -58,7 +58,7 @@ if (!process.env.PROGRESSOR_ROOT) {
 }
 console.error(`progressor: serving ${project.root} as Session ${project.session.id}`);
 
-// The same process serves the view-only dashboard (ADR 0001). A dashboard that cannot start never
+// The same process serves the dashboard (ADR 0001; the Developer can also mark hand tests, ADR 0004). A dashboard that cannot start never
 // stops the MCP server.
 if (process.env.PROGRESSOR_DASHBOARD !== "off") {
   try {

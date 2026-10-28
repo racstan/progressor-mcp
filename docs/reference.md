@@ -55,7 +55,7 @@ The AI calls these; the server's instructions tell it when.
 | `drop_goal` | Drops a Goal that is no longer wanted, with a reason. |
 | `claim_goal` | Claims a Goal for this Session, which keeps any others it holds; a done Goal is reopened. |
 | `release_goal` | Releases the Claim; the Goal is paused. |
-| `complete_goal` | Marks the claimed Goal done, once every Task is done, released or dropped and no Detour is open. |
+| `complete_goal` | Marks the claimed Goal done, once every Task is done, released or dropped, no Detour is open and the Developer has marked every hand test. `unmarked_hand_tests_ok: true` finishes it anyway, only when the Developer says so. |
 | `add_tasks` | Appends Tasks (title, files, summary and `estimate`) to the claimed Goal. |
 | `start_task` | Marks a Task in progress (one per Goal at a time). |
 | `set_task_state` | Sets a Task's state: with a helper, waiting on you, checked, released (or pending, in progress, done). Setting one Task too many with a helper still works, with a warning naming the helper limit. With `with a helper` it takes optional `helper_branch`, `helper_folder` (the worktree path) and `helper_label`; with `checked` an optional `evidence` (one short line, such as "715 passed, live send OK"). Giving either with any other state is refused. |
@@ -70,6 +70,8 @@ The AI calls these; the server's instructions tell it when.
 | `update_decision` | Rewords a decision, or removes it when the text is empty. |
 | `add_note` | Adds a note to any Goal that is not dropped, claimed or not. |
 | `update_note` | Resolves, reopens or rewords a note, or removes it when the text is empty. |
+| `add_hand_test` | Adds something only the Developer can try by hand to the claimed Goal (`text`, optionally the `task` it is about). The Developer marks it on the dashboard. Takes no `project`. |
+| `update_hand_test` | Rewords a hand test, changes or removes its `task` link (empty string), or removes the test when the text is empty. The Developer's mark stays. |
 | `add_standing_instruction` | Saves a lasting rule from the Developer; `hard: true` marks one that must never be broken; `helpers_at_once: 2` makes it the rule that holds the helper limit. |
 | `update_standing_instruction` | Changes a rule's text, its `hard` flag and/or the helper limit it holds (`helpers_at_once`, 0 removes it), or removes the rule when the text is empty. |
 | `update_context` | Replaces the project's Important context (at most 4000 characters), or clears it with an empty text. |
@@ -90,7 +92,27 @@ The project's own Session hears about those changes once: `get_status`, and Clau
 
 While a tool reads and rewrites a plan, it holds that plan, so a Session in the project and a change from another project take turns instead of one overwriting the other. The hold is a small file in the system's temp folder; one left by a process that ended is taken over. If another Progressor holds the plan for more than 5 seconds, the tool answers *The plan in … is busy: another Progressor is changing it. Try again in a moment.*
 
-Every tool that changes a claimed Goal (`add_tasks`, `start_task`, `set_task_state`, `update_task`, `complete_task`, `drop_task`, `update_tasks`, `move_task` (the Goal the Task is in), `start_detour`, `end_detour`, `add_decision`, `update_decision`, `complete_goal`, `release_goal`) takes an optional `goal`: the Goal's ID. It is needed only while the Session holds several Goals.
+Every tool that changes a claimed Goal (`add_tasks`, `start_task`, `set_task_state`, `update_task`, `complete_task`, `drop_task`, `update_tasks`, `move_task` (the Goal the Task is in), `start_detour`, `end_detour`, `add_decision`, `update_decision`, `add_hand_test`, `update_hand_test`, `complete_goal`, `release_goal`) takes an optional `goal`: the Goal's ID. It is needed only while the Session holds several Goals.
+
+### Hand tests
+
+Anything only the Developer can try goes in the Goal's hand-test list, not in the Agent's chat summary. The Developer marks each item on the dashboard (see [the dashboard](dashboard.md#things-to-try-by-hand)) as works, doesn't work (with a short note) or won't test, and can undo a mark. `get_status` shows, for each Goal it lists: a count line, the items still not tried (with the Task each is about), and **New marks from the Developer since the last status**: each mark not yet shown, a failure with the Developer's note and the step that was added for it. Showing a mark records it as seen (a `seen: yes` line), so a mark appears as new once. `get_item` takes a hand test's ref (`progressor://<goal>/h2`), and Claude Code's hooks list the same in the status they add.
+
+A failed result adds a pending Task to the Goal (`Fix: <the test>`, its summary holding the note, linked both ways) and reopens a finished Goal as paused, so the next Session sees it. `complete_goal` is refused while any hand test is not tried yet, naming them; pass `unmarked_hand_tests_ok: true` to finish anyway, only when the Developer says to.
+
+### The dashboard's write endpoint
+
+The dashboard shows the plan and changes nothing but two things: asking a server to stop (`POST /api/servers/<pid>/stop`) and marking a hand test:
+
+```
+POST /api/projects/<project>/goals/<goal>/hand-tests/<id>
+x-progressor: mark
+content-type: application/json
+
+{"mark": "doesn't work", "note": "it asked twice, then froze"}
+```
+
+`mark` is `works`, `doesn't work`, `won't test` or `clear` (undo); `note` (at most 500 characters, kept only with `doesn't work`) is optional. The answer is the updated hand test as JSON. The request is refused (403) unless it carries the `x-progressor: mark` header and an `Origin` of the dashboard's own page on localhost, so another web page cannot send it; like every dashboard request it is refused unless addressed to `localhost`, `127.0.0.1` or `[::1]`, and the server listens on the loopback interface only. Other answers: 415 for a body that is not JSON, 413 over 4 KB, 400 for a mark it does not know, 404 for an unknown project, Goal or hand test (a dropped Goal is 400). It writes through the same code as the tools, holding the plan's lock, and needs no Claim. The dashboard's hub version is now 4 (it was 3), so a Progressor with this change takes the port over from an older one that cannot take marks.
 
 ## `progressor-mcp` commands
 
@@ -141,7 +163,7 @@ The hook reads `.progressor/` straight from disk, so it needs no running server,
 Everything lives in `.progressor/` in the project:
 
 - `roadmap.md`: the Goals in order, with their Outcomes and Claims, and the Standing Instructions (a hard rule has a `hard: yes` line).
-- `goals/<id>.md`: one Plan File per Goal, with its Tasks, decisions, notes and Detours.
+- `goals/<id>.md`: one Plan File per Goal, with its Tasks, decisions, notes, hand tests and Detours.
 
 They are plain markdown, written only by the server's tools. An example Plan File:
 

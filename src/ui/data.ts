@@ -204,6 +204,23 @@ export async function stopServer(pid: number): Promise<void> {
   if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `${res.status}`);
 }
 
+/** What the Developer can mark a thing to try by hand as; "clear" undoes the mark. */
+export type HandMark = "works" | "doesn't work" | "won't test" | "clear";
+
+/**
+ * Marks a thing to try by hand. The header tells the server the request comes from the dashboard's
+ * own page. Says what went wrong in words when the server refuses.
+ */
+export async function markHandTest(projectId: string, goalId: string, itemId: string, mark: HandMark, note?: string): Promise<void> {
+  const path = `/api/projects/${encodeURIComponent(projectId)}/goals/${encodeURIComponent(goalId)}/hand-tests/${encodeURIComponent(itemId)}`;
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "x-progressor": "mark", "content-type": "application/json" },
+    body: JSON.stringify({ mark, ...(note ? { note } : {}) }),
+  });
+  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
+}
+
 /** Search results for what is typed, fetched a moment after typing stops; undefined while searching. */
 export function useSearch(query: string): SearchView | undefined {
   const [hits, setHits] = useState<{ query: string; hits: SearchView }>();

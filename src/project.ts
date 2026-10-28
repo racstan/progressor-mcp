@@ -7,6 +7,8 @@ import {
   FINISHED,
   type HelperInfo,
   type StateExtras,
+  type HandResult,
+  type HandTest,
   type NewTask,
   type Note,
   type PlanFile,
@@ -111,6 +113,8 @@ export interface Status {
   decisions: Decision[];
   /** The notes not yet resolved. */
   notes: Note[];
+  /** Everything the Developer is asked to try by hand, with their marks. */
+  handTests: HandTest[];
   standingInstructions: StandingInstruction[];
   /** The project's Important context: lasting background, kept by the Agent. */
   context: string;
@@ -145,8 +149,18 @@ export type FoundItem =
   | { kind: "detour"; ref: string; file: string; line: number; item: Detour }
   | { kind: "decision"; ref: string; file: string; line: number; item: Decision }
   | { kind: "note"; ref: string; file: string; line: number; item: Note }
+  | { kind: "hand test"; ref: string; file: string; line: number; item: HandTest }
   | { kind: "idea"; ref: string; file: string; line: number; item: Idea }
   | { kind: "standing instruction"; ref: string; file: string; line: number; item: StandingInstruction };
+
+/** The longest note the Developer can type on a failed hand test. */
+export const MAX_HAND_NOTE = 500;
+const handFailureTitle = (test: string): string => {
+  const t = test.replace(/[.\s]+$/, "");
+  return `Fix: ${t.length > 80 ? `${t.slice(0, 79).trimEnd()}…` : t}`;
+};
+const handFailureSummary = (test: string, note: string | undefined): string =>
+  `The Developer tried "${test}" by hand and it did not work.${note ? ` Their note: ${note}` : " They left no note."}`;
 
 export const PROGRESSOR_DIR = ".progressor";
 export const ROADMAP_FILE = "roadmap.md";
@@ -435,8 +449,14 @@ export class Project {
   // --- Goals and Tasks -----------------------------------------------------
 
   /** Marks a claimed Goal done and releases it, once every Task is done, released or dropped and no Detour is open. */
-  completeGoal(goalId?: string): Goal {
+  completeGoal(goalId?: string, options: { unmarkedHandTests?: boolean } = {}): Goal {
     const { goal, plan } = this.requireClaim(goalId);
+    const untried = plan.handTests.filter((h) => h.result === "pending");
+    if (untried.length > 0 && !options.unmarkedHandTests)
+      throw new Error(
+        `Goal ${goal.id} still has ${untried.length} hand ${untried.length === 1 ? "test" : "tests"} the Developer has not marked: ${untried.map((h) => `${h.id} ${h.text}`).join("; ")}. ` +
+          "Ask the Developer to mark them on the dashboard, or, if they say to finish anyway, call complete_goal again with unmarked_hand_tests_ok: true.",
+      );
     const open = plan.tasks.filter((t) => !FINISHED.includes(t.status));
     if (open.length > 0)
       throw new Error(
@@ -781,6 +801,79 @@ export class Project {
     return result;
   }
 
+  // --- hand tests -------------------------------------------------------------
+
+  /** Adds something for the Developer to try by hand to a claimed Goal. */
+  addHandTest(text: string, goalId?: string, task?: string): HandTest {
+    const { plan } = this.requireClaim(goalId);
+    const test = plan.addHandTest(text, task);
+    this.markItems(plan, [test.id]);
+    this.savePlan(plan);
+    return plan.handTest(test.id!)!;
+  }
+
+  /** Rewords a hand test or changes its Task, or removes it when the text is empty; undefined when removed. */
+  updateHandTest(id: string, changes: { text?: string; task?: string }, goalId?: string): HandTest | undefined {
+    const { plan } = this.requireClaim(goalId);
+    plan.assignMissingIds();
+    let result: HandTest | undefined;
+    if (changes.text !== undefined && !changes.text.trim()) plan.removeHandTest(id);
+    else {
+      plan.updateHandTest(id, changes);
+      this.markItems(plan, [id]);
+      result = plan.handTest(id);
+    }
+    this.savePlan(plan);
+    return result;
+  }
+
+  /**
+   * Records the Developer's mark on a hand test (this is what the dashboard calls), needing no Claim:
+   * the Developer, not the Agent, makes it. "doesn't work" adds a pending Task to the Goal, titled
+   * from the test and summarising the note, and reopens a finished Goal so the next Session sees it.
+   * Marking again or clearing (`pending`) drops that Task if nobody has started it.
+   */
+  markHandTest(goalId: string, id: string, result: HandResult, note?: string): HandTest {
+    const roadmap = this.roadmap();
+    const goal = roadmap.goal(goalId);
+    if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
+    if (goal.status === "dropped") throw new Error(`Goal ${goalId} is dropped; its hand tests cannot be marked.`);
+    const plan = this.plan(goalId);
+    plan.assignMissingIds();
+    const test = plan.handTest(id);
+    if (!test) throw new Error(`No hand test ${id} in Goal ${goalId}.`);
+    const text = note?.trim().slice(0, MAX_HAND_NOTE);
+    plan.markHandTest(id, result, text, this.now());
+    let reopen = false;
+    const added = test.taskAdded ? plan.task(test.taskAdded) : undefined;
+    if (result !== "doesn't work") {
+      if (added?.id && added.status === "pending")
+        plan.dropTask(added.id, { reason: "The hand test was marked again, so this step is not needed." });
+      plan.setHandTestTask(id, undefined);
+    } else if (added?.id && added.status !== "dropped") {
+      plan.updateTask(added.id, { summary: handFailureSummary(test.text, text) });
+    } else {
+      const [task] = plan.addTasks([{ title: handFailureTitle(test.text), summary: handFailureSummary(test.text, text), fromHandTest: id }]);
+      plan.setHandTestTask(id, task!.id);
+      reopen = goal.status === "done";
+    }
+    this.savePlan(plan);
+    if (reopen) {
+      roadmap.setGoalStatus(goalId, "started");
+      this.saveRoadmap(roadmap);
+    }
+    return plan.handTest(id)!;
+  }
+
+  /**
+   * Notes that the Agent has been shown the Developer's marks on a claimed Goal, so the next status
+   * calls only the later ones new. Nothing is written when there are none.
+   */
+  acknowledgeHandTests(goalId: string): void {
+    const plan = this.plan(goalId);
+    if (plan.markHandTestsSeen()) this.savePlan(plan);
+  }
+
   /** A Goal a note can go to: any Goal on the Roadmap that is not dropped, claimed or not. */
   private notable(goalId: string): PlanFile {
     const goal = this.roadmap().goal(goalId);
@@ -975,6 +1068,8 @@ export class Project {
     if (decision) return { kind: "decision", ref, file, line: decision.line, item: decision };
     const note = plan.note(id);
     if (note) return { kind: "note", ref, file, line: note.line, item: note };
+    const handTest = plan.handTest(id);
+    if (handTest) return { kind: "hand test", ref, file, line: handTest.line, item: handTest };
     throw missing();
   }
 
@@ -1030,6 +1125,7 @@ export class Project {
         total: 0,
         decisions: [],
         notes: [],
+        handTests: [],
         updatedAt: undefined,
         ...common,
       };
@@ -1049,6 +1145,7 @@ export class Project {
       total: live.length,
       decisions: plan.decisions,
       notes: plan.notes.filter((n) => !n.resolved),
+      handTests: plan.handTests,
       updatedAt: this.changedAt(this.planFilePath(goal.id)) ?? this.changedAt(`${PROGRESSOR_DIR}/${ROADMAP_FILE}`),
       ...common,
     };

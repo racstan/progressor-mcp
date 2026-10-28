@@ -35,6 +35,7 @@ describe("the MCP server", () => {
       [
         "add_decision",
         "add_goal",
+        "add_hand_test",
         "add_note",
         "add_standing_instruction",
         "add_tasks",
@@ -56,6 +57,7 @@ describe("the MCP server", () => {
         "update_context",
         "update_decision",
         "update_goal",
+        "update_hand_test",
         "update_note",
         "update_standing_instruction",
         "update_task",

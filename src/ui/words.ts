@@ -290,3 +290,26 @@ export function helperLine(h: { branch?: string; folder?: string; label?: string
 export function evidenceLine(evidence: string | undefined): string | undefined {
   return evidence ? `Checked: ${evidence}` : undefined;
 }
+
+/** What the Developer found when they tried something by hand, in the words on the buttons and badges. */
+export const HAND_WORD: Record<string, string> = {
+  pending: "Not tried yet",
+  works: "Works",
+  "doesn't work": "Doesn't work",
+  "won't test": "Won't test",
+};
+
+/** The summary line of a goal's things to try by hand: "2 to try · 1 works · 1 doesn't work". Empty when there are none. */
+export function handTestsLine(tests: readonly { result: string }[]): string {
+  const count = (r: string) => tests.filter((t) => t.result === r).length;
+  const parts: [number, string][] = [
+    [count("pending"), "to try"],
+    [count("works"), "works"],
+    [count("doesn't work"), "doesn't work"],
+    [count("won't test"), "won't test"],
+  ];
+  return parts.filter(([n]) => n > 0).map(([n, w]) => `${n} ${w}`).join(" · ");
+}
+
+/** Whether every thing to try by hand has been marked, so the goal has nothing left waiting on the person. */
+export const handTestsOpen = (tests: readonly { result: string }[]): number => tests.filter((t) => t.result === "pending").length;
