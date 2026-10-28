@@ -6,7 +6,7 @@ import { CONTEXT_HASH, TALK_HASH, contextFromHash } from "./context.js";
 import { ContextPage } from "./ContextPage.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
-import { type Finished, type Seen, doneMark, groupGoals, hideAll, seenOnFirstVisit } from "./goalList.js";
+import { type Finished, type Seen, doneMark, groupGoals, groupOpen, hideAll, seenOnFirstVisit } from "./goalList.js";
 import { GoalPage } from "./GoalPage.js";
 import { Home } from "./HomePage.js";
 import { type PutOff, needsWhy, sidebarSections } from "./home.js";
@@ -108,6 +108,8 @@ export function App() {
   const [finished, setFinished] = useStored<Finished>("progressor.finished", undefined);
   const [showHidden, setShowHidden] = useStored<"1">("progressor.show-hidden", undefined);
   const [doneOpen, setDoneOpen] = useStored<"1">("progressor.done-open", undefined);
+  /** The finished goal on screen when the Developer closed Finished, so it stays closed for that goal. */
+  const [doneClosedFor, setDoneClosedFor] = useStored<string>("progressor.done-closed-for", undefined);
   const [putOff, setPutOff] = useStoredJson<PutOff>("progressor.put-off", {});
   const [editorChoice, setEditorChoice] = useStored<string>("progressor.editor", undefined);
   const [panel, setPanel] = useState<"help" | "settings">();
@@ -345,7 +347,7 @@ export function App() {
     toast(`Cleared ${list.length} finished ${list.length === 1 ? "goal" : "goals"}. The plan keeps them; find them under Hidden.`);
   };
   const freshGoals = grouped.open.filter((g) => grouped.fresh.has(g.id));
-  const doneShown = !!doneOpen || grouped.done.some((g) => g.id === effectiveGoal);
+  const doneShown = groupOpen({ pinned: !!doneOpen, closedFor: doneClosedFor, holdsShown: grouped.done.some((g) => g.id === effectiveGoal), shown: effectiveGoal });
 
   const main = error && !projects ? (
     <div className="placeholder">
@@ -569,7 +571,10 @@ export function App() {
               {grouped.done.length > 0 && (
                 <div className="side-group">
                   <div className="fold-row">
-                    <button className="fold" aria-expanded={doneShown} onClick={() => setDoneOpen(doneShown ? undefined : "1")}>
+                    <button className="fold" aria-expanded={doneShown} onClick={() => {
+                      setDoneOpen(doneShown ? undefined : "1");
+                      setDoneClosedFor(doneShown ? effectiveGoal : undefined);
+                    }}>
                       <Icon name={doneShown ? "chevronDown" : "chevronRight"} size={14} /> Finished <span className="n">{grouped.done.length}</span>
                     </button>
                     <button className="linkbtn" title="Clears every finished goal from this list. The plan keeps them; find them under Hidden."
