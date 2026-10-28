@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, extname, isAbsolute, join, resolve } from "node:path";
 import {
   type Decision,
   type Detour,
@@ -190,6 +190,36 @@ const handFailureSummary = (test: string, note: string | undefined): string =>
 export const PROGRESSOR_DIR = ".progressor";
 /** The folder in .progressor/ that holds each Goal's talk with the Developer, kept out of git. */
 export const TALK_DIR = "talk";
+/** The folder in .progressor/ that holds the screenshots and recordings shown to the Developer, kept out of git. */
+export const PICTURES_DIR = "pictures";
+/** The biggest picture or recording that can be attached, in bytes. */
+export const MAX_PICTURE_BYTES = 10 * 1024 * 1024;
+/** The longest caption of a picture. */
+export const MAX_CAPTION = 200;
+/** What can be attached, by file extension. */
+export const PICTURE_TYPES: Record<string, { kind: "image" | "video"; mime: string }> = {
+  ".png": { kind: "image", mime: "image/png" },
+  ".jpg": { kind: "image", mime: "image/jpeg" },
+  ".jpeg": { kind: "image", mime: "image/jpeg" },
+  ".webp": { kind: "image", mime: "image/webp" },
+  ".gif": { kind: "image", mime: "image/gif" },
+  ".webm": { kind: "video", mime: "video/webm" },
+  ".mp4": { kind: "video", mime: "video/mp4" },
+};
+
+/** A screenshot or recording the AI showed the Developer, kept in `.progressor/pictures/<goal>/`. */
+export interface Picture {
+  id: string;
+  /** The stored name, such as "p3.png" (never the name it came with). */
+  file: string;
+  caption: string;
+  /** The Task it is about. */
+  task?: string;
+  /** The hand test it is about. */
+  handTest?: string;
+  kind: "image" | "video";
+  addedAt: string;
+}
 
 /** The talk with the whole project rather than one Goal; a Goal ID never starts with "_". */
 export const PROJECT_TALK = "_project";
@@ -383,17 +413,89 @@ export class Project {
 
   private saveTalk(talk: PlanFile): void {
     talk.assignMissingIds();
-    this.ignoreTalk();
+    this.ignoreLocal(TALK_DIR, "What you and your AI say on the dashboard stays on this computer");
     this.writeText(this.path(TALK_DIR, `${talk.goalId}.md`), talk.toString());
   }
 
-  /** Makes sure `.progressor/.gitignore` keeps the talk folder out of git (added once, to whatever is there). */
-  private ignoreTalk(): void {
+  /** Makes sure `.progressor/.gitignore` keeps a folder out of git (each added once, to whatever is there). */
+  private ignoreLocal(dir: string, comment: string): void {
     const file = this.path(".gitignore");
     const now = this.readText(file) ?? "";
-    if (/^\/?talk\/?\s*$/m.test(now)) return;
-    const entry = `# What you and your AI say on the dashboard stays on this computer\n${TALK_DIR}/\n`;
+    if (new RegExp(`^/?${dir}/?\\s*$`, "m").test(now)) return;
+    const entry = `# ${comment}\n${dir}/\n`;
     this.writeText(file, now.trim() ? `${now.replace(/\n*$/, "\n")}\n${entry}` : entry);
+  }
+
+  // --- pictures ------------------------------------------------------------------------
+
+  /** A Goal's pictures, in the order they were attached. */
+  pictures(goalId: string): Picture[] {
+    const text = this.readText(this.path(PICTURES_DIR, goalId, "index.json"));
+    if (!text) return [];
+    try {
+      const list: unknown = JSON.parse(text);
+      return Array.isArray(list) ? (list as Picture[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** The stored file of a picture the Goal lists, found by its stored name; undefined for anything else (a path is never built from the name alone). */
+  pictureFile(goalId: string, file: string): { path: string; mime: string } | undefined {
+    if (!this.roadmap().goal(goalId)) return undefined;
+    const listed = this.pictures(goalId).find((p) => p.file === file);
+    if (!listed) return undefined;
+    const type = PICTURE_TYPES[extname(listed.file)];
+    const path = this.path(PICTURES_DIR, goalId, listed.file);
+    return type && existsSync(path) ? { path, mime: type.mime } : undefined;
+  }
+
+  /**
+   * Shows the Developer a screenshot or recording: copies the file (never moves it) into
+   * `.progressor/pictures/<goal>/` under a safe name (p3.png) and lists it. `source` is a path,
+   * absolute or from the project root.
+   */
+  attachPicture(source: string, caption: string, about: { task?: string; handTest?: string } = {}, goalId?: string): Picture {
+    const { goal, plan } = this.requireClaim(goalId);
+    const words = cutText(caption, MAX_CAPTION);
+    if (!words) throw new Error("A picture needs a caption: say in a few words what it shows.");
+    if (about.task && !plan.task(about.task)) throw new Error(`No step ${about.task} in Goal ${goal.id}.`);
+    if (about.handTest && !plan.handTest(about.handTest)) throw new Error(`No hand test ${about.handTest} in Goal ${goal.id}.`);
+    const from = isAbsolute(source) ? source : resolve(this.root, source);
+    const ext = extname(from).toLowerCase();
+    const type = PICTURE_TYPES[ext];
+    if (!type) throw new Error(`${ext || "That file"} cannot be attached; use ${Object.keys(PICTURE_TYPES).join(", ")}.`);
+    let size: number;
+    try {
+      const info = statSync(from);
+      if (!info.isFile()) throw new Error("not a file");
+      size = info.size;
+    } catch {
+      throw new Error(`There is no file at ${from}.`);
+    }
+    if (size > MAX_PICTURE_BYTES) throw new Error(`That file is ${Math.ceil(size / 1024 / 1024)} MB; the limit is ${MAX_PICTURE_BYTES / 1024 / 1024} MB.`);
+    const list = this.pictures(goal.id);
+    const next = list.reduce((n, p) => Math.max(n, Number(/^p(\d+)$/.exec(p.id)?.[1] ?? 0)), 0) + 1;
+    const picture: Picture = { id: `p${next}`, file: `p${next}${ext}`, caption: words, kind: type.kind, addedAt: this.now().toISOString() };
+    if (about.task) picture.task = about.task;
+    if (about.handTest) picture.handTest = about.handTest;
+    this.ignoreLocal(PICTURES_DIR, "Screenshots and recordings your AI shows you stay on this computer");
+    const dir = this.path(PICTURES_DIR, goal.id);
+    mkdirSync(dir, { recursive: true });
+    copyFileSync(from, join(dir, picture.file));
+    this.writeText(join(dir, "index.json"), `${JSON.stringify([...list, picture], null, 2)}\n`);
+    return picture;
+  }
+
+  /** Takes a picture back: removes its entry and its stored file. */
+  removePicture(id: string, goalId?: string): Picture {
+    const { goal } = this.requireClaim(goalId);
+    const list = this.pictures(goal.id);
+    const picture = list.find((p) => p.id === id);
+    if (!picture) throw new Error(`No picture ${id} in Goal ${goal.id}.`);
+    this.writeText(this.path(PICTURES_DIR, goal.id, "index.json"), `${JSON.stringify(list.filter((p) => p !== picture), null, 2)}\n`);
+    rmSync(this.path(PICTURES_DIR, goal.id, picture.file), { force: true });
+    return picture;
   }
 
   private saveRoadmap(roadmap: Roadmap): void {

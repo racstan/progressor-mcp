@@ -507,3 +507,18 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .side-group .fold-row .linkbtn { padding: 4px 8px; white-space: nowrap; }
 .choice button { white-space: nowrap; }
 .steps-foot { align-items: center; flex-wrap: wrap; }
+
+/* pictures your AI attached: thumbnails in a row, and a viewer over the page */
+.pictures { list-style: none; margin: var(--s3) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s3); }
+.picture { display: flex; flex-direction: column; gap: var(--s1); width: 160px; padding: 0; border: none; background: none; color: var(--ink); text-align: left; cursor: zoom-in; font: inherit; }
+.picture .frame { position: relative; display: block; width: 160px; height: 100px; border: var(--heavy); background: var(--panel2); overflow: hidden; transition: box-shadow .18s var(--ease), transform .18s var(--ease); }
+.picture img, .picture video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.picture .play { position: absolute; right: var(--s2); bottom: var(--s2); width: 32px; height: 32px; border-radius: 50%; background: var(--ink); color: var(--bg); display: flex; align-items: center; justify-content: center; }
+.picture .caption { font-size: var(--t-s); color: var(--muted); overflow-wrap: anywhere; }
+.picture:hover .frame { box-shadow: var(--lift); transform: translate(-2px, -2px); }
+.viewer { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, .86); display: flex; align-items: center; justify-content: center; padding: var(--s6); animation: fade .2s var(--ease) both; }
+.viewer figure { margin: 0; max-width: 100%; max-height: 100%; display: flex; flex-direction: column; align-items: center; gap: var(--s3); animation: pop .22s var(--ease) both; }
+.viewer img, .viewer video { max-width: 100%; max-height: calc(100vh - 140px); display: block; border: var(--heavy); background: #000; }
+.viewer figcaption { color: #f2f2f0; font-size: var(--t-m); text-align: center; max-width: 80ch; overflow-wrap: anywhere; }
+.viewer-close { position: absolute; top: var(--s4); right: var(--s4); width: 40px; height: 40px; border-radius: 50%; border: 2px solid #f2f2f0; background: #0b0b0b; color: #f2f2f0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.viewer-close:hover { background: #f2f2f0; color: #0b0b0b; }

@@ -20,6 +20,7 @@ const PATHS = {
   moon: "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z",
   note: "M5 4h14v12l-4 4H5zM15 20v-4h4M8 9h8M8 13h5",
   pin: "M12 21v-6M7 4h10l-2 6 3 3H6l3-3z",
+  play: "M8 5v14l11-7z",
   flag: "M5 21V4M5 4h11l-2 4 2 4H5",
 } as const;
 

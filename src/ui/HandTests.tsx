@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { type GoalView, type HandMark, markHandTest } from "./data.js";
 import { Icon } from "./Icon.js";
+import { type PictureItem, Pictures } from "./Pictures.js";
 import { RichText } from "./RichText.js";
 import { HAND_WORD, handTestsLine } from "./words.js";
 
@@ -9,7 +10,7 @@ type Test = GoalView["handTests"][number];
 interface Props {
   projectId: string;
   goalId: string;
-  view: Pick<GoalView, "handTests" | "graph">;
+  view: Pick<GoalView, "handTests" | "graph" | "pictures">;
   /** Loads the plan again now, so a mark shows before the server's change notice arrives. */
   onChanged: () => void;
 }
@@ -20,12 +21,15 @@ function stepTitle(view: Props["view"], id: string | undefined): string | undefi
   return node?.title;
 }
 
+/** The pictures attached to a thing to try. */
+const picturesOf = (view: Props["view"], id: string | undefined): PictureItem[] => view.pictures.filter((p) => p.handTest === id);
+
 /** The things to try not marked yet, for where the goal says what needs the person. */
 export function UntriedTests({ projectId, goalId, view, onChanged }: Props) {
   return (
     <>
       {view.handTests.filter((t) => t.result === "pending").map((t) => (
-        <Item key={t.id} test={t} about={stepTitle(view, t.task)} added={undefined} projectId={projectId} goalId={goalId} onChanged={onChanged} needs />
+        <Item key={t.id} test={t} about={stepTitle(view, t.task)} added={undefined} pictures={picturesOf(view, t.id)} projectId={projectId} goalId={goalId} onChanged={onChanged} needs />
       ))}
     </>
   );
@@ -44,14 +48,14 @@ export function HandTests({ projectId, goalId, view, onChanged }: Props) {
       <h3>Things to try by hand <span className="quiet">· {handTestsLine(tests)}</span></h3>
       <ul className="hand-list">
         {tests.map((t) => (
-          <Item key={t.id} test={t} about={stepTitle(view, t.task)} added={stepTitle(view, t.taskAdded)} projectId={projectId} goalId={goalId} onChanged={onChanged} />
+          <Item key={t.id} test={t} about={stepTitle(view, t.task)} added={stepTitle(view, t.taskAdded)} pictures={picturesOf(view, t.id)} projectId={projectId} goalId={goalId} onChanged={onChanged} />
         ))}
       </ul>
     </section>
   );
 }
 
-function Item({ test, about, added, projectId, goalId, onChanged, needs }: { test: Test; about: string | undefined; added: string | undefined; needs?: boolean } & Pick<Props, "projectId" | "goalId" | "onChanged">) {
+function Item({ test, about, added, pictures, projectId, goalId, onChanged, needs }: { test: Test; about: string | undefined; added: string | undefined; pictures: PictureItem[]; needs?: boolean } & Pick<Props, "projectId" | "goalId" | "onChanged">) {
   const [busy, setBusy] = useState(false);
   const [asking, setAsking] = useState(false);
   const [note, setNote] = useState("");
@@ -78,6 +82,7 @@ function Item({ test, about, added, projectId, goalId, onChanged, needs }: { tes
       {needs && <div className="kind">Try this by hand</div>}
       <RichText className="text" text={test.text} />
       {about && <div className="about">About the step: {about}</div>}
+      <Pictures pictures={pictures} />
       {marked ? (
         <div className="result">
           <span className="badge">{HAND_WORD[test.result]}</span>

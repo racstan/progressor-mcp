@@ -5,6 +5,7 @@ import type { GoalSchedule } from "../schedule.js";
 import { type GoalView, type RoadmapView, useStored } from "./data.js";
 import { GoalNotes } from "./GoalNotes.js";
 import { HandTests, UntriedTests } from "./HandTests.js";
+import { Pictures } from "./Pictures.js";
 import { progressWords } from "./home.js";
 import { Icon } from "./Icon.js";
 import { Choice } from "./Menus.js";
@@ -65,7 +66,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
   const selectedNode = selected ? graph.nodes.find((n) => n.id === selected.key) : undefined;
   const props = { projectId, goalId: goal.id, view, onChanged };
   const said = view.messages.length + view.questions.filter((q) => q.state === "answered").length;
-  const notes = view.decisions.length + view.notes.filter((n) => !n.resolved).length + view.handTests.length;
+  const notes = view.decisions.length + view.notes.filter((n) => !n.resolved).length + view.handTests.length + view.pictures.length;
 
   return (
     <div className="page">
@@ -151,6 +152,12 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
         {tab === "notes" && (
           notes === 0 && view.notes.length === 0 ? <p className="quiet">Nothing yet. Your AI keeps its decisions here, and anything it notices along the way.</p> : (
             <>
+              {view.pictures.length > 0 && (
+                <section className="notes-block">
+                  <h3>Pictures <span className="quiet">· {view.pictures.length}</span></h3>
+                  <Pictures pictures={view.pictures} />
+                </section>
+              )}
               <HandTests {...props} />
               <GoalNotes view={view} goals={goals} />
             </>

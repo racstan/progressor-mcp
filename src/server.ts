@@ -28,7 +28,7 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 6. When every Task is done, released or dropped and the Outcome is true, call complete_goal and tell the Developer in one sentence.
 7. Talk to the Developer in everyday words: say "step" for Task and "side trip" for Detour, and leave out tool names, IDs and the files in .progressor/. Give them the dashboard link from get_status at the start of a conversation and when a Goal is finished.
 8. A lasting rule from the Developer ("always...", "never...") is saved with add_standing_instruction (update_standing_instruction changes or removes one); a rule that must never be broken (they say "never", "this is a hard rule") with hard: true. update_context keeps the project's short Important context page; add_decision records a choice that is not a project rule; add_note records something that belongs to a Goal instead of fixing it now.
-9. Anything only the Developer can try by hand goes in add_hand_test, not in your chat summary.
+9. Anything only the Developer can try by hand goes in add_hand_test, not in your chat summary. Show them a screenshot or screen recording with attach_picture instead of naming a file.
 10. The Developer can write to you on the dashboard: their messages and answers arrive at the end of your next Progressor reply under "New from the Developer". Act on each message as their instruction and answer with reply_to_developer (whole_project: true for a message to the whole project). For a product or UX choice, use ask_developer with 2 to 4 short choices instead of stopping in the chat.
 11. When you brief a helper agent, paste in the block from get_rules: helpers don't see the Standing Instructions. Before starting something only one can use at a time (a dev window, a port), call claim_resource; release_resource when done.
 12. Work that belongs to another project using Progressor goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it.`;
@@ -1204,6 +1204,31 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       respondIn(undefined, () => {
         const h = project.addHandTest(text, goal, task);
         return withNow(`Saved hand test ${h.id}: ${h.text}\nThe Developer marks it on the dashboard.`);
+      }),
+  );
+
+  server.registerTool(
+    "attach_picture",
+    {
+      title: "Attach picture",
+      description:
+        "Show the Developer a screenshot or a short screen recording on the dashboard instead of naming a file in chat. It is copied (not moved) next to the plan, stays on this computer and out of git, and appears on the Goal, on the step or on the hand test you name; the Developer clicks it to enlarge. Allowed: .png .jpg .jpeg .webp .gif and .webm .mp4, up to 10 MB, with a short caption. To take one back, pass remove with its ID (such as 'p2') instead.",
+      inputSchema: {
+        goal: heldGoal,
+        path: z.string().optional().describe("The file's path, absolute or from the project's folder."),
+        caption: z.string().optional().describe("What it shows, in a few plain words (up to 200 characters)."),
+        task: z.string().optional().describe("The ID of the Task it is about, such as 't3'."),
+        hand_test: z.string().optional().describe("The ID of the hand test it is about, such as 'h2'."),
+        remove: z.string().optional().describe("The ID of a picture to remove (such as 'p2'), instead of attaching one."),
+      },
+    },
+    ({ goal, path, caption, task, hand_test, remove }) =>
+      respondIn(undefined, () => {
+        if (remove) return withNow(`Removed picture ${project.removePicture(remove, goal).id}.`);
+        if (!path) throw new Error("Give the file's path and a caption, or remove with a picture ID.");
+        const p = project.attachPicture(path, caption ?? "", { task, handTest: hand_test }, goal);
+        const where = p.task ? `step ${p.task}` : p.handTest ? `hand test ${p.handTest}` : "the Goal";
+        return withNow(`Attached ${p.id} to ${where}: ${p.caption}. The Developer sees it on the dashboard.`);
       }),
   );
 

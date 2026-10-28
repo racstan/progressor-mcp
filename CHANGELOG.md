@@ -32,6 +32,12 @@ Some things only you can test. Your AI now keeps them in a list on the goal inst
 - **Your AI sees your marks.** `get_status` lists what is still to try and, once, the new marks, failures with your note first; hand tests also show in `get_item` and in Claude Code's session-start status. A goal can't be completed while something is still to try, unless your AI is told to finish anyway (`unmarked_hand_tests_ok`).
 - **In the files:** a `## Hand tests` section (`[ ]` not tried, `[x]` works, `[/]` doesn't work, `[-]` won't test) with `task`, `note`, `marked`, `task added` and `seen` lines, and a `from hand test` line on the added step. Plans from before keep working unchanged. See [the format](docs/markdown-format.md#hand-tests).
 
+### Pictures on the dashboard
+
+- **Your AI can show you a screenshot or a short screen recording** instead of naming a file in the chat. It appears as a small picture under the step or the thing to try that it is about, and in a *Pictures* list at the top of the goal's Notes tab. Click one to see it large; press Escape, click outside it or use the close button to go back. Recordings have play controls.
+- **Pictures stay on this computer and out of git.** They are copied into `.progressor/pictures/`, and Progressor adds that folder to `.progressor/.gitignore` for you, as it does for your conversations. Your original file is not moved or changed.
+- **Limits.** Pictures (`.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`) and recordings (`.webm`, `.mp4`) up to 10 MB each, each with a short caption. Your AI can also take a picture back. In the plan's files: `.progressor/pictures/<goal>/`, with an `index.json` listing them.
+
 ### Talk with your AI from the dashboard
 
 You can now write to your AI from the dashboard, and your AI can ask you things there instead of stopping in the chat.

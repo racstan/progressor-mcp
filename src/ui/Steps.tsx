@@ -4,6 +4,7 @@ import { parseCodeRef } from "../dashboard/editor.js";
 import { copyAsPrompt } from "../dashboard/prompt.js";
 import type { GoalView } from "./data.js";
 import { Icon } from "./Icon.js";
+import { type PictureItem, Pictures } from "./Pictures.js";
 import { RichText } from "./RichText.js";
 import { plainText } from "./text.js";
 import { checklistRows } from "./views.js";
@@ -53,7 +54,7 @@ export function Steps({ view, fileLink, onCopy }: { view: GoalView; fileLink: Fi
       <ol className="steps" aria-label="Steps in order">
         {rows.flatMap((row) => [
           ...(row.task && (cancelled || row.task.status !== "dropped")
-            ? [<Step key={row.task.id} task={row.task} open={open.has(row.task.id)} onToggle={() => toggle(row.task!.id)} fileLink={fileLink} onCopy={() => copy(row.task!)} />]
+            ? [<Step key={row.task.id} task={row.task} open={open.has(row.task.id)} onToggle={() => toggle(row.task!.id)} pictures={view.pictures.filter((p) => p.task === row.task!.id)} fileLink={fileLink} onCopy={() => copy(row.task!)} />]
             : []),
           ...row.detours.map((d) => <SideTrip key={d.id} detour={d} open={open.has(d.id)} onToggle={() => toggle(d.id)} onCopy={() => copy(d)} />),
         ])}
@@ -69,7 +70,7 @@ export function Steps({ view, fileLink, onCopy }: { view: GoalView; fileLink: Fi
   );
 }
 
-function Step({ task: t, open, onToggle, fileLink, onCopy }: { task: TaskNode; open: boolean; onToggle: () => void; fileLink: FileLink; onCopy: () => void }) {
+function Step({ task: t, open, onToggle, pictures, fileLink, onCopy }: { task: TaskNode; open: boolean; onToggle: () => void; pictures: PictureItem[]; fileLink: FileLink; onCopy: () => void }) {
   const elsewhere = elsewhereTag(t.updatedFrom);
   const meta = [stepTime(t), helperLine(t.helper), t.fromDetour && "Added after a side trip", elsewhere?.label].filter(Boolean).join(" · ");
   const cls = t.status === "in progress" ? "now" : t.status === "waiting on you" ? "you" : statusClass(t.status);
@@ -94,6 +95,7 @@ function Step({ task: t, open, onToggle, fileLink, onCopy }: { task: TaskNode; o
               })}
             </div>
           )}
+          <Pictures pictures={pictures} />
           <div className="actions">
             <button className="btn ghost small" onClick={onCopy} title="Copies a description of this step to paste into your AI chat"><Icon name="copy" size={14} /> Copy for your AI</button>
           </div>
