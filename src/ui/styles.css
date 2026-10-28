@@ -652,7 +652,7 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s3); margin-top: var(--s5); }
 .stat-tile { padding: var(--s4); background: var(--panel); border: 2px solid var(--line-strong); border-radius: var(--r); animation: rise .3s var(--ease) backwards; }
 .stat-tile:nth-child(2) { animation-delay: 40ms; } .stat-tile:nth-child(3) { animation-delay: 80ms; } .stat-tile:nth-child(4) { animation-delay: 120ms; }
-.stat-tile .v { font-size: 28px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat-tile .v { font-size: clamp(20px, 2.2vw, 28px); white-space: nowrap; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .stat-tile .l { margin-top: var(--s1); font-weight: 600; }
 .stat-tile .s { font-size: var(--t-s); color: var(--muted); }
 .stat-lead { margin: 0 0 var(--s2); }

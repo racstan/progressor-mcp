@@ -15,6 +15,10 @@ The dashboard is no longer only for watching. You can write to your AI and answe
 
 - **The dashboard says when the page is out of date.** If Progressor was updated after you opened the page, or the page has been out of touch with Progressor for a minute, a bar at the bottom says so, with a **Refresh** button. It goes away by itself once things are back to normal.
 
+### A new README
+
+- **The README shows the dashboard as it is now**: a new demo video and GIF, and screenshots of every part (steps, the map, Needs you, Conversation, Statistics, Project notes, Home and the themes), from a sample project that `scripts/demo.mjs` records.
+
 ### Fixes
 
 - **The Finished group in the sidebar closes again.** While you were looking at a finished goal, clicking Finished did nothing. Now it closes, and stays closed until you open it or look at another finished goal.
