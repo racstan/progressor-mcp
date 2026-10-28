@@ -31,6 +31,14 @@ Open your project's folder in the app, or set `PROGRESSOR_ROOT` to your project'
 
 > **Ask your AI:** *"Progressor says it won't start a plan in this folder. Set PROGRESSOR_ROOT for the progressor server in this app's MCP settings to this project's folder, then tell me to restart the app."*
 
+## "… could not be read as a Progressor plan"
+
+One of the plan's files, usually `.progressor/roadmap.md` (your goals) or a goal's file in `.progressor/goals/`, has text in it that Progressor can't make sense of. This happens when it is pasted over or edited by hand. Progressor stops instead of treating it as empty, so that nothing is lost, and it does not change the file.
+
+If the project uses git, restore the file with the command in the message, for example `git checkout -- .progressor/roadmap.md`, or fix the text yourself (a roadmap needs a `## Goals` section, a goal's file a `## Tasks` section). Then ask your AI to try again.
+
+> **Ask your AI:** *"Progressor says a plan file could not be read. Look at that file, tell me what's wrong with it, and don't change it until I say so."*
+
 ## The plan is in the wrong folder
 
 Every `get_status` ends with a `Project folder:` line. If it isn't your project, see the previous answer: open the project's folder in the app, or set `PROGRESSOR_ROOT`.
