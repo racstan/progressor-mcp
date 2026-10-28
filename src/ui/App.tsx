@@ -135,7 +135,7 @@ export function App() {
   useEffect(() => {
     if (roadmapIsProjects && !visited) setSeen(seenOnFirstVisit(goals));
   }, [roadmapIsProjects, visited, goals, setSeen]);
-  const grouped = groupGoals(goals, { finished: finished ?? "review", seen: visited ? seen : seenOnFirstVisit(goals), hidden });
+  const grouped = groupGoals(goals, { finished: finished ?? "auto", seen: visited ? seen : seenOnFirstVisit(goals), hidden });
   // Without a pick, the Goal on screen stays on screen as the plan changes; the default is chosen once per project.
   const shownBefore = useRef<{ project: string | undefined; goal: string | undefined }>({ project: undefined, goal: undefined });
   const kept = shownBefore.current.project === projectId ? shownBefore.current.goal : undefined;
@@ -335,6 +335,10 @@ export function App() {
     if (which === "settings") reloadServers();
   };
   const unanswered = (roadmap?.projectTalk?.messages ?? []).filter((m) => m.state !== "replied").length;
+  const clearFinished = (list: Goal[]) => {
+    setHidden(hideAll(hidden, list.map((g) => g.id)));
+    toast(`Cleared ${list.length} finished ${list.length === 1 ? "goal" : "goals"}. The plan keeps them; find them under Hidden.`);
+  };
   const freshGoals = grouped.open.filter((g) => grouped.fresh.has(g.id));
   const doneShown = !!doneOpen || grouped.done.some((g) => g.id === effectiveGoal);
 
@@ -443,12 +447,12 @@ export function App() {
           <section>
             <h3>Finished goals</h3>
             <label className="option">
-              <input type="radio" name="finished" checked={finished !== "auto"} onChange={() => setFinished(undefined)} />
-              <span><b>Wait for me to look</b><small>A finished goal stays under Just finished until you open it.</small></span>
+              <input type="radio" name="finished" checked={finished !== "review"} onChange={() => setFinished(undefined)} />
+              <span><b>Move to Finished straight away</b><small>Finished goals fold away as soon as they finish. The usual choice.</small></span>
             </label>
             <label className="option">
-              <input type="radio" name="finished" checked={finished === "auto"} onChange={() => setFinished("auto")} />
-              <span><b>Move to Finished straight away</b><small>Finished goals fold away as soon as they finish.</small></span>
+              <input type="radio" name="finished" checked={finished === "review"} onChange={() => setFinished("review")} />
+              <span><b>Wait for me to look</b><small>A finished goal stays under Just finished until you open it.</small></span>
             </label>
           </section>
           <details className="advanced">
@@ -542,25 +546,22 @@ export function App() {
               ))}
               {freshGoals.length > 0 && (
                 <div className="side-group">
-                  <h3>Just finished</h3>
+                  <h3>Just finished <button className="linkbtn" title="Clears these from the list. The plan keeps them; find them under Hidden." onClick={() => clearFinished(freshGoals)}>Clear all</button></h3>
                   {freshGoals.map((g) => goalRow(g))}
                 </div>
               )}
               {grouped.done.length > 0 && (
                 <div className="side-group">
-                  <button className="fold" aria-expanded={doneShown} onClick={() => setDoneOpen(doneShown ? undefined : "1")}>
-                    <Icon name={doneShown ? "chevronDown" : "chevronRight"} size={14} /> Finished <span className="n">{grouped.done.length}</span>
-                  </button>
-                  {doneShown && grouped.done.map((g) => goalRow(g))}
-                  {doneShown && (
-                    <button className="linkbtn" style={{ padding: "4px 8px" }} title="Hide every finished goal from this list. The plan keeps them; find them under Hidden."
-                      onClick={() => {
-                        setHidden(hideAll(hidden, grouped.done.map((g) => g.id)));
-                        toast(`Hidden ${grouped.done.length} finished ${grouped.done.length === 1 ? "goal" : "goals"}. Find them under Hidden.`);
-                      }}>
-                      Hide all finished
+                  <div className="fold-row">
+                    <button className="fold" aria-expanded={doneShown} onClick={() => setDoneOpen(doneShown ? undefined : "1")}>
+                      <Icon name={doneShown ? "chevronDown" : "chevronRight"} size={14} /> Finished <span className="n">{grouped.done.length}</span>
                     </button>
-                  )}
+                    <button className="linkbtn" title="Clears every finished goal from this list. The plan keeps them; find them under Hidden."
+                      onClick={() => clearFinished(grouped.done)}>
+                      Clear all
+                    </button>
+                  </div>
+                  {doneShown && grouped.done.map((g) => goalRow(g))}
                 </div>
               )}
               {grouped.hidden.length > 0 && (
