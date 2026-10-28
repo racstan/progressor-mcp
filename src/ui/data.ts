@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GoalView, InfoView, OverviewView, RoadmapView, SearchView, ServersView } from "../dashboard/http.js";
+import type { GoalView, InfoView, OverviewView, RoadmapView, SearchView, ServersView, StatsView } from "../dashboard/http.js";
 import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
 import { newestOnly, sharedEvents } from "./liveEvents.js";
 import { type Staleness, pageStaleness } from "./stale.js";
 
-export type { GoalView, InfoView, OverviewView, ProjectEntry, RoadmapView, SearchView, ServersView, WorkspaceEntry };
+export type { GoalView, InfoView, OverviewView, ProjectEntry, RoadmapView, SearchView, ServersView, StatsView, WorkspaceEntry };
 export type Connection = "connecting" | "live" | "reconnecting";
 
 /** The page's one live connection to the server (liveEvents.ts). */
@@ -360,4 +360,22 @@ export function usePageStaleness(info: InfoView | undefined, connection: Connect
     return () => clearInterval(timer);
   }, []);
   return pageStaleness({ openedWith: opened.current, serverBuild: info?.build, lostSince, now });
+}
+
+/**
+ * A project's statistics, fetched again whenever `version` changes (the page passes the roadmap it
+ * shows, which is loaded again on every change); undefined while loading, null when it failed.
+ */
+export function useStats(projectId: string, version: unknown): StatsView | null | undefined {
+  const [stats, setStats] = useState<{ projectId: string; stats: StatsView | null }>();
+  useEffect(() => {
+    let alive = true;
+    getJson<StatsView>(`/api/projects/${encodeURIComponent(projectId)}/stats`)
+      .then((s) => alive && setStats({ projectId, stats: s ?? null }))
+      .catch(() => alive && setStats({ projectId, stats: null }));
+    return () => {
+      alive = false;
+    };
+  }, [projectId, version]);
+  return stats?.projectId === projectId ? stats.stats : undefined;
 }
