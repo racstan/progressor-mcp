@@ -57,6 +57,25 @@ export interface Task {
   timingSince?: string;
   /** Set when the Task was last added or changed from another project. */
   updatedFrom?: Origin;
+  /** Where the helper's work is: its branch, its worktree folder and a label (such as the model). Kept after the Task is done. */
+  helper?: HelperInfo;
+  /** A short note on what was checked ("715 passed, live send OK"), written when the Task is checked. */
+  evidence?: string;
+  /** When the Task became checked (an ISO time), while it still is. */
+  checkedSince?: string;
+}
+
+/** Where a helper agent's work on a Task is; every part is optional. */
+export interface HelperInfo {
+  branch?: string;
+  folder?: string;
+  label?: string;
+}
+
+/** What can go with a state change: helper info with "with a helper", evidence with "checked". */
+export interface StateExtras {
+  helper?: HelperInfo;
+  evidence?: string;
 }
 
 export interface Detour {
@@ -136,6 +155,11 @@ export function timeSpent(t: Pick<Task, "spent" | "timingSince">, now: Date): nu
 export const ESTIMATE = "estimate";
 const SPENT = "time spent";
 const SINCE = "timing since";
+const HELPER = "helper";
+const HELPER_BRANCH = "helper branch";
+const HELPER_FOLDER = "helper folder";
+const EVIDENCE = "evidence";
+const CHECKED_SINCE = "checked since";
 
 function taskStatus(b: ItemBlock): TaskStatus {
   const marked = TASK_STATUS[b.marker!];
@@ -158,6 +182,20 @@ function withTime(b: ItemBlock): { estimate?: number; spent: number; timingSince
     ...(estimate !== undefined ? { estimate } : {}),
     spent: parseDuration(getDetail(b, SPENT) ?? "") ?? 0,
     ...(since ? { timingSince: since } : {}),
+  };
+}
+
+/** A Task's helper info and evidence, from its `helper`, `helper branch`, `helper folder`, `evidence` and `checked since` lines. */
+function withHelper(b: ItemBlock): { helper?: HelperInfo; evidence?: string; checkedSince?: string } {
+  const label = getDetail(b, HELPER);
+  const branch = getDetail(b, HELPER_BRANCH);
+  const folder = getDetail(b, HELPER_FOLDER);
+  const evidence = getDetail(b, EVIDENCE);
+  const since = getDetail(b, CHECKED_SINCE);
+  return {
+    ...(label || branch || folder ? { helper: { ...(branch ? { branch } : {}), ...(folder ? { folder } : {}), ...(label ? { label } : {}) } } : {}),
+    ...(evidence ? { evidence } : {}),
+    ...(since ? { checkedSince: since } : {}),
   };
 }
 
@@ -185,7 +223,7 @@ export interface TaskChanges {
 }
 
 /** Known Task details come first, in this order, when a Task is rewritten; unknown ones follow as they were. */
-const DETAIL_ORDER = ["state", "summary", "code", ESTIMATE, SPENT, SINCE, "moved from", "added by", "dropped by", "reason", ORIGIN_KEY];
+const DETAIL_ORDER = ["state", "summary", "code", HELPER, HELPER_BRANCH, HELPER_FOLDER, EVIDENCE, CHECKED_SINCE, ESTIMATE, SPENT, SINCE, "moved from", "added by", "dropped by", "reason", ORIGIN_KEY];
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 
 function sortDetails(b: ItemBlock): void {
@@ -242,6 +280,7 @@ export class PlanFile {
       droppedBy: stripRef(getDetail(b, "dropped by")),
       reason: getDetail(b, "reason"),
       ...withTime(b),
+      ...withHelper(b),
       ...withOrigin(b),
     }));
   }
@@ -356,6 +395,11 @@ export class PlanFile {
     if (from.estimate !== undefined) addDetail(b, ESTIMATE, formatDuration(from.estimate));
     if (from.spent > 0) addDetail(b, SPENT, formatDuration(from.spent));
     if (from.timingSince) addDetail(b, SINCE, from.timingSince);
+    if (from.helper?.label) addDetail(b, HELPER, from.helper.label);
+    if (from.helper?.branch) addDetail(b, HELPER_BRANCH, from.helper.branch);
+    if (from.helper?.folder) addDetail(b, HELPER_FOLDER, from.helper.folder);
+    if (from.evidence) addDetail(b, EVIDENCE, from.evidence);
+    if (from.checkedSince) addDetail(b, CHECKED_SINCE, from.checkedSince);
     addDetail(b, "moved from", movedFrom);
     appendToSection(this.doc, TASKS, [b]);
     if (anchor) {
@@ -369,7 +413,7 @@ export class PlanFile {
    * Sets a Task's checkbox, and its `state` line for the states that need one. Its clock starts when it
    * enters a timed state and stops, adding the stretch to its time spent, when it leaves them.
    */
-  setTaskStatus(id: string, status: TaskStatus): void {
+  setTaskStatus(id: string, status: TaskStatus, extras: StateExtras = {}): void {
     const b = this.taskBlock(id);
     const since = getDetail(b, SINCE);
     if (TIMED.includes(status)) {
@@ -381,6 +425,15 @@ export class PlanFile {
     }
     b.marker = TASK_MARKER[status];
     setDetail(b, "state", STATE_LINE.includes(status) ? status : undefined);
+    // Helper info stays for good: it is how a branch left behind is found. Evidence stays through done
+    // and released, but a Task sent back to work no longer has a check behind it.
+    const { helper } = extras;
+    if (helper?.label?.trim()) setDetail(b, HELPER, oneLine(helper.label));
+    if (helper?.branch?.trim()) setDetail(b, HELPER_BRANCH, oneLine(helper.branch));
+    if (helper?.folder?.trim()) setDetail(b, HELPER_FOLDER, oneLine(helper.folder));
+    if (extras.evidence?.trim()) setDetail(b, EVIDENCE, oneLine(extras.evidence));
+    else if (!["checked", "done", "released"].includes(status)) setDetail(b, EVIDENCE, undefined);
+    setDetail(b, CHECKED_SINCE, status === "checked" ? (getDetail(b, CHECKED_SINCE) ?? this.now().toISOString()) : undefined);
     sortDetails(b);
   }
 

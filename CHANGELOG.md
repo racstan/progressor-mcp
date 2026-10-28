@@ -2,6 +2,12 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## Unreleased
+
+- **Where a helper's work is.** When your AI hands a step to a helper, it can record the helper's branch, folder and a label (such as the model). They show on the step in the dashboard and in your AI's status, and are kept after the step is done. If a finished step's branch still holds work that was never merged, or a step has sat in *Checked* for more than a day, your AI's status warns about it. In the plan's files: `helper`, `helper branch`, `helper folder` lines, plus `checked since`.
+- **What was checked.** When your AI marks a step *Checked* it can add one short line on what it checked, such as *715 passed, live send OK*. It shows on the step in the dashboard and in your AI's status. In the files: an `evidence` line. The tool descriptions ask your AI to give it.
+- Plans from before keep working unchanged.
+
 ## 0.9.0 · How long things take, and not too much at once
 
 Your AI now says how long it expects each step to take, keeps track of how long it really took, and keeps to a limit on how many helpers work at once, so a big push doesn't overload your computer or leave more work to check and merge than your AI can keep up with.

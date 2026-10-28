@@ -7,7 +7,7 @@ import { resolveProject, sameFolder, seenFile, takeElsewhereLine } from "./elsew
 import { launchFor, startedViaNpx } from "./init.js";
 import { withLock } from "./lock.js";
 import { parseDuration, roughDuration, sayDuration, timeText } from "./estimate.js";
-import { type Decision, type Detour, type NewTask, type Note, type Task, type TaskStatus, TIMED, timeSpent } from "./planFile.js";
+import { type Decision, type Detour, type HelperInfo, type NewTask, type Note, type Task, type TaskStatus, TIMED, timeSpent } from "./planFile.js";
 import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, type Project, type SessionStatus, type Status, type TaskOperation } from "./project.js";
 import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
 import { type Goal, type StandingInstruction, hardFirst, helperLimit, ruleText } from "./roadmap.js";
@@ -19,7 +19,7 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 
 1. First thing in every conversation, and again after your context is compressed or summarised, call get_status. Follow the Standing Instructions it lists.
 2. No Goal claimed? If get_status says one Goal is paused, claim it and carry on. When the Developer asks for work no Goal covers, plan it yourself as a Goal: a short title, an Outcome (one sentence on what done looks like) and Tasks, each with a short title, the files it touches, a one-line summary of the change and an estimate of how long it takes ("45m", "2h"). Tell the Developer the plan in a few plain lines, then call add_goal with claim: true. A quick question needs no Goal.
-3. Before you change code for a Task, call start_task; call complete_task when it is done, with the files you touched. Keep summaries true with update_task, and drop_task what is no longer needed. You work on one Task of a Goal at a time; set_task_state records the rest: "with a helper" when you hand a Task to a helper agent (several can be), "waiting on you" when you need the Developer (to test something by hand, to decide; tell them what you need), "checked" once you have checked a helper's work (tests, review) but it is not merged yet, and "released" once it is merged and out (shipped, installed, published). If get_status shows a helper limit, keep at most that many Tasks with a helper at once: hand out the next one when one comes back. When you learn a Task will take longer or shorter than its estimate, update the estimate. Record each change as it happens, not all at the end, so the dashboard keeps moving while helpers work: "checked" as soon as you have checked a helper's work, "released" as soon as it is merged (changes that happen together still go in one update_tasks call).
+3. Before you change code for a Task, call start_task; call complete_task when it is done, with the files you touched. Keep summaries true with update_task, and drop_task what is no longer needed. You work on one Task of a Goal at a time; set_task_state records the rest: "with a helper" when you hand a Task to a helper agent (several can be; pass its helper_branch, helper_folder and helper_label so a branch left behind can be found), "waiting on you" when you need the Developer (to test something by hand, to decide; tell them what you need), "checked" once you have checked a helper's work (tests, review; give evidence, a short line such as \"715 passed, live send OK\") but it is not merged yet, and "released" once it is merged and out (shipped, installed, published). If get_status shows a helper limit, keep at most that many Tasks with a helper at once: hand out the next one when one comes back. When you learn a Task will take longer or shorter than its estimate, update the estimate. Record each change as it happens, not all at the end, so the dashboard keeps moving while helpers work: "checked" as soon as you have checked a helper's work, "released" as soon as it is merged (changes that happen together still go in one update_tasks call).
 3a. You can hold several Goals at once, for instance with helper agents on different Goals: claim each one. While you hold more than one, pass goal (the Goal ID) to the tools that change a Goal.
 3b. To change several Tasks at once (complete two and start the next), make one update_tasks call with a list of operations, applied in order and all or nothing; it costs far fewer tokens than one call each. A Task that belongs in another Goal moves there with move_task, which keeps its title, summary, files and state.
 4. About to change code for something that is not the current Task (an unrelated bug, a missing prerequisite, a change of plan)? Call start_detour with the reason first. When it is done, call end_detour: "merge back" for a small fix, "return" to go back to the plan (adding Tasks for any work left), or "recalibrate" to replace the remaining Tasks with a new list.
@@ -80,6 +80,14 @@ const heldGoal = z
   .string()
   .optional()
   .describe("The claimed Goal's ID, such as 'ship-oauth-login'. Needed only when this Session holds several Goals.");
+const helperBranch = z.string().max(200).optional().describe("With state 'with a helper': the git branch the helper works on, such as 'feat/export'. Recorded so a branch left behind can be found later.");
+const helperFolder = z.string().max(500).optional().describe("With state 'with a helper': the helper's worktree folder (its path).");
+const helperLabel = z.string().max(100).optional().describe("With state 'with a helper': a label for the helper, such as the model it runs on ('Sonnet').");
+const evidence = z
+  .string()
+  .max(300)
+  .optional()
+  .describe("With state 'checked': one short line on what you checked, such as '715 passed, live send OK'. Give it: the Developer sees it on the dashboard step.");
 const taskId = z.string().describe("The Task ID, such as 't3'.");
 const states = ["pending", "in progress", "with a helper", "waiting on you", "checked", "done", "released"] as const satisfies readonly TaskStatus[];
 const helpersAtOnce = z
@@ -110,9 +118,21 @@ const summaryLine = (t: Task | undefined) => (t?.summary ? [`  Summary: ${t.summ
 const noteText = (n: Note) => `${n.id} ${n.text}${n.from ? ` (from ${n.from})` : ""}`;
 const decisionText = (d: Decision) => `${d.id} ${d.text}`;
 
+/** A Task's helper info, as "Sonnet, branch feat/x, folder /w/x"; empty when there is none. */
+function helperText(t: Task): string {
+  const h = t.helper;
+  return h ? [h.label, h.branch && `branch ${h.branch}`, h.folder && `folder ${h.folder}`].filter(Boolean).join(", ") : "";
+}
+
+/** A Task in a list with what it carries: "t1 Route (Sonnet, branch feat/x)" or, once checked, with its evidence. */
+function carryingLine(t: Task): string {
+  const extra = [t.status === "checked" && t.evidence ? `evidence: ${t.evidence}` : "", helperText(t)].filter(Boolean).join("; ");
+  return extra ? `${taskLine(t)} (${extra})` : taskLine(t);
+}
+
 /** The Tasks in other hands than the Agent's: a helper's, or the Developer's. */
 function elsewhereLines(s: Status): string[] {
-  const line = (label: string, tasks: Task[]) => (tasks.length > 0 ? [`${label}: ${tasks.map(taskLine).join("; ")}`] : []);
+  const line = (label: string, tasks: Task[]) => (tasks.length > 0 ? [`${label}: ${tasks.map(carryingLine).join("; ")}`] : []);
   return [
     ...line("With a helper", s.withHelper),
     ...line("Waiting on the Developer", s.waitingOnYou),
@@ -206,13 +226,13 @@ export function scheduleLines(schedule: Schedule, held: string[]): string[] {
   return lines;
 }
 
-export function formatStatus(session: SessionStatus, schedule?: Schedule): string {
+export function formatStatus(session: SessionStatus, schedule?: Schedule, warnings: string[] = []): string {
   const rules = hardFirst(session.standingInstructions);
   const instructions =
     rules.length > 0
       ? [rules.some((r) => r.hard) ? "Standing Instructions (a HARD RULE must never be broken):" : "Standing Instructions:", ...rules.map((r) => `- ${ruleText(r)}`)]
       : [];
-  const timing = schedule ? scheduleLines(schedule, session.held.map((s) => s.goal!.id)) : [];
+  const timing = [...(schedule ? scheduleLines(schedule, session.held.map((s) => s.goal!.id)) : []), ...warnings];
   if (session.context) instructions.push("Important context:", session.context);
   if (session.held.length > 1)
     return [
@@ -348,6 +368,8 @@ export function formatItem(found: FoundItem, schedule?: Schedule, now = new Date
         ...(t.addedBy ? [`Added by Detour ${t.addedBy}`] : []),
         ...(t.droppedBy ? [`Dropped by Detour ${t.droppedBy}`] : []),
         ...(t.reason ? [`Reason: ${t.reason}`] : []),
+        ...(t.helper ? [`Helper: ${helperText(t)}`] : []),
+        ...(t.evidence ? [`Evidence: ${t.evidence}`] : []),
         ...timeLine(t, now),
       ].join("\n");
     }
@@ -379,6 +401,12 @@ export function formatItem(found: FoundItem, schedule?: Schedule, now = new Date
         "\n",
       );
   }
+}
+
+/** The helper info a state change was given, or nothing when none was. */
+function helperOf(branch?: string, folder?: string, label?: string): HelperInfo | undefined {
+  const h: HelperInfo = { ...(branch?.trim() ? { branch } : {}), ...(folder?.trim() ? { folder } : {}), ...(label?.trim() ? { label } : {}) };
+  return Object.keys(h).length > 0 ? h : undefined;
 }
 
 /** Runs a tool body, turning thrown domain errors into MCP tool errors the Agent can read. */
@@ -435,7 +463,7 @@ export async function appRoots(server: McpServer, timeoutMs: number): Promise<st
 
 export function createServer(project: Project, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: "progressor", version: VERSION }, { instructions: INSTRUCTIONS });
-  const status = () => formatStatus(project.sessionStatus(), project.schedule());
+  const status = () => formatStatus(project.sessionStatus(), project.schedule(), project.helperWarnings());
   // Apps without Claude Code's hooks never hand the Agent the plan between calls, so results that
   // don't show the whole status end with where the work stands.
   const withNow = (text: string) => `${text}\n${nowLine(project.sessionStatus())}`;
@@ -692,18 +720,31 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Set Task state",
       description:
-        "Set a Task's state. 'with a helper': handed to a helper agent that is working on it (several Tasks can be). 'waiting on you': you are waiting on the Developer, such as for them to test something by hand; the dashboard shows the Goal as waiting on them, so tell them what you need. 'checked': you checked a helper's work (tests, review) but it is not merged or released yet. 'released': merged and out (shipped, installed or published); counts as done. 'pending', 'in progress' and 'done' work too (in progress follows start_task's one-at-a-time rule). Set a state as soon as it changes, such as 'checked' right after you check a helper's work, so the Developer's dashboard keeps moving. If the project has a helper limit (get_status shows it), keep at most that many Tasks with a helper: one more is still set, with a warning. To drop a Task, use drop_task.",
-      inputSchema: { goal: heldGoal, task: taskId, state: z.enum(states), project: otherProject },
+        "Set a Task's state. 'with a helper': handed to a helper agent that is working on it (several Tasks can be). 'waiting on you': you are waiting on the Developer, such as for them to test something by hand; the dashboard shows the Goal as waiting on them, so tell them what you need. 'checked': you checked a helper's work (tests, review) but it is not merged or released yet; give evidence, one short line on what you checked (\"715 passed, live send OK\"), which the Developer sees on the step. With 'with a helper', give helper_branch, helper_folder (the worktree path) and helper_label: they are recorded with the Task and shown in get_status and on the dashboard, and get_status warns when a finished Task's helper branch still has unmerged work. 'released': merged and out (shipped, installed or published); counts as done. 'pending', 'in progress' and 'done' work too (in progress follows start_task's one-at-a-time rule). Set a state as soon as it changes, such as 'checked' right after you check a helper's work, so the Developer's dashboard keeps moving. If the project has a helper limit (get_status shows it), keep at most that many Tasks with a helper: one more is still set, with a warning. To drop a Task, use drop_task.",
+      inputSchema: {
+        goal: heldGoal,
+        task: taskId,
+        state: z.enum(states),
+        helper_branch: helperBranch,
+        helper_folder: helperFolder,
+        helper_label: helperLabel,
+        evidence,
+        project: otherProject,
+      },
     },
-    ({ goal, task, state, project: wanted }) =>
+    ({ goal, task, state, helper_branch, helper_folder, helper_label, evidence: proof, project: wanted }) =>
       respondIn(wanted, (p) => {
-        const t = p.setTaskState(task, state, goal);
+        const t = p.setTaskState(task, state, goal, { helper: helperOf(helper_branch, helper_folder, helper_label), evidence: proof });
         const said = [`Task ${taskLine(t)} is now ${t.status}.`, ...tookLine([t], new Date()), ...(state === "with a helper" ? helperWarning(p) : [])];
         return doneIn(p, said.join("\n"));
       }),
   );
 
   const operation = z.object({
+    helper_branch: helperBranch,
+    helper_folder: helperFolder,
+    helper_label: helperLabel,
+    evidence,
     action: z
       .enum(["start", "complete", "state", "drop", "estimate"])
       .describe("start: mark in progress. complete: mark done. state: set the state given in state. drop: drop it, with reason. estimate: only set its estimate."),
@@ -720,13 +761,16 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Update Tasks",
       description:
-        "Change several Tasks in one call, such as completing two and starting the next, or setting the estimates of several, instead of one call each. The operations are applied in order, so a start can follow the complete of the Task that was in progress; if any one fails, none is applied. Each operation can name its own claimed Goal with goal, else the call's goal (or the only Goal held) is used. Answers with one line per call, not the whole status.",
+        "Change several Tasks in one call, such as completing two and starting the next, or setting the estimates of several, instead of one call each. The operations are applied in order, so a start can follow the complete of the Task that was in progress; if any one fails, none is applied. A 'state' operation takes the same helper_branch, helper_folder, helper_label (with 'with a helper') and evidence (with 'checked') as set_task_state. Each operation can name its own claimed Goal with goal, else the call's goal (or the only Goal held) is used. Answers with one line per call, not the whole status.",
       inputSchema: { goal: heldGoal, operations: z.array(operation).min(1).max(25), project: otherProject },
     },
     ({ goal, operations, project: wanted }) =>
       respondIn(wanted, (p) => {
         const held = p !== project || project.claimedGoals().length > 1;
-        const ops: TaskOperation[] = operations.map(({ estimate, ...op }) => ({ ...op, estimate: readEstimate(estimate) }));
+        const ops: TaskOperation[] = operations.map(({ estimate, helper_branch, helper_folder, helper_label, ...op }) => {
+          const helper = helperOf(helper_branch, helper_folder, helper_label);
+          return { ...op, ...(helper ? { helper } : {}), estimate: readEstimate(estimate) };
+        });
         const changed = p.updateTasks(ops, goal);
         const now = new Date();
         // An estimate set in this call is said back; the others are left out, to keep the answer short.

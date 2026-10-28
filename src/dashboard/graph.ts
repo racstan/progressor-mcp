@@ -1,5 +1,5 @@
 import type { Origin } from "../origin.js";
-import type { Detour, DetourStatus, Task, TaskStatus } from "../planFile.js";
+import type { Detour, DetourStatus, HelperInfo, Task, TaskStatus } from "../planFile.js";
 
 interface NodeBase {
   id: string;
@@ -33,6 +33,10 @@ export interface TaskNode extends NodeBase {
   spent?: number;
   /** When the stretch still running started, while it is timed. */
   timingSince?: string;
+  /** Where the helper's work is, when the Agent recorded it. */
+  helper?: HelperInfo;
+  /** What was checked, when the Task was checked with evidence. */
+  evidence?: string;
 }
 
 export interface DetourNode extends NodeBase {
@@ -100,6 +104,8 @@ export function buildGoalGraph(plan: { tasks: Task[]; detours: Detour[] }): Goal
     ...(t.estimate !== undefined ? { estimate: t.estimate } : {}),
     ...(t.spent > 0 ? { spent: t.spent } : {}),
     ...(t.timingSince ? { timingSince: t.timingSince } : {}),
+    ...(t.helper ? { helper: t.helper } : {}),
+    ...(t.evidence ? { evidence: t.evidence } : {}),
     step: 0,
     lane: 0,
   }));

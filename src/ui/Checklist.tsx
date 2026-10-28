@@ -3,7 +3,7 @@ import { RichText } from "./RichText.js";
 import { plainText } from "./text.js";
 import { checklistRows } from "./views.js";
 import { StepKey } from "./StepKey.js";
-import { SIDE_TRIP_HINT, STEP_HINT, STEP_MARK, STEP_WORD, elsewhereTag, isBadge, statusClass } from "./words.js";
+import { SIDE_TRIP_HINT, STEP_HINT, STEP_MARK, STEP_WORD, elsewhereTag, evidenceLine, helperLine, isBadge, statusClass } from "./words.js";
 
 type FileLink = (path: string, line?: number) => { href: string | undefined; onClick: () => void };
 
@@ -45,6 +45,8 @@ export function Checklist({ graph, fileLink, files, onOpen, footer }: Props) {
 
 function TaskLine({ task: t, fileLink, files, onOpen }: { task: TaskNode; fileLink: FileLink; files: boolean; onOpen: (e: React.MouseEvent) => void }) {
   const elsewhere = elsewhereTag(t.updatedFrom);
+  const helper = helperLine(t.helper);
+  const evidence = evidenceLine(t.evidence);
   return (
     <>
       <div className="line">
@@ -60,9 +62,11 @@ function TaskLine({ task: t, fileLink, files, onOpen }: { task: TaskNode; fileLi
         {elsewhere && <span className="tag elsewhere" title={elsewhere.hint}>{elsewhere.label}</span>}
         {t.status === "dropped" && <span className="tag" title={t.reason ? plainText(t.reason) : "This step will not be done"}>cancelled</span>}
       </div>
-      {((files && t.code.length > 0) || t.summary) && (
+      {((files && t.code.length > 0) || t.summary || helper || evidence) && (
         <div className="detail">
           {t.summary && <RichText className="summary" text={t.summary} />}
+          {evidence && <div className="evidence" title="What the AI checked before it called this step checked">{evidence}</div>}
+          {helper && <div className="helper-info" title="Where the helper's work is">{helper}</div>}
           {files && t.code.length > 0 && (
             <div className="file-chips">
               {t.code.map((c) => {
