@@ -21,7 +21,7 @@ import type { FileLink } from "./Steps.js";
 import { goalState, resourceWords } from "./words.js";
 
 type Goal = RoadmapView["goals"][number];
-type Theme = "light" | "dark" | "system";
+type Theme = "light" | "dark" | "system" | "vibrant";
 
 const EDITOR_NAMES: Record<string, string> = {
   vscode: "VS Code",
@@ -245,7 +245,8 @@ export function App() {
 
   useLayoutEffect(() => {
     const apply = () => {
-      if (isDark(theme)) document.documentElement.dataset.theme = "dark";
+      if (theme === "vibrant") document.documentElement.dataset.theme = "vibrant";
+      else if (isDark(theme)) document.documentElement.dataset.theme = "dark";
       else delete document.documentElement.dataset.theme;
     };
     apply();
@@ -450,6 +451,7 @@ export function App() {
                 { value: "light", label: "Light", hint: "Always light" },
                 { value: "dark", label: "Dark", hint: "Always dark" },
                 { value: "system", label: "System", hint: "Light or dark, following your computer's setting" },
+                { value: "vibrant", label: "Vibrant", hint: "Colourful: an indigo accent, green for done and amber for what needs you" },
               ]} />
           </section>
           <section>

@@ -535,3 +535,59 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 }
 .pictures > li { border: none; padding: 0; background: none; animation: none; }
 .notes-block ul.pictures { flex-direction: row; }
+
+/* ---------- Vibrant: the colourful theme (light only) ----------
+   One indigo accent, green for done, amber for "needs you", soft borders and shadows. The rules
+   above stay; these only swap the black that marks a state for its colour. */
+:root[data-theme="vibrant"] {
+  --bg: #f7f7f5; --panel: #ffffff; --panel2: #f2f1ee; --hover: #ecebe7; --line: #e6e4df; --line-strong: #d6d3cc;
+  --ink: #1b1b19; --muted: #6b6963; --faint: #9c9a93;
+  --accent: #4f5bd5; --accent-soft: #eef0fc; --on-accent: #ffffff;
+  --done: #2f8f5b; --done-soft: #e9f5ee;
+  --you: #b4690e; --you-soft: #fdf4e6; --you-line: #f0d6ad; --on-you: #ffffff;
+  --bad: #c0392b;
+  --detour: #b4690e; --faded: #c9c6bf; --helper: #4f5bd5; --checked: #2f8f5b; --you-ink: #8f520a; --elsewhere: #6b6963;
+  --lane0: #4f5bd5; --lane1: #8a8fd8; --lane2: #9c9a93; --lane3: #b8b5ad;
+  --heavy: 1px solid var(--line);
+  --lift: 0 8px 22px rgba(79, 91, 213, .16);
+  --shadow: 0 1px 2px rgba(20, 20, 15, .04), 0 8px 24px rgba(20, 20, 15, .08);
+  color-scheme: light;
+}
+[data-theme="vibrant"] .topbar { border-bottom: 1px solid var(--line); }
+[data-theme="vibrant"] .sidebar { border-right: 1px solid var(--line); }
+[data-theme="vibrant"] .brand .mark { background: var(--accent); }
+[data-theme="vibrant"] .btn.ghost { border: 1px solid var(--line); }
+[data-theme="vibrant"] .search input { border: 1px solid var(--line); }
+[data-theme="vibrant"] .search input:focus, [data-theme="vibrant"] .talk textarea:focus { border-color: var(--accent); }
+[data-theme="vibrant"] .goal-row[aria-current="true"], [data-theme="vibrant"] .side-link[aria-current="true"] { background: var(--accent-soft); box-shadow: none; }
+[data-theme="vibrant"] .tabs button[aria-selected="true"] { border-bottom-color: var(--accent); }
+[data-theme="vibrant"] .choice button[aria-checked="true"] { background: var(--accent); color: var(--on-accent); }
+[data-theme="vibrant"] .progress .bar { border: none; height: 8px; background: var(--panel2); }
+[data-theme="vibrant"] .progress .bar i { background: var(--accent); }
+[data-theme="vibrant"] .progress.finished .bar i { background: var(--done); }
+[data-theme="vibrant"] .progress.moving .bar i { background-image: repeating-linear-gradient(-45deg, var(--accent) 0 8px, #7b84e3 8px 16px); }
+[data-theme="vibrant"] .step-icon { border-color: var(--line-strong); }
+[data-theme="vibrant"] .step-icon.done, [data-theme="vibrant"] .step-icon.released { background: var(--done); border-color: var(--done); color: #fff; }
+[data-theme="vibrant"] .step-icon.checked { border-color: var(--done); color: var(--done); }
+[data-theme="vibrant"] .step-icon.in-progress { border-color: var(--accent); }
+[data-theme="vibrant"] .step.now .step-row, [data-theme="vibrant"] .step.with-a-helper .step-row { background: var(--accent); color: var(--on-accent); }
+[data-theme="vibrant"] .step.now .step-row .t, [data-theme="vibrant"] .step.now .step-row .end,
+[data-theme="vibrant"] .step.with-a-helper .step-row .t, [data-theme="vibrant"] .step.with-a-helper .step-row .end { color: var(--on-accent); }
+[data-theme="vibrant"] .step.now .step-icon, [data-theme="vibrant"] .step.with-a-helper .step-icon { border-color: var(--on-accent); }
+[data-theme="vibrant"] .step.you .step-row { box-shadow: inset 4px 0 0 var(--you); }
+[data-theme="vibrant"] .step.you .step-row .end { color: var(--you); }
+[data-theme="vibrant"] .step-icon.waiting-on-you { background: var(--you); border-color: var(--you); color: var(--on-you); }
+[data-theme="vibrant"] .needs-panel { border: 1px solid var(--you-line); background: var(--you-soft); }
+[data-theme="vibrant"] .needs-panel > h2 { background: var(--you); color: var(--on-you); }
+[data-theme="vibrant"] .needs-item { border: 1px solid var(--you-line); border-left: 4px solid var(--you); }
+[data-theme="vibrant"] .needs-item .kind, [data-theme="vibrant"] .side-group.needs h3, [data-theme="vibrant"] .section.needs > h2,
+[data-theme="vibrant"] .list-row .sub.you, [data-theme="vibrant"] .goal-row .why, [data-theme="vibrant"] .project-card .you,
+[data-theme="vibrant"] .state.you { color: var(--you); }
+[data-theme="vibrant"] .state.you .dot { background: var(--you); }
+[data-theme="vibrant"] .state.working .dot, [data-theme="vibrant"] .working-dot, [data-theme="vibrant"] .live { background: var(--done); }
+[data-theme="vibrant"] .goal-row.working .t::after, [data-theme="vibrant"] .list-row.working .t::after { background: var(--accent); }
+[data-theme="vibrant"] .live.off { background: var(--you); box-shadow: none; }
+[data-theme="vibrant"] .side-link .n, [data-theme="vibrant"] .picture .play { background: var(--accent); color: var(--on-accent); }
+[data-theme="vibrant"] .rules li.must { border-color: var(--you-line); background: var(--you-soft); }
+[data-theme="vibrant"] .toast { background: var(--ink); color: var(--bg); border: none; box-shadow: var(--shadow); }
+[data-theme="vibrant"] .project-card:hover, [data-theme="vibrant"] .btn.ghost:hover { transform: translateY(-2px); }
