@@ -330,6 +330,22 @@ button.list-row:hover { background: var(--hover); }
 .rules .limit-badge { color: var(--muted); margin: 0 0 0 var(--s2); font-weight: 500; }
 .context-body .para { margin: 0 0 var(--s3); }
 .context-body .ctx-list { margin: 0 0 var(--s3); padding-left: var(--s5); }
+.rules .rule-line { display: flex; align-items: baseline; gap: var(--s3); }
+.rules .rule-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.rules .rule-actions { display: inline-flex; gap: var(--s3); opacity: .55; transition: opacity .15s; }
+.rules li:hover .rule-actions, .rules .rule-actions:focus-within { opacity: 1; }
+.rules .confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-top: var(--s2); padding-top: var(--s2); border-top: 1px dashed var(--line); font-size: var(--t-s); animation: rise .18s ease-out backwards; }
+.rules .confirm > span { flex: 1; min-width: 180px; }
+.rules .error, .note-form .error { margin-top: var(--s2); font-size: var(--t-s); color: var(--bad); }
+.add-rule { margin-top: var(--s3); }
+.section > h2 .linkbtn { font-weight: 500; }
+.note-form { display: flex; flex-direction: column; gap: var(--s2); animation: rise .18s ease-out backwards; }
+.section > .note-form { margin-top: var(--s3); padding: var(--s3) var(--s4); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+.note-form textarea { width: 100%; padding: var(--s2) var(--s3); border-radius: var(--r-s); border: 1px solid var(--line); background: var(--bg); color: var(--ink); resize: vertical; line-height: 1.5; }
+.note-form textarea:focus { outline: none; border-color: var(--accent); }
+.note-form .check { display: inline-flex; align-items: center; gap: var(--s2); font-size: var(--t-s); cursor: pointer; align-self: flex-start; }
+.note-form .form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.note-form .form-actions .hint { margin-left: auto; }
 
 /* ---------- menus, popover, toast ---------- */
 .menu-panel { position: fixed; top: 60px; right: var(--s4); z-index: 40; width: 360px; max-width: calc(100vw - 24px); max-height: calc(100vh - 80px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding: var(--s4); }
@@ -432,7 +448,9 @@ pre { font: var(--t-s)/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; b
 .btn.ghost { border: 2px solid var(--ink); font-weight: 600; }
 .search input { border: 2px solid var(--line-strong); }
 .search input:focus { border-color: var(--ink); }
-.talk textarea, .talk input, .needs-item input, .hand .ask input { border: 2px solid var(--line-strong); }
+.talk textarea, .talk input, .needs-item input, .hand .ask input, .note-form textarea { border: 2px solid var(--line-strong); }
+.note-form textarea:focus { border-color: var(--ink); }
+.section > .note-form { border: 2px solid var(--ink); }
 .tabs { border-bottom: 2px solid var(--line); }
 .tabs button { border-bottom-width: 3px; margin-bottom: -2px; }
 .topbar { border-bottom: 2px solid var(--ink); }

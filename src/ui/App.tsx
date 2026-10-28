@@ -371,8 +371,8 @@ export function App() {
     </div>
   ) : !roadmap ? (
     <div className="placeholder">Loading…</div>
-  ) : onContext ? (
-    <ContextPage rules={roadmap.standingInstructions} context={roadmap.context} />
+  ) : onContext && projectId ? (
+    <ContextPage projectId={projectId} rules={roadmap.standingInstructions} context={roadmap.context} onChanged={refresh} />
   ) : onTalk && projectId ? (
     <div className="page">
       <h1 className="page-title">Message your AI</h1>
