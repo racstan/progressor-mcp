@@ -26,9 +26,11 @@ import {
   STEP_WORD,
   countsLine,
   elsewhereTag,
+  evidenceLine,
   finishWords,
   goalState,
   goalTime,
+  helperLine,
   scheduleLine,
   statusClass,
   statusLine,
@@ -960,7 +962,7 @@ interface Location {
   label: string;
 }
 
-function describe(subject: PromptSubject): { title: string; meta: string; state?: string; time?: string; summary?: string; reason?: string; locations: Location[] } {
+function describe(subject: PromptSubject): { title: string; meta: string; state?: string; time?: string; summary?: string; evidence?: string; helper?: string; reason?: string; locations: Location[] } {
   switch (subject.kind) {
     case "node": {
       const { node: n, goal, graph } = subject;
@@ -978,6 +980,8 @@ function describe(subject: PromptSubject): { title: string; meta: string; state?
         state: n.status,
         time: stepTime(n),
         summary: n.summary,
+        evidence: evidenceLine(n.evidence),
+        helper: helperLine(n.helper),
         reason: n.status === "dropped" && n.reason ? `Why it was cancelled: ${plainText(n.reason)}` : undefined,
         locations: [main, ...code],
       };
@@ -1038,6 +1042,8 @@ function Popover({ subject, at, onClose, fileLink, files, onCopy }: {
         <div className={`pop-state ${statusClass(d.state)}`}><StepMark status={d.state} /> <span>{STEP_HINT[d.state]}</span></div>
       )}
       {d.summary && <RichText className="summary" text={d.summary} />}
+      {d.evidence && <div className="evidence">{d.evidence}</div>}
+      {d.helper && <div className="helper-info">{d.helper}</div>}
       {d.reason && <RichText className="reason" text={d.reason} />}
       {files && <div className="locs">
         {d.locations.map((l) => (

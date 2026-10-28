@@ -45,6 +45,8 @@ function describeTask(t: TaskNode, goal: PromptGoal, graph: GoalGraph): string[]
     lines.push("This Task is no longer part of the plan. Do not work on it.");
   } else {
     if (t.summary) lines.push(`Summary: ${t.summary}`);
+    if (t.helper) lines.push(`Helper: ${[t.helper.label, t.helper.branch && `branch ${t.helper.branch}`, t.helper.folder && `folder ${t.helper.folder}`].filter(Boolean).join(", ")}`);
+    if (t.evidence) lines.push(`Evidence: ${t.evidence}`);
     const live = tasksOf(graph).filter((x) => x.status !== "dropped");
     const k = live.findIndex((x) => x.id === t.id);
     const neighbour = (x: TaskNode) => `${x.id} ${quote(x.title)} (${x.status}, line ${x.line})`;

@@ -5,6 +5,8 @@ import {
   type Decision,
   type Detour,
   FINISHED,
+  type HelperInfo,
+  type StateExtras,
   type NewTask,
   type Note,
   type PlanFile,
@@ -14,6 +16,7 @@ import {
   newPlanFile,
   parsePlanFile,
 } from "./planFile.js";
+import { gitBranches, orphanWarnings } from "./helperWork.js";
 import { type Origin } from "./origin.js";
 import { unsafeRoot } from "./root.js";
 import { type Claim, type Goal, type Idea, ROADMAP_REF, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
@@ -76,6 +79,10 @@ export interface TaskOperation {
   /** The claimed Goal the Task is in; the call's own Goal when absent. */
   goal?: string;
   state?: Exclude<TaskStatus, "dropped">;
+  /** For "state" with a helper: where the helper's work is. */
+  helper?: HelperInfo;
+  /** For "state" checked: a short note on what was checked. */
+  evidence?: string;
   reason?: string;
   /** For "complete": files the Task touched. */
   code?: string[];
@@ -541,8 +548,8 @@ export class Project {
    * Moves a Task to any state but dropped (drop_task, which wants a reason). In progress follows
    * start_task's rule; several Tasks may be with a helper, waiting on the Developer or checked.
    */
-  setTaskState(id: string, state: Exclude<TaskStatus, "dropped">, goalId?: string): Task {
-    return this.change(goalId, (plan) => this.setState(plan, id, state));
+  setTaskState(id: string, state: Exclude<TaskStatus, "dropped">, goalId?: string, extras: StateExtras = {}): Task {
+    return this.change(goalId, (plan) => this.setState(plan, id, state, extras));
   }
 
   /** Changes a Task's title, summary or files (which replace the old ones). */
@@ -607,7 +614,7 @@ export class Project {
         return this.complete(plan, op.task, op.code ?? [], op.summary);
       case "state":
         if (!op.state) throw new Error("The state action needs a state.");
-        return this.setState(plan, op.task, op.state);
+        return this.setState(plan, op.task, op.state, { helper: op.helper, evidence: op.evidence });
       case "drop":
         if (!op.reason?.trim()) throw new Error("The drop action needs a reason.");
         return this.drop(plan, op.task, op.reason);
@@ -624,11 +631,14 @@ export class Project {
     return plan.task(id)!;
   }
 
-  private setState(plan: PlanFile, id: string, state: Exclude<TaskStatus, "dropped">): Task {
+  private setState(plan: PlanFile, id: string, state: Exclude<TaskStatus, "dropped">, extras: StateExtras = {}): Task {
+    const hasHelper = !!(extras.helper?.branch?.trim() || extras.helper?.folder?.trim() || extras.helper?.label?.trim());
+    if (hasHelper && state !== "with a helper") throw new Error(`Helper info (branch, folder, label) goes with the state "with a helper", not "${state}".`);
+    if (extras.evidence?.trim() && state !== "checked") throw new Error(`Evidence goes with the state "checked", not "${state}".`);
     if (state === "in progress") return this.start(plan, id);
     const task = this.taskIn(plan, id);
     if (task.status === "dropped") throw new Error(`Task ${id} is dropped; add a new Task instead.`);
-    plan.setTaskStatus(id, state);
+    plan.setTaskStatus(id, state, extras);
     return plan.task(id)!;
   }
 
@@ -887,6 +897,25 @@ export class Project {
     const busy = this.plannedGoals(roadmap).reduce((n, p) => n + p.tasks.filter((t) => t.status === "with a helper").length, 0);
     const found = helperLimit(roadmap.standingInstructions);
     return { busy, limit: found?.limit, rule: found?.rule };
+  }
+
+  /**
+   * Warnings about helper work left behind, across every Goal: a finished Task whose helper branch
+   * still has unmerged work, and a Task checked for more than a day. Only reads; never throws.
+   */
+  helperWarnings(): string[] {
+    try {
+      const candidates = this.roadmap().goals.flatMap((g) => {
+        try {
+          return this.plan(g.id).tasks.map((task) => ({ goal: g.id, task }));
+        } catch {
+          return [];
+        }
+      });
+      return orphanWarnings(candidates, () => gitBranches(this.root), this.now());
+    } catch {
+      return [];
+    }
   }
 
   /** The schedule of the open work, from the estimates, the Roadmap's order and the helper limit (see schedule.ts). */

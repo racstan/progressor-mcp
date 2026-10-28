@@ -278,3 +278,15 @@ export function goalTime(g: GoalSchedule | undefined): string | undefined {
   const text = parts.join(" · ");
   return text[0]!.toUpperCase() + text.slice(1);
 }
+
+/** Where a helper's work is, for a step's details: "Helper: Sonnet · branch feat/a · folder /w/a". Undefined when not recorded. */
+export function helperLine(h: { branch?: string; folder?: string; label?: string } | undefined): string | undefined {
+  if (!h) return undefined;
+  const parts = [h.label, h.branch && `branch ${h.branch}`, h.folder && `folder ${h.folder}`].filter(Boolean);
+  return parts.length > 0 ? `Helper: ${parts.join(" · ")}` : undefined;
+}
+
+/** What the AI checked before it called a step checked: "Checked: 715 passed, live send OK". */
+export function evidenceLine(evidence: string | undefined): string | undefined {
+  return evidence ? `Checked: ${evidence}` : undefined;
+}
