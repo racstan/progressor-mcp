@@ -114,7 +114,7 @@ describe("time spent on a Task", () => {
     at("2026-10-26T13:50:00.000Z");
     p.completeTask("t1");
     expect(p.plan("login").task("t1")).toMatchObject({ status: "done", spent: 70, estimate: 45 });
-    expect(read("goals/login.md")).toBe(`# Login\n\n## Tasks\n\n- [x] Route ^t1\n  - estimate: 45m\n  - time spent: 1h 10m\n`);
+    expect(read("goals/login.md")).toBe(`# Login\n\n## Tasks\n\n- [x] Route ^t1\n  - estimate: 45m\n  - time spent: 1h 10m\n  - started: 2026-10-26T10:00:00.000Z\n  - finished: 2026-10-26T13:50:00.000Z\n`);
   });
 
   it("stops at released and at dropped, and keeps the time when a Task moves", () => {

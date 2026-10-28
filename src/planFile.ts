@@ -69,6 +69,10 @@ export interface Task {
   evidence?: string;
   /** When the Task became checked (an ISO time), while it still is. */
   checkedSince?: string;
+  /** When work on it first began (an ISO time); unknown in older plans. */
+  startedAt?: string;
+  /** When it was done, released or cancelled (an ISO time), while it still is; unknown in older plans. */
+  finishedAt?: string;
 }
 
 /** Where a helper agent's work on a Task is; every part is optional. */
@@ -251,6 +255,8 @@ const HELPER_BRANCH = "helper branch";
 const HELPER_FOLDER = "helper folder";
 const EVIDENCE = "evidence";
 const CHECKED_SINCE = "checked since";
+const STARTED = "started";
+const FINISHED_AT = "finished";
 
 function taskStatus(b: ItemBlock): TaskStatus {
   const marked = TASK_STATUS[b.marker!];
@@ -277,6 +283,13 @@ function withTime(b: ItemBlock): { estimate?: number; spent: number; timingSince
 }
 
 /** A Task's helper info and evidence, from its `helper`, `helper branch`, `helper folder`, `evidence` and `checked since` lines. */
+/** When a Task was started and finished, from its `started` and `finished` lines. */
+function withTimes(b: ItemBlock): { startedAt?: string; finishedAt?: string } {
+  const started = getDetail(b, STARTED);
+  const finished = getDetail(b, FINISHED_AT);
+  return { ...(started ? { startedAt: started } : {}), ...(finished ? { finishedAt: finished } : {}) };
+}
+
 function withHelper(b: ItemBlock): { helper?: HelperInfo; evidence?: string; checkedSince?: string } {
   const label = getDetail(b, HELPER);
   const branch = getDetail(b, HELPER_BRANCH);
@@ -316,7 +329,7 @@ export interface TaskChanges {
 }
 
 /** Known Task details come first, in this order, when a Task is rewritten; unknown ones follow as they were. */
-const DETAIL_ORDER = ["state", "summary", "code", HELPER, HELPER_BRANCH, HELPER_FOLDER, EVIDENCE, CHECKED_SINCE, ESTIMATE, SPENT, SINCE, "moved from", "added by", "from hand test", "dropped by", "reason", ORIGIN_KEY, ADDED, UPDATED];
+const DETAIL_ORDER = ["state", "summary", "code", HELPER, HELPER_BRANCH, HELPER_FOLDER, EVIDENCE, CHECKED_SINCE, ESTIMATE, SPENT, SINCE, "moved from", "added by", "from hand test", "dropped by", "reason", ORIGIN_KEY, STARTED, FINISHED_AT, ADDED, UPDATED];
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 
 function sortDetails(b: ItemBlock, order: string[] = DETAIL_ORDER): void {
@@ -375,6 +388,7 @@ export class PlanFile {
       reason: getDetail(b, "reason"),
       ...withTime(b),
       ...withHelper(b),
+      ...withTimes(b),
       ...withOrigin(b),
       ...withDates(b),
     }));
@@ -503,6 +517,8 @@ export class PlanFile {
     if (from.evidence) addDetail(b, EVIDENCE, from.evidence);
     if (from.checkedSince) addDetail(b, CHECKED_SINCE, from.checkedSince);
     addDetail(b, "moved from", movedFrom);
+    if (from.startedAt) addDetail(b, STARTED, from.startedAt);
+    if (from.finishedAt) addDetail(b, FINISHED_AT, from.finishedAt);
     if (from.added) addDetail(b, ADDED, `${from.added.at} by ${from.added.by}`);
     appendToSection(this.doc, TASKS, [b]);
     if (anchor) {
@@ -537,6 +553,9 @@ export class PlanFile {
     if (extras.evidence?.trim()) setDetail(b, EVIDENCE, oneLine(extras.evidence));
     else if (!["checked", "done", "released"].includes(status)) setDetail(b, EVIDENCE, undefined);
     setDetail(b, CHECKED_SINCE, status === "checked" ? (getDetail(b, CHECKED_SINCE) ?? this.now().toISOString()) : undefined);
+    // The first start is kept for good; the finish only while the Task stays finished.
+    if (status !== "pending" && !FINISHED.includes(status) && !getDetail(b, STARTED)) setDetail(b, STARTED, this.now().toISOString());
+    setDetail(b, FINISHED_AT, FINISHED.includes(status) ? (getDetail(b, FINISHED_AT) ?? this.now().toISOString()) : undefined);
     sortDetails(b);
   }
 
@@ -557,6 +576,7 @@ export class PlanFile {
     const b = this.taskBlock(id);
     const existing = getDetails(b, "code").map(stripTicks);
     for (const c of code) if (!existing.includes(c)) addDetail(b, "code", `\`${c}\``);
+    sortDetails(b);
   }
 
   dropTask(id: string, why: { reason?: string; droppedBy?: string }): void {
@@ -564,6 +584,7 @@ export class PlanFile {
     const b = this.taskBlock(id);
     if (why.droppedBy) setDetail(b, "dropped by", `^${why.droppedBy}`);
     if (why.reason?.trim()) setDetail(b, "reason", oneLine(why.reason));
+    sortDetails(b);
   }
 
   startDetour(title: string, reason: string, branchedFrom: string | undefined): Detour {

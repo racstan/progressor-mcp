@@ -103,7 +103,7 @@ describe("Plan Files edited by hand", () => {
     expect(plan.toString()).toBe(
       handEdited
         .replace("- [ ] Handle the OAuth callback", "- [ ] Handle the OAuth callback ^t5")
-        .replace("- [ ] Add logout ^t4", "- [/] Add logout ^t4\r\n  - timing since: 2026-10-26T12:00:00.000Z"),
+        .replace("- [ ] Add logout ^t4", "- [/] Add logout ^t4\r\n  - timing since: 2026-10-26T12:00:00.000Z\r\n  - started: 2026-10-26T12:00:00.000Z"),
     );
   });
 
@@ -257,7 +257,7 @@ describe("the states a Task can be in beyond the checkbox", () => {
     expect(plan.toString()).toContain("- [x] Transcribe it ^t1\n  - summary: Use the API.\n");
     plan.setTaskStatus("t2", "waiting on you");
     plan.dropTask("t2", { reason: "Not needed" });
-    expect(plan.toString()).toContain("- [-] Ship it ^t2\n  - reason: Not needed\n");
+    expect(plan.toString()).toMatch(/- \[-\] Ship it \^t2\n  - reason: Not needed\n  - started: .+\n  - finished: .+\n/);
   });
 });
 
@@ -332,5 +332,45 @@ describe("decisions and notes", () => {
     expect(plan.addDecision("Another").id).toBe("c2");
     expect(() => plan.setDecision("c9", "x")).toThrow(/No decision c9/);
     expect(() => plan.updateNote("n9", { resolved: true })).toThrow(/No note n9/);
+  });
+});
+
+describe("when a step was started and finished", () => {
+  const at = (plan: ReturnType<typeof parsePlanFile>, iso: string) => (plan.now = () => new Date(iso));
+
+  it("keeps the first start and the moment it was finished, and forgets the finish if work goes on", () => {
+    const plan = parsePlanFile("# Voice\n\n## Tasks\n\n- [ ] Transcribe it ^t1\n- [ ] Ship it ^t2\n", "voice");
+    at(plan, "2026-10-28T09:00:00.000Z");
+    plan.setTaskStatus("t1", "in progress");
+    at(plan, "2026-10-28T09:30:00.000Z");
+    plan.setTaskStatus("t1", "waiting on you");
+    expect(plan.task("t1")).toMatchObject({ startedAt: "2026-10-28T09:00:00.000Z" });
+    expect(plan.task("t1")!.finishedAt).toBeUndefined();
+    at(plan, "2026-10-28T10:00:00.000Z");
+    plan.setTaskStatus("t1", "done");
+    at(plan, "2026-10-28T11:00:00.000Z");
+    plan.setTaskStatus("t1", "released");
+    expect(plan.task("t1")).toMatchObject({ startedAt: "2026-10-28T09:00:00.000Z", finishedAt: "2026-10-28T10:00:00.000Z" });
+    expect(plan.toString()).toContain("  - started: 2026-10-28T09:00:00.000Z\n  - finished: 2026-10-28T10:00:00.000Z\n");
+    plan.setTaskStatus("t1", "in progress");
+    expect(plan.task("t1")!.finishedAt).toBeUndefined();
+    expect(plan.task("t1")!.startedAt).toBe("2026-10-28T09:00:00.000Z");
+  });
+
+  it("marks a cancelled step finished too, and a step done straight away was never started", () => {
+    const plan = parsePlanFile("# Voice\n\n## Tasks\n\n- [ ] Transcribe it ^t1\n- [ ] Ship it ^t2\n", "voice");
+    at(plan, "2026-10-28T09:00:00.000Z");
+    plan.dropTask("t1", { reason: "Not needed" });
+    plan.setTaskStatus("t2", "done");
+    expect(plan.task("t1")).toMatchObject({ finishedAt: "2026-10-28T09:00:00.000Z" });
+    expect(plan.task("t1")!.startedAt).toBeUndefined();
+    expect(plan.task("t2")).toMatchObject({ finishedAt: "2026-10-28T09:00:00.000Z" });
+  });
+
+  it("keeps both when the step moves to another goal", () => {
+    const from = parsePlanFile("# A\n\n## Tasks\n\n- [x] Ship it ^t1\n  - started: 2026-10-28T09:00:00.000Z\n  - finished: 2026-10-28T10:00:00.000Z\n", "a");
+    const to = parsePlanFile("# B\n\n## Tasks\n", "b");
+    const moved = to.importTask(from.task("t1")!, "a/t1");
+    expect(moved).toMatchObject({ startedAt: "2026-10-28T09:00:00.000Z", finishedAt: "2026-10-28T10:00:00.000Z" });
   });
 });
