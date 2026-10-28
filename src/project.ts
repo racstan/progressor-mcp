@@ -233,6 +233,11 @@ export interface Picture {
 /** The talk with the whole project rather than one Goal; a Goal ID never starts with "_". */
 export const PROJECT_TALK = "_project";
 export const ROADMAP_FILE = "roadmap.md";
+/** `.progressor/.gitignore` for a new plan: git ignores the whole plan until the Developer chooses to share it. */
+export const PRIVATE_GITIGNORE = `# Progressor keeps this plan on this computer: git ignores everything in .progressor/.
+# To share the plan through git (with your team, or your other computers), delete the * line below.
+*
+`;
 /** Errors that mean the file is held for a moment (Windows), so a rename is tried again. */
 const RETRY_CODES = ["EPERM", "EBUSY", "EACCES"];
 const RENAME_TRIES = 5;
@@ -357,7 +362,8 @@ export class Project {
   private writeText(path: string, text: string): void {
     if (this.from && !existsSync(join(this.root, PROGRESSOR_DIR)))
       throw new Error(`${this.root} has no Progressor plan, and a plan is never started from another project.`);
-    if (!existsSync(join(this.root, PROGRESSOR_DIR))) {
+    const starting = !existsSync(join(this.root, PROGRESSOR_DIR));
+    if (starting) {
       const why = this.unsafe(this.root);
       if (why)
         throw new Error(
@@ -366,6 +372,7 @@ export class Project {
         );
     }
     mkdirSync(dirname(path), { recursive: true });
+    if (starting) writeFileSync(join(this.root, PROGRESSOR_DIR, ".gitignore"), PRIVATE_GITIGNORE);
     const tmp = `${path}.${process.pid}.tmp`;
     try {
       writeFileSync(tmp, text);

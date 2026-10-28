@@ -6,6 +6,10 @@ All notable changes to progressor-mcp. Each release is a Goal on Progressor's ow
 
 The dashboard is no longer only for watching. You can write to your AI and answer its questions, mark what you tried, see its screenshots, and edit the rules it follows, all from the page. It also has a calmer new look, with dates and times on everything. Plans made with earlier versions keep working as they are.
 
+### Private by default
+
+- **A new plan stays out of git.** When Progressor starts a plan in a project, it keeps the whole `.progressor/` folder out of git, so your plan stays on your computer. To share it with git (your team, your other computers), delete one line in `.progressor/.gitignore`; the [FAQ](docs/faq.md#is-my-plan-private-should-i-commit-the-progressor-folder) says how. Projects that already have a plan are left as they are.
+
 ### Statistics
 
 - **A Statistics page for each project**, in the sidebar: steps done, time worked, goals finished and side trips at the top; a bar chart of steps finished each day over the last two weeks; how long steps took against their estimates; how often the work stepped off the plan and how those side trips ended; the longest steps; and a line for each goal. All worked out from the plan, nothing new is recorded.

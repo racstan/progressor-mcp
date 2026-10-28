@@ -5,7 +5,7 @@
 // except the progress record.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { delimiter, dirname, isAbsolute, join } from "node:path";
-import { PROGRESSOR_DIR, ROADMAP_FILE } from "./project.js";
+import { PRIVATE_GITIGNORE, PROGRESSOR_DIR, ROADMAP_FILE } from "./project.js";
 
 /** How the Agent's app starts Progressor, and the command the hooks run. */
 export interface Launch {
@@ -210,6 +210,8 @@ export function planInit(root: string, launch: Launch, { server = true }: { serv
   const roadmap = join(PROGRESSOR_DIR, ROADMAP_FILE);
   if (!existsSync(join(root, roadmap)))
     changes.push(change(root, roadmap, "create an empty Roadmap, which makes this folder a Progressor project", "# Roadmap\n"));
+  if (!existsSync(join(root, PROGRESSOR_DIR)))
+    changes.push(change(root, join(PROGRESSOR_DIR, ".gitignore"), "keep the plan out of git, until you choose to share it", PRIVATE_GITIGNORE));
 
   return changes;
 }
