@@ -1,0 +1,42 @@
+# Robustness check and dashboard stability
+
+## Tasks
+
+- [x] Verify recent changes ^t1
+  - summary: Typecheck, 516 tests, build and a live run of the new tools and the hand-test endpoint against a scratch project.
+  - estimate: 45m
+- [x] Keep hooks fast ^t2
+  - summary: hooks.ts imports server.ts for handTestLines, adding ~110 ms to every hook run; move the hand-test lines to their own small module.
+  - code: `src/hooks.ts`
+  - code: `src/server.ts`
+  - code: `src/handTestText.ts`
+  - estimate: 20m
+  - time spent: 1m
+  - code: `test/handTests.test.ts`
+- [x] Fix hand-test and lock wording ^t3
+  - summary: '1 don't work' -> '1 doesn't work', a full stop before 'Their note', and the dashboard says 'your AI' instead of a Session ID for a lock.
+  - code: `src/handTestText.ts`
+  - code: `src/ui/words.ts`
+  - estimate: 20m
+  - code: `test/handTests.test.ts`
+  - code: `test/resources.test.ts`
+- [x] Dashboard error boundary ^t4
+  - summary: A render error blanks the whole page; catch it and show a plain message with a Reload button.
+  - code: `src/ui/main.tsx`
+  - code: `src/ui/ErrorBoundary.tsx`
+  - estimate: 30m
+  - time spent: 5m
+  - code: `src/ui/App.tsx`
+- [x] Ignore stale dashboard answers ^t5
+  - summary: Only a project switch was guarded; a quick goal switch or overlapping poll and change event could show an older answer. Keep only the newest load's result.
+  - code: `src/ui/data.ts`
+  - estimate: 30m
+  - code: `src/ui/liveEvents.ts`
+  - code: `test/liveEvents.test.ts`
+- [x] One live connection per tab ^t6
+  - summary: One shared live connection per tab, released while the tab is hidden and reopened when shown; polling skipped while hidden. Checked in headless Chrome with 10 tabs (before, it stalled at about 4-6).
+  - code: `src/ui/data.ts`
+  - code: `src/ui/liveEvents.ts`
+  - code: `test/liveEvents.test.ts`
+  - code: `CHANGELOG.md`
+  - estimate: 45m

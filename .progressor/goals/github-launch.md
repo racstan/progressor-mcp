@@ -19,7 +19,8 @@ Goal: people can find the source and trust the package.
   - code: `README.md`
   - code: `docs/media/demo.gif`
   - code: `docs/media/demo.mp4`
-- [/] List Progressor in MCP server directories ^t6
-  - summary: Official MCP Registry as io.github.racstan/progressor-mcp: listed and active since 0.2.1 (published by the Developer with mcp-publisher), a PR to punkpeye/awesome-mcp-servers (https://github.com/punkpeye/awesome-mcp-servers/pull/16893), mcp.so through a GitHub issue (https://github.com/chatmcp/mcpso/issues/5705), and PulseMCP, which is paused and picks servers up from the official Registry when it reopens. Glama listed it by itself and builds release 0.2.1 from the repo (npm ci, npm run build, node dist/cli.js behind mcp-proxy); the awesome-list PR has its score badge and passes the submission check.
+- [x] List Progressor in MCP server directories ^t6
+  - summary: Done: the repo is public and Progressor is listed in the official MCP Registry and in two MCP server directories, which added it on their own (Developer, 2026-10-28).
   - code: `server.json`
   - code: `package.json`
+  - updated: 2026-10-28T11:33:50.952Z by AI

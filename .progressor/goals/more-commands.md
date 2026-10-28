@@ -25,8 +25,10 @@
   - code: `src/serve.ts`
   - code: `docs/setup.md`
   - code: `README.md`
-- [/] Try the commands in a real session ^t5
+- [x] Try the commands in a real session ^t5
   - summary: Check each command appears in the / menu, takes its argument and leads the Agent to the right tools.
+  - time spent: 17m
+  - updated: 2026-10-28T11:52:19.990Z by AI
 - [x] plan and idea work with no text ^t6
   - summary: Some apps allow only plain text in a command's argument (Claude's app refuses links and formatting), so plan and idea take it optionally: left empty, the Agent asks in the chat, where anything can be written.
   - code: `src/prompts.ts`
@@ -34,6 +36,20 @@
   - code: `test/server.test.ts`
   - code: `docs/reference.md`
   - code: `README.md`
+
+## Decisions
+
+- The Developer keeps all six slash commands: status, plan, next, dashboard, review and setup (asked 2026-10-28). ^c1
+  - added: 2026-10-28T11:35:36.375Z by AI
+
+## Hand tests
+
+- [x] In the chat, type / and look for the Progressor commands (status, plan, next, dashboard, review, setup). Run /progressor:status and /progressor:dashboard: the first should show where the work stands, the second the dashboard link. ^h1
+  - task: ^t5
+  - marked: 2026-10-28T11:51:20.801Z
+  - seen: yes
+  - added: 2026-10-28T11:35:36.392Z by AI
+  - updated: 2026-10-28T11:51:20.801Z by Developer
 
 ## Detour: Commands that need no rich text ^d1
 

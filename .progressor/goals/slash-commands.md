@@ -11,7 +11,9 @@ Goal: the Developer can steer Progressor from the chat with two or three slash c
   - code: `src/server.ts`
   - code: `src/prompts.ts`
   - code: `test/server.test.ts`
-- [ ] Try them in Claude Code ^t3
+- [-] Try them in Claude Code ^t3
   - summary: Check that the commands show up in the / menu, take their arguments, and lead the Agent to the right tools.
+  - reason: One try covers both command goals: moved into more-commands t5.
+  - updated: 2026-10-28T11:35:36.342Z by AI
 - [x] Document the commands in the README ^t4
   - code: `README.md`

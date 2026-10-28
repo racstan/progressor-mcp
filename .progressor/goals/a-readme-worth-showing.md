@@ -1,0 +1,74 @@
+# A README worth showing
+
+## Tasks
+
+- [x] Demo project and recording script ^t1
+  - summary: scripts/demo.mjs builds a sample "Recipe box" project with a few days of history, serves the dashboard, plays an AI working through a goal while headless Chrome films it, and takes the screenshots.
+  - code: `scripts/demo.mjs`
+  - estimate: 1h 30m
+  - time spent: 9m
+  - started: 2026-10-28T12:41:04.956Z
+  - finished: 2026-10-28T12:50:07.804Z
+  - added: 2026-10-28T12:40:53.446Z by AI
+  - updated: 2026-10-28T12:50:07.806Z by AI
+- [x] Video, GIF and screenshots ^t2
+  - summary: Turn the recording into an MP4 and a small GIF with ffmpeg, and keep sharp screenshots of Home, a goal, the map, Conversation, Project notes, Statistics, dark and Vibrant.
+  - code: `docs/media/`
+  - estimate: 45m
+  - started: 2026-10-28T12:50:07.805Z
+  - finished: 2026-10-28T12:50:07.805Z
+  - added: 2026-10-28T12:40:53.446Z by AI
+  - updated: 2026-10-28T12:50:07.806Z by AI
+- [x] Rewrite the README ^t3
+  - summary: Hero GIF, a short pitch, a picture grid of the features, updated wording (talk to your AI, things to try, statistics, themes), setup, docs; absolute image links so npm shows them too.
+  - code: `README.md`
+  - code: `CONTRIBUTING.md`
+  - code: `CHANGELOG.md`
+  - estimate: 1h
+  - time spent: 2m
+  - started: 2026-10-28T12:50:07.806Z
+  - finished: 2026-10-28T12:51:38.829Z
+  - added: 2026-10-28T12:40:53.446Z by AI
+  - updated: 2026-10-28T12:51:38.829Z by AI
+- [x] Showcase video for YouTube ^t4
+  - summary: scripts/demo.mjs films a 1080p walkthrough with title cards, captions, a pointer and a mock AI chat: the problem, planning, live steps, side trips, the map, Needs you, talking to the AI, nothing forgotten across chats, rules, statistics, Home and themes; plus a YouTube thumbnail.
+  - code: `scripts/demo.mjs`
+  - estimate: 2h
+  - time spent: 17m
+  - started: 2026-10-28T13:02:07.220Z
+  - finished: 2026-10-28T13:18:38.642Z
+  - added: 2026-10-28T13:02:07.195Z by AI
+  - updated: 2026-10-28T13:18:38.642Z by AI
+- [x] Screenshots and GIF from the video ^t5
+  - summary: README pictures taken at the same moments as the video, without captions, and a short GIF of steps ticking off.
+  - code: `docs/media/`
+  - code: `.gitignore`
+  - code: `CONTRIBUTING.md`
+  - estimate: 30m
+  - time spent: 1m
+  - started: 2026-10-28T13:18:38.659Z
+  - finished: 2026-10-28T13:19:35.006Z
+  - added: 2026-10-28T13:02:07.195Z by AI
+  - updated: 2026-10-28T13:19:35.006Z by AI
+- [x] README opening and the video link ^t6
+  - summary: The README opens by saying plainly what Progressor solves, links the YouTube video (https://youtu.be/7jDyJZvDMag) with its thumbnail, and keeps the GIF and screenshots from the video.
+  - code: `README.md`
+  - estimate: 45m
+  - time spent: 1h 29m
+  - started: 2026-10-28T13:19:35.022Z
+  - finished: 2026-10-28T14:48:20.132Z
+  - added: 2026-10-28T13:02:07.195Z by AI
+  - updated: 2026-10-28T14:48:20.132Z by AI
+- [x] Longer video that explains why ^t7
+  - summary: Retook the showcase (4 min 26 s): why vibe coders lose track and AI forgets after compaction or guesses, any app (Claude Code, Antigravity, opencode, pi...), compaction recovery, several projects at once, and private-by-default plain markdown that the AI puts in git when asked. The AI is now allowed to make that one .gitignore change.
+  - code: `scripts/demo.mjs`
+  - code: `docs/media/`
+  - code: `src/server.ts`
+  - code: `src/project.ts`
+  - code: `docs/faq.md`
+  - estimate: 2h
+  - time spent: 25m
+  - started: 2026-10-28T13:30:40.307Z
+  - finished: 2026-10-28T13:55:43.052Z
+  - added: 2026-10-28T13:28:48.305Z by AI
+  - updated: 2026-10-28T13:55:43.052Z by AI

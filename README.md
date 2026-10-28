@@ -13,9 +13,9 @@
 **What Progressor does:** your AI writes its plan, a **goal** with **steps**, into your project folder and keeps it up to date as it works. After a chat is compressed, or in a new chat, even in a different AI app, say *"use Progressor"* and your AI reads that plan and carries on where the work stopped. And you see the same plan on a page in your browser that updates by itself: what the AI is doing right now, what's done, and what it needs from you.
 
 <p align="center">
-  <a href="YOUTUBE_URL"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail.png" alt="Watch the 4-minute video on YouTube" width="640"></a>
+  <a href="https://youtu.be/7jDyJZvDMag"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail.png" alt="Watch the 4-minute video on YouTube" width="640"></a>
   <br>
-  <sub><a href="YOUTUBE_URL">▶ Watch the 4-minute video on YouTube</a></sub>
+  <sub><a href="https://youtu.be/7jDyJZvDMag">▶ Watch the 4-minute video on YouTube</a></sub>
 </p>
 
 <p align="center">
@@ -25,7 +25,7 @@
 It works with any app that supports [MCP](https://modelcontextprotocol.io) (the standard way AI apps add tools): Claude Code, Claude Desktop, VS Code with Copilot, Cursor, Windsurf, Codex and others.
 
 <p align="center">
-  <a href="YOUTUBE_URL"><img src="https://img.shields.io/badge/video-watch_on_YouTube-111111?style=for-the-badge" alt="Watch the video"></a>
+  <a href="https://youtu.be/7jDyJZvDMag"><img src="https://img.shields.io/badge/video-watch_on_YouTube-111111?style=for-the-badge" alt="Watch the video"></a>
   &nbsp;
   <a href="#set-it-up"><img src="https://img.shields.io/badge/set_it_up-2_minutes-111111?style=for-the-badge" alt="Set it up"></a>
 </p>

@@ -8,11 +8,17 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
 - [x] [0.1.2 · Status hooks for Claude Code](goals/v0-1-2.md) ^v0-1-2
 - [x] [Settings and finished Goals](goals/settings-and-finished-goals.md) ^settings-and-finished-goals
 - [x] [Workspaces](goals/workspaces.md) ^workspaces
-- [/] [Release 0.2.0](goals/release-0-2-0.md) ^release-0-2-0
-- [ ] [Automatic drift detection](goals/drift-detection.md) ^drift-detection
+- [-] [Release 0.2.0](goals/release-0-2-0.md) ^release-0-2-0
+  - reason: Out of date: 0.2.0 shipped long ago and npm is at 0.9.0; the hooks have been in daily use since.
+  - updated: 2026-10-28T11:33:47.880Z by AI
+- [-] [Automatic drift detection](goals/drift-detection.md) ^drift-detection
+  - reason: Not needed: the Developer has used Progressor for a week and the AI checks it so often that it rarely drifts.
+  - updated: 2026-10-28T11:33:39.192Z by AI
 - [x] [One-command setup](goals/one-command-setup.md) ^one-command-setup
-- [/] [Public GitHub repo and launch](goals/github-launch.md) ^github-launch
-- [/] [Slash commands in chat](goals/slash-commands.md) ^slash-commands
+- [x] [Public GitHub repo and launch](goals/github-launch.md) ^github-launch
+  - updated: 2026-10-28T11:33:50.978Z by AI
+- [x] [Slash commands in chat](goals/slash-commands.md) ^slash-commands
+  - updated: 2026-10-28T11:35:36.407Z by AI
 - [x] [Goal shaping from Developer feedback](goals/goal-shaping.md) ^goal-shaping
   - outcome: Goals can be renamed, reordered, dropped, given an Outcome and a short ID, recorded as already done, and duplicates are caught
 - [x] [Release 0.3.0](goals/release-0-3-0.md) ^release-0-3-0
@@ -33,8 +39,9 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: The README holds only what a new user needs to set up, use and get help; the details live in docs/ and CONTRIBUTING.md, linked from it.
 - [x] [Release 0.4.1](goals/release-0-4-1.md) ^release-0-4-1
   - outcome: 0.4.1, with the Help menu feedback links, --version and the shorter README, is on npm and the MCP Registry.
-- [/] [More slash commands](goals/more-commands.md) ^more-commands
+- [x] [More slash commands](goals/more-commands.md) ^more-commands
   - outcome: The docs name the commands as the / menu shows them (/progressor:status), and setup, next, idea and dashboard join status, plan and review.
+  - updated: 2026-10-28T11:52:23.077Z by AI
 - [x] [Release 0.5.0](goals/release-0-5-0.md) ^release-0-5-0
   - outcome: 0.5.0, with the setup, next, idea and dashboard commands and the every-project install, is on npm and the MCP Registry.
 - [x] [Release 0.5.1](goals/release-0-5-1.md) ^release-0-5-1
@@ -71,6 +78,70 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: Fewer tool calls, clean recovery from dead sessions, and reliable rules for helper agents.
 - [x] [Release 0.7.0](goals/v0-7-0.md) ^v0-7-0
   - outcome: progressor-mcp 0.7.0 is on npm and the MCP Registry with goals 1-4 of this round, and the README says why progress survives app changes, memory compression and new chats.
+- [x] [Release 0.7.1](goals/v0-7-1.md) ^v0-7-1
+  - outcome: 0.7.1 is out: the dashboard shows Helpers working instead of AI waiting while steps are with helpers.
+  - updated from: rachitkdeaichat at 2026-10-27T03:18:50.688Z
+- [x] [Release 0.8.0](goals/v0-8-0.md) ^v0-8-0
+  - outcome: 0.8.0 is out: an Agent can update another project's plan from its own, marked as updated from there.
+  - updated from: rachitkdeaichat at 2026-10-27T03:18:50.716Z
+- [x] [Release 0.9.0](goals/v0-9-0.md) ^v0-9-0
+  - outcome: 0.9.0 is out: estimates, time spent, a helper limit and a schedule on the dashboard.
+  - updated from: rachitkdeaichat at 2026-10-27T03:18:50.736Z
+- [x] [Helpers, checks and hand tests](goals/helper-workflow.md) ^helper-workflow
+  - outcome: Progressor knows where each helper's work lives, what was checked and what the Developer still has to test by hand, keeps shared resources and conflict-prone files from clashing, and learns from past estimates.
+  - updated from: rachitkdeaichat at 2026-10-28T03:28:11.594Z
+  - updated: 2026-10-28T11:42:08.288Z by AI
+- [x] [Robustness check and dashboard stability](goals/robust-dashboard.md) ^robust-dashboard
+  - outcome: Monday's and today's changes are verified, the small problems found are fixed, and the dashboard survives errors, slow answers and several open tabs without going blank or showing stale data.
+- [x] [Talk to your AI from the dashboard](goals/talk-to-ai.md) ^talk-to-ai
+  - outcome: On each goal the Developer can send their AI a message and answer its questions by clicking a choice; the AI is shown each new message or answer once, at its next Progressor call or Claude Code prompt, replies, and an answer is kept as a decision. Tested locally by the Developer, not pushed.
+  - updated: 2026-10-28T12:01:40.391Z by AI
+- [x] [Audit Progressor end to end](goals/audit.md) ^audit
+  - outcome: The Developer has one plain report on what Progressor does well and badly, for the AI side and the dashboard, ranked by what matters to someone who plans with an AI and watches its progress, with a recommended redesign direction to approve before any rebuild.
+- [x] [Keep plans safe](goals/safe-plans.md) ^safe-plans
+  - outcome: A damaged goals list or goal file is never silently overwritten (Progressor refuses and says which file to fix), and saving on Windows retries instead of falling back to an unsafe write or leaving temporary files.
+- [x] [Lighter for the AI](goals/lighter-ai.md) ^lighter-ai
+  - outcome: Routine step updates answer in a line or two instead of the whole status, get_status lists only the goals that matter plus a count of the rest, and the instructions are about half as long, with all tests passing.
+- [x] [Calm dashboard](goals/calm-dashboard.md) ^calm-dashboard
+  - outcome: Opening the dashboard shows a calm home page of what needs you and what is in progress; a goal page answers what needs me, what's happening and what's next, in black, white and greys only with heavy borders, what is being worked on highlighted and animated, no emoji, four text sizes, more space and a working phone layout. The Developer approves it from screenshots before it is merged.
+- [x] [Pictures on the dashboard](goals/pictures-on-the-dashboard.md) ^pictures-on-the-dashboard
+  - outcome: Your AI can attach screenshots and short screen recordings to a goal, a step or a thing to try, and you see them on the dashboard (click to enlarge) instead of opening files it names in the chat.
+- [x] [Dates, links and a livelier Needs you](goals/dates-links-and-a-livelier-needs-you.md) ^dates-links-and-a-livelier-needs-you
+  - outcome: Every goal, step, decision, note and thing to try shows when it was added and by whom (your AI or you) and when it last changed; Copy for your AI copies a short pointer the AI looks up in Progressor; Show in folder opens the file manager at the plan file; and what waits on you is gently animated.
+  - updated: 2026-10-28T12:39:52.246Z by AI
+- [x] [Edit project notes on the dashboard](goals/edit-project-notes-on-the-dashboard.md) ^edit-project-notes-on-the-dashboard
+  - outcome: On Project notes the Developer can add a rule (optionally a must-never-break one), reword or remove one, and edit the About this project text; each change is saved in the plan and their AI is told about it at its next step.
+  - added: 2026-10-28T11:42:23.434Z by AI
+  - updated: 2026-10-28T11:52:20.027Z by AI
+- [/] [When each step started and finished](goals/when-each-step-started-and-finished.md) ^when-each-step-started-and-finished
+  - outcome: Each step remembers when it was started and when it was finished, and the Steps list shows it on the row (done today 14:02, started 13:50) and in the step's details, with the exact time on hover; older steps fall back to when they last changed.
+  - added: 2026-10-28T11:52:50.632Z by AI
+  - updated: 2026-10-28T11:52:50.634Z by AI
+- [/] [Release 1.0.0](goals/release-1-0-0.md) ^release-1-0-0
+  - outcome: Version 1.0.0 is ready on main with its changelog, the Finished group in the sidebar can be closed, and it is published once the Developer has tried it and says to push the tag.
+  - claimed by: s-759273 (pid 383086) since 2026-10-28T12:37:06.102Z
+  - added: 2026-10-28T12:00:05.514Z by AI
+  - updated: 2026-10-28T12:00:05.516Z by AI
+- [/] [Warn when the dashboard page is out of date](goals/warn-when-the-dashboard-page-is-out-of-date.md) ^warn-when-the-dashboard-page-is-out-of-date
+  - outcome: When Progressor has been updated since the page was opened, or the page has lost touch with Progressor for over a minute, a bar at the top says so in plain words with a Refresh button; it goes away by itself when nothing is wrong.
+  - added: 2026-10-28T12:09:33.502Z by AI
+  - updated: 2026-10-28T12:09:33.504Z by AI
+- [x] [Statistics](goals/statistics.md) ^statistics
+  - outcome: A Statistics page for each project shows how long steps take against their estimates, how often work drifts (side trips, steps cancelled or added after one), steps finished per day over the last two weeks, the longest steps, and a line per goal; all worked out from the plan, in plain words.
+  - added: 2026-10-28T12:09:33.539Z by AI
+  - updated: 2026-10-28T12:39:52.265Z by AI
+- [x] [Statistics for every project on Home](goals/statistics-for-every-project-on-home.md) ^statistics-for-every-project-on-home
+  - outcome: Home shows statistics across all projects (steps done, time worked, goals finished, side trips, steps finished each day, how estimates held up) and a line per project that opens its own Statistics page.
+  - added: 2026-10-28T12:27:37.075Z by AI
+  - updated: 2026-10-28T12:39:52.282Z by AI
+- [x] [A README worth showing](goals/a-readme-worth-showing.md) ^a-readme-worth-showing
+  - outcome: The README opens with a fresh demo video and GIF of the current dashboard, shows the main features with screenshots (light, dark and Vibrant), describes what Progressor does today in plain words, and its pictures also show on npm; the Developer has looked at it before it is published.
+  - added: 2026-10-28T12:40:53.445Z by AI
+  - updated: 2026-10-28T14:48:20.152Z by AI
+- [x] [Plans stay private by default](goals/private-by-default.md) ^private-by-default
+  - outcome: A project that starts using Progressor keeps its whole plan out of git unless the Developer chooses to share it, and the docs say how to share it; projects that already have a plan are left as they are.
+  - added: 2026-10-28T13:28:48.269Z by AI
+  - updated: 2026-10-28T13:30:40.290Z by AI
 
 ## Ideas
 
@@ -92,8 +163,8 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
 ## Standing Instructions
 
 - Ask the Developer about product and UX decisions; make technical ones yourself and say what you chose ^s1
-- Merge finished, tested branches into main yourself. After each finished Goal, commit and push main to GitHub, then go on to the next Goal. Still ask before pushing a version tag or publishing (s5). ^s2
+- Merge finished, tested branches into main yourself. Do not push to GitHub until the Developer has tested the changes locally and says to push; until then, keep work on main locally. Still ask before pushing a version tag or publishing (s5). ^s2
 - Write tests first for anything with logic ^s3
-- A release bundles several finished Goals into one version, through its own release Goal; the Developer runs npm publish with their one-time code ^s4
 - A release bundles several finished Goals into one version, through its own release Goal. Pushing a version tag (v0.4.1) makes the release workflow publish to npm and the MCP Registry by itself; ask the Developer before pushing the tag. This replaces s4. ^s5
-- Everything a person reads (dashboard, docs, what the Agent tells the Developer) is in plain English for someone who doesn't code: say step, side trip, Your goals, cancelled and Finished when; Goal stays. The Agent's tools keep their names inside. The Agent manages the plan; the human only watches. ^s6
+- Everything a person reads (dashboard, docs, what the Agent tells the Developer) is in plain English for someone who doesn't code: say step, side trip, Your goals, cancelled and Finished when; Goal stays. The Agent's tools keep their names inside. The Agent manages the plan; the Developer can talk to it from the dashboard (messages, answers to its questions, hand-test marks), and the Agent acts on what they say. ^s6
+- Dashboard design: the Light, Dark and System themes are black, white and greys only; tell states apart by heavy borders, weight, fill and motion, not colour, with no coloured (orange/amber) backgrounds. A fourth theme, Vibrant, is the colourful one (one accent colour, green for done, amber for needs you); it has no dark version. In every theme, what is being worked on right now is highlighted and gently animated, with smooth transitions. ^s7
