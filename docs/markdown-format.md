@@ -246,3 +246,7 @@ The tools are the way to change the plan, but a file edited by hand, or merged b
 - **Unknown sections** (any `##` heading other than the ones above; in a Plan File, `## Tasks`, `## Decisions`, `## Notes` and `## Detour: ...` are known) and anything before the first `##` heading are kept as they are.
 - **Missing sections** are created at the end of the file when something needs to go in them.
 - Only top-level list lines (no indentation) are items. Indented lines belong to the item above them.
+
+## What is not in the files
+
+Locks on shared resources (`claim_resource`) are runtime state and are kept outside `.progressor/`, in the system's temp folder, so the plan's files and your git history never carry them. See [Locks on shared resources](reference.md#locks-on-shared-resources).

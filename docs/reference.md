@@ -55,6 +55,9 @@ The AI calls these; the server's instructions tell it when.
 | `drop_goal` | Drops a Goal that is no longer wanted, with a reason. |
 | `claim_goal` | Claims a Goal for this Session, which keeps any others it holds; a done Goal is reopened. |
 | `release_goal` | Releases the Claim; the Goal is paused. |
+| `claim_resource` | Claims a named shared resource (`resource`, such as `dev-window`) that only one session or helper can use at a time, with a `reason`; optional `label` (who it is for when not the Session itself, such as `helper: media run`), `task` (the Task ID) and `minutes` (how long it lasts, 30 by default, at most 240). Refused, naming the holder, since when and why, when someone else holds it. Claiming it again as the same holder refreshes it. |
+| `release_resource` | Releases a resource (`resource`, with the same `label` it was claimed with). Another holder's is refused unless `force: true`, which is for when the Developer says the holder is gone. |
+| `list_resources` | Who holds which resource, for how long and why. `get_status` shows the same. |
 | `complete_goal` | Marks the claimed Goal done, once every Task is done, released or dropped and no Detour is open. |
 | `add_tasks` | Appends Tasks (title, files, summary and `estimate`) to the claimed Goal. |
 | `start_task` | Marks a Task in progress (one per Goal at a time). |
@@ -73,6 +76,16 @@ The AI calls these; the server's instructions tell it when.
 | `add_standing_instruction` | Saves a lasting rule from the Developer; `hard: true` marks one that must never be broken; `helpers_at_once: 2` makes it the rule that holds the helper limit. |
 | `update_standing_instruction` | Changes a rule's text, its `hard` flag and/or the helper limit it holds (`helpers_at_once`, 0 removes it), or removes the rule when the text is empty. |
 | `update_context` | Replaces the project's Important context (at most 4000 characters), or clears it with an empty text. |
+
+### Locks on shared resources
+
+Some things only one session or helper can use at a time: a dev window that lets only one instance run, the desktop shell, a port. Without a lock, a second helper's run can quit silently and report a pass that tested nothing. The AI calls `claim_resource` before it (or a helper) starts such a thing, and `release_resource` when the work ends. Helpers usually run inside the same Session as the AI or cannot call Progressor at all, so the tools and the server's instructions tell the AI to claim on a helper's behalf before it starts the helper (with a `label`, such as `helper: media run`) and release when it hands back.
+
+- **Who holds a lock.** The Session that claimed it, plus the optional `label`. Two holders in one Session (the AI and a helper, or two helpers) are different holders: the second is refused too, and refreshing or releasing needs the same `label`. Names ignore case and spacing (`Dev Window` is `dev-window`).
+- **Refused.** A claim on a resource someone holds is refused with who holds it, since when, why, the Task if one was given, and how long until it frees itself; the text tells the AI to do other work and try again later. Nothing waits: no tool blocks.
+- **When it is free.** A lock counts as held only while both are true: its time has not run out (`minutes` from the last claim; 30 minutes unless given, at most 4 hours; claiming again as the same holder refreshes it and keeps the first start time), and its Session may still be running (the same test as a Goal's Claim: the process is alive and has not been reused by another Session). A Session that ends releases its locks. Anything else is free and is ignored and replaced on the next claim.
+- **Where they are kept.** In one small JSON file in the system's temp folder named after the project folder (`progressor-<hash>.resources.json`, beside the plan hold), written whole and renamed into place while the tool holds the plan. Not in `.progressor/`: locks are runtime state, so they never show in the plan files, in a git diff or in a commit, and the file goes away with a reboot. Every Session and the dashboard on the machine read the same file.
+- `get_status` lists what is in use ("In use now: …"). The dashboard shows it small, under the goals' schedule line: *In use: dev window, by helper: media run, 4 m*; it looks again every 15 seconds because the file is outside `.progressor/`.
 
 ### Changing another project's plan
 
@@ -143,7 +156,7 @@ Everything lives in `.progressor/` in the project:
 - `roadmap.md`: the Goals in order, with their Outcomes and Claims, and the Standing Instructions (a hard rule has a `hard: yes` line).
 - `goals/<id>.md`: one Plan File per Goal, with its Tasks, decisions, notes and Detours.
 
-They are plain markdown, written only by the server's tools. An example Plan File:
+They are plain markdown, written only by the server's tools. Locks on shared resources are not in them (see [Locks on shared resources](#locks-on-shared-resources)). An example Plan File:
 
 ```markdown
 # Ship OAuth login
