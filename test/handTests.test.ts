@@ -10,7 +10,7 @@ import { type HandTest, parsePlanFile } from "../src/planFile.js";
 import { handTestLines } from "../src/handTestText.js";
 import { Project } from "../src/project.js";
 import { createServer } from "../src/server.js";
-import { tempDir } from "./tmp.js";
+import { tempDir, withoutDates } from "./tmp.js";
 
 const NOW = new Date("2026-10-28T10:00:00.000Z");
 let root: string;
@@ -23,7 +23,7 @@ beforeEach(() => {
   agent.claimGoal(goal.id);
 });
 
-const planText = () => readFileSync(join(root, ".progressor/goals/attachments.md"), "utf8");
+const planText = () => withoutDates(readFileSync(join(root, ".progressor/goals/attachments.md"), "utf8"));
 const plan = () => parsePlanFile(planText(), "attachments");
 
 describe("hand tests in the plan file", () => {

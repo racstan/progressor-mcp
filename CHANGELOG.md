@@ -4,6 +4,10 @@ All notable changes to progressor-mcp. Each release is a Goal on Progressor's ow
 
 ## Unreleased
 
+### Dates on everything
+
+- **Every goal, step, decision, note and thing to try now says when it was added, who added it (your AI or you) and when it last changed.** On the dashboard it shows in the goal's header, in a step's details and on the map, and under each decision, note and thing to try; hover a date to see the exact day and time. Your messages show when they were sent and answered. Plans you already have keep working: they just have no dates until something changes. In the plan's files: two lines, `added` and `updated`, written by Progressor.
+
 ### Plans kept safe
 
 - **A damaged plan file is no longer written over.** If your list of goals (or one goal's steps) was pasted over or edited into something Progressor can't read, it used to be treated as empty and the next change replaced it, so other goals could vanish. Now Progressor stops and says which file it could not read, and leaves it as it is. Fix the file (git can restore it) and carry on. A new or empty file works as before.

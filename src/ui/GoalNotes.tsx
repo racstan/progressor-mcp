@@ -1,4 +1,5 @@
 import type { GoalView, RoadmapView } from "./data.js";
+import { Dates } from "./Dates.js";
 import { RichText } from "./RichText.js";
 import { elsewhereTag, noteOrigin } from "./words.js";
 
@@ -34,7 +35,7 @@ export function GoalNotes({ view, goals }: { view: Pick<GoalView, "decisions" | 
           <h3>Decisions <span className="quiet">· {decisions.length}</span></h3>
           <ul>
             {decisions.map((d, i) => (
-              <li key={d.id ?? i}><RichText className="text" text={d.text} /><Elsewhere item={d} /></li>
+              <li key={d.id ?? i}><RichText className="text" text={d.text} /><Dates item={d} className="origin" /><Elsewhere item={d} /></li>
             ))}
           </ul>
         </section>
@@ -49,6 +50,7 @@ function Note({ note, goals }: { note: GoalView["notes"][number]; goals: Goals }
     <li className={note.resolved ? "resolved" : undefined}>
       <RichText className="text" text={note.text} />
       {origin && <div className="origin">{origin}</div>}
+      <Dates item={note} className="origin" />
       <Elsewhere item={note} />
     </li>
   );

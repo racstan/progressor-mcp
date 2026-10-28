@@ -105,7 +105,7 @@ describe("the MCP server", () => {
         "Goal: Login (progressor://login), claimed by this Session",
         "Plan File: .progressor/goals/login.md",
         "Progress: 1 of 3 Tasks done",
-        "Current Task: t2 Handle callback (.progressor/goals/login.md:6)",
+        "Current Task: t2 Handle callback (.progressor/goals/login.md:8)",
         "Open Detour: d1 Fix flaky refresh, branched from t2. Reason: callback tests fail randomly",
         "Next Task: t3 Cookies",
         "Standing Instructions:",
@@ -496,7 +496,7 @@ describe("several Goals in one Session", () => {
       [
         "This Session holds 2 Goals; pass goal (the Goal ID) to the tools that change one.",
         "Goal login: Login (progressor://login), 1 of 2 Tasks done",
-        "  Current Task: t2 Callback (.progressor/goals/login.md:6)",
+        "  Current Task: t2 Callback (.progressor/goals/login.md:8)",
         "  Next Task: none; every Task is done or dropped",
         "Goal voice: Voice (progressor://voice), 0 of 2 Tasks done, waiting on the Developer",
         "  Current Task: none",

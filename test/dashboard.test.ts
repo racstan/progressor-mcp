@@ -205,10 +205,10 @@ describe("one dashboard for every project", () => {
     const base = `/api/projects/${entry(agent).id}`;
     const { body } = await get(d, `${base}/goals/ship-oauth-login`);
     expect(body.decisions).toEqual([
-      { id: "c1", ref: "progressor://ship-oauth-login/c1", text: "Keep the old cookie name", line: expect.any(Number) },
+      { id: "c1", ref: "progressor://ship-oauth-login/c1", text: "Keep the old cookie name", line: expect.any(Number), added: expect.any(Object) },
     ]);
     expect(body.notes).toEqual([
-      { id: "n1", ref: "progressor://ship-oauth-login/n1", text: "Logout overlaps on mobile", resolved: true, line: expect.any(Number) },
+      { id: "n1", ref: "progressor://ship-oauth-login/n1", text: "Logout overlaps on mobile", resolved: true, line: expect.any(Number), added: expect.any(Object), updated: expect.any(Object) },
     ]);
     expect(body.goal).toMatchObject({ waitingOnYou: true, done: 1, total: 3 });
     expect(body.goal.counts).toEqual({

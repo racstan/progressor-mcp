@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { type GoalView, type HandMark, markHandTest } from "./data.js";
+import { Dates } from "./Dates.js";
 import { Icon } from "./Icon.js";
 import { type PictureItem, Pictures } from "./Pictures.js";
 import { RichText } from "./RichText.js";
@@ -83,6 +84,7 @@ function Item({ test, about, added, pictures, projectId, goalId, onChanged, need
       <RichText className="text" text={test.text} />
       {about && <div className="about">About the step: {about}</div>}
       <Pictures pictures={pictures} />
+      <Dates item={test} className="origin" />
       {marked ? (
         <div className="result">
           <span className="badge">{HAND_WORD[test.result]}</span>

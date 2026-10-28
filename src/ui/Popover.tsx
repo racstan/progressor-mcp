@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { parseCodeRef } from "../dashboard/editor.js";
 import type { TaskNode } from "../dashboard/graph.js";
 import { type PromptSubject, copyAsPrompt } from "../dashboard/prompt.js";
+import { Dates } from "./Dates.js";
 import { Icon } from "./Icon.js";
 import { RichText } from "./RichText.js";
 import { StepMark } from "./StepKey.js";
@@ -94,6 +95,7 @@ export function Popover({ subject, at, onClose, fileLink, files, onCopy }: {
       <button className="iconbtn x" aria-label="Close" onClick={onClose}><Icon name="close" /></button>
       <h4>{d.title}</h4>
       <div className="meta">{d.meta}</div>
+      <Dates item={subject.kind === "node" && subject.node.kind === "task" ? subject.node : undefined} />
       {d.time && <div className="meta time" title="How long your AI expected this step to take, and how long it has taken. Time paused (back to To do) does not count.">{d.time}</div>}
       {d.state && STEP_HINT[d.state] && (
         <div className="meta"><StepMark status={d.state} /> {STEP_HINT[d.state]}</div>

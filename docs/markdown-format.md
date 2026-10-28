@@ -112,7 +112,7 @@ Every item also has a line number: the 1-based line of its item line (for a Deto
 
 Every Task has three parts. Its **title** is the item line: a few words, such as "Fix callback redirect loop". Its **files** are its `code` lines. Its **summary** is a `summary` line: one or two sentences on the fix or change it makes. The title is required; files and summary are optional, so a Task typed by hand as a single line is still valid. A summary is kept on one line: line breaks given to the tools become spaces.
 
-When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `helper`, `helper branch`, `helper folder`, `evidence`, `checked since`, `estimate`, `time spent`, `timing since`, `moved from`, `added by`, `from hand test`, `dropped by`, `reason`, `updated from`. Unknown details follow in the order they were in.
+When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `helper`, `helper branch`, `helper folder`, `evidence`, `checked since`, `estimate`, `time spent`, `timing since`, `moved from`, `added by`, `from hand test`, `dropped by`, `reason`, `updated from`, `added`, `updated`. Unknown details follow in the order they were in.
 
 ## Status markers
 
@@ -193,6 +193,7 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 | Hand test | `task added`  | The Task a failed result added (`^t7`); written by the tools.            |
 | Hand test | `seen`        | `yes` once the Agent has been shown the mark in a status; written by the tools. |
 | Goal, Task, decision, note, hand test | `updated from` | The project an Agent working elsewhere changed it from, and when: `<project name> at <ISO time>` (see [below](#changes-from-another-project)). |
+| Goal, Task, decision, note, hand test | `added`, `updated` | When it was added and when it last changed, and who did it: `<ISO time> by AI` or `<ISO time> by Developer` (the Developer, from the dashboard). Written by Progressor whenever it saves, never by hand, and last among an item's lines. A line that is missing or not in that form is ignored, so older plans work as they are and are not rewritten by being read. Moving a Task to another Goal keeps its `added`. A Goal's `claimed by` and the Agent seeing a hand test's mark are not changes. |
 
 A Detour's facts are the list lines directly under its heading:
 

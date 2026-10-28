@@ -15,6 +15,7 @@ import {
   setDetail,
 } from "./markdown.js";
 import { formatDuration, parseDuration } from "./estimate.js";
+import { type Stamp, withDates } from "./dates.js";
 import { ORIGIN_KEY, type Origin, formatOrigin, parseOrigin } from "./origin.js";
 
 /** What the checkbox says; whether a started Goal is active or paused depends on its Claim. */
@@ -45,6 +46,9 @@ export interface Goal {
   estimate?: number;
   /** Set when the Goal was last added or changed from another project. */
   updatedFrom?: Origin;
+  /** When it was added and last changed, and by whom; unknown in plans from before dates. */
+  added?: Stamp;
+  updated?: Stamp;
 }
 
 export interface Idea {
@@ -159,6 +163,7 @@ export class Roadmap {
         reason: getDetail(b, "reason"),
         ...(estimate !== undefined ? { estimate } : {}),
         ...(origin ? { updatedFrom: origin } : {}),
+        ...withDates(b),
       };
     });
   }
