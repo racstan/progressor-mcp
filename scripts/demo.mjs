@@ -236,15 +236,17 @@ function folderTree(dir, indent = "") {
 await page.goto(url(`#/goal/${dark.id}`));
 await goalRow("Dark mode").waitFor();
 await pause(1500);
+// The title card is fully on before filming starts, so the video never opens on the page behind it.
+await card("Progressor", "Your AI's plan, saved in your project and shown live.", "An MCP server for AI coding assistants", 1500);
 await cdp.send("Page.startScreencast", { format: "jpeg", quality: 92, maxWidth: 1920, maxHeight: 1080 });
 
 // The idea.
 mark("start");
-await card("Progressor", "Your AI's plan, saved in your project and shown live.", "An MCP server for AI coding assistants", 4500);
+await pause(4500);
 await page.screenshot({ path: join(out, "youtube-thumbnail-full.png") });
 await card("Vibe coding a big project?", "It starts easy. Then come dozens of features, half-finished ideas and fixes for the fixes. Soon it gets hard to plan, and hard to remember what was being done.", "The problem, for you", 8000);
 await card("Your AI forgets too.", "When a long chat gets compacted, the AI loses the details. A new chat starts from nothing. And with no plan to check, an AI can guess, and tell you something is done when it isn't.", "The problem, for your AI", 9000);
-await card("Progressor keeps the plan.", "Your AI plans the work as goals and steps, and writes them into your project as it works. You watch it live in your browser. Compacted chats and new chats read the plan and carry on. Nobody forgets anything.", "The idea", 9000);
+await card("Progressor keeps the plan.", "Your AI plans the work as goals and steps, and writes them into your project as it works. You watch it live in your browser. After compaction, or in a new chat, say \"use Progressor\" and your AI reads the plan and carries on.", "The idea", 9000);
 await card("Any app. Any AI.", "Claude Code, Antigravity, opencode, pi, Cursor, VS Code, Codex, Windsurf… anything that supports MCP. The plan belongs to your project, not to the chat, so you can switch whenever you like.", "Use what you like", 8000);
 
 // 1. You ask, your AI plans.
@@ -351,8 +353,10 @@ await demo("chat", "Your AI chat, an hour later");
 await pause(400);
 await demo("say", "sys", "Conversation compacted: older messages were summarised to save space.");
 await pause(2000);
+await demo("say", "you", "use Progressor");
+await pause(1500);
 await demo("say", "ai", "Let me check the plan before I go on… We're on step 4 of 6, \"Tick items off in the shop\". Ticked items stay greyed out, as you decided.");
-await caption("After compaction, your AI reads the plan instead of guessing from a summary.", "Nothing is forgotten");
+await caption("After compaction, say \"use Progressor\": your AI reads the plan instead of guessing from a summary.", "Nothing is forgotten");
 await pause(6500);
 await caption("No made-up progress: what's done is what the plan says is done.", "Nothing is forgotten");
 await pause(4500);
@@ -371,13 +375,13 @@ await pause(5500);
 await demo("hideFile");
 await demo("chat", "Next day: a new chat, in a different app");
 await pause(400);
-await demo("say", "you", "carry on");
+await demo("say", "you", "use Progressor and carry on");
 await pause(1500);
 const next = new Project({ root, session: { id: "demo-ai-2", pid: process.pid } });
 next.claimGoal(list.id);
 next.startTask(list.steps[3].id, list.id);
 await demo("say", "ai", "Picking up \"Shopping list from recipes\" at step 4 of 6: Tick items off in the shop. Ticked items stay greyed out, as you decided.");
-await caption("A new chat, even in another app or with another AI, carries on where the last one stopped.", "Nothing is forgotten");
+await caption("In a new chat, even in another app or with another AI, it carries on where the last one stopped.", "Nothing is forgotten");
 await pause(6500);
 await demo("hideChat");
 
@@ -447,14 +451,16 @@ for (const [theme, words] of [
     localStorage.setItem("progressor.theme", t);
     localStorage.removeItem("progressor.tab");
   }, theme);
+  // The same address twice does not reload the page, so reload it for the theme to be read again.
   await page.goto(url(`#/goal/${list.id}`));
+  await page.reload();
   await page.getByRole("tab", { name: /Steps/ }).waitFor();
   await caption(words, "Light, dark or Vibrant");
   await pause(3500);
   await shot(theme);
 }
 await page.evaluate(() => localStorage.removeItem("progressor.theme"));
-await page.goto(url(`#/goal/${list.id}`));
+await page.reload();
 await page.getByRole("tab", { name: /Steps/ }).waitFor();
 
 // The end.
@@ -509,7 +515,7 @@ function overlay() {
     opacity: 0; transform: translateY(10px); transition: all .4s ease; }
   .d-card code.on { opacity: 1; transform: none; }
   .d-cap { position: absolute; left: 50%; bottom: 34px; transform: translate(-50%, 16px); opacity: 0; transition: all .35s ease; background: rgba(11,11,11,.94); color: #fff;
-    padding: 16px 28px 18px; border-radius: 16px; max-width: 1080px; box-shadow: 0 12px 40px rgba(0,0,0,.25); z-index: 6; }
+    padding: 16px 28px 18px; border-radius: 16px; max-width: 1080px; box-shadow: 0 12px 40px rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.22); z-index: 6; }
   .d-cap.on { opacity: 1; transform: translate(-50%, 0); }
   .d-cap .k { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: #a7a7a3; margin-bottom: 4px; }
   .d-cap .t { font-size: 24px; line-height: 1.35; }
