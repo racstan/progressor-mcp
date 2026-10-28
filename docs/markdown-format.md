@@ -98,6 +98,8 @@ Every item ends its line with an ID marker: a space, a caret and the ID (`^t2`).
 | Decision             | `## Decisions` in a Plan File           | `c1`, `c2`, ...    | `progressor://<goal>/c1`         |
 | Note                 | `## Notes` in a Plan File               | `n1`, `n2`, ...    | `progressor://<goal>/n1`         |
 | Hand test            | `## Hand tests` in a Plan File          | `h1`, `h2`, ...    | `progressor://<goal>/h1`         |
+| Message              | `## Messages` in a Plan File            | `m1`, `m2`, ...    | `progressor://<goal>/m1`         |
+| Question             | `## Questions` in a Plan File           | `q1`, `q2`, ...    | `progressor://<goal>/q1`         |
 | Idea                 | `## Ideas` in roadmap.md                | `i1`, `i2`, ...    | `progressor://roadmap/i1`        |
 | Standing Instruction | `## Standing Instructions`              | `s1`, `s2`, ...    | `progressor://roadmap/s1`        |
 
@@ -234,6 +236,43 @@ Both sections are created when their first item is added, after the Tasks and be
 
 The section is created after the Notes (or the Tasks) and before any Detour. A failed result adds a pending Task to the Goal, titled `Fix: <the test>` with a summary that holds the note, a `from hand test: ^h2` line and, on the test, the `task added` line that links back. Marking again or clearing drops that Task when nobody has started it. A hand test the Agent has not seen yet (no `seen` line) is shown to it once by `get_status`, which then adds `seen: yes`. A Goal cannot be completed while a hand test is not tried yet, unless the Agent passes `unmarked_hand_tests_ok`. Files from before this section read as having no hand tests; an older Progressor keeps the section as an unknown one.
 
+## Messages and questions
+
+`## Messages` holds what the Developer wrote to the Agent on the dashboard, and `## Questions` what the Agent asked them there. One checklist line each; the checkbox says where it stands:
+
+| Section     | Checkbox | Meaning                                                              |
+| ----------- | -------- | -------------------------------------------------------------------- |
+| Messages    | `[ ]`    | Sent; the Agent has not been shown it yet.                           |
+| Messages    | `[/]`    | The Agent has been shown it and not replied yet.                     |
+| Messages    | `[x]`    | The Agent replied (the `reply` line).                                |
+| Questions   | `[ ]`    | Open: waiting for the Developer's answer.                            |
+| Questions   | `[x]`    | Answered (the `answer` line), and kept as a decision.                |
+| Questions   | `[-]`    | Withdrawn by the Agent; it no longer needs an answer.                |
+
+```markdown
+## Messages
+
+- [x] Use the blue logo, not the green one ^m1
+  - sent: 2026-10-28T09:12:00.000Z
+  - seen: 2026-10-28T09:13:10.000Z
+  - reply: Done: the header now uses the blue logo.
+  - replied: 2026-10-28T09:20:00.000Z
+
+## Questions
+
+- [x] Should dark mode be on by default, or follow the computer's setting? ^q1
+  - choice: On by default
+  - choice: Follow the computer
+  - task: ^t1
+  - asked: 2026-10-28T09:00:00.000Z
+  - answer: Follow the computer
+  - answered: 2026-10-28T09:12:30.000Z
+  - decision: ^c1
+  - seen: 2026-10-28T09:13:10.000Z
+```
+
+Both sections are created when their first item is added, after the other sections and before any Detour. The dashboard writes messages and answers; the Agent's tools write questions and replies, and the `seen` lines when the Agent is shown a message or an answer (once). An answer is also added to `## Decisions` as `<the question> The Developer answered: <answer>`. The Developer can take back a message while it is still `[ ]`, which deletes its line. Files from before these sections read as having none; an older Progressor keeps them as unknown sections.
+
 ## Hard rules
 
 A Standing Instruction is a preference unless it has a `hard: yes` line, which makes it a hard rule: one that must never be broken. Any other value, or no line, reads as a preference, so Roadmaps from before the flag keep working and an older Progressor keeps the line as an unknown detail. Progressor lists hard rules first, marked `HARD RULE`, in `get_status`, at session start and in the rules block of `get_rules`, and the dashboard marks them with a **Must** label. Their order in the file is not changed.
@@ -277,7 +316,7 @@ The tools are the way to change the plan, but a file edited by hand, or merged b
 - **Untouched items are copied verbatim.** When the Agent changes one item, only that item's lines are rewritten in the canonical form above; every other line keeps its original spelling (`* [ ]`, `[X]`, extra spaces and so on).
 - **Items without an ID** (a Task line typed by hand, say) are recognised and get the next free ID the next time Progressor writes that file.
 - **Unknown detail lines** under an item are kept, after the known ones, when that item is rewritten.
-- **Unknown sections** (any `##` heading other than the ones above; in a Plan File, `## Tasks`, `## Decisions`, `## Notes`, `## Hand tests` and `## Detour: ...` are known) and anything before the first `##` heading are kept as they are.
+- **Unknown sections** (any `##` heading other than the ones above; in a Plan File, `## Tasks`, `## Decisions`, `## Notes`, `## Hand tests`, `## Messages`, `## Questions` and `## Detour: ...` are known) and anything before the first `##` heading are kept as they are.
 - **Missing sections** are created at the end of the file when something needs to go in them.
 - Only top-level list lines (no indentation) are items. Indented lines belong to the item above them.
 

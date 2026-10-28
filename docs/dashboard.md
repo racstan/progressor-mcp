@@ -58,7 +58,17 @@ When any step of a goal is waiting on you, the whole goal says so, so you can se
 - On the map the step has an amber **!** and **WAITING ON YOU** above it; in the list its row is highlighted.
 - In **All projects**, the goal says **Waiting on you** and its project shows the same note and comes first in the list.
 
+A question from your AI makes the goal wait on you in the same way; answer it in the [talk box](#talk-with-your-ai).
+
 Once you've done what the step needed, tell your AI in the chat: it moves the step along, and the goal goes back to normal by itself.
+
+## Talk with your AI
+
+Under the goal's banner there is a box to write to your AI: type what you want ("use the blue logo", "skip the export step for now") and press **Send**. Your message is kept with the goal's plan. Your AI reads it the next time it updates the plan, which while it works is every few minutes, and does what you asked. It can't read it any sooner: nothing on this page can interrupt or wake up an AI chat. If the chat is closed, your message waits for the next one. Under your message you see where it stands: *sent; your AI reads it at its next update*, *read by your AI*, then your AI's reply. Changed your mind before your AI read it? Press **Take back**.
+
+When your AI needs you to choose something, it asks here instead of stopping in the chat. The question shows at the top of the box under **Your AI asks**, with a button for each answer, plus **Something else…** to answer in your own words. Click one and your AI gets your answer at its next update. Your AI keeps working on other steps meanwhile, and your answer is also kept in the goal's decisions. While a question waits, the goal says **Waiting on you**, like a step waiting on you.
+
+What you've said before stays below, newest first: your messages with your AI's replies, and the answers you gave.
 
 ## Things to try by hand
 
@@ -145,7 +155,7 @@ The dashboard listens only on your own computer (`127.0.0.1`, and `::1` where th
 
 ### What the dashboard can change
 
-Only two things, both from the dashboard's own page: stopping a Progressor server, and marking a hand test. Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
+Only a few things, all from the dashboard's own page: stopping a Progressor server, marking a hand test, and talking with your AI (sending or taking back a message, answering a question). Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark, message or answer is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
 
 ### The dashboard without an AI running
 
