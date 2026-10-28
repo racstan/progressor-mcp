@@ -177,8 +177,9 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
       const talk = project.talk(goalId);
       const messages: Message[] = talk.messages;
       const questions: Question[] = talk.questions;
-      // Each picture comes with the address the page loads it from (served by the hub below).
-      const pictures = project.pictures(goalId).map((p) => ({ ...p, url: `/api/projects/${encodeURIComponent(projectId)}/goals/${encodeURIComponent(goalId)}/pictures/${encodeURIComponent(p.file)}` }));
+      // Each picture comes with the address the page loads it from (served by the hub below); the
+      // time it was added is in it, so a new picture that reuses a removed one's name is not cached.
+      const pictures = project.pictures(goalId).map((p) => ({ ...p, url: `/api/projects/${encodeURIComponent(projectId)}/goals/${encodeURIComponent(goalId)}/pictures/${encodeURIComponent(p.file)}?v=${encodeURIComponent(p.addedAt)}` }));
       return { goal, graph: buildGoalGraph(plan), decisions, notes, handTests, messages, questions, pictures };
     },
     item: (ref: string) => project.getItem(ref),

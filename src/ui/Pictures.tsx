@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { GoalView } from "./data.js";
 import { Icon } from "./Icon.js";
 
@@ -20,7 +21,7 @@ export function Pictures({ pictures }: { pictures: PictureItem[] }) {
               <span className="frame">
                 {p.kind === "video" ? (
                   <>
-                    <video src={p.url} preload="metadata" muted playsInline tabIndex={-1} />
+                    <video src={`${p.url}#t=0.5`} preload="metadata" muted playsInline tabIndex={-1} />
                     <span className="play"><Icon name="play" size={20} /></span>
                   </>
                 ) : (
@@ -32,7 +33,8 @@ export function Pictures({ pictures }: { pictures: PictureItem[] }) {
           </li>
         ))}
       </ul>
-      {shown && <Viewer picture={shown} onClose={() => setShown(undefined)} />}
+      {/* On the page body: an animated parent (a step opening) would otherwise hold it inside itself. */}
+      {shown && createPortal(<Viewer picture={shown} onClose={() => setShown(undefined)} />, document.body)}
     </>
   );
 }

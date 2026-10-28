@@ -516,9 +516,22 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .picture .play { position: absolute; right: var(--s2); bottom: var(--s2); width: 32px; height: 32px; border-radius: 50%; background: var(--ink); color: var(--bg); display: flex; align-items: center; justify-content: center; }
 .picture .caption { font-size: var(--t-s); color: var(--muted); overflow-wrap: anywhere; }
 .picture:hover .frame { box-shadow: var(--lift); transform: translate(-2px, -2px); }
-.viewer { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, .86); display: flex; align-items: center; justify-content: center; padding: var(--s6); animation: fade .2s var(--ease) both; }
+.viewer { position: fixed; inset: 0; z-index: 100; background: rgba(5, 5, 5, .96); display: flex; align-items: center; justify-content: center; padding: var(--s6); animation: fade .2s var(--ease) both; }
 .viewer figure { margin: 0; max-width: 100%; max-height: 100%; display: flex; flex-direction: column; align-items: center; gap: var(--s3); animation: pop .22s var(--ease) both; }
-.viewer img, .viewer video { max-width: 100%; max-height: calc(100vh - 140px); display: block; border: var(--heavy); background: #000; }
+.viewer img, .viewer video { max-width: 100%; max-height: calc(100vh - 140px); min-width: min(360px, 100%); object-fit: contain; display: block; border: 2px solid #f2f2f0; background: #000; }
 .viewer figcaption { color: #f2f2f0; font-size: var(--t-m); text-align: center; max-width: 80ch; overflow-wrap: anywhere; }
 .viewer-close { position: absolute; top: var(--s4); right: var(--s4); width: 40px; height: 40px; border-radius: 50%; border: 2px solid #f2f2f0; background: #0b0b0b; color: #f2f2f0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .viewer-close:hover { background: #f2f2f0; color: #0b0b0b; }
+
+/* the sidebar folded away on a wide window */
+.shell { transition: grid-template-columns .26s var(--ease); }
+.shell.collapsed { grid-template-columns: 0 1fr; }
+.shell.collapsed > .sidebar { visibility: hidden; padding: 0; border: none; overflow: hidden; }
+.side-toggle { margin-left: calc(-1 * var(--s2)); }
+@media (max-width: 900px) {
+  .side-toggle { display: none; }
+  .shell.collapsed { grid-template-columns: 1fr; }
+  .shell.collapsed > .sidebar { visibility: visible; padding: var(--s4) var(--s3) var(--s5); border-right: 2px solid var(--ink); }
+}
+.pictures > li { border: none; padding: 0; background: none; animation: none; }
+.notes-block ul.pictures { flex-direction: row; }

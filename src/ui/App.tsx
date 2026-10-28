@@ -112,6 +112,9 @@ export function App() {
   const [editorChoice, setEditorChoice] = useStored<string>("progressor.editor", undefined);
   const [panel, setPanel] = useState<"help" | "settings">();
   const [drawer, setDrawer] = useState(false);
+  // On a wide window the sidebar can be folded away; on a narrow one it is a drawer instead.
+  const [collapsed, setCollapsed] = useStored<"1">("progressor.sidebar-collapsed", undefined);
+  const toggleSidebar = () => (isPhone() ? setDrawer(!drawer) : setCollapsed(collapsed ? undefined : "1"));
   const [servers, reloadServers] = useServers();
   const [query, setQuery] = useState("");
   const hits = useSearch(query);
@@ -266,10 +269,11 @@ export function App() {
         setSwitcherOpen(false);
         setDrawer(false);
       }
+      if (e.key === "[" && !e.ctrlKey && !e.metaKey && !e.altKey) toggleSidebar();
     };
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
-  }, []);
+  });
 
   // "Open in file" is a real link to the editor's URL, so hovering shows where it goes.
   const fileLink: FileLink = (path, line) => ({
@@ -400,6 +404,10 @@ export function App() {
         <button className="iconbtn menu-btn-phone" aria-label={drawer ? "Close the menu" : "Open the menu"} aria-expanded={drawer} onClick={() => setDrawer(!drawer)}>
           <Icon name={drawer ? "close" : "menu"} size={18} />
         </button>
+        <button className="iconbtn side-toggle" aria-label={collapsed ? "Show the sidebar" : "Hide the sidebar"} aria-expanded={!collapsed}
+          title={`${collapsed ? "Show" : "Hide"} the sidebar (shortcut: [ )`} onClick={toggleSidebar}>
+          <Icon name="menu" size={18} />
+        </button>
         <button className="brand" onClick={goHome} title="Home: what needs you across every project">
           <span className="mark" aria-hidden="true" />
           <span className="word">Progressor</span>
@@ -514,7 +522,7 @@ export function App() {
         </MenuPanel>
       )}
 
-      <div className={`shell ${drawer ? "side-open" : ""}`}>
+      <div className={`shell ${drawer ? "side-open" : ""} ${collapsed ? "collapsed" : ""}`}>
         <aside className="sidebar" aria-label={onHome ? "Projects" : "Your goals"}>
           <button className="side-link" aria-current={onHome} onClick={goHome}>
             <Icon name="home" /> Home

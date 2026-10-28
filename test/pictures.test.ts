@@ -139,7 +139,7 @@ describe("pictures on the dashboard", () => {
 
   it("the goal view lists them with an address", async () => {
     const view = (await (await get("goals/dark-mode")).json()) as { pictures: { id: string; url: string }[] };
-    expect(view.pictures).toMatchObject([{ id: "p1", caption: "The switch", task: "t1", file: "p1.png", url: `/api/projects/${id}/goals/dark-mode/pictures/p1.png` }]);
+    expect(view.pictures).toMatchObject([{ id: "p1", caption: "The switch", task: "t1", file: "p1.png", url: `/api/projects/${id}/goals/dark-mode/pictures/p1.png?v=2026-10-28T10%3A00%3A00.000Z` }]);
     expect((await fetch(new URL(view.pictures[0]!.url, d.url))).status).toBe(200);
   });
 
