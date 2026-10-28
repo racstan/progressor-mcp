@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
+All notable changes to progressor-mcp. Each release is a Goal on Progressor's own plan, which is kept on the maintainer's computer; from 0.2.0 on, one release bundles several finished Goals.
 
 ## 1.0.0 · Work with your AI from the dashboard
 
