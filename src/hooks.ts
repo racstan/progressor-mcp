@@ -6,7 +6,7 @@ import { PROGRESSOR_DIR, Project, type ProjectOverview, type Status } from "./pr
 import { launcherWarning, onPath } from "./init.js";
 import { seenFile, takeElsewhereLine } from "./elsewhere.js";
 import { hardFirst, ruleText } from "./roadmap.js";
-import { handTestLines } from "./server.js";
+import { handTestLines } from "./handTestText.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 

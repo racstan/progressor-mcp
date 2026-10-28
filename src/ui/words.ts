@@ -316,6 +316,6 @@ export const handTestsOpen = (tests: readonly { result: string }[]): number => t
 
 /** A shared resource in use, for the dashboard: "In use: dev window, by helper: media run, 4 m". */
 export function resourceWords(l: { resource: string; label?: string | undefined; session: string; since: string }, now: Date): string {
-  const by = l.label ?? `the AI (Session ${l.session})`;
+  const by = l.label ?? "your AI";
   return `In use: ${l.resource.replace(/-/g, " ")}, by ${by}, ${sayDuration(Math.max(1, Math.round(minutesSince(l.since, now))))}`;
 }

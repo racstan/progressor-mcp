@@ -6,7 +6,8 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type Dashboard, startDashboard } from "../src/dashboard/http.js";
 import { projectEntry } from "../src/dashboard/registry.js";
-import { parsePlanFile } from "../src/planFile.js";
+import { type HandTest, parsePlanFile } from "../src/planFile.js";
+import { handTestLines } from "../src/handTestText.js";
 import { Project } from "../src/project.js";
 import { createServer } from "../src/server.js";
 import { tempDir } from "./tmp.js";
@@ -202,14 +203,14 @@ describe("the Agent's tools", () => {
     agent.markHandTest("attachments", "h1", "works");
     agent.markHandTest("attachments", "h2", "doesn't work", "it never asked");
     ({ text } = await call("get_status"));
-    expect(text).toContain("1 not tried yet, 1 work, 1 don't work");
+    expect(text).toContain("1 not tried yet, 1 works, 1 doesn't work");
     expect(text).toContain("New marks from the Developer since the last status:");
-    expect(text).toContain("- h2 DOESN'T WORK: Allow the file prompt Their note: it never asked (step t3 was added to fix it)");
+    expect(text).toContain("- h2 DOESN'T WORK: Allow the file prompt. Their note: it never asked (step t3 was added to fix it)");
     expect(text).toContain("- h1 works: Try the mic");
 
     ({ text } = await call("get_status"));
     expect(text).not.toContain("New marks");
-    expect(text).toContain("1 not tried yet, 1 work, 1 don't work");
+    expect(text).toContain("1 not tried yet, 1 works, 1 doesn't work");
 
     agent.markHandTest("attachments", "h3", "won't test");
     ({ text } = await call("get_status"));
@@ -224,6 +225,17 @@ describe("the Agent's tools", () => {
     expect(refused.isError).toBe(true);
     expect(refused.text).toContain("unmarked_hand_tests_ok");
     expect((await call("complete_goal", { unmarked_hand_tests_ok: true })).isError).toBe(false);
+  });
+
+  it("counts in the right number: one works, two work", () => {
+    const t = (result: HandTest["result"]) => ({ id: "h1", ref: undefined, text: "Try it.", line: 1, result, note: undefined, task: undefined, taskAdded: undefined, markedAt: undefined, seen: true });
+    expect(handTestLines([t("works"), t("works"), t("doesn't work"), t("doesn't work")])[0]).toContain("2 work, 2 don't work");
+    expect(handTestLines([t("works"), t("doesn't work")])[0]).toContain("1 works, 1 doesn't work");
+    expect(handTestLines([{ ...t("doesn't work"), seen: false, note: "blank" }])).toContain("- h1 DOESN'T WORK: Try it. Their note: blank");
+  });
+
+  it("is not pulled into the hooks through the whole MCP server, which would slow every hook", () => {
+    expect(readFileSync(new URL("../src/hooks.ts", import.meta.url), "utf8")).not.toMatch(/from "\.\/server\.js"/);
   });
 
   it("looks a hand test up by its ref", async () => {

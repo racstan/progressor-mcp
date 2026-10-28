@@ -158,7 +158,7 @@ describe("how locks read", () => {
     const [lock] = a.resources().list();
     expect(resourceLine(lock!, clock)).toBe("dev-window: helper: media run (Session s-a) for 4 m: UI test (task t3); free again in 26 m unless refreshed");
     expect(resourceWords(lock!, clock)).toBe("In use: dev window, by helper: media run, 4 m");
-    expect(resourceWords({ ...lock!, label: undefined }, clock)).toBe("In use: dev window, by the AI (Session s-a), 4 m");
+    expect(resourceWords({ ...lock!, label: undefined }, clock)).toBe("In use: dev window, by your AI, 4 m");
   });
 
   it("is listed by get_status and the dashboard's data", () => {
