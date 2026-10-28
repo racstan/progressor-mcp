@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -17,14 +17,17 @@ import {
   type Task,
   type TaskChanges,
   type TaskStatus,
+  TASKS,
   newPlanFile,
   parsePlanFile,
 } from "./planFile.js";
+import { pause } from "./lock.js";
+import { type MarkdownDoc, findSection, parseMarkdown } from "./markdown.js";
 import { gitBranches, orphanWarnings } from "./helperWork.js";
 import { type Origin } from "./origin.js";
 import { ResourceLocks } from "./resources.js";
 import { unsafeRoot } from "./root.js";
-import { type Claim, type Goal, type Idea, ROADMAP_REF, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
+import { type Claim, type Goal, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
 import { type Schedule, computeSchedule } from "./schedule.js";
 
 export interface SessionIdentity {
@@ -57,6 +60,8 @@ export interface ProjectOptions {
    * running Session holds are left alone (but for notes), and no plan is ever started (see elsewhere.ts).
    */
   from?: string;
+  /** How a file is moved into place (the file system's rename unless set); tests swap it to see a save fail. */
+  rename?: (from: string, to: string) => void;
 }
 
 export type DetourEnding = "merge back" | "return" | "recalibrate";
@@ -184,6 +189,11 @@ export const PROGRESSOR_DIR = ".progressor";
 /** The folder in .progressor/ that holds each Goal's talk with the Developer, kept out of git. */
 export const TALK_DIR = "talk";
 export const ROADMAP_FILE = "roadmap.md";
+/** Errors that mean the file is held for a moment (Windows), so a rename is tried again. */
+const RETRY_CODES = ["EPERM", "EBUSY", "EACCES"];
+const RENAME_TRIES = 5;
+/** Whether a file has anything but blank lines and a title: a file with only that is new, not damaged. */
+const hasBody = (doc: MarkdownDoc) => doc.blocks.some((b) => (b.type === "text" ? b.text.trim() !== "" : b.type === "item" || b.level > 1));
 export const CONTEXT_FILE = "context.md";
 /** The Important context goes to the Agent in full at every session start, so it stays short. */
 export const MAX_CONTEXT_LENGTH = 4000;
@@ -224,6 +234,7 @@ export class Project {
   private readonly tidy: boolean;
   readonly now: () => Date;
   private readonly unsafe: (root: string) => string | undefined;
+  private readonly rename: (from: string, to: string) => void;
   /** The project the changes come from, when this is another project's plan (see ProjectOptions.from). */
   readonly from: string | undefined;
 
@@ -237,6 +248,7 @@ export class Project {
     this.unsafe =
       options.unsafe ?? ((root) => unsafeRoot(root, { home: homedir(), systemRoot: process.env.SystemRoot, platform: process.platform }));
     this.from = options.from?.trim() || undefined;
+    this.rename = options.rename ?? renameSync;
   }
 
   /**
@@ -299,23 +311,50 @@ export class Project {
     }
     mkdirSync(dirname(path), { recursive: true });
     const tmp = `${path}.${process.pid}.tmp`;
-    writeFileSync(tmp, text);
     try {
-      renameSync(tmp, path);
-    } catch {
+      writeFileSync(tmp, text);
+      // On Windows another program (a virus scanner, an editor) can hold the file for a moment.
+      for (let attempt = 1; ; attempt++) {
+        try {
+          this.rename(tmp, path);
+          return;
+        } catch (e) {
+          if (!RETRY_CODES.includes((e as NodeJS.ErrnoException).code ?? "")) throw e;
+          if (attempt >= RENAME_TRIES) break;
+          pause(attempt * 20);
+        }
+      }
       writeFileSync(path, text);
+    } finally {
+      rmSync(tmp, { force: true });
     }
   }
 
+  /** The error for a file that is not a Progressor file, so a tool never reads it as empty and writes over it. */
+  private damaged(file: string, why: string): Error {
+    return new Error(
+      `\`${PROGRESSOR_DIR}/${file}\` could not be read as a Progressor plan (${why}), so it was not changed. ` +
+        `Fix the file (git can restore it: \`git checkout -- ${PROGRESSOR_DIR}/${file}\`), then try again.`,
+    );
+  }
+
   roadmap(): Roadmap {
-    return parseRoadmap(this.readText(this.path(ROADMAP_FILE)) ?? "");
+    const text = this.readText(this.path(ROADMAP_FILE)) ?? "";
+    const doc = parseMarkdown(text);
+    if (hasBody(doc) && ![GOALS, IDEAS, STANDING_INSTRUCTIONS].some((name) => findSection(doc, name) >= 0))
+      throw this.damaged(ROADMAP_FILE, "it has no Goals section");
+    return parseRoadmap(text);
   }
 
   plan(goalId: string): PlanFile {
     const text = this.readText(this.path("goals", `${goalId}.md`));
     let plan: PlanFile;
-    if (text !== undefined) plan = parsePlanFile(text, goalId);
-    else {
+    if (text !== undefined) {
+      const doc = parseMarkdown(text);
+      if (hasBody(doc) && findSection(doc, TASKS) < 0 && !doc.blocks.some((b) => b.type === "item"))
+        throw this.damaged(`goals/${goalId}.md`, "it has no Tasks section");
+      plan = parsePlanFile(text, goalId);
+    } else {
       const goal = this.roadmap().goal(goalId);
       if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
       plan = newPlanFile(goalId, goal.title);
