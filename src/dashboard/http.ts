@@ -5,13 +5,13 @@
 // markdown straight from disk, and pushes server-sent events when those files change. It binds to
 // the loopback interface only. The Developer can change two things there, and nothing else: stop a
 // running Progressor server, and mark a hand test on a Goal (ADR 0004).
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { type Origin, latestOrigin } from "../origin.js";
 import type { Decision, HandResult, HandTest, Message, Note, Question, TaskStatus } from "../planFile.js";
 import { withLock } from "../lock.js";
-import { PROGRESSOR_DIR, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
+import { PROGRESSOR_DIR, PROJECT_TALK, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
 import { defaultServersDir, listServers, requestStop, sessionOfProcess } from "../servers.js";
@@ -32,7 +32,7 @@ import { allProjects, findProjects } from "./workspace.js";
 export const DEFAULT_PORT = 4747;
 const HOST = "127.0.0.1";
 /** Bumped when the hub's API changes, so a hub from an older version is not shared. */
-const HUB_VERSION = 4;
+const HUB_VERSION = 5;
 
 export interface DashboardOptions {
   /** This Session's project; it is added to the registry. Absent when only a Workspace is opened. */
@@ -107,9 +107,11 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
     // The latest change an AI chat in another project made to the Goal, its Tasks, decisions or notes.
     let fromElsewhere: Origin | undefined = goal.updatedFrom;
     let openQuestions = 0;
+    let untriedTests = 0;
     try {
       const plan = project.plan(goalId);
       for (const t of plan.tasks) counts[t.status]++;
+      untriedTests = plan.handTests.filter((h) => h.result === "pending").length;
       openQuestions = project.talk(goalId).questions.filter((q) => q.state === "open").length;
       fromElsewhere = latestOrigin([goal.updatedFrom, ...[...plan.tasks, ...plan.decisions, ...plan.notes].map((i) => i.updatedFrom)]);
       done = counts.done + counts.released;
@@ -126,13 +128,21 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
       }
     };
     const planFile = project.planFilePath(goalId);
-    // A Goal with a Task waiting on the Developer, or a question for them, is waiting on them.
-    const waitingOnYou = counts["waiting on you"] > 0 || openQuestions > 0;
-    return { ...goal, planFile, done, total, counts, waitingOnYou, openQuestions, updatedAt: changed(planFile) ?? changed(roadmapFile), fromElsewhere };
+    // A Goal with a Task waiting on the Developer, a question for them or something to try by hand waits on them.
+    const waitingSteps = counts["waiting on you"];
+    const waitingOnYou = waitingSteps > 0 || openQuestions > 0 || untriedTests > 0;
+    return { ...goal, planFile, done, total, counts, waitingOnYou, openQuestions, untriedTests, waitingSteps, updatedAt: changed(planFile) ?? changed(roadmapFile), fromElsewhere };
   };
   return {
     roadmap: () => {
       const roadmap = project.roadmap();
+      const projectTalkMessages = (): Message[] => {
+        try {
+          return project.talk(PROJECT_TALK).messages;
+        } catch {
+          return [];
+        }
+      };
       return {
         root: project.root,
         file: roadmapFile,
@@ -152,9 +162,12 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
         schedule: project.schedule(),
         // Shared resources in use right now (resources.ts); runtime state, not part of the plan.
         resources: project.resources(sessionOf).list(),
+        // The Developer's messages to the whole project and the AI's replies (talk/_project.md).
+        projectTalk: { messages: projectTalkMessages() },
       };
     },
-    goal: (goalId: string) => {
+    /** `projectId` is the project's ID on the dashboard, which a picture's address needs. */
+    goal: (goalId: string, projectId = "") => {
       const goal = goalSummary(goalId);
       if (!goal) return undefined;
       const plan = project.plan(goalId);
@@ -164,7 +177,10 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
       const talk = project.talk(goalId);
       const messages: Message[] = talk.messages;
       const questions: Question[] = talk.questions;
-      return { goal, graph: buildGoalGraph(plan), decisions, notes, handTests, messages, questions };
+      // Each picture comes with the address the page loads it from (served by the hub below); the
+      // time it was added is in it, so a new picture that reuses a removed one's name is not cached.
+      const pictures = project.pictures(goalId).map((p) => ({ ...p, url: `/api/projects/${encodeURIComponent(projectId)}/goals/${encodeURIComponent(goalId)}/pictures/${encodeURIComponent(p.file)}?v=${encodeURIComponent(p.addedAt)}` }));
+      return { goal, graph: buildGoalGraph(plan), decisions, notes, handTests, messages, questions, pictures };
     },
     item: (ref: string) => project.getItem(ref),
   };
@@ -230,6 +246,31 @@ function serveStatic(res: ServerResponse, uiDir: string | undefined, path: strin
   if (!file.startsWith(base + sep) || !existsSync(file) || !statSync(file).isFile()) file = join(base, "index.html");
   res.writeHead(200, { "content-type": MIME[extname(file)] ?? "application/octet-stream", "cache-control": "no-cache" });
   res.end(readFileSync(file));
+}
+
+/** Sends a stored picture or recording, with Range support so a video can be skipped through. */
+function servePicture(req: IncomingMessage, res: ServerResponse, file: { path: string; mime: string }): void {
+  const size = statSync(file.path).size;
+  const headers = { "content-type": file.mime, "x-content-type-options": "nosniff", "cache-control": "no-cache", "accept-ranges": "bytes" };
+  const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? ""));
+  let start = 0;
+  let end = size - 1;
+  if (range && (range[1] || range[2])) {
+    if (range[1]) {
+      start = Number(range[1]);
+      if (range[2]) end = Math.min(end, Number(range[2]));
+    } else {
+      start = Math.max(0, size - Number(range[2]));
+    }
+    if (start > end || start >= size) {
+      res.writeHead(416, { ...headers, "content-range": `bytes */${size}` });
+      res.end();
+      return;
+    }
+    res.writeHead(206, { ...headers, "content-range": `bytes ${start}-${end}/${size}`, "content-length": end - start + 1 });
+  } else res.writeHead(200, { ...headers, "content-length": size });
+  if (req.method === "HEAD") return void res.end();
+  createReadStream(file.path, { start, end }).on("error", () => res.destroy()).pipe(res);
 }
 
 /** The hub: serves every registered project, and watches each one's .progressor/ folder. */
@@ -301,9 +342,31 @@ class Hub {
   overview() {
     return this.sync().map((entry) => {
       const api = this.projects.get(entry.id)?.api;
-      let goals: { id: string; title: string; status: string; done: number; total: number; waitingOnYou: boolean }[] = [];
+      let goals: {
+        id: string;
+        title: string;
+        status: string;
+        done: number;
+        total: number;
+        waitingOnYou: boolean;
+        openQuestions: number;
+        untriedTests: number;
+        waitingSteps: number;
+        updatedAt: number | undefined;
+      }[] = [];
       try {
-        goals = (api?.roadmap().goals ?? []).map(({ id, title, status, done, total, waitingOnYou }) => ({ id, title, status, done, total, waitingOnYou }));
+        goals = (api?.roadmap().goals ?? []).map(({ id, title, status, done, total, waitingOnYou, openQuestions, untriedTests, waitingSteps, updatedAt }) => ({
+          id,
+          title,
+          status,
+          done,
+          total,
+          waitingOnYou,
+          openQuestions,
+          untriedTests,
+          waitingSteps,
+          updatedAt,
+        }));
       } catch {
         // a Roadmap that cannot be read shows as a project with no Goals
       }
@@ -496,6 +559,19 @@ class Hub {
         req.on("close", () => this.clients.delete(res));
         return;
       }
+      const pic = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/pictures\/([^/]+)$/.exec(path);
+      if (pic) {
+        if (req.method !== "GET" && req.method !== "HEAD") return json(res, 405, { error: "Pictures can only be read." });
+        const id = decodeURIComponent(pic[1]!);
+        if (!this.projects.has(id)) this.sync();
+        let file: { path: string; mime: string } | undefined;
+        try {
+          file = this.projects.get(id)?.project.pictureFile(decodeURIComponent(pic[2]!), decodeURIComponent(pic[3]!));
+        } catch {
+          file = undefined;
+        }
+        return file ? servePicture(req, res, file) : json(res, 404, { error: "No such picture." });
+      }
       const m = /^\/api\/projects\/([^/]+)\/(roadmap|goals\/([^/]+)|item)$/.exec(path);
       if (m) {
         const id = decodeURIComponent(m[1]!);
@@ -510,7 +586,7 @@ class Hub {
             return json(res, 404, { error: (e as Error).message });
           }
         }
-        const found = api.goal(decodeURIComponent(m[3]!));
+        const found = api.goal(decodeURIComponent(m[3]!), id);
         return found ? json(res, 200, found) : json(res, 404, { error: "No such Goal." });
       }
       if (path.startsWith("/api/")) return json(res, 404, { error: "No such endpoint." });

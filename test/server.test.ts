@@ -40,6 +40,7 @@ describe("the MCP server", () => {
         "add_standing_instruction",
         "add_tasks",
         "ask_developer",
+        "attach_picture",
         "claim_goal",
         "claim_resource",
         "complete_goal",

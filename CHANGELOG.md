@@ -32,13 +32,20 @@ Some things only you can test. Your AI now keeps them in a list on the goal inst
 - **Your AI sees your marks.** `get_status` lists what is still to try and, once, the new marks, failures with your note first; hand tests also show in `get_item` and in Claude Code's session-start status. A goal can't be completed while something is still to try, unless your AI is told to finish anyway (`unmarked_hand_tests_ok`).
 - **In the files:** a `## Hand tests` section (`[ ]` not tried, `[x]` works, `[/]` doesn't work, `[-]` won't test) with `task`, `note`, `marked`, `task added` and `seen` lines, and a `from hand test` line on the added step. Plans from before keep working unchanged. See [the format](docs/markdown-format.md#hand-tests).
 
+### Pictures on the dashboard
+
+- **Your AI can show you a screenshot or a short screen recording** instead of naming a file in the chat. It appears as a small picture under the step or the thing to try that it is about, and in a *Pictures* list at the top of the goal's Notes tab. Click one to see it large; press Escape, click outside it or use the close button to go back. Recordings have play controls.
+- **Pictures stay on this computer and out of git.** They are copied into `.progressor/pictures/`, and Progressor adds that folder to `.progressor/.gitignore` for you, as it does for your conversations. Your original file is not moved or changed.
+- **Limits.** Pictures (`.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`) and recordings (`.webm`, `.mp4`) up to 10 MB each, each with a short caption. Your AI can also take a picture back. In the plan's files: `.progressor/pictures/<goal>/`, with an `index.json` listing them.
+
 ### Talk with your AI from the dashboard
 
 You can now write to your AI from the dashboard, and your AI can ask you things there instead of stopping in the chat.
 
 - **Write to your AI.** Each goal has a box under its banner: type what you want and press **Send**. Your AI reads it the next time it updates the plan (every few minutes while it works, or when the next chat starts; nothing can interrupt a chat), does what you asked and replies. You see *sent*, *read by your AI* and the reply under your message, and you can **Take back** a message your AI hasn't read yet.
+- **Write to your AI about the whole project.** **Message your AI** in the sidebar is for things no single goal covers, such as "stop everything" or "start on the logo next". Whichever AI chat in the project checks in next reads it, even one not working on a goal, and replies there. It is kept in `.progressor/talk/_project.md`, out of git like the rest.
 - **Answer your AI's questions.** When your AI needs you to choose, it asks on the dashboard with a button per answer, plus **Something else…** for your own words, and carries on with other work meanwhile. The goal shows **Waiting on you** until you answer. Your answer reaches your AI at its next update and is kept in the goal's decisions.
-- **For your AI:** new tools `ask_developer` and `reply_to_developer`. New messages and answers are shown once, at the top of `get_status` and at the end of any other tool's answer for a goal it holds; in Claude Code the prompt hook also mentions them. `get_status` lists messages not replied to and questions still open.
+- **For your AI:** new tools `ask_developer` and `reply_to_developer` (with `whole_project: true` for a message to the whole project). New messages and answers are shown once, at the top of `get_status` and at the end of any other tool's answer for a goal it holds; in Claude Code the prompt hook also mentions them. `get_status` lists messages not replied to and questions still open.
 - **Kept on this computer, out of git.** What you write is saved in `.progressor/talk/`, apart from the plan, and Progressor adds that folder to `.progressor/.gitignore` by itself, so it never lands in your project's history or on GitHub. The box says so: *Kept on this computer only, not saved in git.* Your answers to questions are also saved as decisions in the plan, which is shared with your code.
 - **In the files:** one talk file per goal, `.progressor/talk/<goal>.md`, with `## Messages` and `## Questions`. See [the format](docs/markdown-format.md#messages-and-questions) and [ADR 0005](docs/adr/0005-developer-talks-to-the-ai-from-the-dashboard.md). Plans from before keep working unchanged.
 

@@ -2,14 +2,15 @@
 // type. "/" focuses it; arrow keys move through the results and Enter opens one.
 import { useEffect, useRef, useState } from "react";
 import type { SearchView } from "./data.js";
+import { Icon, type IconName } from "./Icon.js";
 import { GOAL_WORD, STEP_WORD } from "./words.js";
 
 export type SearchHit = SearchView[number];
 
-const KINDS: { kind: SearchHit["kind"]; label: string; icon: string }[] = [
-  { kind: "project", label: "Projects", icon: "📁" },
-  { kind: "goal", label: "Goals", icon: "🎯" },
-  { kind: "task", label: "Steps", icon: "•" },
+const KINDS: { kind: SearchHit["kind"]; label: string; icon: IconName }[] = [
+  { kind: "project", label: "Projects", icon: "file" },
+  { kind: "goal", label: "Goals", icon: "flag" },
+  { kind: "task", label: "Steps", icon: "check" },
 ];
 
 /** Where a hit lives, under its title. */
@@ -58,7 +59,7 @@ export function SearchBox({ query, hits, onChange, onOpen }: {
         ref={input}
         type="search"
         value={query}
-        placeholder="Search projects, goals, steps…"
+        placeholder="Search"
         title="Search every project for a goal or step (shortcut: /)"
         aria-label="Search projects, goals and steps"
         aria-controls="search-results"
@@ -108,7 +109,7 @@ export function SearchBox({ query, hits, onChange, onOpen }: {
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => open(h)}
                     >
-                      <span className="icon" aria-hidden="true">{icon}</span>
+                      <Icon name={icon} size={14} />
                       <span className="text">
                         <span className="t">{h.title}</span>
                         {context(h) && <span className="c">{context(h)}</span>}

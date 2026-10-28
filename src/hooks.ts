@@ -121,11 +121,14 @@ const STALE = "may be out of date";
 export function promptReminder(o: ProjectOverview, now = new Date()): string | undefined {
   const reminder = planReminder(o, now);
   // What the Developer wrote on the dashboard for the Goals in progress; get_status marks it seen.
+  // Messages to the whole project show even when no Goal is in progress: they can say what to start.
   const news = promptNewsLine(
     o.active.flatMap((s) => s.messages.filter((m) => m.state === "new")),
     o.active.flatMap((s) => s.answers),
+    o.projectMessages.filter((m) => m.state === "new"),
   );
-  return reminder && news ? `${reminder}\n${PREFIX} ${news}` : reminder;
+  if (!news) return reminder;
+  return reminder ? `${reminder}\n${PREFIX} ${news}` : `${PREFIX} ${news}`;
 }
 
 function planReminder(o: ProjectOverview, now: Date): string | undefined {
