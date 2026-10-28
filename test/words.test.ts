@@ -13,6 +13,7 @@ import {
   datesTitle,
   exactDate,
   sentWords,
+  whenWords,
   finishWords,
   goalState,
   goalTime,
@@ -258,47 +259,57 @@ describe("talking with your AI", () => {
 });
 
 describe("dates on everything", () => {
-  const stamp = (minutesAgo: number, by: "AI" | "Developer" = "AI") => ({ at: new Date(now - minutesAgo * MIN).toISOString(), by });
+  // Local times, so the words match wherever the tests run.
+  const at = (day: number, h: number, m: number, month = 9, year = 2026) => new Date(year, month, day, h, m).getTime();
+  const NOW = at(28, 16, 0);
+  const stamp = (t: number, by: "AI" | "Developer" = "AI") => ({ at: new Date(t).toISOString(), by });
+
+  it("says the time of day, with today, yesterday or the date before it", () => {
+    expect(whenWords(new Date(at(28, 9, 5)).toISOString(), NOW)).toBe("today 09:05");
+    expect(whenWords(new Date(at(27, 23, 40)).toISOString(), NOW)).toBe("yesterday 23:40");
+    expect(whenWords(new Date(at(3, 15, 30)).toISOString(), NOW)).toBe("3 Oct 15:30");
+    expect(whenWords(new Date(at(3, 15, 30, 11, 2025)).toISOString(), NOW)).toBe("3 Dec 2025 15:30");
+    expect(whenWords("not a date", NOW)).toBe("");
+  });
 
   it("says when something was added and updated, and by whom", () => {
-    expect(datesLine({ added: stamp(120), updated: stamp(10) }, now)).toBe("Added 2 h ago by your AI · updated 10 min ago");
-    expect(datesLine({ added: stamp(5, "Developer") }, now)).toBe("Added 5 min ago by you");
+    expect(datesLine({ added: stamp(at(28, 14, 0)), updated: stamp(at(28, 15, 50)) }, NOW)).toBe("Added today 14:00 by your AI · updated 15:50");
+    expect(datesLine({ added: stamp(at(28, 15, 55), "Developer") }, NOW)).toBe("Added today 15:55 by you");
+  });
+
+  it("gives the day again for an update on another day", () => {
+    expect(datesLine({ added: stamp(at(26, 10, 0)), updated: stamp(at(28, 9, 0)) }, NOW)).toBe("Added 26 Oct 10:00 by your AI · updated today 09:00");
   });
 
   it("leaves out the update when it is the same moment as the adding, or is missing", () => {
-    expect(datesLine({ added: stamp(30), updated: stamp(30) }, now)).toBe("Added 30 min ago by your AI");
-    expect(datesLine({ added: stamp(30), updated: undefined }, now)).toBe("Added 30 min ago by your AI");
+    expect(datesLine({ added: stamp(at(28, 15, 30)), updated: stamp(at(28, 15, 30)) }, NOW)).toBe("Added today 15:30 by your AI");
+    expect(datesLine({ added: stamp(at(28, 15, 30)), updated: undefined }, NOW)).toBe("Added today 15:30 by your AI");
   });
 
   it("names who updated it only when that is not who added it", () => {
-    expect(datesLine({ added: stamp(120), updated: stamp(10, "Developer") }, now)).toBe("Added 2 h ago by your AI · updated 10 min ago by you");
+    expect(datesLine({ added: stamp(at(28, 14, 0)), updated: stamp(at(28, 15, 50), "Developer") }, NOW)).toBe("Added today 14:00 by your AI · updated 15:50 by you");
   });
 
   it("still says when something was updated if its adding is not known", () => {
-    expect(datesLine({ updated: stamp(10) }, now)).toBe("Updated 10 min ago by your AI");
+    expect(datesLine({ updated: stamp(at(28, 15, 50)) }, NOW)).toBe("Updated today 15:50 by your AI");
   });
 
   it("is empty when nothing is known", () => {
-    expect(datesLine({}, now)).toBe("");
-    expect(datesLine({ added: { at: "not a date", by: "AI" } }, now)).toBe("");
+    expect(datesLine({}, NOW)).toBe("");
+    expect(datesLine({ added: { at: "not a date", by: "AI" } }, NOW)).toBe("");
   });
 
-  it("gives the exact local date and time for the hover", () => {
+  it("gives the full date and time, and how long ago, in the hover", () => {
     expect(exactDate(new Date(2026, 9, 28, 15, 30).toISOString())).toBe("28 Oct 2026, 15:30");
     expect(exactDate(new Date(2026, 0, 3, 9, 5).toISOString())).toBe("3 Jan 2026, 09:05");
     expect(exactDate("not a date")).toBe("");
-  });
-
-  it("puts both exact dates in the hover of a dates line", () => {
-    const added = { at: new Date(2026, 9, 28, 10, 0).toISOString(), by: "AI" as const };
-    const updated = { at: new Date(2026, 9, 28, 11, 30).toISOString(), by: "AI" as const };
-    expect(datesTitle({ added, updated })).toBe("Added 28 Oct 2026, 10:00 · updated 28 Oct 2026, 11:30");
-    expect(datesTitle({})).toBe("");
+    expect(datesTitle({ added: stamp(at(28, 14, 0)), updated: stamp(at(28, 15, 50)) }, NOW)).toBe("Added 28 Oct 2026, 14:00 (2 h ago) · updated 28 Oct 2026, 15:50 (10 min ago)");
+    expect(datesTitle({}, NOW)).toBe("");
   });
 
   it("says when a message was sent and answered", () => {
-    expect(sentWords({ sentAt: stamp(5).at }, now)).toBe("sent 5 min ago");
-    expect(sentWords({ sentAt: stamp(5).at, repliedAt: stamp(2).at }, now)).toBe("sent 5 min ago · answered 2 min ago");
-    expect(sentWords({}, now)).toBe("");
+    expect(sentWords({ sentAt: stamp(at(28, 15, 55)).at }, NOW)).toBe("sent today 15:55");
+    expect(sentWords({ sentAt: stamp(at(28, 15, 55)).at, repliedAt: stamp(at(28, 15, 58)).at }, NOW)).toBe("sent today 15:55 · answered 15:58");
+    expect(sentWords({}, NOW)).toBe("");
   });
 });
