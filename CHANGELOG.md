@@ -4,6 +4,12 @@ All notable changes to progressor-mcp. Each release is a Goal on Progressor's ow
 
 ## Unreleased
 
+### Lighter for your AI
+
+- **Short answers for step changes.** Starting, finishing or dropping a step, and ending a side trip, now answer in a line or two and where the work stands, instead of repeating all your rules and background each time. A busy session costs your AI far fewer tokens.
+- **A shorter status when no goal is taken.** It lists only goals that are active, paused or planned, and just counts the finished and cancelled ones.
+- **Shorter standing guidance for your AI.** The instructions your AI reads at the start are about half the size, with the same rules; the detail now lives in each tool's own description.
+
 ### Helpers and checks
 
 - **Where a helper's work is.** When your AI hands a step to a helper, it can record the helper's branch, folder and a label (such as the model). They show on the step in the dashboard and in your AI's status, and are kept after the step is done. If a finished step's branch still holds work that was never merged, or a step has sat in *Checked* for more than a day, your AI's status warns about it. In the plan's files: `helper`, `helper branch`, `helper folder` lines, plus `checked since`.

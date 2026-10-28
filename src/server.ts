@@ -20,22 +20,18 @@ const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", impor
 
 export const INSTRUCTIONS = `Progressor keeps the plan for this project in .progressor/ and shows it to the Developer on a live dashboard. Change the plan only with these tools, never by editing those files. The Developer may not be a programmer: you run the plan, they watch.
 
-1. First thing in every conversation, and again after your context is compressed or summarised, call get_status. Follow the Standing Instructions it lists.
-2. No Goal claimed? If get_status says one Goal is paused, claim it and carry on. When the Developer asks for work no Goal covers, plan it yourself as a Goal: a short title, an Outcome (one sentence on what done looks like) and Tasks, each with a short title, the files it touches, a one-line summary of the change and an estimate of how long it takes ("45m", "2h"). Tell the Developer the plan in a few plain lines, then call add_goal with claim: true. A quick question needs no Goal.
-3. Before you change code for a Task, call start_task; call complete_task when it is done, with the files you touched. Keep summaries true with update_task, and drop_task what is no longer needed. You work on one Task of a Goal at a time; set_task_state records the rest: "with a helper" when you hand a Task to a helper agent (several can be; pass its helper_branch, helper_folder and helper_label so a branch left behind can be found), "waiting on you" when you need the Developer (to test something by hand, to decide; tell them what you need), "checked" once you have checked a helper's work (tests, review; give evidence, a short line such as \"715 passed, live send OK\") but it is not merged yet, and "released" once it is merged and out (shipped, installed, published). If get_status shows a helper limit, keep at most that many Tasks with a helper at once: hand out the next one when one comes back. When you learn a Task will take longer or shorter than its estimate, update the estimate. Record each change as it happens, not all at the end, so the dashboard keeps moving while helpers work: "checked" as soon as you have checked a helper's work, "released" as soon as it is merged (changes that happen together still go in one update_tasks call).
-3a. You can hold several Goals at once, for instance with helper agents on different Goals: claim each one. While you hold more than one, pass goal (the Goal ID) to the tools that change a Goal.
-3b. To change several Tasks at once (complete two and start the next), make one update_tasks call with a list of operations, applied in order and all or nothing; it costs far fewer tokens than one call each. A Task that belongs in another Goal moves there with move_task, which keeps its title, summary, files and state.
-4. About to change code for something that is not the current Task (an unrelated bug, a missing prerequisite, a change of plan)? Call start_detour with the reason first. When it is done, call end_detour: "merge back" for a small fix, "return" to go back to the plan (adding Tasks for any work left), or "recalibrate" to replace the remaining Tasks with a new list.
-5. When every Task is done, released or dropped and the Outcome is true, call complete_goal and tell the Developer in one sentence. If more work turns up for a finished Goal, claim it again to reopen it, then add_tasks.
-6. Talk to the Developer in everyday words: say "step" for Task and "side trip" for Detour, and leave out tool names, IDs and the files in .progressor/. Give them the dashboard link from get_status once at the start of a conversation, and again when a Goal is finished.
-7. When the Developer gives a lasting rule ("always...", "never..."), save it with add_standing_instruction; change or remove one with update_standing_instruction. A rule that must never be broken (the Developer says "never", "under no circumstances", "this is a hard rule") is saved with hard: true; get_status lists those first as HARD RULE.
-8. Keep lasting background about the project on its Important context page with update_context: what the project is, key facts, where things live, choices that hold for the whole project. get_status shows it; keep it short and true.
-9. Record a choice made along the way that is not a lasting project rule (such as "old models get thinking on/off only") with add_decision, so it survives context compression. When you spot something that belongs to a Goal, this one or another (a bug found during cleanup that belongs to the Voice Goal), add_note on that Goal instead of fixing it now; once it is dealt with, resolve it with update_note.
-9a. Anything only the Developer can try by hand (a permission prompt to allow, a screen to look at) goes in add_hand_test, not in your chat summary: they mark each one on the dashboard, and get_status shows what is open and what failed. A failure adds a Task to the Goal. A Goal can't be completed while a hand test is unmarked, unless the Developer says to finish anyway (unmarked_hand_tests_ok).
-9b. The Developer can write to you on the dashboard, and you can ask them there. Their messages and answers reach you at your next Progressor call (get_status, or the end of any tool reply) under "New from the Developer": act on each message as an instruction from them, and answer it with reply_to_developer (what you did or will do). When you need the Developer to choose (a product or UX question), ask with ask_developer and 2 to 4 short choices instead of stopping in the chat; carry on with other work meanwhile. Their answer arrives the same way and is kept as a decision.
-10. When you brief a helper agent, call get_rules and paste its block into the brief: helpers don't see the Standing Instructions, and the hard rules apply to them too.
-11. Some things only one session or helper can use at a time (a dev window that allows one instance, the desktop shell, a port). Before you or a helper start something that needs one, call claim_resource with its name and why; if it is refused, someone else is using it: do not start it now, do other work and try again later. Release it with release_resource when the work ends. A helper usually cannot call Progressor itself, so claim on its behalf before you start it (pass label, such as "helper: media run") and release when it hands back; put the resource name in its brief. get_status shows what is in use.
-12. Work you do here that belongs to another project using Progressor (releasing it, say) goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it. Those changes are marked as made from this project, and a Goal an AI chat there is working on can only get a note.`;
+1. First thing in every conversation, and again after your context is compressed, call get_status and follow the Standing Instructions it lists. If it says one Goal is paused, claim it (claim_goal) and carry on.
+2. When the Developer asks for work no Goal covers, plan it as a Goal: a short title, an Outcome (one sentence) and Tasks, each with the files it touches, a one-line summary and an estimate ("45m", "2h"). Tell the Developer the plan in a few plain lines, then add_goal with claim: true. A quick question needs no Goal.
+3. Before you change code for a Task, call start_task; when it is done, complete_task with the files you touched. Keep summaries and estimates true with update_task; drop_task what is not needed. Record every change as it happens, so the dashboard keeps moving. set_task_state records Tasks in other hands (with a helper, waiting on you, checked, released); if get_status shows a helper limit, keep to it.
+4. To change several Tasks at once, make one update_tasks call (applied in order, all or nothing); it is the cheapest way. move_task moves a Task to another Goal. To hold several Goals, claim each one and pass goal (its ID) to the tools that change a Goal.
+5. About to change code for something that is not the current Task? Call start_detour with the reason first; afterwards end_detour ("merge back", "return" or "recalibrate").
+6. When every Task is done, released or dropped and the Outcome is true, call complete_goal and tell the Developer in one sentence.
+7. Talk to the Developer in everyday words: say "step" for Task and "side trip" for Detour, and leave out tool names, IDs and the files in .progressor/. Give them the dashboard link from get_status at the start of a conversation and when a Goal is finished.
+8. A lasting rule from the Developer ("always...", "never...") is saved with add_standing_instruction (update_standing_instruction changes or removes one); a rule that must never be broken (they say "never", "this is a hard rule") with hard: true. update_context keeps the project's short Important context page; add_decision records a choice that is not a project rule; add_note records something that belongs to a Goal instead of fixing it now.
+9. Anything only the Developer can try by hand goes in add_hand_test, not in your chat summary.
+10. The Developer can write to you on the dashboard: their messages and answers arrive at the end of your next Progressor reply under "New from the Developer". Act on each message as their instruction and answer with reply_to_developer. For a product or UX choice, use ask_developer with 2 to 4 short choices instead of stopping in the chat.
+11. When you brief a helper agent, paste in the block from get_rules: helpers don't see the Standing Instructions. Before starting something only one can use at a time (a dev window, a port), call claim_resource; release_resource when done.
+12. Work that belongs to another project using Progressor goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it.`;
 
 const resourceName = z.string().max(80).describe("The shared thing's name, such as 'dev-window' or 'plasmashell'. Case and spaces do not matter.");
 const resourceLabel = z
@@ -248,6 +244,20 @@ export function scheduleLines(schedule: Schedule, held: string[]): string[] {
   return lines;
 }
 
+/** The Goals to pick from, with the finished and cancelled ones only counted. */
+function goalListLines(goals: Goal[]): string[] {
+  if (goals.length === 0) return ["The Roadmap has no Goals yet."];
+  const open = goals.filter((g) => g.status !== "done" && g.status !== "dropped");
+  const finished = goals.filter((g) => g.status === "done").length;
+  const cancelled = goals.filter((g) => g.status === "dropped").length;
+  const noun = (n: number) => (n === 1 ? "goal" : "goals");
+  return [
+    ...(open.length > 0 ? ["Goals:", ...open.map(goalLine)] : []),
+    ...(finished > 0 ? [`Finished: ${finished} ${noun(finished)} (not listed; get_item progressor://<goal> to look one up).`] : []),
+    ...(cancelled > 0 ? [`Cancelled: ${cancelled} ${noun(cancelled)} (not listed).`] : []),
+  ];
+}
+
 export function formatStatus(session: SessionStatus, schedule?: Schedule, warnings: string[] = []): string {
   const rules = hardFirst(session.standingInstructions);
   const instructions =
@@ -270,7 +280,7 @@ export function formatStatus(session: SessionStatus, schedule?: Schedule, warnin
       paused.length === 1
         ? `No Goal is claimed by this Session. Goal ${paused[0]!.id} ("${paused[0]!.title}") is paused: claim it with claim_goal and carry on.`
         : "No Goal is claimed by this Session. Claim one with claim_goal, or plan one and add it with add_goal (claim: true).",
-      ...(session.goals.length > 0 ? ["Goals:", ...session.goals.map(goalLine)] : ["The Roadmap has no Goals yet."]),
+      ...goalListLines(session.goals),
       ...timing,
       ...instructions,
     ].join("\n");
@@ -614,7 +624,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Add Goal",
       description:
-        "Add a Goal to the end of the Roadmap, with an optional Task list and Outcome; with claim: true, also claim it to start work. A title another Goal already has is refused unless allow_duplicate is set. To record work already finished, set done on the Goal and on every Task.",
+        "Add a Goal to the end of the Roadmap, with an optional Task list and Outcome; with claim: true, also claim it to start work. A title another Goal already has is refused unless allow_duplicate is set. To record work already finished, set done on the Goal and on every Task. Plan each Goal with an Outcome (one sentence on what done looks like) and Tasks that each have a short title, the files they touch, a one-line summary and an estimate. Tell the Developer the plan in a few plain lines first. With claim: true the answer is the whole status.",
       inputSchema: {
         title: z.string().min(1).describe("A few words naming the Goal, such as 'Ship OAuth login'."),
         id: z
@@ -840,13 +850,13 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Start Task",
       description:
-        "Mark a Task in progress: you are working on it yourself. Only one Task of a Goal can be in progress at a time; for Tasks in other hands, use set_task_state.",
+        "Mark a Task in progress: you are working on it yourself; call it before you change code for the Task. Answers briefly, with where the work stands. Only one Task of a Goal can be in progress at a time; for Tasks in other hands, use set_task_state.",
       inputSchema: { goal: heldGoal, task: taskId },
     },
     ({ goal, task }) =>
       respondIn(undefined, () => {
-        project.startTask(task, goal);
-        return status();
+        const t = project.startTask(task, goal);
+        return withNow(`Started ${taskLine(t)}.`);
       }),
   );
 
@@ -896,7 +906,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Update Tasks",
       description:
-        "Change several Tasks in one call, such as completing two and starting the next, or setting the estimates of several, instead of one call each. The operations are applied in order, so a start can follow the complete of the Task that was in progress; if any one fails, none is applied. A 'state' operation takes the same helper_branch, helper_folder, helper_label (with 'with a helper') and evidence (with 'checked') as set_task_state. Each operation can name its own claimed Goal with goal, else the call's goal (or the only Goal held) is used. Answers with one line per call, not the whole status.",
+        "Change several Tasks in one call, such as completing two and starting the next, or setting the estimates of several, instead of one call each. The operations are applied in order, so a start can follow the complete of the Task that was in progress; if any one fails, none is applied. A 'state' operation takes the same helper_branch, helper_folder, helper_label (with 'with a helper') and evidence (with 'checked') as set_task_state. Each operation can name its own claimed Goal with goal, else the call's goal (or the only Goal held) is used. The recommended way to change more than one Task. Answers with one line per call, not the whole status.",
       inputSchema: { goal: heldGoal, operations: z.array(operation).min(1).max(25), project: otherProject },
     },
     ({ goal, operations, project: wanted }) =>
@@ -953,7 +963,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Complete Task",
       description:
-        "Mark a Task of the claimed Goal done, recording the files it touched and, if it changed, the final summary of what it did. Works whether or not the Task was started. For a Task that turned out unnecessary, use drop_task instead; to change a Task without finishing it, use update_task.",
+        "Mark a Task of the claimed Goal done, recording the files it touched and, if it changed, the final summary of what it did. Works whether or not the Task was started. Answers briefly, with the time it took and where the work stands. For a Task that turned out unnecessary, use drop_task instead; to change a Task without finishing it, use update_task.",
       inputSchema: {
         goal: heldGoal,
         task: taskId,
@@ -966,7 +976,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       respondIn(wanted, (p) => {
         const t = p.completeTask(task, code ?? [], summary, goal);
         if (p !== project) return doneIn(p, [`Task ${taskLine(t)} is now ${t.status}.`, ...tookLine([t], new Date())].join("\n"));
-        return [...tookLine([t], new Date()), status()].join("\n");
+        return withNow([`Done: ${taskLine(t)}.`, ...tookLine([t], new Date())].join("\n"));
       }),
   );
 
@@ -1008,8 +1018,8 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     },
     ({ goal, task, reason }) =>
       respondIn(undefined, () => {
-        project.dropTask(task, reason, goal);
-        return status();
+        const t = project.dropTask(task, reason, goal);
+        return withNow(`Dropped ${taskLine(t)}: ${reason}`);
       }),
   );
 
@@ -1052,8 +1062,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           `Ended ${formatDetour(detour)}`,
           ...(dropped.length > 0 ? [`Dropped: ${dropped.map((t) => t.id).join(", ")}`] : []),
           ...(added.length > 0 ? [`Added: ${added.map(taskLine).join("; ")}`] : []),
-          "",
-          status(),
+          nowLine(project.sessionStatus()),
         ].join("\n");
       }),
   );
