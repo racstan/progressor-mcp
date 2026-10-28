@@ -46,7 +46,7 @@ Yes, if that project already uses Progressor. When work in one project is for an
 
 ## What happens when my AI's conversation runs out of room?
 
-When an AI's conversation gets long, the app summarises it, and the AI forgets details. Progressor keeps the plan outside the conversation, so the AI picks up the plan again after the summary (in Claude Code, automatically). A new conversation picks it up too: say *"carry on"*.
+When an AI's conversation gets long, the app summarises it, and the AI forgets details. Progressor keeps the plan outside the conversation, so the plan is never lost. In Claude Code the AI picks it up again after the summary by itself; in other apps, say *"use Progressor"* if it seems to have lost track. A new conversation picks it up too: say *"use Progressor"* or *"carry on"*.
 
 ## I closed the chat halfway. Is the work lost?
 
