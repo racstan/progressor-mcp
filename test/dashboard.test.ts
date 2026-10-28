@@ -244,6 +244,19 @@ describe("one dashboard for every project", () => {
     expect((await get(d, "/api/info")).body).toMatchObject({ app: "progressor", hub: 7, editor: "cursor" });
   });
 
+  it("serves the project's statistics", async () => {
+    agent.addGoal("Stats", [{ title: "One", estimate: 30 }, { title: "Two" }]);
+    agent.claimGoal("stats");
+    agent.startTask("t1", "stats");
+    agent.completeTask("t1", [], undefined, "stats");
+    const d = await start(agent);
+    const { status, body } = await get(d, `/api/projects/${projectEntry(agent.root).id}/stats`);
+    expect(status).toBe(200);
+    expect(body.steps).toMatchObject({ done: 1, open: 1 });
+    expect(body.perDay.at(-1).count).toBe(1);
+    expect(body.perGoal.find((g: { id: string }) => g.id === "stats")).toMatchObject({ done: 1, total: 2, estimate: 30 });
+  });
+
   it("says which build of the page it serves, so an open page can tell it is out of date", async () => {
     const ui = tempDir("progressor-ui-");
     writeFileSync(join(ui, "index.html"), "<html></html>");
