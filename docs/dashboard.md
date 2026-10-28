@@ -157,7 +157,7 @@ The dashboard listens only on your own computer (`127.0.0.1`, and `::1` where th
 
 ### What the dashboard can change
 
-Only a few things, all from the dashboard's own page: stopping a Progressor server, marking a hand test, and talking with your AI (sending or taking back a message, answering a question). Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark, message or answer is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
+Only a few things, all from the dashboard's own page: stopping a Progressor server, marking a hand test, talking with your AI (sending or taking back a message, answering a question), and editing the project notes (adding, rewording or removing a rule, and rewriting About this project; your AI is told about each change). Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark, message, answer or note is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
 
 ### The dashboard without an AI running
 

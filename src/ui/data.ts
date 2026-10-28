@@ -288,6 +288,29 @@ export const takeBackMessage = (projectId: string, goalId: string, id: string) =
 export const answerQuestion = (projectId: string, goalId: string, id: string, answer: string) =>
   postTalk(projectId, goalId, `questions/${encodeURIComponent(id)}/answer`, { answer });
 
+/** Sends one of the person's changes to the project notes; says what went wrong in words when refused. */
+async function postNotes(projectId: string, path: string, body: unknown): Promise<void> {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/${path}`, {
+    method: "POST",
+    headers: { "x-progressor": "notes", "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
+}
+
+/** Adds a rule for the AI; a hard one must never be broken. */
+export const addRule = (projectId: string, text: string, hard: boolean) => postNotes(projectId, "rules", { text, hard });
+
+/** Rewords a rule or changes whether it must never be broken. */
+export const changeRule = (projectId: string, id: string, text: string, hard: boolean) =>
+  postNotes(projectId, `rules/${encodeURIComponent(id)}`, { text, hard });
+
+/** Removes a rule. */
+export const removeRule = (projectId: string, id: string) => postNotes(projectId, `rules/${encodeURIComponent(id)}/delete`, {});
+
+/** Replaces the About this project text (the Important context). */
+export const saveContext = (projectId: string, text: string) => postNotes(projectId, "context", { text });
+
 /** Search results for what is typed, fetched a moment after typing stops; undefined while searching. */
 export function useSearch(query: string): SearchView | undefined {
   const [hits, setHits] = useState<{ query: string; hits: SearchView }>();

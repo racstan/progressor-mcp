@@ -20,7 +20,7 @@ const stepTitle = (view: Props["view"], id: string | undefined) =>
   id ? view.graph.nodes.find((n) => n.kind === "task" && n.id === id)?.title : undefined;
 
 /** Runs one change to the plan, with a busy flag and the server's words when it refuses. */
-function useSend(onChanged: () => void) {
+export function useSend(onChanged: () => void) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const run = async (change: () => Promise<void>): Promise<boolean> => {

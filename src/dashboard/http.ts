@@ -33,7 +33,7 @@ import { type RevealRunner, insideProject, revealCommand, runReveal } from "./re
 export const DEFAULT_PORT = 4747;
 const HOST = "127.0.0.1";
 /** Bumped when the hub's API changes, so a hub from an older version is not shared. */
-const HUB_VERSION = 6;
+const HUB_VERSION = 7;
 
 export interface DashboardOptions {
   /** This Session's project; it is added to the registry. Absent when only a Workspace is opened. */
@@ -199,7 +199,7 @@ function json(res: ServerResponse, status: number, body: unknown): void {
  * Origin on a POST, and a custom header cannot be sent from another site without a CORS preflight,
  * which the dashboard never answers, so other web pages cannot stop servers.
  */
-function isFromDashboardPage(req: IncomingMessage, header: "stop" | "mark" | "talk" | "reveal"): boolean {
+function isFromDashboardPage(req: IncomingMessage, header: "stop" | "mark" | "talk" | "reveal" | "notes"): boolean {
   if (req.headers["x-progressor"] !== header) return false;
   try {
     const origin = new URL(String(req.headers.origin ?? ""));
@@ -484,7 +484,7 @@ class Hub {
    * Reads a JSON body the dashboard's own page sent with the given header, for the project named;
    * answers the request itself and gives undefined when anything is wrong.
    */
-  private async guardedBody(req: IncomingMessage, res: ServerResponse, header: "talk" | "reveal", projectId: string, limit: number) {
+  private async guardedBody(req: IncomingMessage, res: ServerResponse, header: "talk" | "reveal" | "notes", projectId: string, limit: number) {
     if (!isFromDashboardPage(req, header)) return void json(res, 403, { error: "This can only be sent from the dashboard's own page." });
     if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) return void json(res, 415, { error: "Send it as JSON." });
     if (!this.projects.has(projectId)) this.sync();
@@ -537,6 +537,60 @@ class Hub {
   }
 
   /**
+   * The Developer editing the project notes: add, reword or remove a rule (a Standing Instruction),
+   * or replace the Important context. Written under the plan's lock through the same code the tools
+   * use; each change also leaves a message to the whole project, so the AI hears of it at its next call.
+   */
+  private async notes(req: IncomingMessage, res: ServerResponse, projectId: string, action: string): Promise<void> {
+    const got = await this.guardedBody(req, res, "notes", projectId, MAX_TALK_BODY);
+    if (!got) return;
+    const { project, body } = got;
+    const hard = body.hard;
+    if (hard !== undefined && typeof hard !== "boolean") return json(res, 400, { error: "Say yes or no to must never be broken." });
+    const text = body.text;
+    if (text !== undefined && typeof text !== "string") return json(res, 400, { error: "The text must be text." });
+    const rule = (s: { id: string | undefined; text: string; hard: boolean }) => `${s.hard ? "a rule that must never be broken, " : ""}${s.id}: "${s.text}"`;
+    try {
+      const answer = withLock(project.root, () => {
+        if (action === "context") {
+          if (text === undefined) throw new Error("Write the project notes first.");
+          const context = project.setContext(text);
+          project.sendMessage(PROJECT_TALK, "On the dashboard I changed the Important context. Read it again with get_rules before your next step.");
+          return { status: 200, body: { context } };
+        }
+        if (action === "rules") {
+          if (!text?.trim()) throw new Error("Write the rule first.");
+          const added = project.addStandingInstruction(text, hard ?? false);
+          project.sendMessage(PROJECT_TALK, `On the dashboard I added ${rule(added)}. Follow it from now on.`);
+          return { status: 201, body: added };
+        }
+        const del = /^rules\/([^/]+)\/delete$/.exec(action);
+        if (del) {
+          const old = project.roadmap().standingInstruction(del[1]!);
+          if (!old) throw new Error(`No rule ${del[1]} in this project.`);
+          project.updateStandingInstruction(del[1]!, { text: "" });
+          project.sendMessage(PROJECT_TALK, `On the dashboard I removed rule ${del[1]}: "${old.text}". Stop following it.`);
+          return { status: 200, body: { deleted: del[1] } };
+        }
+        const edit = /^rules\/([^/]+)$/.exec(action);
+        if (edit) {
+          if (text === undefined && hard === undefined) throw new Error("Give the new wording or say whether it must never be broken.");
+          if (text !== undefined && !text.trim()) throw new Error("Write the rule first; to remove it, use Remove.");
+          if (!project.roadmap().standingInstruction(edit[1]!)) throw new Error(`No rule ${edit[1]} in this project.`);
+          const changed = project.updateStandingInstruction(edit[1]!, { text, hard })!;
+          project.sendMessage(PROJECT_TALK, `On the dashboard I changed rule ${changed.id} to: "${changed.text}"${changed.hard ? " (it must never be broken)" : ""}. Follow it from now on.`);
+          return { status: 200, body: changed };
+        }
+        return { status: 404, body: { error: "Nothing to do here." } };
+      });
+      return json(res, answer.status, answer.body);
+    } catch (e) {
+      const message = (e as Error).message;
+      return json(res, /^No /.test(message) ? 404 : 400, { error: message });
+    }
+  }
+
+  /**
    * A newer Progressor asks for the port, so the dashboard is served by the newest version. Only
    * the serving stops: this process's Session goes on, and it shares the newer hub from then on.
    * Browsers always send Origin on a POST, and cannot send the custom header to another site
@@ -560,6 +614,8 @@ class Hub {
     if (req.method === "POST" && path === "/api/hub/step-down") return this.stepDown(req, res);
     const shown = /^\/api\/projects\/([^/]+)\/reveal$/.exec(path);
     if (req.method === "POST" && shown) return void this.showInFolder(req, res, decodeURIComponent(shown[1]!));
+    const notes = /^\/api\/projects\/([^/]+)\/(context|rules(?:\/[^/]+(?:\/delete)?)?)$/.exec(path);
+    if (req.method === "POST" && notes) return void this.notes(req, res, decodeURIComponent(notes[1]!), notes[2]!);
     const talk = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/((?:messages|questions)(?:\/[^/]+\/(?:delete|answer))?)$/.exec(path);
     if (req.method === "POST" && talk) return void this.talk(req, res, decodeURIComponent(talk[1]!), decodeURIComponent(talk[2]!), talk[3]!);
     const mark = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/hand-tests\/([^/]+)$/.exec(path);
