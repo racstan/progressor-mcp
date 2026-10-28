@@ -70,6 +70,8 @@ When your AI needs you to choose something, it asks here instead of stopping in 
 
 What you've said before stays below, newest first: your messages with your AI's replies, and the answers you gave.
 
+What you write here is **kept on this computer only**. It is saved in your project's `.progressor/talk/` folder, which Progressor keeps out of git, so it doesn't end up in your project's history or on GitHub. Your answers to your AI's questions are the exception: each one is also saved as a decision in the goal's plan, which is shared with your code.
+
 ## Things to try by hand
 
 Some things only you can test: a permission prompt to allow, a screen to look at. Instead of burying them in its chat summary, your AI adds them to the goal, and they show in a **Things to try by hand** box under the goal's banner, with *2 to try · 1 works · 1 doesn't work* beside the title. The box is open while something is still to try, and folds away once you've marked everything. Each one says what to try, and the step it is about when your AI gave one.

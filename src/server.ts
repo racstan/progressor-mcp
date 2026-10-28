@@ -516,8 +516,9 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       .goals.filter((g) => !held.has(g.id) && g.status !== "dropped" && !project.heldElsewhere(g))
       .map((g) => {
         try {
-          const plan = project.plan(g.id);
-          return { goal: g.id, messages: plan.messages.filter((m) => m.state === "new").length, answers: plan.questions.filter((q) => q.state === "answered" && !q.seen).length };
+          if (!project.hasNewFromDeveloper(g.id)) return { goal: g.id, messages: 0, answers: 0 };
+          const talk = project.talk(g.id);
+          return { goal: g.id, messages: talk.messages.filter((m) => m.state === "new").length, answers: talk.questions.filter((q) => q.state === "answered" && !q.seen).length };
         } catch {
           return { goal: g.id, messages: 0, answers: 0 };
         }

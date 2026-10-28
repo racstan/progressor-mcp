@@ -120,6 +120,7 @@ function Write({ projectId, goalId, onChanged }: Omit<Props, "view">) {
     }}>
       <input value={text} maxLength={2000} onChange={(e) => setText(e.target.value)} placeholder="Write to your AI about this goal…" aria-label="Write to your AI about this goal" />
       <button type="submit" className="send" disabled={busy || !text.trim()}>Send</button>
+      <div className="private" title="Saved in .progressor/talk/, which Progressor keeps out of git">🔒 Kept on this computer only, not saved in git.</div>
       {error && <div className="error" role="alert">{error}</div>}
     </form>
   );

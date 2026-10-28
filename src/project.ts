@@ -181,6 +181,8 @@ const handFailureSummary = (test: string, note: string | undefined): string =>
   `The Developer tried "${test}" by hand and it did not work.${note ? ` Their note: ${note}` : " They left no note."}`;
 
 export const PROGRESSOR_DIR = ".progressor";
+/** The folder in .progressor/ that holds each Goal's talk with the Developer, kept out of git. */
+export const TALK_DIR = "talk";
 export const ROADMAP_FILE = "roadmap.md";
 export const CONTEXT_FILE = "context.md";
 /** The Important context goes to the Agent in full at every session start, so it stays short. */
@@ -320,6 +322,33 @@ export class Project {
     }
     plan.now = this.now;
     return plan;
+  }
+
+  /**
+   * A Goal's talk with the Developer (messages and questions), kept in `.progressor/talk/<goal>.md`
+   * apart from the Plan File, because the Plan Files are usually committed and what people type to
+   * their AI should not end up in git. Read with the same parser; it has no Tasks.
+   */
+  talk(goalId: string): PlanFile {
+    const text = this.readText(this.path(TALK_DIR, `${goalId}.md`));
+    const talk = parsePlanFile(text ?? `# ${this.roadmap().goal(goalId)?.title ?? goalId}: talk with the Developer\n`, goalId);
+    talk.now = this.now;
+    return talk;
+  }
+
+  private saveTalk(talk: PlanFile): void {
+    talk.assignMissingIds();
+    this.ignoreTalk();
+    this.writeText(this.path(TALK_DIR, `${talk.goalId}.md`), talk.toString());
+  }
+
+  /** Makes sure `.progressor/.gitignore` keeps the talk folder out of git (added once, to whatever is there). */
+  private ignoreTalk(): void {
+    const file = this.path(".gitignore");
+    const now = this.readText(file) ?? "";
+    if (/^\/?talk\/?\s*$/m.test(now)) return;
+    const entry = `# What you and your AI say on the dashboard stays on this computer\n${TALK_DIR}/\n`;
+    this.writeText(file, now.trim() ? `${now.replace(/\n*$/, "\n")}\n${entry}` : entry);
   }
 
   private saveRoadmap(roadmap: Roadmap): void {
@@ -910,11 +939,13 @@ export class Project {
   // --- talking with the Developer ----------------------------------------------------
 
   /** Changes a claimed Goal's Plan File (with every item given an ID) and saves it. */
-  private inClaimed<T>(goalId: string | undefined, body: (plan: PlanFile) => T): T {
-    const { plan } = this.requireClaim(goalId);
-    plan.assignMissingIds();
-    const result = body(plan);
-    this.savePlan(plan);
+  /** Changes the talk of a claimed Goal (with every item given an ID) and saves it; `plan` is its Plan File, to check Task IDs. */
+  private inClaimedTalk<T>(goalId: string | undefined, body: (talk: PlanFile, plan: PlanFile) => T): T {
+    const { goal, plan } = this.requireClaim(goalId);
+    const talk = this.talk(goal.id);
+    talk.assignMissingIds();
+    const result = body(talk, plan);
+    this.saveTalk(talk);
     return result;
   }
 
@@ -923,43 +954,46 @@ export class Project {
     const goal = this.roadmap().goal(goalId);
     if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
     if (goal.status === "dropped") throw new Error(`Goal ${goalId} is cancelled; it takes no messages.`);
-    const plan = this.plan(goalId);
-    plan.assignMissingIds();
-    return plan;
+    const talk = this.talk(goalId);
+    talk.assignMissingIds();
+    return talk;
   }
 
   /** A message from the Developer (this is what the dashboard calls), needing no Claim. */
   sendMessage(goalId: string, text: string): Message {
     const words = cutText(text);
     if (!words) throw new Error("The message is empty.");
-    const plan = this.talkable(goalId);
-    const message = plan.addMessage(words, this.now());
-    this.savePlan(plan);
+    const talk = this.talkable(goalId);
+    const message = talk.addMessage(words, this.now());
+    this.saveTalk(talk);
     return message;
   }
 
   /** The Developer takes a message back, which they can only do while the Agent has not seen it. */
   deleteMessage(goalId: string, id: string): void {
-    const plan = this.talkable(goalId);
-    const message = plan.message(id);
+    const talk = this.talkable(goalId);
+    const message = talk.message(id);
     if (!message) throw new Error(`No message ${id} in Goal ${goalId}.`);
     if (message.state !== "new") throw new Error(`Your AI has already seen message ${id}, so it can't be taken back. Send another one instead.`);
-    plan.removeMessage(id);
-    this.savePlan(plan);
+    talk.removeMessage(id);
+    this.saveTalk(talk);
   }
 
   /** The Developer's answer to a question: one of its choices or their own words, kept as a decision too. */
   answerQuestion(goalId: string, id: string, answer: string): Question {
     const words = cutText(answer);
     if (!words) throw new Error("The answer is empty.");
-    const plan = this.talkable(goalId);
-    const question = plan.question(id);
+    const talk = this.talkable(goalId);
+    const question = talk.question(id);
     if (!question) throw new Error(`No question ${id} in Goal ${goalId}.`);
     if (question.state === "answered") throw new Error(`Question ${id} is already answered.`);
     if (question.state === "withdrawn") throw new Error(`Question ${id} was withdrawn by your AI; it no longer needs an answer.`);
+    // The choice itself belongs to the plan (committed); the talk stays in the talk file.
+    const plan = this.plan(goalId);
     const decision = plan.addDecision(`${question.text} The Developer answered: ${words}`);
-    const answered = plan.answerQuestion(id, words, this.now(), decision.id);
     this.savePlan(plan);
+    const answered = talk.answerQuestion(id, words, this.now(), decision.id);
+    this.saveTalk(talk);
     return answered;
   }
 
@@ -968,18 +1002,33 @@ export class Project {
    * as shown. Nothing is written when there are none.
    */
   takeNewFromDeveloper(goalId: string): FromDeveloper {
-    const plan = this.plan(goalId);
+    const talk = this.talk(goalId);
     const at = this.now();
-    const news = { messages: plan.takeNewMessages(at), answers: plan.takeNewAnswers(at) };
-    if (news.messages.length > 0 || news.answers.length > 0) this.savePlan(plan);
+    const news = { messages: talk.takeNewMessages(at), answers: talk.takeNewAnswers(at) };
+    if (news.messages.length > 0 || news.answers.length > 0) this.saveTalk(talk);
     return news;
+  }
+
+  /** For a status: messages not replied to, questions still open and answers not shown yet; empty when the talk cannot be read. */
+  private talkStatus(goalId: string): Pick<Status, "messages" | "questions" | "answers"> {
+    try {
+      const talk = this.talk(goalId);
+      return {
+        messages: talk.messages.filter((m) => m.state !== "replied"),
+        questions: talk.questions.filter((q) => q.state === "open"),
+        answers: talk.questions.filter((q) => q.state === "answered" && !q.seen),
+      };
+    } catch {
+      return { messages: [], questions: [], answers: [] };
+    }
   }
 
   /** Whether a Goal has anything from the Developer the Agent has not been shown; only reads. */
   hasNewFromDeveloper(goalId: string): boolean {
     try {
-      const plan = this.plan(goalId);
-      return plan.messages.some((m) => m.state === "new") || plan.questions.some((q) => q.state === "answered" && !q.seen);
+      if (!existsSync(this.path(TALK_DIR, `${goalId}.md`))) return false;
+      const talk = this.talk(goalId);
+      return talk.messages.some((m) => m.state === "new") || talk.questions.some((q) => q.state === "answered" && !q.seen);
     } catch {
       return false;
     }
@@ -989,9 +1038,9 @@ export class Project {
   replyToDeveloper(id: string, reply: string, goalId?: string): Message {
     const words = cutText(reply);
     if (!words) throw new Error("Write the reply: a sentence or two on what you did or will do.");
-    return this.inClaimed(goalId, (plan) => {
-      if (!plan.message(id)) throw new Error(`No message ${id} in Goal ${plan.goalId}.`);
-      return plan.replyToMessage(id, words, this.now());
+    return this.inClaimedTalk(goalId, (talk) => {
+      if (!talk.message(id)) throw new Error(`No message ${id} in Goal ${talk.goalId}.`);
+      return talk.replyToMessage(id, words, this.now());
     });
   }
 
@@ -1002,16 +1051,19 @@ export class Project {
     const picks = choices.map((c) => cutText(c, 200)).filter(Boolean);
     if (picks.length < 2 || picks.length > 4) throw new Error("Give 2 to 4 choices, each a few words; the Developer can also answer in their own words.");
     if (new Set(picks.map((c) => c.toLowerCase())).size !== picks.length) throw new Error("Give different choices.");
-    return this.inClaimed(options.goal, (plan) => plan.addQuestion(words, picks, options.task || undefined, this.now()));
+    return this.inClaimedTalk(options.goal, (talk, plan) => {
+      if (options.task && !plan.task(options.task)) throw new Error(`No Task ${options.task} in Goal ${plan.goalId}.`);
+      return talk.addQuestion(words, picks, options.task || undefined, this.now());
+    });
   }
 
   /** Withdraws a question that no longer needs an answer, on a claimed Goal. */
   withdrawQuestion(id: string, goalId?: string): Question {
-    return this.inClaimed(goalId, (plan) => {
-      const q = plan.question(id);
-      if (!q) throw new Error(`No question ${id} in Goal ${plan.goalId}.`);
+    return this.inClaimedTalk(goalId, (talk) => {
+      const q = talk.question(id);
+      if (!q) throw new Error(`No question ${id} in Goal ${talk.goalId}.`);
       if (q.state === "answered") throw new Error(`Question ${id} is already answered (${q.answer}); it can't be withdrawn.`);
-      return plan.withdrawQuestion(id);
+      return talk.withdrawQuestion(id);
     });
   }
 
@@ -1290,9 +1342,7 @@ export class Project {
       decisions: plan.decisions,
       notes: plan.notes.filter((n) => !n.resolved),
       handTests: plan.handTests,
-      messages: plan.messages.filter((m) => m.state !== "replied"),
-      questions: plan.questions.filter((q) => q.state === "open"),
-      answers: plan.questions.filter((q) => q.state === "answered" && !q.seen),
+      ...this.talkStatus(goal.id),
       updatedAt: this.changedAt(this.planFilePath(goal.id)) ?? this.changedAt(`${PROGRESSOR_DIR}/${ROADMAP_FILE}`),
       ...common,
     };
