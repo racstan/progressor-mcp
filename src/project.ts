@@ -17,6 +17,9 @@ import {
   type Task,
   type TaskChanges,
   type TaskStatus,
+  DECISIONS,
+  HAND_TESTS,
+  NOTES,
   TASKS,
   newPlanFile,
   parsePlanFile,
@@ -28,6 +31,7 @@ import { type Origin } from "./origin.js";
 import { ResourceLocks } from "./resources.js";
 import { unsafeRoot } from "./root.js";
 import { type Claim, type Goal, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
+import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule } from "./schedule.js";
 
 export interface SessionIdentity {
@@ -52,6 +56,11 @@ export interface ProjectOptions {
    */
   clearStaleClaims?: boolean;
   now?: () => Date;
+  /**
+   * Who the dates on the plan say made a change: "Developer" for the dashboard (the Session "dashboard"),
+   * "AI" for any other Session. A change from another project is always the AI's.
+   */
+  actor?: Actor;
   /** Why a folder is the wrong place to start a progress record, if it is (see unsafeRoot). */
   unsafe?: (root: string) => string | undefined;
   /**
@@ -260,6 +269,15 @@ export function processIsAlive(pid: number): boolean {
   }
 }
 
+/** What is dated in the Roadmap: the Goals, whose Claim comes and goes without the Goal changing. */
+const ROADMAP_DATES: DateScope = { sections: [GOALS], counts: (b) => b.marker !== undefined && !!b.id, ignore: ["claimed by"] };
+/** What is dated in a Plan File; a hand test the Agent has seen has not changed. */
+const PLAN_DATES: DateScope = {
+  sections: [TASKS, DECISIONS, NOTES, HAND_TESTS],
+  counts: (b) => b.section !== TASKS || b.marker !== undefined,
+  ignore: ["seen"],
+};
+
 /** The progress record of one project, as seen by one Session. Every call re-reads the files. */
 export class Project {
   private folder: string;
@@ -268,6 +286,8 @@ export class Project {
   private readonly sessionOf: ((pid: number) => string | undefined) | undefined;
   private readonly tidy: boolean;
   readonly now: () => Date;
+  /** Who the dates on the plan say made a change (see ProjectOptions.actor). */
+  readonly actor: Actor;
   private readonly unsafe: (root: string) => string | undefined;
   private readonly rename: (from: string, to: string) => void;
   /** The project the changes come from, when this is another project's plan (see ProjectOptions.from). */
@@ -280,6 +300,7 @@ export class Project {
     this.sessionOf = options.sessionOf;
     this.tidy = options.clearStaleClaims ?? true;
     this.now = options.now ?? (() => new Date());
+    this.actor = options.from ? "AI" : (options.actor ?? (options.session.id === "dashboard" ? "Developer" : "AI"));
     this.unsafe =
       options.unsafe ?? ((root) => unsafeRoot(root, { home: homedir(), systemRoot: process.env.SystemRoot, platform: process.platform }));
     this.from = options.from?.trim() || undefined;
@@ -500,12 +521,14 @@ export class Project {
 
   private saveRoadmap(roadmap: Roadmap): void {
     roadmap.assignMissingIds();
-    this.writeText(this.path(ROADMAP_FILE), roadmap.toString());
+    const file = this.path(ROADMAP_FILE);
+    this.writeText(file, stampDates(roadmap.toString(), this.readText(file), ROADMAP_DATES, this.now(), this.actor));
   }
 
   private savePlan(plan: PlanFile): void {
     plan.assignMissingIds();
-    this.writeText(this.path("goals", `${plan.goalId}.md`), plan.toString());
+    const file = this.path("goals", `${plan.goalId}.md`);
+    this.writeText(file, stampDates(plan.toString(), this.readText(file), PLAN_DATES, this.now(), this.actor));
   }
 
   // --- Claims --------------------------------------------------------------

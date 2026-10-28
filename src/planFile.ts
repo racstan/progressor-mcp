@@ -21,6 +21,7 @@ import {
   setDetail,
 } from "./markdown.js";
 import { formatDuration, minutesSince, parseDuration } from "./estimate.js";
+import { ADDED, type Stamp, UPDATED, withDates } from "./dates.js";
 import { ORIGIN_KEY, type Origin, formatOrigin, parseOrigin } from "./origin.js";
 
 export type TaskStatus =
@@ -59,6 +60,9 @@ export interface Task {
   fromHandTest: string | undefined;
   /** Set when the Task was last added or changed from another project. */
   updatedFrom?: Origin;
+  /** When it was added and last changed, and by whom; unknown in plans from before dates. */
+  added?: Stamp;
+  updated?: Stamp;
   /** Where the helper's work is: its branch, its worktree folder and a label (such as the model). Kept after the Task is done. */
   helper?: HelperInfo;
   /** A short note on what was checked ("715 passed, live send OK"), written when the Task is checked. */
@@ -98,6 +102,9 @@ export interface Decision {
   line: number;
   /** Set when the decision was last added or changed from another project. */
   updatedFrom?: Origin;
+  /** When it was added and last changed, and by whom; unknown in plans from before dates. */
+  added?: Stamp;
+  updated?: Stamp;
 }
 
 /** Something spotted that belongs to a Goal, possibly while working on another one. */
@@ -111,6 +118,9 @@ export interface Note {
   from: string | undefined;
   /** Set when the note was last added or changed from another project. */
   updatedFrom?: Origin;
+  /** When it was added and last changed, and by whom; unknown in plans from before dates. */
+  added?: Stamp;
+  updated?: Stamp;
 }
 
 /** What the Developer found when they tried something by hand. */
@@ -135,6 +145,9 @@ export interface HandTest {
   seen: boolean;
   /** Set when the test was last added or changed from another project. */
   updatedFrom?: Origin;
+  /** When it was added and last changed, and by whom; unknown in plans from before dates. */
+  added?: Stamp;
+  updated?: Stamp;
 }
 
 /** Where a message from the Developer stands: not yet shown to the Agent, shown, or replied to. */
@@ -208,7 +221,7 @@ export const TASK_MARKER: Record<TaskStatus, Marker> = {
 /** The checkbox of each hand-test result: older readers see a tried test as done, a failed one as started. */
 const HAND_MARKER: Record<HandResult, Marker> = { pending: " ", works: "x", "doesn't work": "/", "won't test": "-" };
 const HAND_RESULT: Record<Marker, HandResult> = { " ": "pending", x: "works", "/": "doesn't work", "-": "won't test" };
-const HAND_ORDER = ["task", "note", "marked", "task added", "seen", ORIGIN_KEY];
+const HAND_ORDER = ["task", "note", "marked", "task added", "seen", ORIGIN_KEY, ADDED, UPDATED];
 const MESSAGE_MARKER: Record<MessageState, Marker> = { new: " ", seen: "/", replied: "x" };
 const MESSAGE_STATE: Record<Marker, MessageState> = { " ": "new", "/": "seen", x: "replied", "-": "seen" };
 const MESSAGE_ORDER = ["sent", "seen", "reply", "replied"];
@@ -303,7 +316,7 @@ export interface TaskChanges {
 }
 
 /** Known Task details come first, in this order, when a Task is rewritten; unknown ones follow as they were. */
-const DETAIL_ORDER = ["state", "summary", "code", HELPER, HELPER_BRANCH, HELPER_FOLDER, EVIDENCE, CHECKED_SINCE, ESTIMATE, SPENT, SINCE, "moved from", "added by", "from hand test", "dropped by", "reason", ORIGIN_KEY];
+const DETAIL_ORDER = ["state", "summary", "code", HELPER, HELPER_BRANCH, HELPER_FOLDER, EVIDENCE, CHECKED_SINCE, ESTIMATE, SPENT, SINCE, "moved from", "added by", "from hand test", "dropped by", "reason", ORIGIN_KEY, ADDED, UPDATED];
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 
 function sortDetails(b: ItemBlock, order: string[] = DETAIL_ORDER): void {
@@ -363,6 +376,7 @@ export class PlanFile {
       ...withTime(b),
       ...withHelper(b),
       ...withOrigin(b),
+      ...withDates(b),
     }));
   }
 
@@ -489,6 +503,7 @@ export class PlanFile {
     if (from.evidence) addDetail(b, EVIDENCE, from.evidence);
     if (from.checkedSince) addDetail(b, CHECKED_SINCE, from.checkedSince);
     addDetail(b, "moved from", movedFrom);
+    if (from.added) addDetail(b, ADDED, `${from.added.at} by ${from.added.by}`);
     appendToSection(this.doc, TASKS, [b]);
     if (anchor) {
       this.doc.blocks.splice(this.doc.blocks.indexOf(b), 1);
@@ -583,7 +598,7 @@ export class PlanFile {
   // --- decisions and notes ------------------------------------------------------
 
   get decisions(): Decision[] {
-    return itemsIn(this.doc, DECISIONS).map((b) => ({ id: b.id, ref: this.ref(b.id), text: b.text, line: b.line, ...withOrigin(b) }));
+    return itemsIn(this.doc, DECISIONS).map((b) => ({ id: b.id, ref: this.ref(b.id), text: b.text, line: b.line, ...withOrigin(b), ...withDates(b) }));
   }
 
   get notes(): Note[] {
@@ -595,6 +610,7 @@ export class PlanFile {
       resolved: b.marker === "x",
       from: getDetail(b, "from"),
       ...withOrigin(b),
+      ...withDates(b),
     }));
   }
 
@@ -682,6 +698,7 @@ export class PlanFile {
       markedAt: getDetail(b, "marked"),
       seen: getDetail(b, "seen") !== undefined,
       ...withOrigin(b),
+      ...withDates(b),
     }));
   }
 

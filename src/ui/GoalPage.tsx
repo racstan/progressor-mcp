@@ -16,7 +16,7 @@ import { StepKey } from "./StepKey.js";
 import { type FileLink, Steps, StepIcon } from "./Steps.js";
 import { Conversation, OpenQuestions } from "./Talk.js";
 import { plainText } from "./text.js";
-import { SIDE_TRIP_HINT, ago, elsewhereTag, finishWords, goalState } from "./words.js";
+import { SIDE_TRIP_HINT, ago, datesLine, datesTitle, elsewhereTag, finishWords, goalState } from "./words.js";
 
 type Goal = RoadmapView["goals"][number];
 type Tab = "steps" | "map" | "talk" | "notes";
@@ -75,7 +75,11 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
       <header className="goal-head">
         <div className="top">
           <span className={`state ${now.state}`} title={now.hint}>{now.state === "working" ? <span className="working-dot" /> : <span className="dot" />}{now.label}</span>
-          {state.updatedAt !== undefined && <span className="state">· updated {ago(state.updatedAt)}</span>}
+          {datesLine(goal) ? (
+            <span className="state" title={datesTitle(goal)}>· {datesLine(goal)}</span>
+          ) : (
+            state.updatedAt !== undefined && <span className="state">· updated {ago(state.updatedAt)}</span>
+          )}
           {elsewhere && <span className="state" title={elsewhere.hint}>· {elsewhere.label}</span>}
           <span className="sp" />
           <button className="btn ghost small" title="Copies a description of this goal to paste into your AI chat"

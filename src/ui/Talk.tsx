@@ -2,7 +2,7 @@ import { useState } from "react";
 import { type GoalView, answerQuestion, sendMessage, takeBackMessage } from "./data.js";
 import { Icon } from "./Icon.js";
 import { RichText } from "./RichText.js";
-import { messageStateWords, talkSummary } from "./words.js";
+import { ago, exactDate, messageStateWords, sentWords, talkSummary } from "./words.js";
 
 type MessageView = GoalView["messages"][number];
 type QuestionView = GoalView["questions"][number];
@@ -75,6 +75,7 @@ export function Conversation({ projectId, goalId, view, onChanged }: Props) {
                 <div className="who">Your AI asked</div>
                 <RichText className="text" text={item.q.text} />
                 <div className="reply"><span className="who">You answered</span> {item.q.answer}</div>
+                {item.q.answeredAt && <div className="origin" title={exactDate(item.q.answeredAt)}>answered {ago(Date.parse(item.q.answeredAt))}</div>}
               </li>
             ),
           )}
@@ -139,6 +140,7 @@ function Said({ message: m, projectId, goalId, onChanged }: { message: MessageVi
     <li className={`said ${m.state}`}>
       <div className="who">You wrote · {messageStateWords(m.state)}</div>
       <div className="text">{m.text}</div>
+      {sentWords(m) && <div className="origin" title={[m.sentAt, m.repliedAt].filter(Boolean).map((t) => exactDate(t!)).join(" · ")}>{sentWords(m)}</div>}
       {m.reply && <div className="reply"><span className="who">Your AI:</span> <RichText className="inline" text={m.reply} /></div>}
       {m.state === "new" && (
         <button type="button" className="linkbtn undo" disabled={busy} onClick={() => void run(() => takeBackMessage(projectId, goalId, m.id!))}>Take back</button>

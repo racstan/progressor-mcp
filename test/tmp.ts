@@ -14,3 +14,8 @@ export function tempDir(prefix = "progressor-"): string {
 export function removeTempDirs(): void {
   for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 }
+
+/** A plan file's text without its `added` and `updated` lines, for tests that are about something else (see dates.test.ts). */
+export function withoutDates(text: string): string {
+  return text.replace(/^ {2}- (?:added|updated): .*\r?\n/gm, "");
+}

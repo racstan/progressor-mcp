@@ -79,7 +79,7 @@ describe("sessionStatus", () => {
       [
         "[Progressor] The plan for this project, kept in .progressor/ by the progressor MCP server:",
         "Goal: Ship OAuth login (progressor://ship-oauth-login), 1 of 3 Tasks done",
-        "Current Task: t2 Fix callback redirect loop (.progressor/goals/ship-oauth-login.md:6)",
+        "Current Task: t2 Fix callback redirect loop (.progressor/goals/ship-oauth-login.md:8)",
         "  Summary: Only set the session cookie after token exchange.",
         "Open Detour: d1 Fix flaky CI test, branched from t2. Reason: CI blocks every push",
         "Next Task: t3 End-to-end tests",

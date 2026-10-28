@@ -2,7 +2,7 @@ import { readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { MAX_CONTEXT_LENGTH, Project } from "../src/project.js";
-import { tempDir } from "./tmp.js";
+import { tempDir, withoutDates } from "./tmp.js";
 
 let root: string;
 const alive = new Set<number>();
@@ -13,7 +13,7 @@ function session(id: string, pid: number): Project {
   return new Project({ root, session: { id, pid }, isAlive: (p) => alive.has(p), now: () => NOW });
 }
 
-const read = (path: string) => readFileSync(join(root, ".progressor", path), "utf8");
+const read = (path: string) => withoutDates(readFileSync(join(root, ".progressor", path), "utf8"));
 const write = (path: string, text: string) => writeFileSync(join(root, ".progressor", path), text);
 
 beforeEach(() => {
@@ -486,7 +486,7 @@ describe("getting an item by ref", () => {
       line: 5,
       item: { title: "Add route", code: ["src/login.ts"] },
     });
-    expect(agent.getItem("progressor://login/d1")).toMatchObject({ kind: "detour", line: 8 });
+    expect(agent.getItem("progressor://login/d1")).toMatchObject({ kind: "detour", line: 9 });
     expect(agent.getItem("progressor://login")).toMatchObject({ kind: "goal", file: ".progressor/roadmap.md", line: 5 });
     expect(agent.getItem("progressor://roadmap/i1")).toMatchObject({ kind: "idea", item: { title: "Dark mode" } });
     expect(agent.getItem("progressor://roadmap/s1")).toMatchObject({ kind: "standing instruction" });

@@ -81,6 +81,58 @@ export function ago(at: number, now = Date.now()): string {
   return `${days} ${days === 1 ? "day" : "days"} ago`;
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** The exact local date and time of an ISO time, for a hover: "28 Oct 2026, 15:30"; "" when it is not a time. */
+export function exactDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${two(d.getHours())}:${two(d.getMinutes())}`;
+}
+
+/** When something happened and who did it, as the plan files keep it (see dates.ts). */
+interface Dated {
+  added?: { at: string; by: string };
+  updated?: { at: string; by: string };
+}
+const byWords = (by: string) => (by === "Developer" ? "you" : "your AI");
+const timeOf = (iso: string | undefined) => {
+  const t = iso ? Date.parse(iso) : NaN;
+  return Number.isNaN(t) ? undefined : t;
+};
+
+/**
+ * "Added 2 h ago by your AI · updated 10 min ago": the update is left out when it is the moment of
+ * the adding or is not known, and names who made it only when that is someone else. "" when nothing is known.
+ */
+export function datesLine({ added, updated }: Dated, now = Date.now()): string {
+  const addedAt = timeOf(added?.at);
+  let updatedAt = timeOf(updated?.at);
+  if (addedAt !== undefined && updatedAt === addedAt) updatedAt = undefined;
+  const parts: string[] = [];
+  if (addedAt !== undefined) parts.push(`Added ${ago(addedAt, now)} by ${byWords(added!.by)}`);
+  if (updatedAt !== undefined) {
+    const who = addedAt === undefined || updated!.by !== added!.by ? ` by ${byWords(updated!.by)}` : "";
+    parts.push(`${addedAt === undefined ? "Updated" : "updated"} ${ago(updatedAt, now)}${who}`);
+  }
+  return parts.join(" · ");
+}
+
+/** The hover over a dates line: the exact date and time of each. */
+export function datesTitle({ added, updated }: Dated): string {
+  const a = added && exactDate(added.at);
+  const u = updated && exactDate(updated.at);
+  return [a && `Added ${a}`, u && (a ? `updated ${u}` : `Updated ${u}`)].filter(Boolean).join(" · ");
+}
+
+/** "sent 5 min ago · answered 2 min ago", under a message the person wrote. */
+export function sentWords({ sentAt, repliedAt }: { sentAt?: string; repliedAt?: string }, now = Date.now()): string {
+  const sent = timeOf(sentAt);
+  const replied = timeOf(repliedAt);
+  return [sent !== undefined && `sent ${ago(sent, now)}`, replied !== undefined && `answered ${ago(replied, now)}`].filter(Boolean).join(" · ");
+}
+
 /** Which step the work is on, counting only the steps that are not cancelled. */
 export function stepOf(statuses: readonly string[]): { step: number; of: number } {
   const live = statuses.filter((s) => s !== "dropped");

@@ -3,6 +3,7 @@ import type { DetourNode, TaskNode } from "../dashboard/graph.js";
 import { parseCodeRef } from "../dashboard/editor.js";
 import { copyAsPrompt } from "../dashboard/prompt.js";
 import type { GoalView } from "./data.js";
+import { Dates } from "./Dates.js";
 import { Icon } from "./Icon.js";
 import { type PictureItem, Pictures } from "./Pictures.js";
 import { RichText } from "./RichText.js";
@@ -87,6 +88,7 @@ function Step({ task: t, open, onToggle, pictures, fileLink, onCopy, onReveal }:
           {evidenceLine(t.evidence) && <div className="meta">{evidenceLine(t.evidence)}</div>}
           {t.status === "dropped" && t.reason && <div className="meta">Why it was cancelled: {plainText(t.reason)}</div>}
           {meta && <div className="meta">{meta}</div>}
+          <Dates item={t} />
           {t.code.length > 0 && (
             <div className="file-chips">
               {t.code.map((c) => {
