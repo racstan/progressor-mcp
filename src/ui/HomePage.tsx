@@ -1,13 +1,15 @@
-import type { OverviewView, SearchView, WorkspaceEntry } from "./data.js";
+import { type OverviewView, type SearchView, type WorkspaceEntry, useAllStats } from "./data.js";
 import { type PutOff, homeSections, needsWhy, progressWords } from "./home.js";
 import { Ring } from "./Icon.js";
 import { sortProjects } from "./projectList.js";
+import { Bars, Tile, plural, time } from "./StatsPage.js";
+import { driftWords, estimateWords } from "./words.js";
 
 /**
  * The page the dashboard opens on: what needs the person across every project, what is being worked
  * on, and the projects themselves. "Not now" puts off things to try on one goal, in this browser only.
  */
-export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff, onOpen, onShowAll }: {
+export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff, onOpen, onOpenStats, onShowAll }: {
   overview: OverviewView | undefined;
   workspaces: WorkspaceEntry[];
   /** The Workspace the page was opened on, if any. */
@@ -18,6 +20,8 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
   putOff: PutOff;
   onPutOff: (key: string, untried: number) => void;
   onOpen: (projectId: string, goalId?: string) => void;
+  /** Opens a project's Statistics page. */
+  onOpenStats: (projectId: string) => void;
   onShowAll: () => void;
 }) {
   if (!overview) return <div className="placeholder">Loading…</div>;
@@ -100,7 +104,52 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
           </div>
         )}
       </section>
+
+      {overview.length > 0 && !query.trim() && <AllStats version={overview} onOpen={onOpen} onOpenStats={onOpenStats} />}
     </div>
+  );
+}
+
+/** Statistics across every project: the headline numbers, each day's finished steps, estimates and side trips, and a line per project. */
+function AllStats({ version, onOpen, onOpenStats }: { version: unknown; onOpen: (projectId: string, goalId?: string) => void; onOpenStats: (projectId: string) => void }) {
+  const s = useAllStats(version);
+  if (!s) return null;
+  const fortnight = s.perDay.reduce((n, d) => n + d.count, 0);
+  return (
+    <section className="section stats">
+      <h2>Statistics <span className="quiet">· all your projects</span></h2>
+      <div className="stat-tiles">
+        <Tile value={String(s.steps.done)} label="Steps done" sub={`${s.steps.open} to go · ${s.steps.cancelled} cancelled`} />
+        <Tile value={time(s.time.spent)} label="Time worked" sub="On every step, so far" />
+        <Tile value={String(s.goals.finished)} label="Goals finished" sub={`${s.goals.open} open · ${s.goals.cancelled} cancelled`} />
+        <Tile value={String(s.drift.sideTrips)} label={s.drift.sideTrips === 1 ? "Side trip" : "Side trips"} sub={`In ${s.drift.goalsWithSideTrips} of ${plural(s.drift.goals, "goal")}`} />
+      </div>
+      <h3 className="stat-h">Finished each day</h3>
+      <p className="stat-lead">{fortnight === 0 ? "Nothing finished in the last two weeks." : `${plural(fortnight, "step")} finished in the last two weeks.`}</p>
+      {s.perDay.length > 0 && <Bars days={s.perDay} />}
+      <p className="stat-lead stat-gap">{estimateWords(s.time.compared)} {driftWords(s.drift)}</p>
+      {s.perProject.length > 1 && (
+        <div className="table-wrap">
+          <table className="stat-table">
+            <thead>
+              <tr><th>Project</th><th title="Steps finished in the last two weeks">Last two weeks</th><th>Steps done</th><th>Time</th><th>Side trips</th><th /></tr>
+            </thead>
+            <tbody>
+              {s.perProject.map((p) => (
+                <tr key={p.id}>
+                  <td><button className="linkbtn" onClick={() => onOpen(p.id)}>{p.name}</button></td>
+                  <td>{p.lastTwoWeeks || "–"}</td>
+                  <td>{p.done}/{p.done + p.open}</td>
+                  <td>{time(p.spent)}</td>
+                  <td>{p.sideTrips || "–"}</td>
+                  <td><button className="linkbtn" onClick={() => onOpenStats(p.id)}>Statistics</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 

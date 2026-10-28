@@ -9,6 +9,7 @@ The dashboard is no longer only for watching. You can write to your AI and answe
 ### Statistics
 
 - **A Statistics page for each project**, in the sidebar: steps done, time worked, goals finished and side trips at the top; a bar chart of steps finished each day over the last two weeks; how long steps took against their estimates; how often the work stepped off the plan and how those side trips ended; the longest steps; and a line for each goal. All worked out from the plan, nothing new is recorded.
+- **Statistics on Home** add the same up across all your projects, with a line per project that opens its Statistics page.
 
 ### Out-of-date warning
 

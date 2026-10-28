@@ -135,6 +135,8 @@ If you use Progressor in several projects, click the project name at the top of 
 - **Side trips:** how often the work stepped off the plan, how those side trips ended, and how many steps were added after one or cancelled.
 - **Longest steps** and **Each goal**, newest first; click one to open its goal.
 
+**Home** has the same numbers added up across all your projects, with a line per project; its **Statistics** link opens that project's page.
+
 Steps finished before Progressor kept finish times count on the day they last changed, and steps without a time or an estimate are left out of the comparison, never guessed.
 
 ## Search

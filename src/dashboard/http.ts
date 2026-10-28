@@ -28,7 +28,7 @@ import {
 } from "./registry.js";
 import { watchProgress } from "./watch.js";
 import { allProjects, findProjects } from "./workspace.js";
-import { projectStats } from "../stats.js";
+import { combineStats, projectStats } from "../stats.js";
 import { type RevealRunner, insideProject, revealCommand, runReveal } from "./reveal.js";
 
 export const DEFAULT_PORT = 4747;
@@ -369,6 +369,20 @@ class Hub {
   }
 
   /** Every project with its Goals' progress, for the overview page. */
+  /** Every project's statistics added up, for Home; a project whose plan cannot be read is left out. */
+  allStats() {
+    return combineStats(
+      this.sync().flatMap((entry) => {
+        const api = this.projects.get(entry.id)?.api;
+        try {
+          return api ? [{ id: entry.id, name: entry.name, stats: api.stats() }] : [];
+        } catch {
+          return [];
+        }
+      }),
+    );
+  }
+
   overview() {
     return this.sync().map((entry) => {
       const api = this.projects.get(entry.id)?.api;
@@ -655,6 +669,7 @@ class Hub {
       if (path === "/api/projects") return json(res, 200, this.sync(url.searchParams.has("rescan")));
       if (path === "/api/workspaces") return json(res, 200, listWorkspaces(this.registryFile));
       if (path === "/api/overview") return json(res, 200, this.overview());
+      if (path === "/api/stats") return json(res, 200, this.allStats());
       if (path === "/api/events") {
         res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
         res.write("retry: 2000\n: connected\n\n");
@@ -946,3 +961,4 @@ export type OverviewView = ReturnType<Hub["overview"]>;
 export type ServersView = ReturnType<Hub["servers"]>;
 export type SearchView = ReturnType<Hub["search"]>;
 export type StatsView = ReturnType<DashboardApi["stats"]>;
+export type AllStatsView = ReturnType<Hub["allStats"]>;

@@ -10,8 +10,8 @@ const dayWords = (day: string) => {
 };
 /** How side trips ended, in a few words after their count. */
 const ENDING = { "merged back": "went back to the plan as it was", returned: "added steps to the plan", recalibrated: "changed the plan", open: "still under way" } as const;
-const time = (minutes: number | undefined) => (minutes ? sayDuration(minutes) : "–");
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+export const time = (minutes: number | undefined) => (minutes ? sayDuration(minutes) : "–");
+export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /**
  * A project's statistics, worked out from its plan: a few headline numbers, what was finished each
@@ -118,7 +118,7 @@ function Stats({ stats: s, onOpenGoal }: { stats: StatsView; onOpenGoal: (id: st
   );
 }
 
-function Tile({ value, label, sub }: { value: string; label: string; sub: string }) {
+export function Tile({ value, label, sub }: { value: string; label: string; sub: string }) {
   return (
     <div className="stat-tile">
       <div className="v">{value}</div>
@@ -129,7 +129,7 @@ function Tile({ value, label, sub }: { value: string; label: string; sub: string
 }
 
 /** One bar per day, oldest first, with the count above the busiest day and today; hover any bar for its day and count. */
-function Bars({ days }: { days: StatsView["perDay"] }) {
+export function Bars({ days }: { days: StatsView["perDay"] }) {
   const max = Math.max(1, ...days.map((d) => d.count));
   const busiest = days.reduce((b, d, i) => (d.count > days[b]!.count ? i : b), 0);
   const last = days.length - 1;
