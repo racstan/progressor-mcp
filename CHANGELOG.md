@@ -8,7 +8,7 @@ The dashboard is no longer only for watching. You can write to your AI and answe
 
 ### Private by default
 
-- **A new plan stays out of git.** When Progressor starts a plan in a project, it keeps the whole `.progressor/` folder out of git, so your plan stays on your computer. To share it with git (your team, your other computers), delete one line in `.progressor/.gitignore`; the [FAQ](docs/faq.md#is-my-plan-private-should-i-commit-the-progressor-folder) says how. Projects that already have a plan are left as they are.
+- **A new plan stays out of git.** When Progressor starts a plan in a project, it keeps the whole `.progressor/` folder out of git, so your plan stays on your computer. To share it with git (your team, your other computers), just ask your AI; the [FAQ](docs/faq.md#is-my-plan-private-should-i-commit-the-progressor-folder) says how. Projects that already have a plan are left as they are.
 
 ### Statistics
 

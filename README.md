@@ -13,9 +13,9 @@
 **What Progressor does:** your AI writes its plan, a **goal** with **steps**, into your project folder and keeps it up to date as it works. A compressed chat, a new chat, even a different AI app reads that plan and carries on where the work stopped. And you see the same plan on a page in your browser that updates by itself: what the AI is doing right now, what's done, and what it needs from you.
 
 <p align="center">
-  <a href="YOUTUBE_URL"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail.png" alt="Watch the 3-minute video on YouTube" width="640"></a>
+  <a href="YOUTUBE_URL"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail.png" alt="Watch the 4-minute video on YouTube" width="640"></a>
   <br>
-  <sub><a href="YOUTUBE_URL">▶ Watch the 3-minute video on YouTube</a></sub>
+  <sub><a href="YOUTUBE_URL">▶ Watch the 4-minute video on YouTube</a></sub>
 </p>
 
 <p align="center">
@@ -90,7 +90,7 @@ AI chats forget. A long chat gets its memory compressed, a new chat starts from 
 - **Everything is saved in your project.** The goals, every step and where each one stands, the side trips and why they happened, the decisions made along the way, notes, your rules and the project's background are kept in plain files in your project folder, not in the chat.
 - **New chats pick up where the last one stopped.** Every new chat, and every chat after its memory is compressed, starts by reading the plan. Just say *"carry on"*.
 - **Switch apps or AI tools freely.** The plan belongs to the project, not to the app. Start in Claude Code, carry on in Cursor or VS Code, and the next AI sees exactly where things stand.
-- **Private, and yours.** The plan is plain markdown files on your computer: nothing is sent anywhere, and it's kept out of git unless you choose to share it ([how](docs/faq.md#is-my-plan-private-should-i-commit-the-progressor-folder)). You can read every file, and delete them whenever you like.
+- **Private, and yours.** The plan is plain markdown files on your computer: nothing is sent anywhere, and it's kept out of git unless you ask your AI to share it ([how](docs/faq.md#is-my-plan-private-should-i-commit-the-progressor-folder)). You can read every file, and delete them whenever you like.
 - **The same plan for you and the AI.** What you see on the dashboard is what the AI reads, so you always know what's done, what's under way and what's waiting on you.
 
 ## Set it up

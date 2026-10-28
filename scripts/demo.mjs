@@ -11,7 +11,7 @@
 // Needs playwright-core and Chrome (set PLAYWRIGHT_CORE to playwright-core's index.mjs if it is not
 // installed here, and CHROME to the browser; default /usr/bin/google-chrome) and ffmpeg.
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -225,6 +225,13 @@ const shot = async (name) => {
   await demo("hide", false);
 };
 const goalRow = (title) => page.locator(".goal-row", { hasText: title });
+/** The plan folder as a tree of names, for the file view. */
+function folderTree(dir, indent = "") {
+  return readdirSync(dir, { withFileTypes: true })
+    .sort((a, b) => Number(b.isDirectory()) - Number(a.isDirectory()) || a.name.localeCompare(b.name))
+    .map((e) => (e.isDirectory() ? `${indent}${e.name}/\n${folderTree(join(dir, e.name), `${indent}    `)}` : `${indent}${e.name}\n`))
+    .join("");
+}
 
 await page.goto(url(`#/goal/${dark.id}`));
 await goalRow("Dark mode").waitFor();
@@ -235,8 +242,10 @@ await cdp.send("Page.startScreencast", { format: "jpeg", quality: 92, maxWidth: 
 mark("start");
 await card("Progressor", "Your AI's plan, saved in your project and shown live.", "An MCP server for AI coding assistants", 4500);
 await page.screenshot({ path: join(out, "youtube-thumbnail-full.png") });
-await card("AI chats forget.", "Long chats get compacted. New chats start from nothing. Switch apps, and you explain your project all over again.", "The problem", 6000);
-await card("Progressor remembers.", "Your AI plans the work as goals and steps, keeps them up to date, and saves them in your project. Every chat, in any app, reads the plan and carries on.", "The idea", 6500);
+await card("Vibe coding a big project?", "It starts easy. Then come dozens of features, half-finished ideas and fixes for the fixes. Soon it gets hard to plan, and hard to remember what was being done.", "The problem, for you", 8000);
+await card("Your AI forgets too.", "When a long chat gets compacted, the AI loses the details. A new chat starts from nothing. And with no plan to check, an AI can guess, and tell you something is done when it isn't.", "The problem, for your AI", 9000);
+await card("Progressor keeps the plan.", "Your AI plans the work as goals and steps, and writes them into your project as it works. You watch it live in your browser. Compacted chats and new chats read the plan and carry on. Nobody forgets anything.", "The idea", 9000);
+await card("Any app. Any AI.", "Claude Code, Antigravity, opencode, pi, Cursor, VS Code, Codex, Windsurf… anything that supports MCP. The plan belongs to your project, not to the chat, so you can switch whenever you like.", "Use what you like", 8000);
 
 // 1. You ask, your AI plans.
 await card("You ask. Your AI plans.", "", "1", 2200);
@@ -261,7 +270,9 @@ await pause(3000);
 await demo("hideChat");
 await click(goalRow("Shopping list from recipes"));
 await caption("A goal has steps, and a finish line: what done looks like.", "You ask, your AI plans");
-await pause(4000);
+await pause(4500);
+await caption("Each step has an estimate, so you can see roughly when it will be done.", "You ask, your AI plans");
+await pause(4500);
 
 // 2. Watch it work.
 await card("Watch it work, live.", "", "2", 2200);
@@ -333,22 +344,32 @@ await pause(4500);
 await shot("conversation");
 
 // 5. Nothing is forgotten.
-await card("Nothing is forgotten.", "The chat closes, its memory gets compacted, or you switch to another app. The plan stays.", "5", 4500);
+await card("Nothing is forgotten.", "The chat's memory gets compacted, the chat closes, or you switch to another app. The plan stays.", "5", 5000);
 await demo("hideCard");
 await click(page.getByRole("tab", { name: /Steps/ }));
+await demo("chat", "Your AI chat, an hour later");
+await pause(400);
+await demo("say", "sys", "Conversation compacted: older messages were summarised to save space.");
+await pause(2000);
+await demo("say", "ai", "Let me check the plan before I go on… We're on step 4 of 6, \"Tick items off in the shop\". Ticked items stay greyed out, as you decided.");
+await caption("After compaction, your AI reads the plan instead of guessing from a summary.", "Nothing is forgotten");
+await pause(6500);
+await caption("No made-up progress: what's done is what the plan says is done.", "Nothing is forgotten");
+await pause(4500);
+await demo("hideChat");
 ai.releaseGoal(list.id);
-await caption("The chat has ended. The goal waits, exactly where it was.", "Nothing is forgotten");
-await pause(3500);
+await caption("Then the chat ends. The goal waits, exactly where it was.", "Nothing is forgotten");
+await pause(4000);
 const planFile = readFileSync(join(root, ".progressor", "goals", `${list.id}.md`), "utf8")
   .split("\n")
   .filter((l) => !/^\s+- (added|updated|time spent|timing since|started|finished|code|estimate):/.test(l))
-  .slice(0, 22)
+  .slice(0, 20)
   .join("\n");
 await demo("file", `.progressor/goals/${list.id}.md`, planFile);
-await caption("Everything is saved in plain files in your project, next to your code.", "Nothing is forgotten");
+await caption("Everything is saved as plain markdown files in your project, next to your code.", "Nothing is forgotten");
 await pause(5500);
 await demo("hideFile");
-await demo("chat", "A new AI chat, maybe in another app");
+await demo("chat", "Next day: a new chat, in a different app");
 await pause(400);
 await demo("say", "you", "carry on");
 await pause(1500);
@@ -356,12 +377,25 @@ const next = new Project({ root, session: { id: "demo-ai-2", pid: process.pid } 
 next.claimGoal(list.id);
 next.startTask(list.steps[3].id, list.id);
 await demo("say", "ai", "Picking up \"Shopping list from recipes\" at step 4 of 6: Tick items off in the shop. Ticked items stay greyed out, as you decided.");
-await caption("A new chat reads the plan and carries on where the last one stopped.", "Nothing is forgotten");
-await pause(6000);
+await caption("A new chat, even in another app or with another AI, carries on where the last one stopped.", "Nothing is forgotten");
+await pause(6500);
 await demo("hideChat");
 
-// 6. Rules.
-await card("Rules your AI keeps.", "", "6", 2200);
+// 6. Private, and yours.
+await card("Private, and yours.", "Your plan is plain markdown files in your project, on your computer. Nothing is sent anywhere.", "6", 5500);
+await demo("hideCard");
+await demo("file", "recipe-box/.progressor/", folderTree(join(root, ".progressor")));
+await caption("A folder of markdown files you can open and read in any editor.", "Private, and yours");
+await pause(6000);
+await demo("file", ".progressor/.gitignore", readFileSync(join(root, ".progressor", ".gitignore"), "utf8").trim());
+await caption("Kept out of git by default. Want it in git, to share with your team? Just ask your AI.", "Private, and yours");
+await pause(7000);
+await demo("hideFile");
+await caption("No account, no cloud, no tracking. Delete the folder and it's gone.", "Private, and yours");
+await pause(4500);
+
+// 7. Rules.
+await card("Rules your AI keeps.", "", "7", 2200);
 await demo("hideCard");
 await click(page.getByRole("button", { name: /Project notes/ }));
 await caption("Lasting rules and the project's background, read by every chat.", "Project notes");
@@ -377,7 +411,7 @@ await pause(2000);
 await shot("notes");
 
 // 7. Statistics and Home.
-await card("See how it's going.", "", "7", 2200);
+await card("See how it's going.", "", "8", 2200);
 await demo("hideCard");
 await click(page.getByRole("button", { name: /^Statistics$/ }).first());
 await caption("How long steps take against their estimates, and what got done each day.", "Statistics");
@@ -390,12 +424,21 @@ await click(page.getByRole("button", { name: "Home" }));
 await caption("Home: what needs you and what's being worked on, across all your projects.", "Every project on one page");
 await pause(4500);
 await shot("home");
+ai2.claimGoal(blog.id);
+ai2.startTask(blog.steps[2].id, blog.id);
+await caption("Another chat starts on the portfolio site. Several projects and goals at once, all live.", "Every project on one page");
+await pause(5500);
+await click(page.locator(".project-card", { hasText: "portfolio-site" }).first());
+await caption("Each project keeps its own plan. Switch between them with a click.", "Every project on one page");
+await pause(5000);
+await click(page.getByRole("button", { name: "Home" }));
+await pause(800);
 await page.mouse.wheel(0, 700);
 await caption("…with statistics for all of them.", "Every project on one page");
 await pause(3500);
 
 // 8. Themes.
-await card("Your look.", "", "8", 2000);
+await card("Your look.", "", "9", 2000);
 for (const [theme, words] of [
   ["dark", "Dark…"],
   ["vibrant", "…or Vibrant, if you like colour."],
@@ -415,9 +458,10 @@ await page.goto(url(`#/goal/${list.id}`));
 await page.getByRole("tab", { name: /Steps/ }).waitFor();
 
 // The end.
-await card("Set it up in two minutes.", "Works with Claude Code, Claude Desktop, VS Code, Cursor, Windsurf, Codex and any app that supports MCP.", "github.com/racstan/progressor-mcp", 3500);
+await card("Never lose track again.", "You and your AI always know what was planned, what's done and what's next, across every chat, every app and every project.", "Progressor", 7000);
+await card("Set it up in two minutes.", "Free and open source. Works with Claude Code, Antigravity, opencode, pi, Cursor, VS Code, Codex, Windsurf and any app that supports MCP.", "github.com/racstan/progressor-mcp", 3500);
 await demo("cardCode", "npm install -g progressor-mcp");
-await pause(5000);
+await pause(7000);
 mark("end");
 await cdp.send("Page.stopScreencast");
 await ctx.close();
@@ -465,7 +509,7 @@ function overlay() {
     opacity: 0; transform: translateY(10px); transition: all .4s ease; }
   .d-card code.on { opacity: 1; transform: none; }
   .d-cap { position: absolute; left: 50%; bottom: 34px; transform: translate(-50%, 16px); opacity: 0; transition: all .35s ease; background: rgba(11,11,11,.94); color: #fff;
-    padding: 16px 28px 18px; border-radius: 16px; max-width: 1080px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+    padding: 16px 28px 18px; border-radius: 16px; max-width: 1080px; box-shadow: 0 12px 40px rgba(0,0,0,.25); z-index: 6; }
   .d-cap.on { opacity: 1; transform: translate(-50%, 0); }
   .d-cap .k { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: #a7a7a3; margin-bottom: 4px; }
   .d-cap .t { font-size: 24px; line-height: 1.35; }
@@ -481,9 +525,10 @@ function overlay() {
   .d-chat .b { font-size: 19px; line-height: 1.4; padding: 10px 14px; border-radius: 14px; margin-top: 10px; animation: d-in .35s ease backwards; max-width: 90%; }
   .d-chat .b.you { background: #111; color: #fff; margin-left: auto; width: fit-content; }
   .d-chat .b.ai { background: #efefed; }
+  .d-chat .b.sys { background: none; border: 2px dashed #bbb; color: #666; font-size: 15px; max-width: none; text-align: center; }
   .d-chat .b small { display: block; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; opacity: .6; margin-bottom: 2px; }
   @keyframes d-in { from { opacity: 0; transform: translateY(8px); } }
-  .d-file { position: absolute; left: 50%; top: 50%; width: 900px; transform: translate(-50%, -46%); opacity: 0; transition: all .4s ease; background: #0b0b0b; color: #e9e9e6;
+  .d-file { position: absolute; left: 50%; top: 42%; width: 960px; transform: translate(-50%, -46%); opacity: 0; transition: all .4s ease; background: #0b0b0b; color: #e9e9e6;
     border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,.35); overflow: hidden; }
   .d-file.on { opacity: 1; transform: translate(-50%, -50%); }
   .d-file .h { font: 500 15px/1 "DejaVu Sans Mono", monospace; color: #9a9a96; padding: 14px 20px; border-bottom: 1px solid #2a2a2a; }
@@ -559,7 +604,7 @@ function overlay() {
       show(c);
     },
     say(who, text) {
-      get("d-chat", () => el("div", "d-chat")).append(el("div", `b ${who}`, `<small>${who === "you" ? "You" : "Your AI"}</small>${esc(text)}`));
+      get("d-chat", () => el("div", "d-chat")).append(el("div", `b ${who}`, `${who === "sys" ? "" : `<small>${who === "you" ? "You" : "Your AI"}</small>`}${esc(text)}`));
     },
     hideChat() {
       get("d-chat", () => el("div", "d-chat")).classList.remove("on");

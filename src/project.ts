@@ -235,7 +235,7 @@ export const PROJECT_TALK = "_project";
 export const ROADMAP_FILE = "roadmap.md";
 /** `.progressor/.gitignore` for a new plan: git ignores the whole plan until the Developer chooses to share it. */
 export const PRIVATE_GITIGNORE = `# Progressor keeps this plan on this computer: git ignores everything in .progressor/.
-# To share the plan through git (with your team, or your other computers), delete the * line below.
+# To share it through git (with your team or other computers), ask your AI, or delete the * line.
 *
 `;
 /** Errors that mean the file is held for a moment (Windows), so a rename is tried again. */

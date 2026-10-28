@@ -32,7 +32,7 @@ Ask your AI to change it: *"Add a step to send a copy to the customer."* The pla
 
 Your plan is private by default. It is a set of plain markdown files in your project's `.progressor/` folder, on your computer, and nothing is sent anywhere. When Progressor starts a plan, it puts a `.gitignore` in that folder that keeps the whole plan out of git, so it doesn't end up in your project's history or on GitHub.
 
-Sharing it is up to you. Committing the plan keeps the history of how the project was built, and lets everyone working on it (people and AIs, on any computer) see the same plan. To share it, open `.progressor/.gitignore` and delete the line that is just `*`. What you write to your AI on the dashboard, and its screenshots, stay out of git either way.
+Sharing it is up to you. Committing the plan keeps the history of how the project was built, and lets everyone working on it (people and AIs, on any computer) see the same plan. To share it, just ask your AI: *"Keep the Progressor plan in git."* (It deletes the line that is just `*` in `.progressor/.gitignore`; you can do that yourself too.) Ask again to make it private. What you write to your AI on the dashboard, and its screenshots, stay out of git either way.
 
 Projects that had a plan before version 1.0.0 are left as they were.
 
