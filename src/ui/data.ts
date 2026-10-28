@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GoalView, InfoView, OverviewView, RoadmapView, SearchView, ServersView, StatsView } from "../dashboard/http.js";
+import type { AllStatsView, GoalView, InfoView, OverviewView, RoadmapView, SearchView, ServersView, StatsView } from "../dashboard/http.js";
 import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
 import { newestOnly, sharedEvents } from "./liveEvents.js";
 import { type Staleness, pageStaleness } from "./stale.js";
 
-export type { GoalView, InfoView, OverviewView, ProjectEntry, RoadmapView, SearchView, ServersView, StatsView, WorkspaceEntry };
+export type { AllStatsView, GoalView, InfoView, OverviewView, ProjectEntry, RoadmapView, SearchView, ServersView, StatsView, WorkspaceEntry };
 export type Connection = "connecting" | "live" | "reconnecting";
 
 /** The page's one live connection to the server (liveEvents.ts). */
@@ -367,15 +367,24 @@ export function usePageStaleness(info: InfoView | undefined, connection: Connect
  * shows, which is loaded again on every change); undefined while loading, null when it failed.
  */
 export function useStats(projectId: string, version: unknown): StatsView | null | undefined {
-  const [stats, setStats] = useState<{ projectId: string; stats: StatsView | null }>();
+  return useStatsAt<StatsView>(`/api/projects/${encodeURIComponent(projectId)}/stats`, version);
+}
+
+/** Every project's statistics added up, for Home; fetched again whenever `version` (the overview Home shows) changes. */
+export function useAllStats(version: unknown): AllStatsView | null | undefined {
+  return useStatsAt<AllStatsView>("/api/stats", version);
+}
+
+function useStatsAt<T>(path: string, version: unknown): T | null | undefined {
+  const [stats, setStats] = useState<{ path: string; stats: T | null }>();
   useEffect(() => {
     let alive = true;
-    getJson<StatsView>(`/api/projects/${encodeURIComponent(projectId)}/stats`)
-      .then((s) => alive && setStats({ projectId, stats: s ?? null }))
-      .catch(() => alive && setStats({ projectId, stats: null }));
+    getJson<T>(path)
+      .then((s) => alive && setStats({ path, stats: s ?? null }))
+      .catch(() => alive && setStats({ path, stats: null }));
     return () => {
       alive = false;
     };
-  }, [projectId, version]);
-  return stats?.projectId === projectId ? stats.stats : undefined;
+  }, [path, version]);
+  return stats?.path === path ? stats.stats : undefined;
 }

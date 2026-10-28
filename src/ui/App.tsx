@@ -380,7 +380,7 @@ export function App() {
     </div>
   ) : onHome ? (
     <Home overview={overview} workspaces={workspaces ?? []} only={pickedWorkspace} query={query} hits={hits}
-      putOff={putOff} onPutOff={onPutOff} onOpen={pickProject} onShowAll={goHome} />
+      putOff={putOff} onPutOff={onPutOff} onOpen={pickProject} onOpenStats={(id) => { pickProject(id); openStats(); }} onShowAll={goHome} />
   ) : roadmap === null || (roadmap === undefined && !project) ? (
     <div className="placeholder">
       <h2>Nothing planned here yet</h2>

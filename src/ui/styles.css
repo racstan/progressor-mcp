@@ -688,3 +688,6 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 [data-theme="vibrant"] .bar-col .bar { background: var(--accent); }
 [data-theme="vibrant"] .bar-col.today .bar { background: repeating-linear-gradient(135deg, var(--accent) 0 3px, var(--accent-soft, var(--line)) 3px 6px); }
 @media (prefers-reduced-motion: reduce) { .stat-tile, .bar-col .bar { animation: none; } }
+.stat-h { margin: var(--s5) 0 var(--s2); font-size: var(--t-m); font-weight: 600; }
+.stat-gap { margin-top: calc(var(--s6) + 16px); }
+.stat-table td:last-child { text-align: right; }
