@@ -13,9 +13,9 @@
 **What Progressor does:** your AI writes its plan, a **goal** with **steps**, into your project folder and keeps it up to date as it works. A compressed chat, a new chat, even a different AI app reads that plan and carries on where the work stopped. And you see the same plan on a page in your browser that updates by itself: what the AI is doing right now, what's done, and what it needs from you.
 
 <p align="center">
-  <a href="YOUTUBE_URL"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail.png" alt="Watch the 3-minute video on YouTube" width="640"></a>
+  <a href="YOUTUBE_URL"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail.png" alt="Watch the 4-minute video on YouTube" width="640"></a>
   <br>
-  <sub><a href="YOUTUBE_URL">▶ Watch the 3-minute video on YouTube</a></sub>
+  <sub><a href="YOUTUBE_URL">▶ Watch the 4-minute video on YouTube</a></sub>
 </p>
 
 <p align="center">
