@@ -17,7 +17,7 @@ import { type SearchHit, SearchBox } from "./Search.js";
 import { ServersPanel } from "./Servers.js";
 import { StepKey } from "./StepKey.js";
 import type { FileLink } from "./Steps.js";
-import { resourceWords } from "./words.js";
+import { goalState, resourceWords } from "./words.js";
 
 type Goal = RoadmapView["goals"][number];
 type Theme = "light" | "dark" | "system";
@@ -297,8 +297,9 @@ export function App() {
 
   const goalRow = (g: Goal, why?: string) => {
     const fresh = grouped.fresh.has(g.id);
+    const working = !why && goalState(stateOf(g)).state === "working";
     return (
-      <button key={g.id} className={`goal-row ${g.status} ${why ? "you" : ""}`} aria-current={!onContext && g.id === effectiveGoal}
+      <button key={g.id} className={`goal-row ${g.status} ${why ? "you" : ""} ${working ? "working" : ""}`} aria-current={!onContext && g.id === effectiveGoal}
         title={[g.title, why, "Right-click to hide it from this list."].filter(Boolean).join("\n")}
         onClick={() => pickGoal(g.id)}
         onContextMenu={(e) => {

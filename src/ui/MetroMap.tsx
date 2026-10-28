@@ -240,7 +240,7 @@ function Stop({ node: n, at, vertical, files, onKey }: { node: GraphNode; at: Po
           stroke={ring}
           strokeWidth={5}
         />
-        {finishedStop && <path d={`M${x - 5},${y} l4,4 l7,-8`} stroke="#fff" strokeWidth={2.5} fill="none" strokeLinecap="round" />}
+        {finishedStop && <path d={`M${x - 5},${y} l4,4 l7,-8`} stroke="var(--panel)" strokeWidth={2.5} fill="none" strokeLinecap="round" />}
         {n.status === "checked" && <path d={`M${x - 5},${y} l4,4 l7,-8`} stroke="var(--checked)" strokeWidth={2.5} fill="none" strokeLinecap="round" />}
         {n.status === "with a helper" && <path d={`M${x},${y - 6} a6,6 0 0 0 0,12 z`} fill="var(--helper)" />}
         {waiting && (

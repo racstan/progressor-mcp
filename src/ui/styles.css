@@ -1,34 +1,37 @@
-/* Progressor dashboard. Calm by design: one accent colour on greys, green only for done, amber only
-   for "needs you". Four text sizes, an 8px spacing scale, line icons. Light is the default; dark is
+/* Progressor dashboard. Black, white and greys only: states differ by heavy borders, weight, fill and
+   motion, never by colour. Four text sizes, an 8px spacing scale, line icons. Light is the default; dark is
    data-theme="dark" on <html>, set by the page (also when it follows the system). */
 :root {
-  --bg: #f7f7f5; --panel: #ffffff; --panel2: #f2f1ee; --hover: #ecebe7; --line: #e6e4df; --line-strong: #d6d3cc;
-  --ink: #1b1b19; --muted: #6b6963; --faint: #9c9a93;
-  --accent: #4f5bd5; --accent-soft: #eef0fc; --on-accent: #ffffff;
-  --done: #2f8f5b; --done-soft: #e9f5ee;
-  --you: #b4690e; --you-soft: #fdf4e6; --you-line: #f0d6ad; --on-you: #ffffff;
-  --bad: #c0392b;
-  /* the map's lines and the newer step states, kept quiet */
-  --detour: #b4690e; --faded: #c9c6bf; --helper: #4f5bd5; --checked: #2f8f5b; --you-ink: #8f520a; --elsewhere: #6b6963;
-  --lane0: #4f5bd5; --lane1: #8a8fd8; --lane2: #9c9a93; --lane3: #b8b5ad;
-  --shadow: 0 1px 2px rgba(20, 20, 15, .04), 0 8px 24px rgba(20, 20, 15, .06);
+  /* black, white and greys only: states differ by border, weight, fill and motion, never by colour */
+  --bg: #f6f6f5; --panel: #ffffff; --panel2: #efefee; --hover: #e9e9e7; --line: #dcdcda; --line-strong: #b9b9b6;
+  --ink: #111111; --muted: #5c5c5a; --faint: #8e8e8b;
+  --accent: #111111; --accent-soft: #ececeb; --on-accent: #ffffff;
+  --done: #111111; --done-soft: #efefee;
+  --you: #111111; --you-soft: #ffffff; --you-line: #111111; --on-you: #ffffff;
+  --bad: #111111;
+  /* the map */
+  --detour: #6e6e6b; --faded: #c4c4c1; --helper: #111111; --checked: #111111; --you-ink: #111111; --elsewhere: #5c5c5a;
+  --lane0: #111111; --lane1: #5c5c5a; --lane2: #8e8e8b; --lane3: #b9b9b6;
+  --heavy: 2px solid var(--ink);
+  --lift: 4px 4px 0 var(--ink);
+  --shadow: 4px 4px 0 var(--ink);
   /* type: small, body, large, title */
   --t-s: 12px; --t-m: 14px; --t-l: 16px; --t-xl: 24px;
   /* spacing */
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
   --r: 10px; --r-s: 6px;
+  --ease: cubic-bezier(.2, .7, .2, 1);
   color-scheme: light;
 }
 :root[data-theme="dark"] {
-  --bg: #121211; --panel: #1a1a19; --panel2: #222220; --hover: #2a2a27; --line: #2c2c29; --line-strong: #3a3a36;
-  --ink: #ecebe6; --muted: #a09e97; --faint: #74726c;
-  --accent: #8c95f0; --accent-soft: #23253a; --on-accent: #121211;
-  --done: #5cc48b; --done-soft: #1b2a21;
-  --you: #e2a24a; --you-soft: #2b2316; --you-line: #4d3c22; --on-you: #121211;
-  --bad: #ef7a6d;
-  --detour: #e2a24a; --faded: #4a4945; --helper: #8c95f0; --checked: #5cc48b; --you-ink: #e2a24a; --elsewhere: #a09e97;
-  --lane0: #8c95f0; --lane1: #5f66a8; --lane2: #74726c; --lane3: #5a5955;
-  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+  --bg: #0e0e0e; --panel: #171717; --panel2: #202020; --hover: #262626; --line: #303030; --line-strong: #4a4a4a;
+  --ink: #f2f2f0; --muted: #a8a8a5; --faint: #767673;
+  --accent: #f2f2f0; --accent-soft: #262626; --on-accent: #0e0e0e;
+  --done: #f2f2f0; --done-soft: #202020;
+  --you: #f2f2f0; --you-soft: #171717; --you-line: #f2f2f0; --on-you: #0e0e0e;
+  --bad: #f2f2f0;
+  --detour: #a8a8a5; --faded: #4a4a4a; --helper: #f2f2f0; --checked: #f2f2f0; --you-ink: #f2f2f0; --elsewhere: #a8a8a5;
+  --lane0: #f2f2f0; --lane1: #a8a8a5; --lane2: #767673; --lane3: #4a4a4a;
   color-scheme: dark;
 }
 
@@ -229,7 +232,7 @@ button.list-row:hover { background: var(--hover); }
 .step-icon.checked { border-color: var(--done); color: var(--done); }
 .step-icon.in-progress { border-color: var(--accent); background: radial-gradient(var(--accent) 0 3.5px, transparent 4px); }
 .step-icon.with-a-helper { border-color: var(--accent); background: linear-gradient(90deg, var(--accent) 50%, transparent 50%); }
-.step-icon.waiting-on-you { border-color: var(--you); background: var(--you); color: var(--on-you); font-size: 11px; font-weight: 800; }
+.step-icon.waiting-on-you { border-color: var(--you); background: var(--you); color: var(--on-you); font-size: var(--t-s); font-weight: 800; }
 .step-icon.dropped { border-style: dashed; }
 .step-icon.side { border-radius: 3px; transform: rotate(45deg) scale(.7); border-color: var(--faint); }
 .step-icon.side.open { border-color: var(--you); }
@@ -364,6 +367,7 @@ details summary { cursor: pointer; }
 pre { font: var(--t-s)/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; background: var(--panel2); border: 1px solid var(--line); border-radius: var(--r-s); padding: var(--s2) var(--s3); white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; margin: var(--s2) 0 0; }
 .toast { position: fixed; left: 50%; bottom: var(--s5); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: var(--s2) var(--s4); border-radius: var(--r-s); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 60; }
 .toast.show { opacity: 1; }
+.toast { transition: opacity .2s var(--ease), transform .2s var(--ease); }
 
 /* servers (Settings > Advanced) */
 .server { padding: var(--s3) 0; border-top: 1px solid var(--line); }
@@ -412,4 +416,86 @@ pre { font: var(--t-s)/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; b
   .search { flex: 0 1 120px; }
   .crumb { flex: 1 1 auto; }
   .goal-head .top .btn { order: -1; margin-left: auto; }
+}
+
+/* ---------- heavy borders ---------- */
+.list, .project-card, .needs-panel, .stage, .talk li, .hand, .notes-block li, .rules li, .callout,
+.menu-panel, .pop, .search-results, .project-list, .goal-menu { border: var(--heavy); }
+.list > li + li, .step { border-color: var(--line); }
+.needs-panel { background: var(--panel); padding: var(--s5); }
+.needs-panel > h2 { display: inline-flex; align-self: flex-start; background: var(--ink); color: var(--bg); padding: 2px var(--s2); border-radius: 4px; font-size: var(--t-s); letter-spacing: .04em; text-transform: uppercase; }
+.needs-item { border: 1.5px solid var(--line-strong); border-left: 4px solid var(--ink); background: var(--panel); }
+.needs-item .kind, .side-group.needs h3, .section.needs > h2, .list-row .sub.you, .goal-row .why, .project-card .you, .state.you { color: var(--ink); font-weight: 700; }
+.rules li.must { background: var(--panel); border-left-width: 6px; }
+.btn { border-width: 2px; }
+.btn.ghost { border: 2px solid var(--ink); font-weight: 600; }
+.search input { border: 2px solid var(--line-strong); }
+.search input:focus { border-color: var(--ink); }
+.talk textarea, .talk input, .needs-item input, .hand .ask input { border: 2px solid var(--line-strong); }
+.tabs { border-bottom: 2px solid var(--line); }
+.tabs button { border-bottom-width: 3px; margin-bottom: -2px; }
+.topbar { border-bottom: 2px solid var(--ink); }
+.sidebar { border-right: 2px solid var(--ink); }
+.goal-row[aria-current="true"], .side-link[aria-current="true"] { background: var(--panel); box-shadow: inset 0 0 0 2px var(--ink); }
+.progress .bar { height: 10px; border-radius: 5px; border: 2px solid var(--ink); background: var(--panel); }
+.progress .bar i { border-radius: 0; }
+.step-icon { border-width: 2px; border-color: var(--ink); }
+.step-icon.dropped, .step-icon.pending { border-color: var(--line-strong); }
+.ring .ring-track { stroke: var(--line); }
+.live.off { background: var(--panel); box-shadow: inset 0 0 0 2px var(--ink); }
+.toast { border: var(--heavy); background: var(--panel); color: var(--ink); box-shadow: var(--lift); font-weight: 600; }
+
+/* ---------- what is being done now, and motion ---------- */
+button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .iconbtn, .side-link {
+  transition: background-color .18s var(--ease), color .18s var(--ease), border-color .18s var(--ease), box-shadow .18s var(--ease), transform .18s var(--ease);
+}
+.project-card:hover, .btn.ghost:hover { transform: translate(-2px, -2px); box-shadow: var(--lift); background: var(--panel); }
+.btn:active, .project-card:active { transform: translate(0, 0); box-shadow: none; }
+.list-row:hover, .step-row:hover { background: var(--hover); }
+
+/* the step being worked on: inverted, with a moving stripe and a beating dot */
+.step.now .step-row, .step.with-a-helper .step-row {
+  background: var(--ink); color: var(--bg); position: relative; overflow: hidden;
+}
+.step.now .step-row .t, .step.with-a-helper .step-row .t { color: var(--bg); font-weight: 700; }
+.step.now .step-row .end, .step.with-a-helper .step-row .end { color: var(--bg); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.step.now .step-row .end::before, .step.with-a-helper .step-row .end::before, .working-dot {
+  content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: inline-block; animation: beat 1.4s ease-in-out infinite;
+}
+.step.now .step-row::after, .step.with-a-helper .step-row::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+  background: linear-gradient(90deg, transparent, var(--bg), transparent); background-size: 40% 100%; background-repeat: no-repeat;
+  animation: sweep 1.8s var(--ease) infinite; opacity: .7;
+}
+.step.now .step-icon, .step.with-a-helper .step-icon { border-color: var(--bg); background: radial-gradient(var(--bg) 0 3.5px, transparent 4px); }
+.step.with-a-helper .step-icon { background: linear-gradient(90deg, var(--bg) 50%, transparent 50%); }
+.step.you .step-row { box-shadow: inset 4px 0 0 var(--ink); font-weight: 600; }
+.step-icon.waiting-on-you { background: var(--ink); color: var(--bg); }
+
+/* a goal under way: its bar moves */
+.progress.moving .bar i {
+  background-image: repeating-linear-gradient(-45deg, var(--ink) 0 8px, var(--muted) 8px 16px); background-size: 22.6px 22.6px; animation: stripes 1s linear infinite;
+}
+.goal-row.working .t::after, .list-row.working .t::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 8px; border-radius: 50%; background: var(--ink); vertical-align: middle; animation: beat 1.4s ease-in-out infinite; }
+.goal-row.working .t { font-weight: 700; }
+
+/* things arriving */
+.page { animation: rise .32s var(--ease) both; }
+.tab-body { animation: fade .24s var(--ease) both; }
+.step-detail { animation: open .22s var(--ease) both; transform-origin: top; }
+.menu-panel, .pop, .search-results, .project-list, .goal-menu { animation: pop .16s var(--ease) both; }
+.needs-item, .talk li { animation: rise .3s var(--ease) both; }
+.progress .bar i { transition: width .6s var(--ease); }
+.sidebar { transition: transform .26s var(--ease); }
+.scrim { transition: opacity .2s; }
+
+@keyframes beat { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.55); opacity: .45; } }
+@keyframes sweep { 0% { background-position: -40% 0; } 100% { background-position: 140% 0; } }
+@keyframes stripes { to { background-position: 22.6px 0; } }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes open { from { opacity: 0; transform: scaleY(.96) translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }

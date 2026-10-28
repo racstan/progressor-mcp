@@ -71,7 +71,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
     <div className="page">
       <header className="goal-head">
         <div className="top">
-          <span className={`state ${now.state}`} title={now.hint}><span className="dot" />{now.label}</span>
+          <span className={`state ${now.state}`} title={now.hint}>{now.state === "working" ? <span className="working-dot" /> : <span className="dot" />}{now.label}</span>
           {state.updatedAt !== undefined && <span className="state">· updated {ago(state.updatedAt)}</span>}
           {elsewhere && <span className="state" title={elsewhere.hint}>· {elsewhere.label}</span>}
           <span className="sp" />
@@ -84,7 +84,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
         {goal.outcome && <p className="outcome" title="What finished looks like: your AI checks the work against this before it calls the goal finished">Finished when: {plainText(goal.outcome)}</p>}
         {goal.status === "dropped" && <p className="outcome">Cancelled{goal.reason ? `: ${plainText(goal.reason)}` : ""}</p>}
         {live.length > 0 && (
-          <div className={`progress ${finished ? "finished" : ""}`}>
+          <div className={`progress ${finished ? "finished" : ""} ${now.state === "working" ? "moving" : ""}`}>
             <div className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={live.length} aria-valuenow={done}><i style={{ width: `${(100 * done) / live.length}%` }} /></div>
             <div className="words">{[progressWords({ done, total: live.length }), left].filter(Boolean).join(" · ")}</div>
           </div>

@@ -64,7 +64,7 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
           <ul className="list">
             {s.inProgress.map(({ project, goal }) => (
               <li key={`${project.id}/${goal.id}`}>
-                <button className="list-row" onClick={() => onOpen(project.id, goal.id)}>
+                <button className="list-row working" onClick={() => onOpen(project.id, goal.id)}>
                   <Ring done={goal.done} total={goal.total} />
                   <span className="t">{goal.title}</span>
                   <span className="end">{project.name}</span>
