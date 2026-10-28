@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { computeSchedule } from "../src/schedule.js";
 import {
+  messageStateWords,
+  talkSummary,
   GOAL_WORD,
   STEP_HINT,
   STEP_MARK,
@@ -228,5 +230,25 @@ describe("the things to try by hand", () => {
   it("counts what is still to try", () => {
     expect(handTestsOpen(tests)).toBe(2);
     expect(handTestsOpen([{ result: "works" }])).toBe(0);
+  });
+});
+
+describe("talking with your AI", () => {
+  it("says where a message stands in everyday words", () => {
+    expect(messageStateWords("new")).toBe("sent; your AI reads it at its next update");
+    expect(messageStateWords("seen")).toBe("read by your AI");
+    expect(messageStateWords("replied")).toBe("answered");
+  });
+
+  it("sums up what was said before", () => {
+    expect(talkSummary([{ state: "replied" }], [])).toBe("1 message");
+    expect(talkSummary([{ state: "new" }, { state: "seen" }], [{}])).toBe("2 messages, 2 not answered yet · 1 answer you gave");
+    expect(talkSummary([], [{}, {}])).toBe("2 answers you gave");
+  });
+
+  it("a goal with a question for you is waiting on you", () => {
+    expect(goalState({ status: "active", updatedAt: undefined, running: true, waitingOnYou: true }).hint).toBe(
+      "Your AI is waiting on you: a step to check or a question to answer. Open the goal to see what.",
+    );
   });
 });

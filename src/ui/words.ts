@@ -148,7 +148,7 @@ export function goalState(goal: GoalStatus, now = Date.now()): { state: GoalStat
   }
   // A step that needs the person comes before everything else: it is what they should look at.
   if (goal.waitingOnYou)
-    return { state: "you", label: "Waiting on you", hint: "A step in this goal is waiting on you. Open the goal to see which one." };
+    return { state: "you", label: "Waiting on you", hint: "Your AI is waiting on you: a step to check or a question to answer. Open the goal to see what." };
   if (goal.running === false)
     return {
       state: "stopped",
@@ -318,4 +318,19 @@ export const handTestsOpen = (tests: readonly { result: string }[]): number => t
 export function resourceWords(l: { resource: string; label?: string | undefined; session: string; since: string }, now: Date): string {
   const by = l.label ?? "your AI";
   return `In use: ${l.resource.replace(/-/g, " ")}, by ${by}, ${sayDuration(Math.max(1, Math.round(minutesSince(l.since, now))))}`;
+}
+
+/** Where a message the person sent stands, after "You wrote ·". */
+export function messageStateWords(state: string): string {
+  return state === "new" ? "sent; your AI reads it at its next update" : state === "seen" ? "read by your AI" : "answered";
+}
+
+/** The fold line over what was said before: "2 messages, 1 not answered yet · 1 answer you gave". */
+export function talkSummary(messages: readonly { state: string }[], answers: readonly unknown[]): string {
+  const waiting = messages.filter((m) => m.state !== "replied").length;
+  const parts = [
+    ...(messages.length > 0 ? [`${messages.length} ${messages.length === 1 ? "message" : "messages"}${waiting > 0 ? `, ${waiting} not answered yet` : ""}`] : []),
+    ...(answers.length > 0 ? [`${answers.length} ${answers.length === 1 ? "answer" : "answers"} you gave`] : []),
+  ];
+  return parts.join(" · ");
 }

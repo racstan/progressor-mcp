@@ -9,6 +9,8 @@ import {
   type StateExtras,
   type HandResult,
   type HandTest,
+  type Message,
+  type Question,
   type NewTask,
   type Note,
   type PlanFile,
@@ -116,6 +118,12 @@ export interface Status {
   notes: Note[];
   /** Everything the Developer is asked to try by hand, with their marks. */
   handTests: HandTest[];
+  /** The Developer's messages the Agent has not replied to yet. */
+  messages: Message[];
+  /** The Agent's questions the Developer has not answered yet. */
+  questions: Question[];
+  /** Answers the Agent has not been shown yet. */
+  answers: Question[];
   standingInstructions: StandingInstruction[];
   /** The project's Important context: lasting background, kept by the Agent. */
   context: string;
@@ -153,6 +161,15 @@ export type FoundItem =
   | { kind: "hand test"; ref: string; file: string; line: number; item: HandTest }
   | { kind: "idea"; ref: string; file: string; line: number; item: Idea }
   | { kind: "standing instruction"; ref: string; file: string; line: number; item: StandingInstruction };
+
+/** The longest message the Developer can send from the dashboard, and the longest reply or question. */
+export const MAX_MESSAGE = 2000;
+/** What the Developer sent or answered since the Agent last looked (takeNewFromDeveloper). */
+export interface FromDeveloper {
+  messages: Message[];
+  answers: Question[];
+}
+const cutText = (text: string, max = MAX_MESSAGE) => text.replace(/\s+/g, " ").trim().slice(0, max);
 
 /** The longest note the Developer can type on a failed hand test. */
 export const MAX_HAND_NOTE = 500;
@@ -890,6 +907,114 @@ export class Project {
     if (plan.markHandTestsSeen()) this.savePlan(plan);
   }
 
+  // --- talking with the Developer ----------------------------------------------------
+
+  /** Changes a claimed Goal's Plan File (with every item given an ID) and saves it. */
+  private inClaimed<T>(goalId: string | undefined, body: (plan: PlanFile) => T): T {
+    const { plan } = this.requireClaim(goalId);
+    plan.assignMissingIds();
+    const result = body(plan);
+    this.savePlan(plan);
+    return result;
+  }
+
+  /** A Goal the Developer can write to from the dashboard: any Goal on the Roadmap that is not dropped. */
+  private talkable(goalId: string): PlanFile {
+    const goal = this.roadmap().goal(goalId);
+    if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
+    if (goal.status === "dropped") throw new Error(`Goal ${goalId} is cancelled; it takes no messages.`);
+    const plan = this.plan(goalId);
+    plan.assignMissingIds();
+    return plan;
+  }
+
+  /** A message from the Developer (this is what the dashboard calls), needing no Claim. */
+  sendMessage(goalId: string, text: string): Message {
+    const words = cutText(text);
+    if (!words) throw new Error("The message is empty.");
+    const plan = this.talkable(goalId);
+    const message = plan.addMessage(words, this.now());
+    this.savePlan(plan);
+    return message;
+  }
+
+  /** The Developer takes a message back, which they can only do while the Agent has not seen it. */
+  deleteMessage(goalId: string, id: string): void {
+    const plan = this.talkable(goalId);
+    const message = plan.message(id);
+    if (!message) throw new Error(`No message ${id} in Goal ${goalId}.`);
+    if (message.state !== "new") throw new Error(`Your AI has already seen message ${id}, so it can't be taken back. Send another one instead.`);
+    plan.removeMessage(id);
+    this.savePlan(plan);
+  }
+
+  /** The Developer's answer to a question: one of its choices or their own words, kept as a decision too. */
+  answerQuestion(goalId: string, id: string, answer: string): Question {
+    const words = cutText(answer);
+    if (!words) throw new Error("The answer is empty.");
+    const plan = this.talkable(goalId);
+    const question = plan.question(id);
+    if (!question) throw new Error(`No question ${id} in Goal ${goalId}.`);
+    if (question.state === "answered") throw new Error(`Question ${id} is already answered.`);
+    if (question.state === "withdrawn") throw new Error(`Question ${id} was withdrawn by your AI; it no longer needs an answer.`);
+    const decision = plan.addDecision(`${question.text} The Developer answered: ${words}`);
+    const answered = plan.answerQuestion(id, words, this.now(), decision.id);
+    this.savePlan(plan);
+    return answered;
+  }
+
+  /**
+   * The messages and answers from the Developer the Agent has not been shown yet on a Goal, marked
+   * as shown. Nothing is written when there are none.
+   */
+  takeNewFromDeveloper(goalId: string): FromDeveloper {
+    const plan = this.plan(goalId);
+    const at = this.now();
+    const news = { messages: plan.takeNewMessages(at), answers: plan.takeNewAnswers(at) };
+    if (news.messages.length > 0 || news.answers.length > 0) this.savePlan(plan);
+    return news;
+  }
+
+  /** Whether a Goal has anything from the Developer the Agent has not been shown; only reads. */
+  hasNewFromDeveloper(goalId: string): boolean {
+    try {
+      const plan = this.plan(goalId);
+      return plan.messages.some((m) => m.state === "new") || plan.questions.some((q) => q.state === "answered" && !q.seen);
+    } catch {
+      return false;
+    }
+  }
+
+  /** The Agent's reply to one of the Developer's messages, on a claimed Goal. */
+  replyToDeveloper(id: string, reply: string, goalId?: string): Message {
+    const words = cutText(reply);
+    if (!words) throw new Error("Write the reply: a sentence or two on what you did or will do.");
+    return this.inClaimed(goalId, (plan) => {
+      if (!plan.message(id)) throw new Error(`No message ${id} in Goal ${plan.goalId}.`);
+      return plan.replyToMessage(id, words, this.now());
+    });
+  }
+
+  /** Asks the Developer a question with two to four choices, on a claimed Goal. */
+  askDeveloper(text: string, choices: string[], options: { goal?: string; task?: string } = {}): Question {
+    const words = cutText(text, 500);
+    if (!words) throw new Error("Write the question.");
+    const picks = choices.map((c) => cutText(c, 200)).filter(Boolean);
+    if (picks.length < 2 || picks.length > 4) throw new Error("Give 2 to 4 choices, each a few words; the Developer can also answer in their own words.");
+    if (new Set(picks.map((c) => c.toLowerCase())).size !== picks.length) throw new Error("Give different choices.");
+    return this.inClaimed(options.goal, (plan) => plan.addQuestion(words, picks, options.task || undefined, this.now()));
+  }
+
+  /** Withdraws a question that no longer needs an answer, on a claimed Goal. */
+  withdrawQuestion(id: string, goalId?: string): Question {
+    return this.inClaimed(goalId, (plan) => {
+      const q = plan.question(id);
+      if (!q) throw new Error(`No question ${id} in Goal ${plan.goalId}.`);
+      if (q.state === "answered") throw new Error(`Question ${id} is already answered (${q.answer}); it can't be withdrawn.`);
+      return plan.withdrawQuestion(id);
+    });
+  }
+
   /** A Goal a note can go to: any Goal on the Roadmap that is not dropped, claimed or not. */
   private notable(goalId: string): PlanFile {
     const goal = this.roadmap().goal(goalId);
@@ -1142,6 +1267,9 @@ export class Project {
         decisions: [],
         notes: [],
         handTests: [],
+        messages: [],
+        questions: [],
+        answers: [],
         updatedAt: undefined,
         ...common,
       };
@@ -1162,6 +1290,9 @@ export class Project {
       decisions: plan.decisions,
       notes: plan.notes.filter((n) => !n.resolved),
       handTests: plan.handTests,
+      messages: plan.messages.filter((m) => m.state !== "replied"),
+      questions: plan.questions.filter((q) => q.state === "open"),
+      answers: plan.questions.filter((q) => q.state === "answered" && !q.seen),
       updatedAt: this.changedAt(this.planFilePath(goal.id)) ?? this.changedAt(`${PROGRESSOR_DIR}/${ROADMAP_FILE}`),
       ...common,
     };

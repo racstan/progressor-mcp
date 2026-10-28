@@ -75,6 +75,8 @@ The AI calls these; the server's instructions tell it when.
 | `update_note` | Resolves, reopens or rewords a note, or removes it when the text is empty. |
 | `add_hand_test` | Adds something only the Developer can try by hand to the claimed Goal (`text`, optionally the `task` it is about). The Developer marks it on the dashboard. Takes no `project`. |
 | `update_hand_test` | Rewords a hand test, changes or removes its `task` link (empty string), or removes the test when the text is empty. The Developer's mark stays. |
+| `ask_developer` | Asks the Developer a `question` on the dashboard with 2 to 4 `choices` (optionally the `task` it is about); or `withdraw` an open question by its ID. The answer comes back at a later call and is kept as a decision. Takes no `project`. |
+| `reply_to_developer` | Answers one of the Developer's dashboard messages (`message` ID, `reply`). Takes no `project`. |
 | `add_standing_instruction` | Saves a lasting rule from the Developer; `hard: true` marks one that must never be broken; `helpers_at_once: 2` makes it the rule that holds the helper limit. |
 | `update_standing_instruction` | Changes a rule's text, its `hard` flag and/or the helper limit it holds (`helpers_at_once`, 0 removes it), or removes the rule when the text is empty. |
 | `update_context` | Replaces the project's Important context (at most 4000 characters), or clears it with an empty text. |
@@ -105,13 +107,22 @@ The project's own Session hears about those changes once: `get_status`, and Clau
 
 While a tool reads and rewrites a plan, it holds that plan, so a Session in the project and a change from another project take turns instead of one overwriting the other. The hold is a small file in the system's temp folder; one left by a process that ended is taken over. If another Progressor holds the plan for more than 5 seconds, the tool answers *The plan in … is busy: another Progressor is changing it. Try again in a moment.*
 
-Every tool that changes a claimed Goal (`add_tasks`, `start_task`, `set_task_state`, `update_task`, `complete_task`, `drop_task`, `update_tasks`, `move_task` (the Goal the Task is in), `start_detour`, `end_detour`, `add_decision`, `update_decision`, `add_hand_test`, `update_hand_test`, `complete_goal`, `release_goal`) takes an optional `goal`: the Goal's ID. It is needed only while the Session holds several Goals.
+Every tool that changes a claimed Goal (`add_tasks`, `start_task`, `set_task_state`, `update_task`, `complete_task`, `drop_task`, `update_tasks`, `move_task` (the Goal the Task is in), `start_detour`, `end_detour`, `add_decision`, `update_decision`, `add_hand_test`, `update_hand_test`, `ask_developer`, `reply_to_developer`, `complete_goal`, `release_goal`) takes an optional `goal`: the Goal's ID. It is needed only while the Session holds several Goals.
 
 ### Hand tests
 
 Anything only the Developer can try goes in the Goal's hand-test list, not in the Agent's chat summary. The Developer marks each item on the dashboard (see [the dashboard](dashboard.md#things-to-try-by-hand)) as works, doesn't work (with a short note) or won't test, and can undo a mark. `get_status` shows, for each Goal it lists: a count line, the items still not tried (with the Task each is about), and **New marks from the Developer since the last status**: each mark not yet shown, a failure with the Developer's note and the step that was added for it. Showing a mark records it as seen (a `seen: yes` line), so a mark appears as new once. `get_item` takes a hand test's ref (`progressor://<goal>/h2`), and Claude Code's hooks list the same in the status they add.
 
 A failed result adds a pending Task to the Goal (`Fix: <the test>`, its summary holding the note, linked both ways) and reopens a finished Goal as paused, so the next Session sees it. `complete_goal` is refused while any hand test is not tried yet, naming them; pass `unmarked_hand_tests_ok: true` to finish anyway, only when the Developer says to.
+
+### Talking with the Developer
+
+The Developer can write to the Agent on the dashboard, and the Agent can ask them there. Progressor cannot wake an AI chat or type into it, so this is a mailbox: what the Developer sends reaches the Agent at its next Progressor call.
+
+- **`ask_developer`** asks a question with 2 to 4 short `choices` (and optionally the `task` it is about); the Developer clicks one or answers in their own words. Pass `withdraw` with a question's ID to take back one that no longer needs an answer. While a question is open, the dashboard shows the Goal as *Waiting on you*. The answer is kept on the question and added as a decision.
+- **`reply_to_developer`** answers one of the Developer's messages (`message`, such as `m2`, and `reply`); the reply shows under it on the dashboard.
+
+New messages and answers are shown to the Agent once, under **New from the Developer on the dashboard**: first thing in `get_status`, and at the end of the answer of any other tool call for a Goal the Session holds. Showing one writes its `seen` line. `get_status` also lists, for each Goal it holds, the messages not replied to yet and the questions still open, and names Goals nobody is working on that have news (without marking it seen, so the Session that claims them is shown it). In Claude Code, the prompt hook adds a line with what is new to every prompt, and the session-start status lists the same; the hooks only read, so the news is marked seen by the next `get_status`.
 
 ### The dashboard's write endpoint
 
@@ -125,7 +136,19 @@ content-type: application/json
 {"mark": "doesn't work", "note": "it asked twice, then froze"}
 ```
 
-`mark` is `works`, `doesn't work`, `won't test` or `clear` (undo); `note` (at most 500 characters, kept only with `doesn't work`) is optional. The answer is the updated hand test as JSON. The request is refused (403) unless it carries the `x-progressor: mark` header and an `Origin` of the dashboard's own page on localhost, so another web page cannot send it; like every dashboard request it is refused unless addressed to `localhost`, `127.0.0.1` or `[::1]`, and the server listens on the loopback interface only. Other answers: 415 for a body that is not JSON, 413 over 4 KB, 400 for a mark it does not know, 404 for an unknown project, Goal or hand test (a dropped Goal is 400). It writes through the same code as the tools, holding the plan's lock, and needs no Claim. The dashboard's hub version is now 4 (it was 3), so a Progressor with this change takes the port over from an older one that cannot take marks.
+`mark` is `works`, `doesn't work`, `won't test` or `clear` (undo); `note` (at most 500 characters, kept only with `doesn't work`) is optional. The answer is the updated hand test as JSON. The request is refused (403) unless it carries the `x-progressor: mark` header and an `Origin` of the dashboard's own page on localhost, so another web page cannot send it; like every dashboard request it is refused unless addressed to `localhost`, `127.0.0.1` or `[::1]`, and the server listens on the loopback interface only. Other answers: 415 for a body that is not JSON, 413 over 4 KB, 400 for a mark it does not know, 404 for an unknown project, Goal or hand test (a dropped Goal is 400). It writes through the same code as the tools, holding the plan's lock, and needs no Claim.
+
+Talking with the Agent uses three more, with the header `x-progressor: talk` and the same checks (16 KB at most):
+
+```
+POST /api/projects/<project>/goals/<goal>/messages                {"text": "Use the blue logo"}     → 201, the message
+POST /api/projects/<project>/goals/<goal>/messages/<id>/delete    {}                               → 200 (409 once the Agent has seen it)
+POST /api/projects/<project>/goals/<goal>/questions/<id>/answer   {"answer": "Follow the computer"} → 200, the question (409 if already answered or withdrawn)
+```
+
+A message is cut to 2000 characters and written on one line. Messages can go to any Goal that is not cancelled, held or not. `GET /api/projects/<project>/goals/<goal>` now also returns `messages` and `questions`, and each Goal in the roadmap answer has `openQuestions`.
+
+The dashboard's hub version is now 4 (it was 3), so a Progressor with this change takes the port over from an older one that cannot take marks.
 
 ## `progressor-mcp` commands
 

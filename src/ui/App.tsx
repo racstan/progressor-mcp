@@ -19,6 +19,7 @@ import { VIEWS, VIEW_LABELS, type View, pickView } from "./views.js";
 import { sortProjects } from "./projectList.js";
 import { GoalNotes } from "./GoalNotes.js";
 import { HandTests } from "./HandTests.js";
+import { Talk } from "./Talk.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { StepKey, StepMark } from "./StepKey.js";
 import {
@@ -705,6 +706,7 @@ export function App() {
                 onOpenStep={(node, at) => setSelected({ key: node.id, at })}
                 planLink={show.files ? fileLink(shownGoal.goal.planFile) : undefined}
                 onCopy={() => copy(copyAsPrompt({ kind: "goal", goal: shownGoal.goal, graph: shownGoal.graph }))} />
+              {projectId && shownGoal.goal.status !== "dropped" && <Talk projectId={projectId} goalId={shownGoal.goal.id} view={shownGoal} onChanged={refresh} />}
               {projectId && <HandTests projectId={projectId} goalId={shownGoal.goal.id} view={shownGoal} onChanged={refresh} />}
               {graph.nodes.length === 0 ? (
                 <div className="placeholder"><h2>No steps yet</h2>Your AI adds the steps as it plans. This page updates by itself.</div>

@@ -11,6 +11,7 @@ import { type Decision, type Detour, type HelperInfo, type NewTask, type Note, t
 import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, type Project, type SessionStatus, type Status, type TaskOperation } from "./project.js";
 import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
 import { handTestLines, handTestWord } from "./handTestText.js";
+import { elsewhereNewsLine, newsLines, talkLines } from "./talkText.js";
 import { type ResourceLock, holderText, resourceLine } from "./resources.js";
 import { type Goal, type StandingInstruction, hardFirst, helperLimit, ruleText } from "./roadmap.js";
 import type { GoalSchedule, Schedule } from "./schedule.js";
@@ -31,6 +32,7 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 8. Keep lasting background about the project on its Important context page with update_context: what the project is, key facts, where things live, choices that hold for the whole project. get_status shows it; keep it short and true.
 9. Record a choice made along the way that is not a lasting project rule (such as "old models get thinking on/off only") with add_decision, so it survives context compression. When you spot something that belongs to a Goal, this one or another (a bug found during cleanup that belongs to the Voice Goal), add_note on that Goal instead of fixing it now; once it is dealt with, resolve it with update_note.
 9a. Anything only the Developer can try by hand (a permission prompt to allow, a screen to look at) goes in add_hand_test, not in your chat summary: they mark each one on the dashboard, and get_status shows what is open and what failed. A failure adds a Task to the Goal. A Goal can't be completed while a hand test is unmarked, unless the Developer says to finish anyway (unmarked_hand_tests_ok).
+9b. The Developer can write to you on the dashboard, and you can ask them there. Their messages and answers reach you at your next Progressor call (get_status, or the end of any tool reply) under "New from the Developer": act on each message as an instruction from them, and answer it with reply_to_developer (what you did or will do). When you need the Developer to choose (a product or UX question), ask with ask_developer and 2 to 4 short choices instead of stopping in the chat; carry on with other work meanwhile. Their answer arrives the same way and is kept as a decision.
 10. When you brief a helper agent, call get_rules and paste its block into the brief: helpers don't see the Standing Instructions, and the hard rules apply to them too.
 11. Some things only one session or helper can use at a time (a dev window that allows one instance, the desktop shell, a port). Before you or a helper start something that needs one, call claim_resource with its name and why; if it is refused, someone else is using it: do not start it now, do other work and try again later. Release it with release_resource when the work ends. A helper usually cannot call Progressor itself, so claim on its behalf before you start it (pass label, such as "helper: media run") and release when it hands back; put the resource name in its brief. get_status shows what is in use.
 12. Work you do here that belongs to another project using Progressor (releasing it, say) goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it. Those changes are marked as made from this project, and a Goal an AI chat there is working on can only get a note.`;
@@ -211,6 +213,7 @@ function heldGoalLines(s: Status): string[] {
       ...(s.decisions.length > 0 ? [`Decisions: ${s.decisions.map(decisionText).join("; ")}`] : []),
       ...(s.notes.length > 0 ? [`Notes: ${s.notes.map(noteText).join("; ")}`] : []),
       ...handTestLines(s.handTests),
+      ...talkLines(s),
     ].map((line) => `  ${line}`),
   ];
 }
@@ -291,6 +294,7 @@ export function formatStatus(session: SessionStatus, schedule?: Schedule, warnin
     ...(s.decisions.length > 0 ? ["Decisions:", ...s.decisions.map((x) => `- ${decisionText(x)}`)] : []),
     ...(s.notes.length > 0 ? ["Notes:", ...s.notes.map((n) => `- ${noteText(n)}`)] : []),
     ...handTestLines(s.handTests),
+    ...talkLines(s),
     ...timing,
     ...instructions,
   ].join("\n");
@@ -494,9 +498,36 @@ export async function appRoots(server: McpServer, timeoutMs: number): Promise<st
 
 export function createServer(project: Project, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: "progressor", version: VERSION }, { instructions: INSTRUCTIONS });
+  // What the Developer wrote on the dashboard to the Goals this Session holds, now marked as shown.
+  const takeNews = () =>
+    newsLines(
+      project
+        .claimedGoals()
+        .filter((g) => project.hasNewFromDeveloper(g.id))
+        .map((g) => ({ goal: g.id, from: project.takeNewFromDeveloper(g.id) })),
+    );
   const status = () => {
+    const news = takeNews();
     const session = project.sessionStatus();
-    const text = formatStatus(session, project.schedule(), [...project.helperWarnings(), ...resourceLines(project.resources().list(), project.now())]);
+    const held = new Set(session.held.map((s) => s.goal!.id));
+    // Goals nobody is working on: said, but left unseen for the Session that claims them.
+    const unheld = project
+      .roadmap()
+      .goals.filter((g) => !held.has(g.id) && g.status !== "dropped" && !project.heldElsewhere(g))
+      .map((g) => {
+        try {
+          const plan = project.plan(g.id);
+          return { goal: g.id, messages: plan.messages.filter((m) => m.state === "new").length, answers: plan.questions.filter((q) => q.state === "answered" && !q.seen).length };
+        } catch {
+          return { goal: g.id, messages: 0, answers: 0 };
+        }
+      });
+    const elsewhereNews = elsewhereNewsLine(unheld);
+    const text = [
+      ...news,
+      ...(elsewhereNews ? [elsewhereNews] : []),
+      formatStatus(session, project.schedule(), [...project.helperWarnings(), ...resourceLines(project.resources().list(), project.now())]),
+    ].join("\n");
     // The Developer's new hand-test marks are now shown, so the next status calls only later ones new.
     for (const s of session.held) if (s.handTests.some((h) => h.result !== "pending" && !h.seen)) project.acknowledgeHandTests(s.goal!.id);
     return text;
@@ -512,10 +543,16 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     return sameFolder(target.root, project.root) ? project : project.elsewhere(target.root, projectEntry(project.root).name);
   };
   // Every tool holds the plan it acts on while it reads and rewrites it (lock.ts).
+  // Every reply on this project's plan ends with anything new from the Developer (get_status puts it first).
   const respondIn = (wanted: string | undefined, body: (p: Project) => string) =>
     respond(() => {
       const p = planOf(wanted);
-      return withLock(p.root, () => body(p));
+      return withLock(p.root, () => {
+        const text = body(p);
+        if (p !== project) return text;
+        const news = takeNews();
+        return news.length > 0 ? `${text}\n${news.join("\n")}` : text;
+      });
     });
   const nameOf = (p: Project) => projectEntry(p.root).name;
   // What a change to another project's plan answers with, instead of where this project's work stands.
@@ -1091,6 +1128,50 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const n = p.updateNote(goal, id, { text, resolved });
         const said = n ? `${resolved === true ? "Resolved" : resolved === false ? "Reopened" : "Changed"} note ${n.id}: ${n.text}` : `Removed note ${id}.`;
         return p === project ? said : doneIn(p, said);
+      }),
+  );
+
+  server.registerTool(
+    "ask_developer",
+    {
+      title: "Ask the Developer",
+      description:
+        "Ask the Developer a question on the dashboard, with 2 to 4 short choices they can click (they can also answer in their own words), instead of stopping in the chat. Use it for product and UX choices only they can make; carry on with other work meanwhile. Their answer reaches you at your next Progressor call, under 'New from the Developer', and is kept as a decision on the Goal. While a question is open the dashboard shows the Goal as waiting on them. To take back a question that no longer needs an answer, pass withdraw with its ID instead.",
+      inputSchema: {
+        goal: heldGoal,
+        question: z.string().max(500).optional().describe("The question, in one plain sentence a non-programmer understands."),
+        choices: z.array(z.string().max(200)).max(4).optional().describe("2 to 4 short answers to pick from, such as ['On by default', 'Follow the computer']."),
+        task: z.string().optional().describe("The ID of the Task it is about, such as 't3'."),
+        withdraw: z.string().optional().describe("The ID of an open question to withdraw (such as 'q2'), instead of asking a new one."),
+      },
+    },
+    ({ goal, question, choices, task, withdraw }) =>
+      respondIn(undefined, () => {
+        if (withdraw) return withNow(`Withdrew question ${project.withdrawQuestion(withdraw, goal).id}.`);
+        if (!question) throw new Error("Give the question and its choices, or withdraw with a question ID.");
+        const q = project.askDeveloper(question, choices ?? [], { goal, task });
+        return withNow(
+          `Asked ${q.id}: ${q.text} (${q.choices.join(" / ")})\nThe Developer answers on the dashboard${dashboard?.url ? ` (${dashboard.url})` : ""}; tell them in one plain sentence that a question is waiting there. Carry on with other work meanwhile.`,
+        );
+      }),
+  );
+
+  server.registerTool(
+    "reply_to_developer",
+    {
+      title: "Reply to the Developer",
+      description:
+        "Answer a message the Developer sent you on the dashboard (shown under 'New from the Developer' with its ID, such as m2): say in a sentence or two, in plain words, what you did or will do about it. The reply shows under their message on the dashboard. Reply to every message, even if only to say you will do it later.",
+      inputSchema: {
+        goal: heldGoal,
+        message: z.string().describe("The message ID, such as 'm2'."),
+        reply: z.string().max(2000).describe("Your answer, in plain words for someone who doesn't code."),
+      },
+    },
+    ({ goal, message, reply }) =>
+      respondIn(undefined, () => {
+        const m = project.replyToDeveloper(message, reply, goal);
+        return withNow(`Replied to message ${m.id}. The Developer sees it on the dashboard.`);
       }),
   );
 

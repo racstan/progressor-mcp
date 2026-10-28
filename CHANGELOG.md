@@ -21,7 +21,18 @@ Some things only you can test. Your AI now keeps them in a list on the goal inst
 - **Your AI sees your marks.** `get_status` lists what is still to try and, once, the new marks, failures with your note first; hand tests also show in `get_item` and in Claude Code's session-start status. A goal can't be completed while something is still to try, unless your AI is told to finish anyway (`unmarked_hand_tests_ok`).
 - **In the files:** a `## Hand tests` section (`[ ]` not tried, `[x]` works, `[/]` doesn't work, `[-]` won't test) with `task`, `note`, `marked`, `task added` and `seen` lines, and a `from hand test` line on the added step. Plans from before keep working unchanged. See [the format](docs/markdown-format.md#hand-tests).
 
+### Talk with your AI from the dashboard
+
+You can now write to your AI from the dashboard, and your AI can ask you things there instead of stopping in the chat.
+
+- **Write to your AI.** Each goal has a box under its banner: type what you want and press **Send**. Your AI reads it the next time it updates the plan (every few minutes while it works, or when the next chat starts; nothing can interrupt a chat), does what you asked and replies. You see *sent*, *read by your AI* and the reply under your message, and you can **Take back** a message your AI hasn't read yet.
+- **Answer your AI's questions.** When your AI needs you to choose, it asks on the dashboard with a button per answer, plus **Something else…** for your own words, and carries on with other work meanwhile. The goal shows **Waiting on you** until you answer. Your answer reaches your AI at its next update and is kept in the goal's decisions.
+- **For your AI:** new tools `ask_developer` and `reply_to_developer`. New messages and answers are shown once, at the top of `get_status` and at the end of any other tool's answer for a goal it holds; in Claude Code the prompt hook also mentions them. `get_status` lists messages not replied to and questions still open.
+- **In the files:** `## Messages` and `## Questions` sections in a goal's file. See [the format](docs/markdown-format.md#messages-and-questions) and [ADR 0005](docs/adr/0005-developer-talks-to-the-ai-from-the-dashboard.md). Plans from before keep working unchanged.
+
 ### A steadier dashboard
+
+- **Live updates on Linux.** On Linux the dashboard only noticed the first change to each goal and then went quiet until Refresh or its 15-second timer, because Node's folder watcher loses a file once it is saved by replacing it (how every save works). Each folder is now watched on its own, and every change shows at once.
 
 - **Many tabs at once.** Browsers allow only six connections to one address, and each dashboard tab kept up to two live ones open, so with a few tabs open the page could stop loading. A tab now keeps one, and lets go of it while it is in the background; shown again, it reconnects and catches up.
 - **No more blank page.** If part of the page fails to draw, you see a short message and a **Reload** button instead of an empty window; a failure in one goal's view leaves the sidebar working, and picking another goal tries again.

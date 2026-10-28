@@ -61,7 +61,7 @@ One line saying what done looks like for a Goal, used to judge whether it is fin
 _Avoid_: Acceptance criteria, definition of done, success metric
 
 **Plan File**:
-The markdown file that holds one Goal's Tasks, Decisions, Notes, Hand tests and Detours, and the place every one of them can be opened.
+The markdown file that holds one Goal's Tasks, Decisions, Notes, Hand tests, Messages, Questions and Detours, and the place every one of them can be opened.
 _Avoid_: Audit file, progress file, todo file
 
 **Task**:
@@ -71,6 +71,14 @@ _Avoid_: Todo, item, step, ticket
 **Hand test**:
 Something only the Developer can try by hand, added to a Goal by the Agent (the dashboard says *Things to try by hand*). The Developer marks each one on the dashboard as works, doesn't work (with a note) or won't test, and can undo it. A failure adds a pending Task to the Goal, linked back to the hand test; `get_status` shows open hand tests and new marks, and a Goal can't be completed while one is not tried yet, unless the Agent overrides it.
 _Avoid_: Manual test, checklist item, QA item
+
+**Message**:
+Something the Developer wrote to the Agent about a Goal on the dashboard (the box says *Write to your AI about this goal*). It is shown to the Agent once, at its next Progressor call, and the Agent answers it with a reply. Kept in the Goal's Plan File.
+_Avoid_: Chat, comment, ticket
+
+**Question**:
+Something the Agent asked the Developer on the dashboard, with 2 to 4 choices to click (or an answer in their own words). An open question makes the Goal wait on the Developer; the answer is shown to the Agent once and kept as a decision.
+_Avoid_: Prompt, poll
 
 **Estimate**:
 How long a Task, or a Goal as a whole, is expected to take, such as 45m or 2h, set by the Agent when it plans and updated when it learns more. A Goal's estimate is the sum of its open Tasks' unless the Goal has one of its own.
