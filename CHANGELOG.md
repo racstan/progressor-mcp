@@ -4,6 +4,10 @@ All notable changes to progressor-mcp. Each release is a Goal on Progressor's ow
 
 ## Unreleased
 
+### Fixes
+
+- **The Finished group in the sidebar closes again.** While you were looking at a finished goal, clicking Finished did nothing. Now it closes, and stays closed until you open it or look at another finished goal.
+
 ### When each step started and finished
 
 - **The Steps list says when a step was finished**, at the end of its row (*Done 14:02*, *Cancelled yesterday 09:00*), and when the step being worked on started (*Working on it · since 13:50*). A step's details and the map say *Started today 13:50 · finished 14:02*; hover for the exact date. Steps finished before this show when they last changed, which is when they were finished. In the plan's files: two lines, `started` and `finished`, written by Progressor.
