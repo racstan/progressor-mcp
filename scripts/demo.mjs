@@ -10,6 +10,8 @@
 // youtube-thumbnail.png, demo.gif (a short loop for the README) and the README's screenshots.
 // Needs playwright-core and Chrome (set PLAYWRIGHT_CORE to playwright-core's index.mjs if it is not
 // installed here, and CHROME to the browser; default /usr/bin/google-chrome) and ffmpeg.
+// MUSIC=<an audio file> also writes progressor-showcase-with-music.mp4: the track quietly underneath,
+// repeated with a short blend if the video is longer, faded in and out.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -485,6 +487,17 @@ writeFileSync(join(framesDir, "frames.txt"), `ffconcat version 1.0\n${entries.jo
 const video = join(out, "progressor-showcase.mp4");
 ff(["-f", "concat", "-safe", "0", "-i", join(framesDir, "frames.txt"), "-vf", "fps=30,scale=1920:1080:flags=lanczos,format=yuv420p",
   "-c:v", "libx264", "-preset", "slow", "-crf", "18", "-movflags", "+faststart", video]);
+if (process.env.MUSIC) {
+  const seconds = (file) => Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file]).toString());
+  const length = seconds(video);
+  // Enough copies of the track, each blended into the next over 3 s, to cover the video.
+  const copies = Math.max(1, Math.ceil(length / (seconds(process.env.MUSIC) - 3)));
+  let chain = "[1:a]";
+  for (let i = 2; i <= copies; i++) chain = `${chain}[${i}:a]acrossfade=d=3:c1=tri:c2=tri${i < copies ? `[m${i}];[m${i}]` : ""}`;
+  ff(["-i", video, ...Array.from({ length: copies }, () => ["-i", process.env.MUSIC]).flat(), "-filter_complex",
+    `${chain}${copies > 1 ? "," : "anull,"}atrim=0:${length},volume=-18dB,afade=t=in:d=2,afade=t=out:st=${length - 4}:d=4[a]`,
+    "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", join(out, "progressor-showcase-with-music.mp4")]);
+}
 ff(["-i", join(out, "youtube-thumbnail-full.png"), "-vf", "scale=1280:720:flags=lanczos", join(out, "youtube-thumbnail.png")]);
 rmSync(join(out, "youtube-thumbnail-full.png"));
 const from = (marks["gif-start"] - frames[0].t).toFixed(2);

@@ -24,7 +24,7 @@ npm run build
 node scripts/dashboard.mjs test/fixtures/sample-project
 ```
 
-The README's video, GIF and screenshots come from two sample projects, "Recipe box" and "Portfolio site", that `scripts/demo.mjs` writes and films with headless Chrome. It writes the GIF, the screenshots and the YouTube thumbnail that live in `docs/media/`, and the full video (`progressor-showcase.mp4`, which is uploaded to YouTube and kept out of git). It needs playwright-core and ffmpeg; see the top of the script:
+The README's video, GIF and screenshots come from two sample projects, "Recipe box" and "Portfolio site", that `scripts/demo.mjs` writes and films with headless Chrome. It writes the GIF, the screenshots and the YouTube thumbnail that live in `docs/media/`, and the full video (`progressor-showcase.mp4`, which is uploaded to YouTube and kept out of git). It needs playwright-core and ffmpeg; see the top of the script. Set `MUSIC` to an audio file to also get a copy with quiet background music:
 
 ```bash
 npm run build && node scripts/demo.mjs docs/media
