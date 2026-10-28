@@ -153,6 +153,51 @@ export function datesTitle({ added, updated }: Dated, now = Date.now()): string 
   return [a && `Added ${a}`, u && (a ? `updated ${u}` : `Updated ${u}`)].filter(Boolean).join(" · ");
 }
 
+type StepTimes = { status: string; startedAt?: string; finishedAt?: string; updated?: { at: string } };
+
+/** The few words at the end of a step's row; quiet for steps to do and done, which the mark says, unless a time is known. */
+const STEP_END: Record<string, string> = {
+  "in progress": "Working on it",
+  "with a helper": "With a helper",
+  "waiting on you": "Needs you",
+  checked: "Checked",
+  dropped: "Cancelled",
+};
+const FINISH_WORD: Record<string, string> = { done: "Done", released: "Released", dropped: "Cancelled" };
+
+/** When a step was finished; an older plan has no finish line, but a finished step last changed when it was finished. */
+const finishedAt = (t: StepTimes) => (t.status in FINISH_WORD ? (t.finishedAt ?? t.updated?.at) : undefined);
+
+/** Only the clock for today, else the day too: "14:02", "yesterday 23:40", "3 Oct 09:00". */
+const shortWhen = (iso: string, now: number) => {
+  const w = whenWords(iso, now);
+  return w.startsWith("today ") ? w.slice(6) : w;
+};
+
+/** The end of a step's row: "Done 14:02", "Working on it · since 13:50", "Needs you". */
+export function stepWhen(t: StepTimes, now = Date.now()): string {
+  const finished = finishedAt(t);
+  if (finished && timeOf(finished) !== undefined) return `${FINISH_WORD[t.status]} ${shortWhen(finished, now)}`;
+  const end = STEP_END[t.status] ?? "";
+  if (t.status === "in progress" && timeOf(t.startedAt) !== undefined) return `${end} · since ${shortWhen(t.startedAt!, now)}`;
+  return end;
+}
+
+/** A step's details: "Started today 13:50 · finished 14:02", and the exact times for the hover. */
+export function stepTimes(t: StepTimes, now = Date.now()): { line: string; title: string } {
+  const started = timeOf(t.startedAt) !== undefined ? t.startedAt : undefined;
+  const fin = finishedAt(t);
+  const finished = timeOf(fin) !== undefined ? fin : undefined;
+  const word = t.status === "dropped" ? "cancelled" : "finished";
+  const full = (iso: string) => `${exactDate(iso)} (${ago(timeOf(iso)!, now)})`;
+  const line = [
+    started && `Started ${whenWords(started, now)}`,
+    finished && (started ? `${word} ${thenWords(finished, started, now)}` : `${word[0]!.toUpperCase()}${word.slice(1)} ${whenWords(finished, now)}`),
+  ].filter(Boolean).join(" · ");
+  const title = [started && `Started ${full(started)}`, finished && `${started ? word : word[0]!.toUpperCase() + word.slice(1)} ${full(finished)}`].filter(Boolean).join(" · ");
+  return { line, title };
+}
+
 /** "sent today 15:55 · answered 15:58", under a message the person wrote. */
 export function sentWords({ sentAt, repliedAt }: { sentAt?: string; repliedAt?: string }, now = Date.now()): string {
   return [

@@ -26,6 +26,8 @@ import {
   statusLine,
   stepOf,
   stepTime,
+  stepTimes,
+  stepWhen,
   underWay,
 } from "../src/ui/words.js";
 
@@ -311,5 +313,33 @@ describe("dates on everything", () => {
     expect(sentWords({ sentAt: stamp(at(28, 15, 55)).at }, NOW)).toBe("sent today 15:55");
     expect(sentWords({ sentAt: stamp(at(28, 15, 55)).at, repliedAt: stamp(at(28, 15, 58)).at }, NOW)).toBe("sent today 15:55 · answered 15:58");
     expect(sentWords({}, NOW)).toBe("");
+  });
+});
+
+describe("when a step was started and finished", () => {
+  const at = (day: number, h: number, m: number) => new Date(2026, 9, day, h, m).toISOString();
+  const NOW = new Date(2026, 9, 28, 16, 0).getTime();
+
+  it("puts a short time at the end of the row: only the clock for today", () => {
+    expect(stepWhen({ status: "done", startedAt: at(28, 13, 50), finishedAt: at(28, 14, 2) }, NOW)).toBe("Done 14:02");
+    expect(stepWhen({ status: "released", finishedAt: at(27, 23, 40) }, NOW)).toBe("Released yesterday 23:40");
+    expect(stepWhen({ status: "dropped", finishedAt: at(3, 9, 0) }, NOW)).toBe("Cancelled 3 Oct 09:00");
+    expect(stepWhen({ status: "in progress", startedAt: at(28, 13, 50) }, NOW)).toBe("Working on it · since 13:50");
+    expect(stepWhen({ status: "in progress" }, NOW)).toBe("Working on it");
+    expect(stepWhen({ status: "waiting on you", startedAt: at(28, 13, 50) }, NOW)).toBe("Needs you");
+    expect(stepWhen({ status: "pending" }, NOW)).toBe("");
+  });
+
+  it("uses when an older finished step last changed, which is when it was finished", () => {
+    expect(stepWhen({ status: "done", updated: { at: at(28, 11, 5) } }, NOW)).toBe("Done 11:05");
+    expect(stepWhen({ status: "done" }, NOW)).toBe("");
+  });
+
+  it("says both in the details, with the exact times on hover", () => {
+    const t = { status: "done", startedAt: at(28, 13, 50), finishedAt: at(28, 14, 2) };
+    expect(stepTimes(t, NOW)).toEqual({ line: "Started today 13:50 · finished 14:02", title: expect.stringMatching(/^Started 28 Oct 2026, 13:50 \(.+\) · finished 28 Oct 2026, 14:02 \(.+\)$/) });
+    expect(stepTimes({ status: "dropped", finishedAt: at(27, 9, 0) }, NOW).line).toBe("Cancelled yesterday 09:00");
+    expect(stepTimes({ status: "in progress", startedAt: at(26, 9, 0) }, NOW).line).toBe("Started 26 Oct 09:00");
+    expect(stepTimes({ status: "pending" }, NOW).line).toBe("");
   });
 });

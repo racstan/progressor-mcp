@@ -9,18 +9,9 @@ import { type PictureItem, Pictures } from "./Pictures.js";
 import { RichText } from "./RichText.js";
 import { plainText } from "./text.js";
 import { checklistRows } from "./views.js";
-import { SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, elsewhereTag, evidenceLine, helperLine, statusClass, stepTime } from "./words.js";
+import { SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, elsewhereTag, evidenceLine, helperLine, statusClass, stepTime, stepTimes, stepWhen } from "./words.js";
 
 export type FileLink = (path: string, line?: number) => { href: string | undefined; onClick: () => void };
-
-/** The few words at the end of a step's row; quiet for steps to do and done, which the mark says. */
-const END: Record<string, string> = {
-  "in progress": "Working on it",
-  "with a helper": "With a helper",
-  "waiting on you": "Needs you",
-  checked: "Checked",
-  dropped: "Cancelled",
-};
 
 /** The round mark in front of a step: empty to do, a dot while worked on, a tick once done. */
 export function StepIcon({ status }: { status: string }) {
@@ -75,12 +66,13 @@ function Step({ task: t, open, onToggle, pictures, fileLink, onCopy, onReveal }:
   const elsewhere = elsewhereTag(t.updatedFrom);
   const meta = [stepTime(t), helperLine(t.helper), t.fromDetour && "Added after a side trip", elsewhere?.label].filter(Boolean).join(" · ");
   const cls = t.status === "in progress" ? "now" : t.status === "waiting on you" ? "you" : statusClass(t.status);
+  const times = stepTimes(t);
   return (
     <li className={`step ${cls}`}>
       <button className="step-row" aria-expanded={open} onClick={onToggle} title={STEP_HINT[t.status]}>
         <StepIcon status={t.status} />
         <span className="t">{t.title}</span>
-        <span className="end">{END[t.status] ?? ""}</span>
+        <span className="end" title={times.title || undefined}>{stepWhen(t)}</span>
       </button>
       {open && (
         <div className="step-detail">
@@ -88,6 +80,7 @@ function Step({ task: t, open, onToggle, pictures, fileLink, onCopy, onReveal }:
           {evidenceLine(t.evidence) && <div className="meta">{evidenceLine(t.evidence)}</div>}
           {t.status === "dropped" && t.reason && <div className="meta">Why it was cancelled: {plainText(t.reason)}</div>}
           {meta && <div className="meta">{meta}</div>}
+          {times.line && <div className="meta" title={times.title}>{times.line}</div>}
           <Dates item={t} />
           {t.code.length > 0 && (
             <div className="file-chips">
