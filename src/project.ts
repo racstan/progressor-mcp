@@ -155,6 +155,8 @@ export interface ProjectOverview {
   planned: Goal[];
   standingInstructions: StandingInstruction[];
   context: string;
+  /** The Developer's messages to the whole project not replied to yet. */
+  projectMessages: Message[];
 }
 
 export type FoundItem =
@@ -188,6 +190,9 @@ const handFailureSummary = (test: string, note: string | undefined): string =>
 export const PROGRESSOR_DIR = ".progressor";
 /** The folder in .progressor/ that holds each Goal's talk with the Developer, kept out of git. */
 export const TALK_DIR = "talk";
+
+/** The talk with the whole project rather than one Goal; a Goal ID never starts with "_". */
+export const PROJECT_TALK = "_project";
 export const ROADMAP_FILE = "roadmap.md";
 /** Errors that mean the file is held for a moment (Windows), so a rename is tried again. */
 const RETRY_CODES = ["EPERM", "EBUSY", "EACCES"];
@@ -370,7 +375,8 @@ export class Project {
    */
   talk(goalId: string): PlanFile {
     const text = this.readText(this.path(TALK_DIR, `${goalId}.md`));
-    const talk = parsePlanFile(text ?? `# ${this.roadmap().goal(goalId)?.title ?? goalId}: talk with the Developer\n`, goalId);
+    const title = goalId === PROJECT_TALK ? "The whole project" : (this.roadmap().goal(goalId)?.title ?? goalId);
+    const talk = parsePlanFile(text ?? `# ${title}: talk with the Developer\n`, goalId);
     talk.now = this.now;
     return talk;
   }
@@ -988,8 +994,13 @@ export class Project {
     return result;
   }
 
-  /** A Goal the Developer can write to from the dashboard: any Goal on the Roadmap that is not dropped. */
+  /** A Goal the Developer can write to from the dashboard: any Goal on the Roadmap that is not dropped, or the whole project. */
   private talkable(goalId: string): PlanFile {
+    if (goalId === PROJECT_TALK) {
+      const talk = this.talk(goalId);
+      talk.assignMissingIds();
+      return talk;
+    }
     const goal = this.roadmap().goal(goalId);
     if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
     if (goal.status === "dropped") throw new Error(`Goal ${goalId} is cancelled; it takes no messages.`);
@@ -1081,6 +1092,27 @@ export class Project {
       if (!talk.message(id)) throw new Error(`No message ${id} in Goal ${talk.goalId}.`);
       return talk.replyToMessage(id, words, this.now());
     });
+  }
+
+  /** The Agent's reply to one of the Developer's messages to the whole project; any Session can give it. */
+  replyToProjectMessage(id: string, reply: string): Message {
+    const words = cutText(reply);
+    if (!words) throw new Error("Write the reply: a sentence or two on what you did or will do.");
+    const talk = this.talk(PROJECT_TALK);
+    if (!talk.message(id)) throw new Error(`No message ${id} to the whole project.`);
+    const message = talk.replyToMessage(id, words, this.now());
+    this.saveTalk(talk);
+    return message;
+  }
+
+  /** The Developer's messages to the whole project not replied to yet; empty when there are none or the file cannot be read. */
+  projectMessages(): Message[] {
+    try {
+      if (!existsSync(this.path(TALK_DIR, `${PROJECT_TALK}.md`))) return [];
+      return this.talk(PROJECT_TALK).messages.filter((m) => m.state !== "replied");
+    } catch {
+      return [];
+    }
   }
 
   /** Asks the Developer a question with two to four choices, on a claimed Goal. */
@@ -1338,6 +1370,7 @@ export class Project {
       planned: roadmap.goals.filter((g) => g.status === "planned"),
       standingInstructions: roadmap.standingInstructions,
       context: this.context(),
+      projectMessages: this.projectMessages(),
     };
   }
 

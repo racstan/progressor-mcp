@@ -499,3 +499,4 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+.side-link .n { margin-left: auto; font-size: var(--t-s); font-weight: 700; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--ink); color: var(--bg); display: inline-flex; align-items: center; justify-content: center; }

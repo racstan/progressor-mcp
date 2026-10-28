@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { DEFAULT_EDITOR, EDITORS, editorUrl } from "../dashboard/editor.js";
 import type { GoalSchedule } from "../schedule.js";
 import { type RoadmapView, useDashboard, useOverview, useSearch, useServers, useStored, useStoredJson } from "./data.js";
-import { CONTEXT_HASH, contextFromHash } from "./context.js";
+import { CONTEXT_HASH, TALK_HASH, contextFromHash } from "./context.js";
 import { ContextPage } from "./ContextPage.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
@@ -14,6 +14,7 @@ import { Icon, Ring } from "./Icon.js";
 import { Choice, GoalMenu, MenuPanel } from "./Menus.js";
 import { sortProjects } from "./projectList.js";
 import { type SearchHit, SearchBox } from "./Search.js";
+import { Conversation } from "./Talk.js";
 import { ServersPanel } from "./Servers.js";
 import { StepKey } from "./StepKey.js";
 import type { FileLink } from "./Steps.js";
@@ -50,6 +51,9 @@ function defaultGoal(goals: Goal[]): string | undefined {
     for (const g of goals) if (g.status === status) return g.id;
   return goals[0]?.id;
 }
+
+/** The talk with the whole project, in the dashboard's API: the goal routes with this ID (project.ts). */
+const PROJECT_TALK = "_project";
 
 const goalFromHash = () => {
   const m = /^#\/goal\/(.+)$/.exec(location.hash);
@@ -99,6 +103,7 @@ export function App() {
   const [pickedWorkspace, setPickedWorkspace] = useState<string | undefined>(workspaceFromUrl);
   const [picked, setPicked] = useState<string | undefined>(goalFromHash);
   const [onContext, setOnContext] = useState(() => contextFromHash(location.hash));
+  const [onTalk, setOnTalk] = useState(() => location.hash === TALK_HASH);
   const [theme, setTheme] = useStored<Theme>("progressor.theme", undefined);
   const [finished, setFinished] = useStored<Finished>("progressor.finished", undefined);
   const [showHidden, setShowHidden] = useStored<"1">("progressor.show-hidden", undefined);
@@ -134,7 +139,7 @@ export function App() {
   // Without a pick, the Goal on screen stays on screen as the plan changes; the default is chosen once per project.
   const shownBefore = useRef<{ project: string | undefined; goal: string | undefined }>({ project: undefined, goal: undefined });
   const kept = shownBefore.current.project === projectId ? shownBefore.current.goal : undefined;
-  const effectiveGoal = onContext
+  const effectiveGoal = onContext || onTalk
     ? undefined
     : picked && goals.some((g) => g.id === picked)
       ? picked
@@ -175,6 +180,7 @@ export function App() {
       setPickedWorkspace(workspaceFromUrl());
       setPicked(goalFromHash());
       setOnContext(contextFromHash(location.hash));
+      setOnTalk(location.hash === TALK_HASH);
     };
     addEventListener("hashchange", onNavigate);
     addEventListener("popstate", onNavigate);
@@ -192,11 +198,19 @@ export function App() {
     history.replaceState(null, "", `${location.search}#/goal/${encodeURIComponent(id)}`);
     setPicked(id);
     setOnContext(false);
+    setOnTalk(false);
     closeAll();
   };
   const openContext = () => {
     history.replaceState(null, "", `${location.search}${CONTEXT_HASH}`);
     setOnContext(true);
+    setOnTalk(false);
+    closeAll();
+  };
+  const openTalk = () => {
+    history.replaceState(null, "", `${location.search}${TALK_HASH}`);
+    setOnTalk(true);
+    setOnContext(false);
     closeAll();
   };
   const pickProject = (id: string, goalId?: string) => {
@@ -205,6 +219,7 @@ export function App() {
     setPickedProject(id);
     setPicked(goalId);
     setOnContext(false);
+    setOnTalk(false);
     closeAll();
     scrollMainToTop();
   };
@@ -214,6 +229,7 @@ export function App() {
     setPickedWorkspace(undefined);
     setPicked(undefined);
     setOnContext(false);
+    setOnTalk(false);
     closeAll();
   };
 
@@ -238,8 +254,8 @@ export function App() {
 
   useEffect(() => {
     const where = onHome ? (workspaces?.find((w) => w.id === pickedWorkspace)?.name ?? "Home") : undefined;
-    document.title = [onContext ? "Project notes" : shownGoal?.goal.title, project?.name, where, "Progressor"].filter(Boolean).join(" · ");
-  }, [shownGoal, project, onHome, onContext, workspaces, pickedWorkspace]);
+    document.title = [onContext ? "Project notes" : onTalk ? "Message your AI" : shownGoal?.goal.title, project?.name, where, "Progressor"].filter(Boolean).join(" · ");
+  }, [shownGoal, project, onHome, onContext, onTalk, workspaces, pickedWorkspace]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -318,6 +334,7 @@ export function App() {
     setPanel(panel === which ? undefined : which);
     if (which === "settings") reloadServers();
   };
+  const unanswered = (roadmap?.projectTalk?.messages ?? []).filter((m) => m.state !== "replied").length;
   const freshGoals = grouped.open.filter((g) => grouped.fresh.has(g.id));
   const doneShown = !!doneOpen || grouped.done.some((g) => g.id === effectiveGoal);
 
@@ -347,6 +364,18 @@ export function App() {
     <div className="placeholder">Loading…</div>
   ) : onContext ? (
     <ContextPage rules={roadmap.standingInstructions} context={roadmap.context} />
+  ) : onTalk && projectId ? (
+    <div className="page">
+      <h1 className="page-title">Message your AI</h1>
+      <p className="page-sub">
+        For anything about the whole project, such as "stop everything" or "start on the logo next". Any AI chat working in this project reads it at its
+        next step, or as soon as you type in the chat, and answers here.
+      </p>
+      <div className="section">
+        <Conversation projectId={projectId} goalId={PROJECT_TALK} onChanged={refresh}
+          view={{ messages: roadmap.projectTalk?.messages ?? [], questions: [], graph: { nodes: [], edges: [] } }} />
+      </div>
+    </div>
   ) : goals.length === 0 ? (
     <div className="placeholder">
       <h2>No goals yet</h2>
@@ -497,6 +526,10 @@ export function App() {
             </div>
           ) : (
             <>
+              <button className="side-link" aria-current={onTalk} onClick={openTalk} title="Write to your AI about the whole project, not one goal">
+                <Icon name="send" /> Message your AI
+                {unanswered > 0 && <span className="n" title="Messages your AI has not answered yet">{unanswered}</span>}
+              </button>
               <button className="side-link" aria-current={onContext} onClick={openContext} title="The rules and background your AI keeps for this project">
                 <Icon name="note" /> Project notes
               </button>

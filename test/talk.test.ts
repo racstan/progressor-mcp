@@ -8,7 +8,7 @@ import { projectEntry } from "../src/dashboard/registry.js";
 import { promptReminder } from "../src/hooks.js";
 import { createServer } from "../src/server.js";
 import { parsePlanFile } from "../src/planFile.js";
-import { Project } from "../src/project.js";
+import { PROJECT_TALK, Project } from "../src/project.js";
 import { tempDir } from "./tmp.js";
 
 const NOW = new Date("2026-10-28T10:00:00.000Z");
@@ -324,6 +324,77 @@ describe("the dashboard endpoints", () => {
     expect((await post("messages", { text: "x".repeat(20000) })).status).toBe(413);
     expect((await post("questions/q9/answer", { answer: "A" })).status).toBe(404);
     expect(existsSync(join(root, ".progressor/talk/dark-mode.md"))).toBe(false); // nothing was written
+  });
+});
+
+describe("messages to the whole project", () => {
+  const projectTalk = () => parsePlanFile(readFileSync(join(root, ".progressor/talk/_project.md"), "utf8"), PROJECT_TALK);
+  let client: Client;
+  /** An AI chat in the project that holds no goal. */
+  let other: Project;
+  beforeEach(async () => {
+    other = new Project({ root, session: { id: "s-b", pid: process.pid }, now: () => clock });
+    const server = createServer(other);
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: "test", version: "0" });
+    await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
+  });
+  const call = async (name: string, args: Record<string, unknown> = {}) => {
+    const r = (await client.callTool({ name, arguments: args })) as { content: { text: string }[]; isError?: boolean };
+    return { text: r.content.map((c) => c.text).join("\n"), isError: r.isError ?? false };
+  };
+
+  it("are kept in their own talk file, out of git like the rest", () => {
+    page.sendMessage(PROJECT_TALK, "Stop everything");
+    expect(readFileSync(join(root, ".progressor/talk/_project.md"), "utf8")).toMatch(/^# The whole project: talk with the Developer\n/);
+    expect(projectTalk().message("m1")).toMatchObject({ text: "Stop everything", state: "new" });
+    expect(readFileSync(join(root, ".progressor/.gitignore"), "utf8")).toMatch(/^talk\/$/m);
+  });
+
+  it("reach an AI chat that holds no goal, once, and stay listed until replied to", async () => {
+    page.sendMessage(PROJECT_TALK, "Start on the logo next");
+    let { text } = await call("get_status");
+    expect(text.split("\n")[0]).toBe("New from the Developer on the dashboard (act on it, then answer each message with reply_to_developer):");
+    expect(text).toContain("- Message m1 to the whole project: Start on the logo next (reply with whole_project: true)");
+    ({ text } = await call("get_status"));
+    expect(text).not.toContain("New from the Developer");
+    expect(text).toContain("Messages to the whole project not replied to yet: m1 Start on the logo next");
+    const replied = await call("reply_to_developer", { message: "m1", whole_project: true, reply: "Starting on the logo." });
+    expect(replied.isError).toBe(false);
+    expect(projectTalk().message("m1")).toMatchObject({ state: "replied", reply: "Starting on the logo." });
+    expect((await call("get_status")).text).not.toContain("m1");
+  });
+
+  it("end any tool reply, and a reply to a missing one is refused", async () => {
+    page.sendMessage(PROJECT_TALK, "Stop everything");
+    expect((await call("get_rules")).text).toContain("- Message m1 to the whole project: Stop everything");
+    expect((await call("reply_to_developer", { message: "m9", whole_project: true, reply: "ok" })).isError).toBe(true);
+  });
+
+  it("show in the Claude Code prompt hook, even with no goal in progress", () => {
+    agent.releaseGoal("dark-mode");
+    page.sendMessage(PROJECT_TALK, "Stop everything");
+    const hook = new Project({ root, session: { id: "hook", pid: 1 }, now: () => clock });
+    expect(promptReminder(hook.overview(), clock)).toContain("New from the Developer on the dashboard: message m1 to the whole project: Stop everything. Call get_status to act on it.");
+    expect(projectTalk().message("m1")!.state).toBe("new");
+  });
+
+  it("are sent and listed through the dashboard", async () => {
+    const registry = join(tempDir("progressor-registry-"), "projects.json");
+    const d = await startDashboard({ project: agent, registryFile: registry, port: 20000 + Math.floor(Math.random() * 20000) });
+    try {
+      const id = projectEntry(root).id;
+      const res = await fetch(new URL(`/api/projects/${id}/goals/${PROJECT_TALK}/messages`, d.url), {
+        method: "POST",
+        headers: { origin: new URL(d.url).origin, "x-progressor": "talk", "content-type": "application/json" },
+        body: JSON.stringify({ text: "Stop everything" }),
+      });
+      expect(res.status).toBe(201);
+      const roadmap = (await (await fetch(new URL(`/api/projects/${id}/roadmap`, d.url))).json()) as { projectTalk: { messages: unknown[] } };
+      expect(roadmap.projectTalk.messages).toMatchObject([{ id: "m1", text: "Stop everything", state: "new" }]);
+    } finally {
+      await d.close();
+    }
   });
 });
 

@@ -5,6 +5,9 @@ export const CONTEXT_HASH = "#/context";
 
 export const contextFromHash = (hash: string) => hash === CONTEXT_HASH;
 
+/** The address of the page for messages to the whole project. */
+export const TALK_HASH = "#/talk";
+
 export type ContextBlock = { kind: "paragraph"; text: string } | { kind: "list"; ordered: boolean; items: string[] };
 
 const BULLET = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/;

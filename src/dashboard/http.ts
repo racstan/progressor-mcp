@@ -11,7 +11,7 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { type Origin, latestOrigin } from "../origin.js";
 import type { Decision, HandResult, HandTest, Message, Note, Question, TaskStatus } from "../planFile.js";
 import { withLock } from "../lock.js";
-import { PROGRESSOR_DIR, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
+import { PROGRESSOR_DIR, PROJECT_TALK, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
 import { defaultServersDir, listServers, requestStop, sessionOfProcess } from "../servers.js";
@@ -136,6 +136,13 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
   return {
     roadmap: () => {
       const roadmap = project.roadmap();
+      const projectTalkMessages = (): Message[] => {
+        try {
+          return project.talk(PROJECT_TALK).messages;
+        } catch {
+          return [];
+        }
+      };
       return {
         root: project.root,
         file: roadmapFile,
@@ -155,6 +162,8 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
         schedule: project.schedule(),
         // Shared resources in use right now (resources.ts); runtime state, not part of the plan.
         resources: project.resources(sessionOf).list(),
+        // The Developer's messages to the whole project and the AI's replies (talk/_project.md).
+        projectTalk: { messages: projectTalkMessages() },
       };
     },
     goal: (goalId: string) => {

@@ -115,12 +115,14 @@ function Ask({ question: q, about, projectId, goalId, onChanged }: { question: Q
 function Write({ projectId, goalId, onChanged }: Omit<Props, "view">) {
   const { busy, error, run } = useSend(onChanged);
   const [text, setText] = useState("");
+  // "_project" is the talk with the whole project (project.ts).
+  const about = goalId === "_project" ? "the whole project" : "this goal";
   return (
     <form className="write" onSubmit={(e) => {
       e.preventDefault();
       if (text.trim()) void run(() => sendMessage(projectId, goalId, text.trim())).then((ok) => ok && setText(""));
     }}>
-      <textarea rows={2} value={text} maxLength={2000} onChange={(e) => setText(e.target.value)} placeholder="Write to your AI about this goal…" aria-label="Write to your AI about this goal"
+      <textarea rows={2} value={text} maxLength={2000} onChange={(e) => setText(e.target.value)} placeholder={`Write to your AI about ${about}…`} aria-label={`Write to your AI about ${about}`}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) e.currentTarget.form?.requestSubmit();
         }} />

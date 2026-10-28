@@ -8,10 +8,10 @@ import { launchFor, startedViaNpx } from "./init.js";
 import { withLock } from "./lock.js";
 import { parseDuration, roughDuration, sayDuration, timeText } from "./estimate.js";
 import { type Decision, type Detour, type HelperInfo, type NewTask, type Note, type Task, type TaskStatus, TIMED, timeSpent } from "./planFile.js";
-import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, type Project, type SessionStatus, type Status, type TaskOperation } from "./project.js";
+import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, PROJECT_TALK, type Project, type SessionStatus, type Status, type TaskOperation } from "./project.js";
 import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
 import { handTestLines, handTestWord } from "./handTestText.js";
-import { elsewhereNewsLine, newsLines, talkLines } from "./talkText.js";
+import { elsewhereNewsLine, newsLines, projectTalkLine, talkLines } from "./talkText.js";
 import { type ResourceLock, holderText, resourceLine } from "./resources.js";
 import { type Goal, type StandingInstruction, hardFirst, helperLimit, ruleText } from "./roadmap.js";
 import type { GoalSchedule, Schedule } from "./schedule.js";
@@ -29,7 +29,7 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 7. Talk to the Developer in everyday words: say "step" for Task and "side trip" for Detour, and leave out tool names, IDs and the files in .progressor/. Give them the dashboard link from get_status at the start of a conversation and when a Goal is finished.
 8. A lasting rule from the Developer ("always...", "never...") is saved with add_standing_instruction (update_standing_instruction changes or removes one); a rule that must never be broken (they say "never", "this is a hard rule") with hard: true. update_context keeps the project's short Important context page; add_decision records a choice that is not a project rule; add_note records something that belongs to a Goal instead of fixing it now.
 9. Anything only the Developer can try by hand goes in add_hand_test, not in your chat summary.
-10. The Developer can write to you on the dashboard: their messages and answers arrive at the end of your next Progressor reply under "New from the Developer". Act on each message as their instruction and answer with reply_to_developer. For a product or UX choice, use ask_developer with 2 to 4 short choices instead of stopping in the chat.
+10. The Developer can write to you on the dashboard: their messages and answers arrive at the end of your next Progressor reply under "New from the Developer". Act on each message as their instruction and answer with reply_to_developer (whole_project: true for a message to the whole project). For a product or UX choice, use ask_developer with 2 to 4 short choices instead of stopping in the chat.
 11. When you brief a helper agent, paste in the block from get_rules: helpers don't see the Standing Instructions. Before starting something only one can use at a time (a dev window, a port), call claim_resource; release_resource when done.
 12. Work that belongs to another project using Progressor goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it.`;
 
@@ -508,13 +508,13 @@ export async function appRoots(server: McpServer, timeoutMs: number): Promise<st
 
 export function createServer(project: Project, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: "progressor", version: VERSION }, { instructions: INSTRUCTIONS });
-  // What the Developer wrote on the dashboard to the Goals this Session holds, now marked as shown.
+  // What the Developer wrote on the dashboard to the whole project (shown to whichever Session calls
+  // first, with or without a Goal) and to the Goals this Session holds, now marked as shown.
   const takeNews = () =>
     newsLines(
-      project
-        .claimedGoals()
-        .filter((g) => project.hasNewFromDeveloper(g.id))
-        .map((g) => ({ goal: g.id, from: project.takeNewFromDeveloper(g.id) })),
+      [PROJECT_TALK, ...project.claimedGoals().map((g) => g.id)]
+        .filter((id) => project.hasNewFromDeveloper(id))
+        .map((id) => ({ goal: id, from: project.takeNewFromDeveloper(id) })),
     );
   const status = () => {
     const news = takeNews();
@@ -534,9 +534,11 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         }
       });
     const elsewhereNews = elsewhereNewsLine(unheld);
+    const toProject = projectTalkLine(project.projectMessages());
     const text = [
       ...news,
       ...(elsewhereNews ? [elsewhereNews] : []),
+      ...(toProject ? [toProject] : []),
       formatStatus(session, project.schedule(), [...project.helperWarnings(), ...resourceLines(project.resources().list(), project.now())]),
     ].join("\n");
     // The Developer's new hand-test marks are now shown, so the next status calls only later ones new.
@@ -1171,16 +1173,17 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Reply to the Developer",
       description:
-        "Answer a message the Developer sent you on the dashboard (shown under 'New from the Developer' with its ID, such as m2): say in a sentence or two, in plain words, what you did or will do about it. The reply shows under their message on the dashboard. Reply to every message, even if only to say you will do it later.",
+        "Answer a message the Developer sent you on the dashboard (shown under 'New from the Developer' with its ID, such as m2): say in a sentence or two, in plain words, what you did or will do about it. The reply shows under their message on the dashboard. Reply to every message, even if only to say you will do it later. A message to the whole project is answered with whole_project: true and needs no Goal.",
       inputSchema: {
         goal: heldGoal,
         message: z.string().describe("The message ID, such as 'm2'."),
         reply: z.string().max(2000).describe("Your answer, in plain words for someone who doesn't code."),
+        whole_project: z.boolean().optional().describe("True for a message to the whole project rather than to a Goal."),
       },
     },
-    ({ goal, message, reply }) =>
+    ({ goal, message, reply, whole_project }) =>
       respondIn(undefined, () => {
-        const m = project.replyToDeveloper(message, reply, goal);
+        const m = whole_project ? project.replyToProjectMessage(message, reply) : project.replyToDeveloper(message, reply, goal);
         return withNow(`Replied to message ${m.id}. The Developer sees it on the dashboard.`);
       }),
   );
