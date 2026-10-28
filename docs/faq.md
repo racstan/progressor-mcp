@@ -28,9 +28,13 @@ When your AI has to do something that isn't the current step, such as fixing a b
 
 Ask your AI to change it: *"Add a step to send a copy to the customer."* The plan files are plain text, so you can read them, but leave the editing to your AI: it keeps them in the right shape, and the dashboard reads them.
 
-## Should I commit the `.progressor` folder?
+## Is my plan private? Should I commit the `.progressor` folder?
 
-That's up to you. Committing it keeps the history of how the project was built, and lets everyone working on it (people and AIs) see the same plan. If you'd rather not, add `.progressor/` to your `.gitignore`.
+Your plan is private by default. It is a set of plain markdown files in your project's `.progressor/` folder, on your computer, and nothing is sent anywhere. When Progressor starts a plan, it puts a `.gitignore` in that folder that keeps the whole plan out of git, so it doesn't end up in your project's history or on GitHub.
+
+Sharing it is up to you. Committing the plan keeps the history of how the project was built, and lets everyone working on it (people and AIs, on any computer) see the same plan. To share it, open `.progressor/.gitignore` and delete the line that is just `*`. What you write to your AI on the dashboard, and its screenshots, stay out of git either way.
+
+Projects that had a plan before version 1.0.0 are left as they were.
 
 ## Can two AI chats work on the same project?
 

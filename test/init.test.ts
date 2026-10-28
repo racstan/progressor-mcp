@@ -92,15 +92,15 @@ describe("the Windows launcher for this computer", () => {
 describe("init", () => {
   it("leaves .mcp.json alone without the server, for an app that already runs Progressor", () => {
     const changes = planInit(root, global, { server: false });
-    expect(changes.map((c) => c.file)).toEqual([".claude/settings.json", "CLAUDE.md", "AGENTS.md", ".progressor/roadmap.md"]);
+    expect(changes.map((c) => c.file)).toEqual([".claude/settings.json", "CLAUDE.md", "AGENTS.md", ".progressor/roadmap.md", ".progressor/.gitignore"]);
     applyChanges(changes);
     expect(existsSync(join(root, ".mcp.json"))).toBe(false);
     expect(planInit(root, global, { server: false })).toEqual([]);
   });
 
-  it("sets up a fresh project: server, hooks, a note for the Agent and an empty Roadmap", () => {
+  it("sets up a fresh project: server, hooks, a note for the Agent, an empty Roadmap kept out of git", () => {
     const changes = planInit(root, global);
-    expect(changes.map((c) => c.file)).toEqual([".mcp.json", ".claude/settings.json", "CLAUDE.md", "AGENTS.md", ".progressor/roadmap.md"]);
+    expect(changes.map((c) => c.file)).toEqual([".mcp.json", ".claude/settings.json", "CLAUDE.md", "AGENTS.md", ".progressor/roadmap.md", ".progressor/.gitignore"]);
     applyChanges(changes);
 
     expect(json(".mcp.json")).toEqual({ mcpServers: { progressor: { command: "progressor-mcp", args: [] } } });

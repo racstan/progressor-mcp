@@ -90,6 +90,7 @@ AI chats forget. A long chat gets its memory compressed, a new chat starts from 
 - **Everything is saved in your project.** The goals, every step and where each one stands, the side trips and why they happened, the decisions made along the way, notes, your rules and the project's background are kept in plain files in your project folder, not in the chat.
 - **New chats pick up where the last one stopped.** Every new chat, and every chat after its memory is compressed, starts by reading the plan. Just say *"carry on"*.
 - **Switch apps or AI tools freely.** The plan belongs to the project, not to the app. Start in Claude Code, carry on in Cursor or VS Code, and the next AI sees exactly where things stand.
+- **Private, and yours.** The plan is plain markdown files on your computer: nothing is sent anywhere, and it's kept out of git unless you choose to share it ([how](docs/faq.md#is-my-plan-private-should-i-commit-the-progressor-folder)). You can read every file, and delete them whenever you like.
 - **The same plan for you and the AI.** What you see on the dashboard is what the AI reads, so you always know what's done, what's under way and what's waiting on you.
 
 ## Set it up
