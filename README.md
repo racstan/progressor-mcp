@@ -1,6 +1,6 @@
 <h1 align="center">Progressor</h1>
 
-<p align="center"><b>See what your AI is building, step by step, on a page that updates by itself.</b></p>
+<p align="center"><b>Your AI's plan, saved in your project and shown live, so neither you nor your AI ever loses track of the work.</b></p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/progressor-mcp"><img src="https://img.shields.io/npm/v/progressor-mcp" alt="npm"></a>
@@ -8,18 +8,24 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" alt="License: GPL v3"></a>
 </p>
 
+**The problem:** AI chats forget. When a long chat gets its memory compressed, or you start a new chat, the AI no longer knows what was planned, what's done or what's left, and you end up explaining it all again.
+
+**What Progressor does:** your AI writes its plan, a **goal** with **steps**, into your project folder and keeps it up to date as it works. A compressed chat, a new chat, even a different AI app reads that plan and carries on where the work stopped. And you see the same plan on a page in your browser that updates by itself: what the AI is doing right now, what's done, and what it needs from you.
+
 <p align="center">
-  <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/demo.gif" alt="An AI works through &quot;Shopping list from recipes&quot;: steps tick off, a side trip opens and adds a step to the plan, the map shows the route, then Statistics and Home" width="900">
+  <a href="YOUTUBE_URL"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail.png" alt="Watch the 3-minute video on YouTube" width="640"></a>
   <br>
-  <sub><a href="https://github.com/racstan/progressor-mcp/blob/main/docs/media/demo.mp4">▶ Watch the demo as a video</a></sub>
+  <sub><a href="YOUTUBE_URL">▶ Watch the 3-minute video on YouTube</a></sub>
 </p>
 
-You tell your AI coding assistant what you want. Progressor has it plan the work as a **goal** with **steps**, keep that plan up to date as it works, and say so when it steps off the plan. You follow along on a dashboard in your browser: what the AI is doing right now, how far along it is, what it needs from you, and how long things really take. You can write to your AI from the page too.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/demo.gif" alt="An AI works through &quot;Shopping list from recipes&quot;: the step it is on is highlighted, steps tick off, a side trip opens and comes back" width="900">
+</p>
 
 It works with any app that supports [MCP](https://modelcontextprotocol.io) (the standard way AI apps add tools): Claude Code, Claude Desktop, VS Code with Copilot, Cursor, Windsurf, Codex and others.
 
 <p align="center">
-  <a href="https://github.com/racstan/progressor-mcp/blob/main/docs/media/demo.mp4"><img src="https://img.shields.io/badge/demo-watch_the_video-111111?style=for-the-badge" alt="Watch the demo"></a>
+  <a href="YOUTUBE_URL"><img src="https://img.shields.io/badge/video-watch_on_YouTube-111111?style=for-the-badge" alt="Watch the video"></a>
   &nbsp;
   <a href="#set-it-up"><img src="https://img.shields.io/badge/set_it_up-2_minutes-111111?style=for-the-badge" alt="Set it up"></a>
 </p>
