@@ -23,7 +23,7 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 1. First thing in every conversation, and again after your context is compressed, call get_status and follow the Standing Instructions it lists. If it says one Goal is paused, claim it (claim_goal) and carry on.
 2. When the Developer asks for work no Goal covers, plan it as a Goal: a short title, an Outcome (one sentence) and Tasks, each with the files it touches, a one-line summary and an estimate ("45m", "2h"). Tell the Developer the plan in a few plain lines, then add_goal with claim: true. A quick question needs no Goal.
 3. Before you change code for a Task, call start_task; when it is done, complete_task with the files you touched. Keep summaries and estimates true with update_task; drop_task what is not needed. Record every change as it happens, so the dashboard keeps moving. set_task_state records Tasks in other hands (with a helper, waiting on you, checked, released); if get_status shows a helper limit, keep to it.
-4. To change several Tasks at once, make one update_tasks call (applied in order, all or nothing); it is the cheapest way. move_task moves a Task to another Goal. To hold several Goals, claim each one and pass goal (its ID) to the tools that change a Goal.
+4. To change several Tasks at once, make one update_tasks call (applied in order, all or nothing). move_task moves a Task to another Goal. To hold several Goals, claim each one and pass goal (its ID) to the tools that change a Goal.
 5. About to change code for something that is not the current Task? Call start_detour with the reason first; afterwards end_detour ("merge back", "return" or "recalibrate").
 6. When every Task is done, released or dropped and the Outcome is true, call complete_goal and tell the Developer in one sentence.
 7. Talk to the Developer in everyday words: say "step" for Task and "side trip" for Detour, and leave out tool names, IDs and the files in .progressor/. Give them the dashboard link from get_status at the start of a conversation and when a Goal is finished.
@@ -31,7 +31,8 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 9. Anything only the Developer can try by hand goes in add_hand_test, not in your chat summary. Show them a screenshot or screen recording with attach_picture instead of naming a file.
 10. The Developer can write to you on the dashboard: their messages and answers arrive at the end of your next Progressor reply under "New from the Developer". Act on each message as their instruction and answer with reply_to_developer (whole_project: true for a message to the whole project). For a product or UX choice, use ask_developer with 2 to 4 short choices instead of stopping in the chat.
 11. When you brief a helper agent, paste in the block from get_rules: helpers don't see the Standing Instructions. Before starting something only one can use at a time (a dev window, a port), call claim_resource; release_resource when done.
-12. Work that belongs to another project using Progressor goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it.`;
+12. Work that belongs to another project using Progressor goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it.
+13. A * line in .progressor/.gitignore keeps the plan out of git. If the Developer wants it in git, delete that line; to make it private again, add it back.`;
 
 const resourceName = z.string().max(80).describe("The shared thing's name, such as 'dev-window' or 'plasmashell'. Case and spaces do not matter.");
 const resourceLabel = z

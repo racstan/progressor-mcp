@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applyChanges, launchFor, planInit } from "../src/init.js";
 import { PRIVATE_GITIGNORE, Project } from "../src/project.js";
+import { INSTRUCTIONS } from "../src/server.js";
 import { tempDir } from "./tmp.js";
 
 let root: string;
@@ -32,6 +33,11 @@ describe("a new plan stays out of git", () => {
     p.sendMessage("dark-mode", "Hello");
     expect(ignore().startsWith(PRIVATE_GITIGNORE)).toBe(true);
     expect(ignore()).toMatch(/^talk\/$/m);
+  });
+
+  it("tells the AI how to put the plan in git when the Developer asks, and how to make it private again", () => {
+    expect(INSTRUCTIONS).toMatch(/\.progressor\/\.gitignore/);
+    expect(INSTRUCTIONS).toMatch(/in git/);
   });
 
   it("leaves a plan that already exists as it is, so a shared plan stays shared", () => {
