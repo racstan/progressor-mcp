@@ -32,6 +32,7 @@ import {
   goalState,
   goalTime,
   helperLine,
+  resourceWords,
   scheduleLine,
   statusClass,
   statusLine,
@@ -626,6 +627,12 @@ export function App() {
               <p className="schedule" title={SCHEDULE_HINT}>
                 <span aria-hidden="true">⏱ </span>
                 {schedule}
+              </p>
+            )}
+            {(roadmap?.resources ?? []).length > 0 && (
+              <p className="schedule resources" title="Something only one AI chat or helper can use at a time. It is marked so the others wait.">
+                <span aria-hidden="true">🔒 </span>
+                {roadmap!.resources!.map((l) => resourceWords(l, new Date())).join(" · ")}
               </p>
             )}
             {/* One Roadmap, many Goals: the Goals hang off a single rail so they read as parts of one plan. */}

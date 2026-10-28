@@ -10,6 +10,7 @@ import { parseDuration, roughDuration, sayDuration, timeText } from "./estimate.
 import { type Decision, type Detour, type HandTest, type HelperInfo, type NewTask, type Note, type Task, type TaskStatus, TIMED, timeSpent } from "./planFile.js";
 import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, type Project, type SessionStatus, type Status, type TaskOperation } from "./project.js";
 import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
+import { type ResourceLock, holderText, resourceLine } from "./resources.js";
 import { type Goal, type StandingInstruction, hardFirst, helperLimit, ruleText } from "./roadmap.js";
 import type { GoalSchedule, Schedule } from "./schedule.js";
 
@@ -30,7 +31,15 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 9. Record a choice made along the way that is not a lasting project rule (such as "old models get thinking on/off only") with add_decision, so it survives context compression. When you spot something that belongs to a Goal, this one or another (a bug found during cleanup that belongs to the Voice Goal), add_note on that Goal instead of fixing it now; once it is dealt with, resolve it with update_note.
 9a. Anything only the Developer can try by hand (a permission prompt to allow, a screen to look at) goes in add_hand_test, not in your chat summary: they mark each one on the dashboard, and get_status shows what is open and what failed. A failure adds a Task to the Goal. A Goal can't be completed while a hand test is unmarked, unless the Developer says to finish anyway (unmarked_hand_tests_ok).
 10. When you brief a helper agent, call get_rules and paste its block into the brief: helpers don't see the Standing Instructions, and the hard rules apply to them too.
-11. Work you do here that belongs to another project using Progressor (releasing it, say) goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it. Those changes are marked as made from this project, and a Goal an AI chat there is working on can only get a note.`;
+11. Some things only one session or helper can use at a time (a dev window that allows one instance, the desktop shell, a port). Before you or a helper start something that needs one, call claim_resource with its name and why; if it is refused, someone else is using it: do not start it now, do other work and try again later. Release it with release_resource when the work ends. A helper usually cannot call Progressor itself, so claim on its behalf before you start it (pass label, such as "helper: media run") and release when it hands back; put the resource name in its brief. get_status shows what is in use.
+12. Work you do here that belongs to another project using Progressor (releasing it, say) goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it. Those changes are marked as made from this project, and a Goal an AI chat there is working on can only get a note.`;
+
+const resourceName = z.string().max(80).describe("The shared thing's name, such as 'dev-window' or 'plasmashell'. Case and spaces do not matter.");
+const resourceLabel = z
+  .string()
+  .max(100)
+  .optional()
+  .describe("Who it is held for when that is not this Session itself, such as 'helper: media run'. Claim and release a helper's lock with the same label.");
 
 const estimateText = z
   .string()
@@ -106,6 +115,13 @@ const hardFlag = z
 const outcome = z
   .string()
   .describe("What done looks like, in one sentence, such as 'Users can sign in with Google and stay signed in for 30 days'.");
+
+/** The locks held now, for get_status; nothing when none is. */
+export function resourceLines(locks: ResourceLock[], now: Date): string[] {
+  return locks.length > 0
+    ? ["In use now (claim_resource before using one, release_resource after):", ...locks.map((l) => `- ${resourceLine(l, now)}`)]
+    : [];
+}
 
 function goalLine(g: Goal): string {
   return `- ${g.id}: ${g.title} (${g.status})`;
@@ -516,7 +532,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   const server = new McpServer({ name: "progressor", version: VERSION }, { instructions: INSTRUCTIONS });
   const status = () => {
     const session = project.sessionStatus();
-    const text = formatStatus(session, project.schedule(), project.helperWarnings());
+    const text = formatStatus(session, project.schedule(), [...project.helperWarnings(), ...resourceLines(project.resources().list(), project.now())]);
     // The Developer's new hand-test marks are now shown, so the next status calls only later ones new.
     for (const s of session.held) if (s.handTests.some((h) => h.result !== "pending" && !h.seen)) project.acknowledgeHandTests(s.goal!.id);
     return text;
@@ -710,6 +726,58 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         project.claimGoal(goal, { takeover });
         return status();
       }),
+  );
+
+  server.registerTool(
+    "claim_resource",
+    {
+      title: "Claim resource",
+      description:
+        "Claim a named shared resource that only one session or helper can use at a time (a dev window that allows a single instance, plasmashell, a port), before you or a helper start something that needs it. Refused, saying who holds it, since when and why, when someone else has it: then do not start it; do other work and try again later (nothing waits for you). Claiming your own resource again refreshes its time. It frees itself after `minutes` (30 unless given, at most 240) from the last claim, when its Session ends, or when you release it. A helper usually cannot call Progressor: claim on its behalf before you start it, with label such as 'helper: media run', and call release_resource when it hands back.",
+      inputSchema: {
+        resource: resourceName,
+        reason: z.string().max(300).describe("Why you need it, in a few words, such as 'running the UI test'. Shown to whoever is refused."),
+        label: resourceLabel,
+        task: z.string().max(40).optional().describe("The Task ID it is for, such as 't3'."),
+        minutes: z.number().min(1).max(240).optional().describe("How long to keep it before it frees itself, from now. 30 if omitted; claim again to extend."),
+      },
+    },
+    ({ resource, reason, label, task, minutes }) =>
+      respondIn(undefined, () => {
+        const { lock, refreshed } = project.resources().claim(resource, { reason, label, task, minutes });
+        return `${refreshed ? "Refreshed" : "Claimed"} ${lock.resource} for ${holderText(lock)}; it frees itself in ${lock.minutes} m. Call release_resource when the work that needs it ends.`;
+      }),
+  );
+
+  server.registerTool(
+    "release_resource",
+    {
+      title: "Release resource",
+      description:
+        "Release a shared resource you claimed with claim_resource, as soon as the work that needed it ends (including a helper's: release it when the helper hands back). Pass the same label you claimed it with. Another holder's resource is refused, unless force is given, which is only for when the Developer says the holder is gone.",
+      inputSchema: {
+        resource: resourceName,
+        label: resourceLabel,
+        force: z.boolean().optional().describe("Release it even though someone else holds it. Only when the Developer asks."),
+      },
+    },
+    ({ resource, label, force }) =>
+      respondIn(undefined, () =>
+        project.resources().release(resource, { label, force })
+          ? `Released ${resource.trim().toLowerCase().replace(/\s+/g, "-")}.`
+          : `${resource} was not held, so there is nothing to release.`,
+      ),
+  );
+
+  server.registerTool(
+    "list_resources",
+    {
+      title: "List resources",
+      description: "Who holds which shared resource now, for how long, and why. get_status shows the same. Resources whose time is up or whose Session has ended are free and not listed.",
+      inputSchema: {},
+      annotations: { readOnlyHint: true },
+    },
+    () => respondIn(undefined, () => (project.resources().list().length > 0 ? resourceLines(project.resources().list(), project.now()).join("\n") : "Nothing is in use.")),
   );
 
   server.registerTool(

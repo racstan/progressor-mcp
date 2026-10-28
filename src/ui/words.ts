@@ -1,7 +1,7 @@
 // The words the dashboard shows. Its reader may not code, so every status is said in everyday words
 // (step, side trip, cancelled, finished) and never in the Agent's terms (Task, Detour, dropped).
 
-import { roughDuration, sayDuration, timeText } from "../estimate.js";
+import { minutesSince, roughDuration, sayDuration, timeText } from "../estimate.js";
 import type { GoalSchedule, Schedule } from "../schedule.js";
 
 export const GOAL_WORD: Record<string, string> = {
@@ -313,3 +313,9 @@ export function handTestsLine(tests: readonly { result: string }[]): string {
 
 /** Whether every thing to try by hand has been marked, so the goal has nothing left waiting on the person. */
 export const handTestsOpen = (tests: readonly { result: string }[]): number => tests.filter((t) => t.result === "pending").length;
+
+/** A shared resource in use, for the dashboard: "In use: dev window, by helper: media run, 4 m". */
+export function resourceWords(l: { resource: string; label?: string | undefined; session: string; since: string }, now: Date): string {
+  const by = l.label ?? `the AI (Session ${l.session})`;
+  return `In use: ${l.resource.replace(/-/g, " ")}, by ${by}, ${sayDuration(Math.max(1, Math.round(minutesSince(l.since, now))))}`;
+}

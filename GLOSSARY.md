@@ -119,3 +119,7 @@ _Avoid_: Backlog item, wishlist, feature request
 **Promotion**:
 Turning an Idea into a Task or a Goal.
 _Avoid_: Conversion, acceptance
+
+**Resource lock**:
+A claim on a named shared thing (a single-instance dev window, plasmashell) that only one Session or helper may use at a time. Held by a Session, optionally for a labelled helper; it frees itself when its time is up or its Session ends. Runtime state in the system's temp folder, not part of the plan. In everyday words: "in use".
+_Avoid_: Mutex, semaphore (and not a Claim, which is on a Goal)

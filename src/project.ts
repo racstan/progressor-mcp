@@ -20,6 +20,7 @@ import {
 } from "./planFile.js";
 import { gitBranches, orphanWarnings } from "./helperWork.js";
 import { type Origin } from "./origin.js";
+import { ResourceLocks } from "./resources.js";
 import { unsafeRoot } from "./root.js";
 import { type Claim, type Goal, type Idea, ROADMAP_REF, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
 import { type Schedule, computeSchedule } from "./schedule.js";
@@ -202,7 +203,7 @@ export class Project {
   private readonly isAlive: (pid: number) => boolean;
   private readonly sessionOf: ((pid: number) => string | undefined) | undefined;
   private readonly tidy: boolean;
-  private readonly now: () => Date;
+  readonly now: () => Date;
   private readonly unsafe: (root: string) => string | undefined;
   /** The project the changes come from, when this is another project's plan (see ProjectOptions.from). */
   readonly from: string | undefined;
@@ -375,6 +376,20 @@ export class Project {
     return claimMayBeLive(claim, { isAlive: this.isAlive, sessionOf: this.sessionOf, self: this.session });
   }
 
+  /**
+   * The locks on shared resources (see resources.ts). A reader that is not a Session (the
+   * dashboard) has no `self`, so a lock held by this very process still shows as held.
+   */
+  resources(sessionOf: ((pid: number) => string | undefined) | undefined = this.sessionOf): ResourceLocks {
+    const self = this.tidy ? this.session : undefined;
+    return new ResourceLocks({
+      root: this.root,
+      ...(self ? { self } : {}),
+      mayBeLive: ({ session, pid }) => claimMayBeLive({ session, pid, since: undefined }, { isAlive: this.isAlive, sessionOf, ...(self ? { self } : {}) }),
+      now: this.now,
+    });
+  }
+
   /** Whether a Goal is held by another Session that may still be running, which alone may change it. */
   heldElsewhere(goal: Goal): boolean {
     return this.claimIsLive(goal);
@@ -439,6 +454,7 @@ export class Project {
 
   /** Releases every Goal this Session holds, as it ends. */
   releaseAll(): void {
+    this.resources().releaseAll();
     const roadmap = this.roadmap();
     const held = this.claimedGoals(roadmap);
     if (held.length === 0) return;
