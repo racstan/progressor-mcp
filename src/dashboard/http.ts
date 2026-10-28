@@ -107,9 +107,11 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
     // The latest change an AI chat in another project made to the Goal, its Tasks, decisions or notes.
     let fromElsewhere: Origin | undefined = goal.updatedFrom;
     let openQuestions = 0;
+    let untriedTests = 0;
     try {
       const plan = project.plan(goalId);
       for (const t of plan.tasks) counts[t.status]++;
+      untriedTests = plan.handTests.filter((h) => h.result === "pending").length;
       openQuestions = project.talk(goalId).questions.filter((q) => q.state === "open").length;
       fromElsewhere = latestOrigin([goal.updatedFrom, ...[...plan.tasks, ...plan.decisions, ...plan.notes].map((i) => i.updatedFrom)]);
       done = counts.done + counts.released;
@@ -126,9 +128,10 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
       }
     };
     const planFile = project.planFilePath(goalId);
-    // A Goal with a Task waiting on the Developer, or a question for them, is waiting on them.
-    const waitingOnYou = counts["waiting on you"] > 0 || openQuestions > 0;
-    return { ...goal, planFile, done, total, counts, waitingOnYou, openQuestions, updatedAt: changed(planFile) ?? changed(roadmapFile), fromElsewhere };
+    // A Goal with a Task waiting on the Developer, a question for them or something to try by hand waits on them.
+    const waitingSteps = counts["waiting on you"];
+    const waitingOnYou = waitingSteps > 0 || openQuestions > 0 || untriedTests > 0;
+    return { ...goal, planFile, done, total, counts, waitingOnYou, openQuestions, untriedTests, waitingSteps, updatedAt: changed(planFile) ?? changed(roadmapFile), fromElsewhere };
   };
   return {
     roadmap: () => {
@@ -301,9 +304,31 @@ class Hub {
   overview() {
     return this.sync().map((entry) => {
       const api = this.projects.get(entry.id)?.api;
-      let goals: { id: string; title: string; status: string; done: number; total: number; waitingOnYou: boolean }[] = [];
+      let goals: {
+        id: string;
+        title: string;
+        status: string;
+        done: number;
+        total: number;
+        waitingOnYou: boolean;
+        openQuestions: number;
+        untriedTests: number;
+        waitingSteps: number;
+        updatedAt: number | undefined;
+      }[] = [];
       try {
-        goals = (api?.roadmap().goals ?? []).map(({ id, title, status, done, total, waitingOnYou }) => ({ id, title, status, done, total, waitingOnYou }));
+        goals = (api?.roadmap().goals ?? []).map(({ id, title, status, done, total, waitingOnYou, openQuestions, untriedTests, waitingSteps, updatedAt }) => ({
+          id,
+          title,
+          status,
+          done,
+          total,
+          waitingOnYou,
+          openQuestions,
+          untriedTests,
+          waitingSteps,
+          updatedAt,
+        }));
       } catch {
         // a Roadmap that cannot be read shows as a project with no Goals
       }

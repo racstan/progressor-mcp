@@ -326,3 +326,15 @@ describe("the dashboard endpoints", () => {
     expect(existsSync(join(root, ".progressor/talk/dark-mode.md"))).toBe(false); // nothing was written
   });
 });
+
+describe("what the dashboard says a goal needs", () => {
+  it("counts questions, steps waiting and things to try, and any of them makes the goal wait on you", () => {
+    const summary = () => dashboardApi(page).roadmap().goals.find((x) => x.id === "dark-mode")!;
+    expect(summary()).toMatchObject({ waitingOnYou: false, openQuestions: 0, untriedTests: 0, waitingSteps: 0 });
+    agent.addHandTest("Try the switch");
+    expect(summary()).toMatchObject({ waitingOnYou: true, untriedTests: 1 });
+    agent.markHandTest("dark-mode", "h1", "works");
+    agent.setTaskState("t2", "waiting on you");
+    expect(summary()).toMatchObject({ waitingOnYou: true, untriedTests: 0, waitingSteps: 1 });
+  });
+});
