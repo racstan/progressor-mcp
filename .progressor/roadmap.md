@@ -117,11 +117,10 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: Each step remembers when it was started and when it was finished, and the Steps list shows it on the row (done today 14:02, started 13:50) and in the step's details, with the exact time on hover; older steps fall back to when they last changed.
   - added: 2026-10-28T11:52:50.632Z by AI
   - updated: 2026-10-28T11:52:50.634Z by AI
-- [/] [Release 1.0.0](goals/release-1-0-0.md) ^release-1-0-0
+- [x] [Release 1.0.0](goals/release-1-0-0.md) ^release-1-0-0
   - outcome: Version 1.0.0 is ready on main with its changelog, the Finished group in the sidebar can be closed, and it is published once the Developer has tried it and says to push the tag.
-  - claimed by: s-759273 (pid 383086) since 2026-10-28T12:37:06.102Z
   - added: 2026-10-28T12:00:05.514Z by AI
-  - updated: 2026-10-28T12:00:05.516Z by AI
+  - updated: 2026-10-28T14:58:59.666Z by AI
 - [/] [Warn when the dashboard page is out of date](goals/warn-when-the-dashboard-page-is-out-of-date.md) ^warn-when-the-dashboard-page-is-out-of-date
   - outcome: When Progressor has been updated since the page was opened, or the page has lost touch with Progressor for over a minute, a bar at the top says so in plain words with a Refresh button; it goes away by itself when nothing is wrong.
   - added: 2026-10-28T12:09:33.502Z by AI

@@ -19,10 +19,11 @@
   - estimate: 15m
   - added: 2026-10-28T12:00:05.515Z by AI
   - updated: 2026-10-28T12:01:28.468Z by AI
-- [/] Push and tag v1.0.0 ^t3
-  - summary: Push main and the v1.0.0 tag, which publishes to npm and the MCP Registry; only once the Developer says so.
+- [x] Push and tag v1.0.0 ^t3
+  - summary: Pushed main and the v1.0.0 tag; the release workflow published 1.0.0 to npm (latest) and the MCP Registry. Tests passed on Linux, macOS and Windows.
   - estimate: 10m
-  - timing since: 2026-10-28T12:01:28.486Z
+  - time spent: 2h 58m
   - started: 2026-10-28T12:39:52.299Z
+  - finished: 2026-10-28T14:58:59.649Z
   - added: 2026-10-28T12:00:05.515Z by AI
-  - updated: 2026-10-28T14:48:20.172Z by AI
+  - updated: 2026-10-28T14:58:59.649Z by AI
