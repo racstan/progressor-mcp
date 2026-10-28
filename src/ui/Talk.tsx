@@ -2,7 +2,7 @@ import { useState } from "react";
 import { type GoalView, answerQuestion, sendMessage, takeBackMessage } from "./data.js";
 import { Icon } from "./Icon.js";
 import { RichText } from "./RichText.js";
-import { ago, exactDate, messageStateWords, sentWords, talkSummary } from "./words.js";
+import { ago, exactDate, messageStateWords, sentWords, talkSummary, whenWords } from "./words.js";
 
 type MessageView = GoalView["messages"][number];
 type QuestionView = GoalView["questions"][number];
@@ -75,7 +75,7 @@ export function Conversation({ projectId, goalId, view, onChanged }: Props) {
                 <div className="who">Your AI asked</div>
                 <RichText className="text" text={item.q.text} />
                 <div className="reply"><span className="who">You answered</span> {item.q.answer}</div>
-                {item.q.answeredAt && <div className="origin" title={exactDate(item.q.answeredAt)}>answered {ago(Date.parse(item.q.answeredAt))}</div>}
+                {item.q.answeredAt && <div className="origin" title={`${exactDate(item.q.answeredAt)} (${ago(Date.parse(item.q.answeredAt))})`}>answered {whenWords(item.q.answeredAt)}</div>}
               </li>
             ),
           )}

@@ -16,7 +16,7 @@ import { StepKey } from "./StepKey.js";
 import { type FileLink, Steps, StepIcon } from "./Steps.js";
 import { Conversation, OpenQuestions } from "./Talk.js";
 import { plainText } from "./text.js";
-import { SIDE_TRIP_HINT, ago, datesLine, datesTitle, elsewhereTag, finishWords, goalState } from "./words.js";
+import { SIDE_TRIP_HINT, ago, datesLine, datesTitle, elsewhereTag, exactDate, finishWords, goalState, whenWords } from "./words.js";
 
 type Goal = RoadmapView["goals"][number];
 type Tab = "steps" | "map" | "talk" | "notes";
@@ -78,7 +78,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
           {datesLine(goal) ? (
             <span className="state" title={datesTitle(goal)}>· {datesLine(goal)}</span>
           ) : (
-            state.updatedAt !== undefined && <span className="state">· updated {ago(state.updatedAt)}</span>
+            state.updatedAt !== undefined && <span className="state" title={`${exactDate(new Date(state.updatedAt).toISOString())} (${ago(state.updatedAt)})`}>· updated {whenWords(new Date(state.updatedAt).toISOString())}</span>
           )}
           {elsewhere && <span className="state" title={elsewhere.hint}>· {elsewhere.label}</span>}
           <span className="sp" />

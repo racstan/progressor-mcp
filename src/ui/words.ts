@@ -87,7 +87,6 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 export function exactDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  const two = (n: number) => String(n).padStart(2, "0");
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${two(d.getHours())}:${two(d.getMinutes())}`;
 }
 
@@ -102,35 +101,66 @@ const timeOf = (iso: string | undefined) => {
   return Number.isNaN(t) ? undefined : t;
 };
 
+const two = (n: number) => String(n).padStart(2, "0");
+const clock = (d: Date) => `${two(d.getHours())}:${two(d.getMinutes())}`;
+const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+/** "today 09:05", "yesterday 23:40", "3 Oct 15:30", or "3 Dec 2025 15:30" in another year; "" for no time. */
+export function whenWords(iso: string | undefined, now = Date.now()): string {
+  const t = timeOf(iso);
+  if (t === undefined) return "";
+  const d = new Date(t);
+  const today = new Date(now);
+  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  if (sameDay(d, today)) return `today ${clock(d)}`;
+  if (sameDay(d, yesterday)) return `yesterday ${clock(d)}`;
+  const year = d.getFullYear() === today.getFullYear() ? "" : ` ${d.getFullYear()}`;
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}${year} ${clock(d)}`;
+}
+
+/** The time of a second moment: only the clock when it is the same day as the first. */
+const thenWords = (iso: string, first: string | undefined, now: number) => {
+  const a = timeOf(first);
+  const b = timeOf(iso);
+  return a !== undefined && b !== undefined && sameDay(new Date(a), new Date(b)) ? clock(new Date(b)) : whenWords(iso, now);
+};
+
 /**
- * "Added 2 h ago by your AI · updated 10 min ago": the update is left out when it is the moment of
- * the adding or is not known, and names who made it only when that is someone else. "" when nothing is known.
+ * "Added today 14:00 by your AI · updated 15:50": the update is left out when it is the moment of the
+ * adding or is not known, and names who made it only when that is someone else. "" when nothing is known.
  */
 export function datesLine({ added, updated }: Dated, now = Date.now()): string {
   const addedAt = timeOf(added?.at);
   let updatedAt = timeOf(updated?.at);
   if (addedAt !== undefined && updatedAt === addedAt) updatedAt = undefined;
   const parts: string[] = [];
-  if (addedAt !== undefined) parts.push(`Added ${ago(addedAt, now)} by ${byWords(added!.by)}`);
+  if (addedAt !== undefined) parts.push(`Added ${whenWords(added!.at, now)} by ${byWords(added!.by)}`);
   if (updatedAt !== undefined) {
     const who = addedAt === undefined || updated!.by !== added!.by ? ` by ${byWords(updated!.by)}` : "";
-    parts.push(`${addedAt === undefined ? "Updated" : "updated"} ${ago(updatedAt, now)}${who}`);
+    parts.push(addedAt === undefined ? `Updated ${whenWords(updated!.at, now)}${who}` : `updated ${thenWords(updated!.at, added!.at, now)}${who}`);
   }
   return parts.join(" · ");
 }
 
-/** The hover over a dates line: the exact date and time of each. */
-export function datesTitle({ added, updated }: Dated): string {
-  const a = added && exactDate(added.at);
-  const u = updated && exactDate(updated.at);
+/** The hover over a dates line: the full date and time of each, and how long ago. */
+export function datesTitle({ added, updated }: Dated, now = Date.now()): string {
+  const full = (iso: string) => {
+    const e = exactDate(iso);
+    return e && `${e} (${ago(timeOf(iso)!, now)})`;
+  };
+  const a = added && full(added.at);
+  const u = updated && full(updated.at);
   return [a && `Added ${a}`, u && (a ? `updated ${u}` : `Updated ${u}`)].filter(Boolean).join(" · ");
 }
 
-/** "sent 5 min ago · answered 2 min ago", under a message the person wrote. */
+/** "sent today 15:55 · answered 15:58", under a message the person wrote. */
 export function sentWords({ sentAt, repliedAt }: { sentAt?: string; repliedAt?: string }, now = Date.now()): string {
-  const sent = timeOf(sentAt);
-  const replied = timeOf(repliedAt);
-  return [sent !== undefined && `sent ${ago(sent, now)}`, replied !== undefined && `answered ${ago(replied, now)}`].filter(Boolean).join(" · ");
+  return [
+    sentAt && whenWords(sentAt, now) && `sent ${whenWords(sentAt, now)}`,
+    repliedAt && whenWords(repliedAt, now) && `answered ${thenWords(repliedAt, sentAt, now)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /** Which step the work is on, counting only the steps that are not cancelled. */
