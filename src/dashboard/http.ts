@@ -110,7 +110,7 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
     try {
       const plan = project.plan(goalId);
       for (const t of plan.tasks) counts[t.status]++;
-      openQuestions = plan.questions.filter((q) => q.state === "open").length;
+      openQuestions = project.talk(goalId).questions.filter((q) => q.state === "open").length;
       fromElsewhere = latestOrigin([goal.updatedFrom, ...[...plan.tasks, ...plan.decisions, ...plan.notes].map((i) => i.updatedFrom)]);
       done = counts.done + counts.released;
       total = Object.values(counts).reduce((a, b) => a + b, 0) - counts.dropped;
@@ -161,8 +161,9 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
       const decisions: Decision[] = plan.decisions;
       const notes: Note[] = plan.notes;
       const handTests: HandTest[] = plan.handTests;
-      const messages: Message[] = plan.messages;
-      const questions: Question[] = plan.questions;
+      const talk = project.talk(goalId);
+      const messages: Message[] = talk.messages;
+      const questions: Question[] = talk.questions;
       return { goal, graph: buildGoalGraph(plan), decisions, notes, handTests, messages, questions };
     },
     item: (ref: string) => project.getItem(ref),

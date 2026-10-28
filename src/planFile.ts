@@ -837,10 +837,9 @@ export class PlanFile {
     return this.questions.find((q) => q.id === id);
   }
 
-  /** Adds an open question with its choices, optionally about one of the Tasks. */
+  /** Adds an open question with its choices, optionally about one of the Goal's Tasks (checked by the caller: questions are kept in the talk file, apart from the Tasks). */
   addQuestion(text: string, choices: string[], task: string | undefined, at: Date): Question {
     this.assignMissingIds();
-    if (task) this.taskBlock(task);
     const id = nextId(this.allIds(), "q");
     const b = newItem({ marker: " ", text: oneLine(text), id });
     for (const c of choices) addDetail(b, "choice", oneLine(c));

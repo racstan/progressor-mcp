@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -29,13 +29,42 @@ beforeEach(() => {
 
 const planText = () => readFileSync(join(root, ".progressor/goals/dark-mode.md"), "utf8");
 const plan = () => parsePlanFile(planText(), "dark-mode");
+/** The goal's talk file: kept out of git, beside the Plan File. */
+const talkText = () => readFileSync(join(root, ".progressor/talk/dark-mode.md"), "utf8");
+const talk = () => parsePlanFile(talkText(), "dark-mode");
 const later = (minutes: number) => (clock = new Date(NOW.getTime() + minutes * 60_000));
+
+describe("where the talk is kept", () => {
+  it("is in its own file that git ignores, never in the Plan File", () => {
+    page.sendMessage("dark-mode", "My client is Acme");
+    agent.askDeveloper("A or B?", ["A", "B"], { task: "t1" });
+    expect(planText()).not.toContain("Acme");
+    expect(planText()).not.toContain("## Messages");
+    expect(planText()).not.toContain("## Questions");
+    expect(talkText()).toMatch(/^# Dark mode: talk with the Developer\n/);
+    expect(talkText()).toContain("My client is Acme");
+    expect(readFileSync(join(root, ".progressor/.gitignore"), "utf8")).toMatch(/^talk\/$/m);
+  });
+
+  it("adds talk/ to a .gitignore that is already there, once", () => {
+    writeFileSync(join(root, ".progressor/.gitignore"), "scratch/\n");
+    page.sendMessage("dark-mode", "one");
+    page.sendMessage("dark-mode", "two");
+    expect(readFileSync(join(root, ".progressor/.gitignore"), "utf8")).toBe("scratch/\n\n# What you and your AI say on the dashboard stays on this computer\ntalk/\n");
+  });
+
+  it("an answer is still kept as a decision in the plan", () => {
+    agent.askDeveloper("A or B?", ["A", "B"]);
+    page.answerQuestion("dark-mode", "q1", "B");
+    expect(plan().decision("c1")!.text).toBe("A or B? The Developer answered: B");
+  });
+});
 
 describe("messages from the Developer", () => {
   it("are kept as checklist lines in their own section", () => {
     page.sendMessage("dark-mode", "Use the blue logo,\n not the green one");
-    expect(planText()).toContain(["## Messages", "", "- [ ] Use the blue logo, not the green one ^m1", "  - sent: 2026-10-28T10:00:00.000Z", ""].join("\n"));
-    expect(plan().messages).toEqual([
+    expect(talkText()).toContain(["## Messages", "", "- [ ] Use the blue logo, not the green one ^m1", "  - sent: 2026-10-28T10:00:00.000Z", ""].join("\n"));
+    expect(talk().messages).toEqual([
       expect.objectContaining({ id: "m1", text: "Use the blue logo, not the green one", state: "new", sentAt: "2026-10-28T10:00:00.000Z", reply: undefined }),
     ]);
   });
@@ -58,12 +87,12 @@ describe("messages from the Developer", () => {
       messages: [expect.objectContaining({ id: "m1", text: "Skip the export step" })],
       answers: [],
     });
-    expect(plan().message("m1")).toMatchObject({ state: "seen", seenAt: "2026-10-28T10:02:00.000Z" });
+    expect(talk().message("m1")).toMatchObject({ state: "seen", seenAt: "2026-10-28T10:02:00.000Z" });
     expect(agent.takeNewFromDeveloper("dark-mode")).toEqual({ messages: [], answers: [] });
     later(5);
     agent.replyToDeveloper("m1", "Dropped it: step t2 is cancelled.");
-    expect(plan().message("m1")).toMatchObject({ state: "replied", reply: "Dropped it: step t2 is cancelled.", repliedAt: "2026-10-28T10:05:00.000Z" });
-    expect(planText()).toContain("- [x] Skip the export step ^m1\n  - sent: 2026-10-28T10:00:00.000Z\n  - seen: 2026-10-28T10:02:00.000Z\n  - reply: Dropped it: step t2 is cancelled.\n  - replied: 2026-10-28T10:05:00.000Z");
+    expect(talk().message("m1")).toMatchObject({ state: "replied", reply: "Dropped it: step t2 is cancelled.", repliedAt: "2026-10-28T10:05:00.000Z" });
+    expect(talkText()).toContain("- [x] Skip the export step ^m1\n  - sent: 2026-10-28T10:00:00.000Z\n  - seen: 2026-10-28T10:02:00.000Z\n  - reply: Dropped it: step t2 is cancelled.\n  - replied: 2026-10-28T10:05:00.000Z");
   });
 
   it("a reply needs the Goal held and some words", () => {
@@ -78,7 +107,7 @@ describe("messages from the Developer", () => {
     page.sendMessage("dark-mode", "Oops");
     page.sendMessage("dark-mode", "Keep");
     page.deleteMessage("dark-mode", "m1");
-    expect(plan().messages.map((m) => m.id)).toEqual(["m2"]);
+    expect(talk().messages.map((m) => m.id)).toEqual(["m2"]);
     agent.takeNewFromDeveloper("dark-mode");
     expect(() => page.deleteMessage("dark-mode", "m2")).toThrow(/already seen/);
   });
@@ -100,7 +129,7 @@ describe("questions from the Agent", () => {
   it("are asked with two to four choices, optionally about a Task", () => {
     const q = agent.askDeveloper("Dark mode: on by default, or follow the computer?", ["On by default", "Follow the computer"], { task: "t1" });
     expect(q).toMatchObject({ id: "q1", state: "open", choices: ["On by default", "Follow the computer"], task: "t1", askedAt: NOW.toISOString() });
-    expect(planText()).toContain(
+    expect(talkText()).toContain(
       [
         "## Questions",
         "",
@@ -140,7 +169,7 @@ describe("questions from the Agent", () => {
     expect(() => page.answerQuestion("dark-mode", "q1", "B")).toThrow(/already answered/);
     agent.askDeveloper("C or D?", ["C", "D"]);
     agent.withdrawQuestion("q2");
-    expect(plan().question("q2")!.state).toBe("withdrawn");
+    expect(talk().question("q2")!.state).toBe("withdrawn");
     expect(() => page.answerQuestion("dark-mode", "q2", "C")).toThrow(/withdrawn/);
     expect(() => page.answerQuestion("dark-mode", "q2", " ")).toThrow();
   });
@@ -226,7 +255,7 @@ describe("the Agent's tools", () => {
     page.sendMessage("logo", "Make it round");
     const { text } = await call("get_status");
     expect(text).toContain("The Developer also wrote on goals you don't hold: logo (1 message). Claim the goal to read and act on it");
-    expect(parsePlanFile(readFileSync(join(root, ".progressor/goals/logo.md"), "utf8"), "logo").message("m1")!.state).toBe("new");
+    expect(parsePlanFile(readFileSync(join(root, ".progressor/talk/logo.md"), "utf8"), "logo").message("m1")!.state).toBe("new");
   });
 });
 
@@ -238,7 +267,7 @@ describe("the Claude Code prompt hook", () => {
     const hook = new Project({ root, session: { id: "hook", pid: 1 }, now: () => clock });
     const text = promptReminder(hook.overview(), clock)!;
     expect(text).toContain("New from the Developer on the dashboard: message m1: Use the blue logo; answer to q1: B. Call get_status to act on it.");
-    expect(plan().message("m1")!.state).toBe("new");
+    expect(talk().message("m1")!.state).toBe("new");
   });
 });
 
@@ -269,7 +298,7 @@ describe("the dashboard endpoints", () => {
     expect(view.messages).toMatchObject([{ id: "m1", text: "Use the blue logo" }]);
     expect(view.questions).toEqual([]);
     expect((await post("messages/m1/delete", {})).status).toBe(200);
-    expect(plan().messages).toEqual([]);
+    expect(talk().messages).toEqual([]);
     await post("messages", { text: "Again" });
     agent.takeNewFromDeveloper("dark-mode");
     const refused = await post("messages/m1/delete", {});
@@ -294,6 +323,6 @@ describe("the dashboard endpoints", () => {
     expect((await post("messages", { text: "  " })).status).toBe(400);
     expect((await post("messages", { text: "x".repeat(20000) })).status).toBe(413);
     expect((await post("questions/q9/answer", { answer: "A" })).status).toBe(404);
-    expect(plan().messages).toEqual([]);
+    expect(existsSync(join(root, ".progressor/talk/dark-mode.md"))).toBe(false); // nothing was written
   });
 });

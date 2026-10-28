@@ -117,7 +117,7 @@ A failed result adds a pending Task to the Goal (`Fix: <the test>`, its summary 
 
 ### Talking with the Developer
 
-The Developer can write to the Agent on the dashboard, and the Agent can ask them there. Progressor cannot wake an AI chat or type into it, so this is a mailbox: what the Developer sends reaches the Agent at its next Progressor call.
+The Developer can write to the Agent on the dashboard, and the Agent can ask them there. Progressor cannot wake an AI chat or type into it, so this is a mailbox: what the Developer sends reaches the Agent at its next Progressor call. It is kept in `.progressor/talk/<goal>.md`, which Progressor keeps out of git with `.progressor/.gitignore` (see [the format](markdown-format.md#messages-and-questions)); only an answer's decision goes in the committed plan.
 
 - **`ask_developer`** asks a question with 2 to 4 short `choices` (and optionally the `task` it is about); the Developer clicks one or answers in their own words. Pass `withdraw` with a question's ID to take back one that no longer needs an answer. While a question is open, the dashboard shows the Goal as *Waiting on you*. The answer is kept on the question and added as a decision.
 - **`reply_to_developer`** answers one of the Developer's messages (`message`, such as `m2`, and `reply`); the reply shows under it on the dashboard.

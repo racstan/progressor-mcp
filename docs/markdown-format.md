@@ -98,8 +98,8 @@ Every item ends its line with an ID marker: a space, a caret and the ID (`^t2`).
 | Decision             | `## Decisions` in a Plan File           | `c1`, `c2`, ...    | `progressor://<goal>/c1`         |
 | Note                 | `## Notes` in a Plan File               | `n1`, `n2`, ...    | `progressor://<goal>/n1`         |
 | Hand test            | `## Hand tests` in a Plan File          | `h1`, `h2`, ...    | `progressor://<goal>/h1`         |
-| Message              | `## Messages` in a Plan File            | `m1`, `m2`, ...    | `progressor://<goal>/m1`         |
-| Question             | `## Questions` in a Plan File           | `q1`, `q2`, ...    | `progressor://<goal>/q1`         |
+| Message              | `## Messages` in a talk file            | `m1`, `m2`, ...    | (none)                           |
+| Question             | `## Questions` in a talk file           | `q1`, `q2`, ...    | (none)                           |
 | Idea                 | `## Ideas` in roadmap.md                | `i1`, `i2`, ...    | `progressor://roadmap/i1`        |
 | Standing Instruction | `## Standing Instructions`              | `s1`, `s2`, ...    | `progressor://roadmap/s1`        |
 
@@ -238,7 +238,9 @@ The section is created after the Notes (or the Tasks) and before any Detour. A f
 
 ## Messages and questions
 
-`## Messages` holds what the Developer wrote to the Agent on the dashboard, and `## Questions` what the Agent asked them there. One checklist line each; the checkbox says where it stands:
+What the Developer and the Agent say to each other on the dashboard is **not** in the Plan File. Plan Files are usually committed, and people type things to their AI they would not put in git (client names, frustrations, sometimes a password), so each Goal's talk is kept in its own file, `.progressor/talk/<goal>.md`, and Progressor writes `talk/` into `.progressor/.gitignore` the first time it saves one (adding it once to a `.gitignore` already there). The talk therefore stays on the computer it was written on and does not travel with the repository.
+
+A talk file starts with `# <Goal title>: talk with the Developer`. `## Messages` holds what the Developer wrote to the Agent, and `## Questions` what the Agent asked them. One checklist line each; the checkbox says where it stands:
 
 | Section     | Checkbox | Meaning                                                              |
 | ----------- | -------- | -------------------------------------------------------------------- |
@@ -271,7 +273,7 @@ The section is created after the Notes (or the Tasks) and before any Detour. A f
   - seen: 2026-10-28T09:13:10.000Z
 ```
 
-Both sections are created when their first item is added, after the other sections and before any Detour. The dashboard writes messages and answers; the Agent's tools write questions and replies, and the `seen` lines when the Agent is shown a message or an answer (once). An answer is also added to `## Decisions` as `<the question> The Developer answered: <answer>`. The Developer can take back a message while it is still `[ ]`, which deletes its line. Files from before these sections read as having none; an older Progressor keeps them as unknown sections.
+The dashboard writes messages and answers; the Agent's tools write questions and replies, and the `seen` lines when the Agent is shown a message or an answer (once). An answer is also added to the Plan File's `## Decisions`, which is committed, as `<the question> The Developer answered: <answer>`: the choice belongs to the plan, the conversation does not. The Developer can take back a message while it is still `[ ]`, which deletes its line. A Goal without a talk file has said nothing yet.
 
 ## Hard rules
 
@@ -316,7 +318,7 @@ The tools are the way to change the plan, but a file edited by hand, or merged b
 - **Untouched items are copied verbatim.** When the Agent changes one item, only that item's lines are rewritten in the canonical form above; every other line keeps its original spelling (`* [ ]`, `[X]`, extra spaces and so on).
 - **Items without an ID** (a Task line typed by hand, say) are recognised and get the next free ID the next time Progressor writes that file.
 - **Unknown detail lines** under an item are kept, after the known ones, when that item is rewritten.
-- **Unknown sections** (any `##` heading other than the ones above; in a Plan File, `## Tasks`, `## Decisions`, `## Notes`, `## Hand tests`, `## Messages`, `## Questions` and `## Detour: ...` are known) and anything before the first `##` heading are kept as they are.
+- **Unknown sections** (any `##` heading other than the ones above; in a Plan File, `## Tasks`, `## Decisions`, `## Notes`, `## Hand tests` and `## Detour: ...` are known) and anything before the first `##` heading are kept as they are.
 - **Missing sections** are created at the end of the file when something needs to go in them.
 - Only top-level list lines (no indentation) are items. Indented lines belong to the item above them.
 
