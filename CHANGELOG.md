@@ -4,6 +4,10 @@ All notable changes to progressor-mcp. Each release is a Goal on Progressor's ow
 
 ## Unreleased
 
+### Edit the project notes yourself
+
+- **Add, change and remove your AI's rules on the dashboard.** Project notes has **+ Add a rule** (tick **Must never be broken** for a hard rule), and each rule has **Edit** and **Remove** (Remove asks first). **About this project** has **Edit** too, with a character count. Your AI is told about each change at its next step, as a message you can see on Message your AI.
+
 ### Handier links on the dashboard
 
 - **Copy for your AI is now short.** It copies a one-line pointer, such as *Step t3 "Login page" (in progress) in goal "Sign-in". Look it up with get_item progressor://sign-in/t3 (.progressor/goals/sign-in.md:12).* Your AI has Progressor, so it looks the rest up itself; paste it and say what you want.

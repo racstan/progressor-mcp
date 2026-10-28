@@ -150,7 +150,18 @@ POST /api/projects/<project>/goals/<goal>/questions/<id>/answer   {"answer": "Fo
 
 A message is cut to 2000 characters and written on one line. Messages can go to any Goal that is not cancelled, held or not. `GET /api/projects/<project>/goals/<goal>` now also returns `messages` and `questions`, and each Goal in the roadmap answer has `openQuestions`.
 
-The dashboard's hub version is now 4 (it was 3), so a Progressor with this change takes the port over from an older one that cannot take marks.
+Editing the project notes (the rules and the Important context) uses four more, with the header `x-progressor: notes` and the same checks (16 KB at most):
+
+```
+POST /api/projects/<project>/rules                {"text": "Ask before deleting files", "hard": true} → 201, the rule
+POST /api/projects/<project>/rules/<id>           {"text": "...", "hard": false}                  → 200, the rule (either field may be left out)
+POST /api/projects/<project>/rules/<id>/delete    {}                                              → 200
+POST /api/projects/<project>/context              {"text": "A shop for socks."}                   → 200 (empty text clears it; 400 over 4000 characters)
+```
+
+Each change also sends a message to the whole project ("On the dashboard I added a rule…"), so the Agent hears of it at its next call and replies as it would to any message. An unknown rule is 404; an empty rule is 400.
+
+The dashboard's hub version is now 7, so a Progressor with this change takes the port over from an older one that cannot take these.
 
 ## `progressor-mcp` commands
 
