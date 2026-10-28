@@ -46,7 +46,7 @@ The AI calls these; the server's instructions tell it when.
 
 | Tool | What it does |
 | --- | --- |
-| `get_status` | Every Goal this Session holds, each with its current Task, open Detour, Tasks with a helper (with their branch, folder and label when recorded), waiting on the Developer or checked (with their evidence), next Task, decisions and open notes; the helper limit and the schedule, one short line each, when set; then the Standing Instructions, the project folder and the dashboard link. |
+| `get_status` | Every Goal this Session holds, each with its current Task, open Detour, Tasks with a helper (with their branch, folder and label when recorded), waiting on the Developer or checked (with their evidence), next Task, decisions and open notes; the helper limit and the schedule, one short line each, when set; then the Standing Instructions, the project folder and the dashboard link. With no Goal claimed it lists only the Goals that are active, paused or planned, and counts the finished and cancelled ones (*Finished: 37 goals (not listed; get_item progressor://<goal> to look one up).*). |
 | `get_item` | Looks up any item by its `progressor://` ref, with its file and line; a Task with its time against its estimate, a Goal with its estimate and expected finish. |
 | `get_rules` | The Standing Instructions as a block to paste into a helper agent's brief: hard rules first, then the others, the helper limit if one is set, and a line telling the helper not to edit `.progressor/`. |
 | `add_goal` | Adds a Goal with an optional Task list, Outcome, `estimate` and short ID; `claim: true` claims it at once; `done: true` records finished work. |
@@ -60,10 +60,10 @@ The AI calls these; the server's instructions tell it when.
 | `list_resources` | Who holds which resource, for how long and why. `get_status` shows the same. |
 | `complete_goal` | Marks the claimed Goal done, once every Task is done, released or dropped, no Detour is open and the Developer has marked every hand test. `unmarked_hand_tests_ok: true` finishes it anyway, only when the Developer says so. |
 | `add_tasks` | Appends Tasks (title, files, summary and `estimate`) to the claimed Goal. |
-| `start_task` | Marks a Task in progress (one per Goal at a time). |
+| `start_task` | Marks a Task in progress (one per Goal at a time). Answers with one confirming line and the `Now:` line, not the whole status. |
 | `set_task_state` | Sets a Task's state: with a helper, waiting on you, checked, released (or pending, in progress, done). Setting one Task too many with a helper still works, with a warning naming the helper limit. With `with a helper` it takes optional `helper_branch`, `helper_folder` (the worktree path) and `helper_label`; with `checked` an optional `evidence` (one short line, such as "715 passed, live send OK"). Giving either with any other state is refused. |
 | `update_task` | Changes a Task's title, summary, files or `estimate` (empty removes it). |
-| `complete_task` | Marks a Task done, with the files it touched and its final summary. |
+| `complete_task` | Marks a Task done, with the files it touched and its final summary. Answers with a confirming line, how long it took against the estimate, and the `Now:` line. `drop_task` and `end_detour` answer the same short way; `get_status`, `claim_goal` and `add_goal` with `claim` give the whole status. |
 | `update_tasks` | Changes several Tasks in one call: a list of `operations`, each `{task, action, goal?}` with `action` `start`, `complete` (with optional `code` and `summary`), `state` (with `state`, and the same `helper_branch`, `helper_folder`, `helper_label` or `evidence` as set_task_state), `drop` (with `reason`) or `estimate` (with `estimate`); `estimate` can also go with any other action. Applied in order, all or nothing, with one write per Goal, and answers with one line, plus the time taken by completed Tasks and the helper limit's warning when it applies. |
 | `move_task` | Moves a Task to another Goal (`to_goal`, optionally `before` or `after` one of its Tasks). It keeps its title, summary, files and state and gets a new ID there, with a `moved from` line; the old Task stays, dropped with the reason `Moved to the goal "<title>" (<ref>)`. |
 | `drop_task` | Drops a Task, with a reason. |

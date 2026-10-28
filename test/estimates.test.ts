@@ -208,7 +208,7 @@ describe("estimates through the tools", () => {
     await call("add_goal", { title: "Login", claim: true, tasks: [{ title: "Route", estimate: "45m" }] });
     await call("start_task", { task: "t1" });
     at("2026-10-26T11:10:00.000Z");
-    expect((await call("complete_task", { task: "t1" })).text.split("\n")[0]).toBe("Time: t1 took 1 h 10 m, estimated 45 m.");
+    expect((await call("complete_task", { task: "t1" })).text.split("\n").slice(0, 2)).toEqual(["Done: t1 Route.", "Time: t1 took 1 h 10 m, estimated 45 m."]);
     expect((await call("get_item", { ref: "progressor://login/t1" })).text).toContain("Time: took 1 h 10 m, estimated 45 m");
   });
 });
