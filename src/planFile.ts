@@ -55,6 +55,8 @@ export interface Task {
   spent: number;
   /** When the stretch still running started (an ISO time), while the Task is started and not finished. */
   timingSince?: string;
+  /** The ID of the hand test whose failure added this Task. */
+  fromHandTest: string | undefined;
   /** Set when the Task was last added or changed from another project. */
   updatedFrom?: Origin;
 }
@@ -92,7 +94,32 @@ export interface Note {
   updatedFrom?: Origin;
 }
 
+/** What the Developer found when they tried something by hand. */
+export type HandResult = "pending" | "works" | "doesn't work" | "won't test";
+
+/** Something only the Developer can try by hand, such as allowing a permission prompt and checking the reply. */
+export interface HandTest {
+  id: string | undefined;
+  ref: string | undefined;
+  text: string;
+  line: number;
+  result: HandResult;
+  /** What the Developer typed when it did not work. */
+  note: string | undefined;
+  /** The ID of the Task this test is about, if the Agent said. */
+  task: string | undefined;
+  /** The ID of the Task a failed result added to the Goal. */
+  taskAdded: string | undefined;
+  /** When the Developer marked it (an ISO time). */
+  markedAt: string | undefined;
+  /** Whether the Agent has been shown the Developer's mark yet (false for a mark it has not seen). */
+  seen: boolean;
+  /** Set when the test was last added or changed from another project. */
+  updatedFrom?: Origin;
+}
+
 export const TASKS = "Tasks";
+export const HAND_TESTS = "Hand tests";
 export const DECISIONS = "Decisions";
 export const NOTES = "Notes";
 const DETOUR_PREFIX = "Detour: ";
@@ -117,6 +144,10 @@ export const TASK_MARKER: Record<TaskStatus, Marker> = {
   released: "x",
   dropped: "-",
 };
+/** The checkbox of each hand-test result: older readers see a tried test as done, a failed one as started. */
+const HAND_MARKER: Record<HandResult, Marker> = { pending: " ", works: "x", "doesn't work": "/", "won't test": "-" };
+const HAND_RESULT: Record<Marker, HandResult> = { " ": "pending", x: "works", "/": "doesn't work", "-": "won't test" };
+const HAND_ORDER = ["task", "note", "marked", "task added", "seen", ORIGIN_KEY];
 const STATE_LINE: TaskStatus[] = ["with a helper", "waiting on you", "checked", "released"];
 /** Tasks in these states are over: a Goal can be completed once all its Tasks are. */
 export const FINISHED: readonly TaskStatus[] = ["done", "released", "dropped"];
@@ -172,6 +203,8 @@ export interface NewTask {
   done?: boolean;
   /** How long it is expected to take, in minutes. */
   estimate?: number;
+  /** The hand test whose failure this Task is for (written as `from hand test`). */
+  fromHandTest?: string;
 }
 
 export interface TaskChanges {
@@ -185,13 +218,13 @@ export interface TaskChanges {
 }
 
 /** Known Task details come first, in this order, when a Task is rewritten; unknown ones follow as they were. */
-const DETAIL_ORDER = ["state", "summary", "code", ESTIMATE, SPENT, SINCE, "moved from", "added by", "dropped by", "reason", ORIGIN_KEY];
+const DETAIL_ORDER = ["state", "summary", "code", ESTIMATE, SPENT, SINCE, "moved from", "added by", "from hand test", "dropped by", "reason", ORIGIN_KEY];
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 
-function sortDetails(b: ItemBlock): void {
+function sortDetails(b: ItemBlock, order: string[] = DETAIL_ORDER): void {
   const rank = (c: ItemBlock["children"][number]) => {
-    const i = "key" in c ? DETAIL_ORDER.indexOf(c.key) : -1;
-    return i < 0 ? DETAIL_ORDER.length : i;
+    const i = "key" in c ? order.indexOf(c.key) : -1;
+    return i < 0 ? order.length : i;
   };
   b.children = b.children
     .map((c, i) => ({ c, i }))
@@ -240,6 +273,7 @@ export class PlanFile {
       movedFrom: getDetail(b, "moved from"),
       addedBy: stripRef(getDetail(b, "added by")),
       droppedBy: stripRef(getDetail(b, "dropped by")),
+      fromHandTest: stripRef(getDetail(b, "from hand test")),
       reason: getDetail(b, "reason"),
       ...withTime(b),
       ...withOrigin(b),
@@ -311,6 +345,7 @@ export class PlanFile {
       ...this.detourHeadings().map((h) => h.id),
       ...itemsIn(this.doc, DECISIONS).map((b) => b.id),
       ...itemsIn(this.doc, NOTES).map((b) => b.id),
+      ...itemsIn(this.doc, HAND_TESTS).map((b) => b.id),
     ];
   }
 
@@ -320,6 +355,7 @@ export class PlanFile {
     for (const h of this.detourHeadings()) if (!h.id) h.id = nextId(this.allIds(), "d");
     for (const b of itemsIn(this.doc, DECISIONS)) if (!b.id) b.id = nextId(this.allIds(), "c");
     for (const b of itemsIn(this.doc, NOTES)) if (!b.id) b.id = nextId(this.allIds(), "n");
+    for (const b of itemsIn(this.doc, HAND_TESTS)) if (!b.id) b.id = nextId(this.allIds(), "h");
   }
 
   addTasks(tasks: NewTask[], addedBy?: string): Task[] {
@@ -333,6 +369,7 @@ export class PlanFile {
       for (const c of t.code ?? []) addDetail(b, "code", `\`${c}\``);
       if (t.estimate !== undefined) addDetail(b, ESTIMATE, formatDuration(t.estimate));
       if (addedBy) addDetail(b, "added by", `^${addedBy}`);
+      if (t.fromHandTest) addDetail(b, "from hand test", `^${t.fromHandTest}`);
       return b;
     });
     appendToSection(this.doc, TASKS, blocks);
@@ -522,15 +559,111 @@ export class PlanFile {
     this.removeBlock(this.entryBlock(NOTES, "note", id));
   }
 
+  // --- hand tests ---------------------------------------------------------------
+
+  private handBlocks(): ItemBlock[] {
+    return itemsIn(this.doc, HAND_TESTS);
+  }
+
+  get handTests(): HandTest[] {
+    return this.handBlocks().map((b) => ({
+      id: b.id,
+      ref: this.ref(b.id),
+      text: b.text,
+      line: b.line,
+      result: HAND_RESULT[b.marker ?? " "],
+      note: getDetail(b, "note"),
+      task: stripRef(getDetail(b, "task")),
+      taskAdded: stripRef(getDetail(b, "task added")),
+      markedAt: getDetail(b, "marked"),
+      seen: getDetail(b, "seen") !== undefined,
+      ...withOrigin(b),
+    }));
+  }
+
+  handTest(id: string): HandTest | undefined {
+    return this.handTests.find((h) => h.id === id);
+  }
+
+  private handBlock(id: string): ItemBlock {
+    const b = this.handBlocks().find((h) => h.id === id);
+    if (!b) throw new Error(`No hand test ${id} in Goal ${this.goalId}.`);
+    return b;
+  }
+
+  /** Adds a hand test nobody has tried yet, optionally about one of the Tasks. */
+  addHandTest(text: string, task?: string): HandTest {
+    this.assignMissingIds();
+    if (task) this.taskBlock(task);
+    const id = nextId(this.allIds(), "h");
+    const b = newItem({ marker: " ", text: oneLine(text), id });
+    if (task) addDetail(b, "task", `^${task}`);
+    this.addToSection(HAND_TESTS, b);
+    return this.handTest(id)!;
+  }
+
+  /** Rewords a hand test or changes its Task (an empty `task` removes the link); its mark stays. */
+  updateHandTest(id: string, changes: { text?: string; task?: string }): HandTest {
+    const b = this.handBlock(id);
+    if (changes.text?.trim()) b.text = oneLine(changes.text);
+    if (changes.task !== undefined) {
+      if (changes.task) this.taskBlock(changes.task);
+      setDetail(b, "task", changes.task ? `^${changes.task}` : undefined);
+    }
+    sortDetails(b, HAND_ORDER);
+    return this.handTest(id)!;
+  }
+
+  removeHandTest(id: string): void {
+    this.removeBlock(this.handBlock(id));
+  }
+
+  /**
+   * Records the Developer's mark on a hand test, or clears it (`pending`). A mark the Agent has not
+   * seen yet has no `seen` line; `markHandTestsSeen` adds it.
+   */
+  markHandTest(id: string, result: HandResult, note: string | undefined, at: Date): HandTest {
+    const b = this.handBlock(id);
+    b.marker = HAND_MARKER[result];
+    const text = note?.trim() && result === "doesn't work" ? oneLine(note) : undefined;
+    setDetail(b, "note", text);
+    setDetail(b, "marked", result === "pending" ? undefined : at.toISOString());
+    setDetail(b, "seen", undefined);
+    sortDetails(b, HAND_ORDER);
+    return this.handTest(id)!;
+  }
+
+  /** Links a hand test to the Task its failure added, or unlinks it. */
+  setHandTestTask(id: string, taskAdded: string | undefined): void {
+    const b = this.handBlock(id);
+    setDetail(b, "task added", taskAdded ? `^${taskAdded}` : undefined);
+    sortDetails(b, HAND_ORDER);
+  }
+
+  /** Notes that the Agent has been shown every mark; true when that changed anything. */
+  markHandTestsSeen(): boolean {
+    let changed = false;
+    for (const b of this.handBlocks()) {
+      if ((b.marker ?? " ") !== " " && getDetail(b, "seen") === undefined) {
+        setDetail(b, "seen", "yes");
+        sortDetails(b, HAND_ORDER);
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
   /** Marks a Task, decision or note as last changed from another project (an `updated from` line). */
   markOrigin(id: string, origin: Origin): void {
     const b =
       this.taskBlocks().find((t) => t.id === id) ??
       itemsIn(this.doc, DECISIONS).find((d) => d.id === id) ??
-      itemsIn(this.doc, NOTES).find((n) => n.id === id);
+      itemsIn(this.doc, NOTES).find((n) => n.id === id) ??
+      itemsIn(this.doc, HAND_TESTS).find((h) => h.id === id);
     if (!b) throw new Error(`No Task, decision or note ${id} in Goal ${this.goalId}.`);
     setDetail(b, ORIGIN_KEY, formatOrigin(origin));
     if (this.taskBlocks().includes(b)) sortDetails(b);
+    else if (itemsIn(this.doc, HAND_TESTS).includes(b)) sortDetails(b, HAND_ORDER);
   }
 
   toString(): string {

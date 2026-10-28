@@ -7,7 +7,7 @@ import { resolveProject, sameFolder, seenFile, takeElsewhereLine } from "./elsew
 import { launchFor, startedViaNpx } from "./init.js";
 import { withLock } from "./lock.js";
 import { parseDuration, roughDuration, sayDuration, timeText } from "./estimate.js";
-import { type Decision, type Detour, type NewTask, type Note, type Task, type TaskStatus, TIMED, timeSpent } from "./planFile.js";
+import { type Decision, type Detour, type HandTest, type NewTask, type Note, type Task, type TaskStatus, TIMED, timeSpent } from "./planFile.js";
 import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, type Project, type SessionStatus, type Status, type TaskOperation } from "./project.js";
 import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
 import { type Goal, type StandingInstruction, hardFirst, helperLimit, ruleText } from "./roadmap.js";
@@ -28,6 +28,7 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 7. When the Developer gives a lasting rule ("always...", "never..."), save it with add_standing_instruction; change or remove one with update_standing_instruction. A rule that must never be broken (the Developer says "never", "under no circumstances", "this is a hard rule") is saved with hard: true; get_status lists those first as HARD RULE.
 8. Keep lasting background about the project on its Important context page with update_context: what the project is, key facts, where things live, choices that hold for the whole project. get_status shows it; keep it short and true.
 9. Record a choice made along the way that is not a lasting project rule (such as "old models get thinking on/off only") with add_decision, so it survives context compression. When you spot something that belongs to a Goal, this one or another (a bug found during cleanup that belongs to the Voice Goal), add_note on that Goal instead of fixing it now; once it is dealt with, resolve it with update_note.
+9a. Anything only the Developer can try by hand (a permission prompt to allow, a screen to look at) goes in add_hand_test, not in your chat summary: they mark each one on the dashboard, and get_status shows what is open and what failed. A failure adds a Task to the Goal. A Goal can't be completed while a hand test is unmarked, unless the Developer says to finish anyway (unmarked_hand_tests_ok).
 10. When you brief a helper agent, call get_rules and paste its block into the brief: helpers don't see the Standing Instructions, and the hard rules apply to them too.
 11. Work you do here that belongs to another project using Progressor (releasing it, say) goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it. Those changes are marked as made from this project, and a Goal an AI chat there is working on can only get a note.`;
 
@@ -110,6 +111,43 @@ const summaryLine = (t: Task | undefined) => (t?.summary ? [`  Summary: ${t.summ
 const noteText = (n: Note) => `${n.id} ${n.text}${n.from ? ` (from ${n.from})` : ""}`;
 const decisionText = (d: Decision) => `${d.id} ${d.text}`;
 
+const handTestWord: Record<HandTest["result"], string> = {
+  pending: "not tried yet",
+  works: "works",
+  "doesn't work": "DOESN'T WORK",
+  "won't test": "the Developer won't test it",
+};
+
+/**
+ * What the Developer was asked to try by hand and what they found: counts, what is still open, and
+ * every mark the Agent has not been shown yet (a failure says which Task it added).
+ */
+export function handTestLines(tests: HandTest[]): string[] {
+  if (tests.length === 0) return [];
+  const count = (r: HandTest["result"]) => tests.filter((h) => h.result === r).length;
+  const parts = [
+    `${count("pending")} not tried yet`,
+    ...(count("works") > 0 ? [`${count("works")} work`] : []),
+    ...(count("doesn't work") > 0 ? [`${count("doesn't work")} don't work`] : []),
+    ...(count("won't test") > 0 ? [`${count("won't test")} won't be tested`] : []),
+  ];
+  const open = tests.filter((h) => h.result === "pending");
+  const fresh = tests.filter((h) => h.result !== "pending" && !h.seen);
+  return [
+    `Hand tests (for the Developer to try; they mark them on the dashboard): ${parts.join(", ")}.`,
+    ...(open.length > 0 ? ["Not tried yet:", ...open.map((h) => `- ${h.id} ${h.text}${h.task ? ` (about ${h.task})` : ""}`)] : []),
+    ...(fresh.length > 0
+      ? [
+          "New marks from the Developer since the last status:",
+          ...fresh.map(
+            (h) =>
+              `- ${h.id} ${handTestWord[h.result]}: ${h.text}${h.note ? ` Their note: ${h.note}` : ""}${h.taskAdded ? ` (step ${h.taskAdded} was added to fix it)` : ""}`,
+          ),
+        ]
+      : []),
+  ];
+}
+
 /** The Tasks in other hands than the Agent's: a helper's, or the Developer's. */
 function elsewhereLines(s: Status): string[] {
   const line = (label: string, tasks: Task[]) => (tasks.length > 0 ? [`${label}: ${tasks.map(taskLine).join("; ")}`] : []);
@@ -172,6 +210,7 @@ function heldGoalLines(s: Status): string[] {
       nextLine(s),
       ...(s.decisions.length > 0 ? [`Decisions: ${s.decisions.map(decisionText).join("; ")}`] : []),
       ...(s.notes.length > 0 ? [`Notes: ${s.notes.map(noteText).join("; ")}`] : []),
+      ...handTestLines(s.handTests),
     ].map((line) => `  ${line}`),
   ];
 }
@@ -251,6 +290,7 @@ export function formatStatus(session: SessionStatus, schedule?: Schedule): strin
     ...summaryLine(s.nextTask),
     ...(s.decisions.length > 0 ? ["Decisions:", ...s.decisions.map((x) => `- ${decisionText(x)}`)] : []),
     ...(s.notes.length > 0 ? ["Notes:", ...s.notes.map((n) => `- ${noteText(n)}`)] : []),
+    ...handTestLines(s.handTests),
     ...timing,
     ...instructions,
   ].join("\n");
@@ -364,6 +404,17 @@ export function formatItem(found: FoundItem, schedule?: Schedule, now = new Date
         ...(n.from ? [`Spotted while working on: ${n.from}`] : []),
       ].join("\n");
     }
+    case "hand test": {
+      const h = found.item;
+      return [
+        `Hand test ${h.id}: ${h.text} (${handTestWord[h.result]})`,
+        `Ref: ${found.ref}`,
+        `Plan File: ${where}`,
+        ...(h.task ? [`About Task: ${h.task}`] : []),
+        ...(h.note ? [`Developer's note: ${h.note}`] : []),
+        ...(h.taskAdded ? [`Failure added Task: ${h.taskAdded}`] : []),
+      ].join("\n");
+    }
     case "idea": {
       const i = found.item;
       return [
@@ -435,7 +486,13 @@ export async function appRoots(server: McpServer, timeoutMs: number): Promise<st
 
 export function createServer(project: Project, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: "progressor", version: VERSION }, { instructions: INSTRUCTIONS });
-  const status = () => formatStatus(project.sessionStatus(), project.schedule());
+  const status = () => {
+    const session = project.sessionStatus();
+    const text = formatStatus(session, project.schedule());
+    // The Developer's new hand-test marks are now shown, so the next status calls only later ones new.
+    for (const s of session.held) if (s.handTests.some((h) => h.result !== "pending" && !h.seen)) project.acknowledgeHandTests(s.goal!.id);
+    return text;
+  };
   // Apps without Claude Code's hooks never hand the Agent the plan between calls, so results that
   // don't show the whole status end with where the work stands.
   const withNow = (text: string) => `${text}\n${nowLine(project.sessionStatus())}`;
@@ -646,13 +703,21 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Complete Goal",
       description:
-        "Mark the claimed Goal done and release it, once its Outcome is true and its Tasks are done, released or dropped (not with a helper, waiting on the Developer or only checked). If more work turns up later, claim_goal reopens it.",
-      inputSchema: { goal: heldGoal, project: otherProject },
+        "Mark the claimed Goal done and release it, once its Outcome is true and its Tasks are done, released or dropped (not with a helper, waiting on the Developer or only checked) and the Developer has marked every hand test (add_hand_test) on the dashboard; unmarked_hand_tests_ok overrides that only when the Developer says to finish anyway. If more work turns up later, claim_goal reopens it.",
+      inputSchema: {
+        goal: heldGoal,
+        unmarked_hand_tests_ok: z
+          .boolean()
+          .optional()
+          .describe("Finish even though some hand tests are still not marked by the Developer. Only when the Developer says to finish anyway."),
+        project: otherProject,
+      },
     },
-    ({ goal: id, project: wanted }) =>
+    ({ goal: id, unmarked_hand_tests_ok, project: wanted }) =>
       respondIn(wanted, (p) => {
-        if (p !== project) return doneIn(p, `Goal ${p.completeGoal(id).id} is done.`);
-        const goal = project.completeGoal(id);
+        const options = { unmarkedHandTests: unmarked_hand_tests_ok };
+        if (p !== project) return doneIn(p, `Goal ${p.completeGoal(id, options).id} is done.`);
+        const goal = project.completeGoal(id, options);
         return `Goal ${goal.id} is done. Tell the Developer in one plain sentence that "${goal.title}" is finished${dashboard?.url ? `, and that they can see it at ${dashboard.url}` : ""}.`;
       }),
   );
@@ -950,6 +1015,45 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const n = p.updateNote(goal, id, { text, resolved });
         const said = n ? `${resolved === true ? "Resolved" : resolved === false ? "Reopened" : "Changed"} note ${n.id}: ${n.text}` : `Removed note ${id}.`;
         return p === project ? said : doneIn(p, said);
+      }),
+  );
+
+  server.registerTool(
+    "add_hand_test",
+    {
+      title: "Add hand test",
+      description:
+        "Add something only the Developer can try by hand to a claimed Goal, such as 'OpenCode may ask permission to read an attached file: allow it and check the reply'. Put it here instead of in your chat summary: the Developer sees the Goal's hand-test list on the dashboard and marks each one there as works, doesn't work (with a note) or won't test. A failure adds a Task to the Goal by itself; get_status shows what is still open and the new marks. A Goal cannot be completed while a hand test is unmarked.",
+      inputSchema: {
+        goal: heldGoal,
+        text: z.string().min(1).describe("What to try and what to look for, in one or two short plain sentences."),
+        task: z.string().optional().describe("The ID of the Task it is about, such as 't3'."),
+      },
+    },
+    ({ goal, text, task }) =>
+      respondIn(undefined, () => {
+        const h = project.addHandTest(text, goal, task);
+        return withNow(`Saved hand test ${h.id}: ${h.text}\nThe Developer marks it on the dashboard.`);
+      }),
+  );
+
+  server.registerTool(
+    "update_hand_test",
+    {
+      title: "Update hand test",
+      description:
+        "Reword a hand test of the claimed Goal, change which Task it is about, or remove it with an empty text (for one that turned out not to need testing). Its mark from the Developer stays; only the Developer marks tests.",
+      inputSchema: {
+        goal: heldGoal,
+        id: z.string().describe("The hand test ID, such as 'h2'."),
+        text: z.string().optional().describe("The new wording; empty to remove the hand test."),
+        task: z.string().optional().describe("The ID of the Task it is about; an empty string removes the link."),
+      },
+    },
+    ({ goal, id, text, task }) =>
+      respondIn(undefined, () => {
+        const h = project.updateHandTest(id, { text, task }, goal);
+        return withNow(h ? `Changed hand test ${h.id}: ${h.text}` : `Removed hand test ${id}.`);
       }),
   );
 
