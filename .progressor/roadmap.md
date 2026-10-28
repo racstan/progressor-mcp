@@ -141,6 +141,9 @@ Progressor's own plan, kept with Progressor. Version 0.1.1 is published; 0.1.2 w
   - outcome: A project that starts using Progressor keeps its whole plan out of git unless the Developer chooses to share it, and the docs say how to share it; projects that already have a plan are left as they are.
   - added: 2026-10-28T13:28:48.269Z by AI
   - updated: 2026-10-28T13:30:40.290Z by AI
+- [ ] [Release 1.0.1](goals/release-1-0-1.md) ^release-1-0-1
+  - outcome: The two goals still open after 1.0.0 are checked by the Developer and finished, and version 1.0.1 is published once the Developer says to push the tag.
+  - added: 2026-10-28T15:03:40.696Z by AI
 
 ## Ideas
 
