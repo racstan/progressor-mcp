@@ -129,3 +129,57 @@ export function projectStats(goals: StatsGoal[], now: Date): ProjectStats {
     }),
   };
 }
+
+/** Every project's statistics added up, for Home. */
+export interface AllStats extends Omit<ProjectStats, "longest" | "perGoal"> {
+  longest: (ProjectStats["longest"][number] & { project: string; projectId: string })[];
+  /** One line per project, the busiest of the last two weeks first. */
+  perProject: { id: string; name: string; done: number; open: number; goalsFinished: number; goalsOpen: number; spent: number; sideTrips: number; lastTwoWeeks: number }[];
+}
+
+export function combineStats(projects: { id: string; name: string; stats: ProjectStats }[]): AllStats {
+  const sum = (f: (s: ProjectStats) => number) => projects.reduce((n, p) => n + f(p.stats), 0);
+  const days = new Map<string, number>();
+  for (const p of projects) for (const d of p.stats.perDay) days.set(d.day, (days.get(d.day) ?? 0) + d.count);
+  const endings: Record<DetourStatus, number> = { "merged back": 0, returned: 0, recalibrated: 0, open: 0 };
+  for (const p of projects) for (const k of Object.keys(endings) as DetourStatus[]) endings[k] += p.stats.drift.endings[k];
+  return {
+    goals: { finished: sum((s) => s.goals.finished), open: sum((s) => s.goals.open), cancelled: sum((s) => s.goals.cancelled) },
+    steps: { done: sum((s) => s.steps.done), open: sum((s) => s.steps.open), cancelled: sum((s) => s.steps.cancelled) },
+    time: {
+      spent: sum((s) => s.time.spent),
+      compared: {
+        steps: sum((s) => s.time.compared.steps),
+        estimated: sum((s) => s.time.compared.estimated),
+        spent: sum((s) => s.time.compared.spent),
+        withinEstimate: sum((s) => s.time.compared.withinEstimate),
+      },
+    },
+    drift: {
+      sideTrips: sum((s) => s.drift.sideTrips),
+      goalsWithSideTrips: sum((s) => s.drift.goalsWithSideTrips),
+      goals: sum((s) => s.drift.goals),
+      endings,
+      stepsAdded: sum((s) => s.drift.stepsAdded),
+      stepsCancelled: sum((s) => s.drift.stepsCancelled),
+    },
+    perDay: [...days].sort(([a], [b]) => a.localeCompare(b)).map(([day, count]) => ({ day, count })),
+    longest: projects
+      .flatMap((p) => p.stats.longest.map((l) => ({ ...l, project: p.name, projectId: p.id })))
+      .sort((a, b) => b.spent - a.spent)
+      .slice(0, LONGEST),
+    perProject: projects
+      .map(({ id, name, stats: s }) => ({
+        id,
+        name,
+        done: s.steps.done,
+        open: s.steps.open,
+        goalsFinished: s.goals.finished,
+        goalsOpen: s.goals.open,
+        spent: s.time.spent,
+        sideTrips: s.drift.sideTrips,
+        lastTwoWeeks: s.perDay.reduce((n, d) => n + d.count, 0),
+      }))
+      .sort((a, b) => b.lastTwoWeeks - a.lastTwoWeeks || b.done - a.done),
+  };
+}

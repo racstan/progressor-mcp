@@ -257,6 +257,14 @@ describe("one dashboard for every project", () => {
     expect(body.perGoal.find((g: { id: string }) => g.id === "stats")).toMatchObject({ done: 1, total: 2, estimate: 30 });
   });
 
+  it("adds up every project's statistics for Home", async () => {
+    const d = await start(agent);
+    const { status, body } = await get(d, "/api/stats");
+    expect(status).toBe(200);
+    expect(body.perProject.map((p: { id: string }) => p.id)).toContain(projectEntry(agent.root).id);
+    expect(body.perDay).toHaveLength(14);
+  });
+
   it("says which build of the page it serves, so an open page can tell it is out of date", async () => {
     const ui = tempDir("progressor-ui-");
     writeFileSync(join(ui, "index.html"), "<html></html>");
