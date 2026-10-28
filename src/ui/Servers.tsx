@@ -76,7 +76,7 @@ export function ServersPanel({ servers, hub, reload, toast }: {
           </div>
           <div className="server-path" title={s.root}>{s.root}</div>
           <div className="server-meta">
-            <span>{s.kind === "dashboard" ? "📊 dashboard command" : s.goals.length > 0 ? `🎯 ${s.goals.map((g) => g.title).join(", ")}` : "Not working on a goal"}</span>
+            <span>{s.kind === "dashboard" ? "Dashboard command" : s.goals.length > 0 ? `Working on: ${s.goals.map((g) => g.title).join(", ")}` : "Not working on a goal"}</span>
             <span>{megabytes(s.memory)}</span>
             <span title={new Date(s.startedAt).toLocaleString()}>started {age(s.startedAt)}</span>
             <span>pid {s.pid}</span>

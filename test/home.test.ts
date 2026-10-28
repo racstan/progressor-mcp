@@ -61,6 +61,39 @@ describe("the home page", () => {
   });
 });
 
+describe("things to try, put off with Not now", () => {
+  const overview = [
+    { id: "a", name: "Shop", root: "/a", goals: [g("pay", "active", { waitingOnYou: true, untriedTests: 2 }), g("ask", "active", { waitingOnYou: true, untriedTests: 1, openQuestions: 1 })] },
+  ];
+
+  it("moves a goal that only has things to try out of Needs you", () => {
+    const s = homeSections(overview, { "a/pay": 2, "a/ask": 1 });
+    expect(s.needsYou.map((x) => [x.goal.id, x.why])).toEqual([["ask", "A question for you"]]);
+    expect(s.inProgress.map((x) => x.goal.id)).toEqual(["pay"]);
+  });
+
+  it("brings it back when the AI adds something new to try", () => {
+    const s = homeSections(overview, { "a/pay": 1 });
+    expect(s.needsYou.map((x) => x.goal.id)).toContain("pay");
+  });
+
+  it("says whether the reason can be put off", () => {
+    const s = homeSections(overview);
+    expect(s.needsYou.map((x) => [x.goal.id, x.canPutOff])).toEqual([["pay", true], ["ask", true]]);
+    expect(homeSections([{ ...overview[0]!, goals: [g("q", "active", { waitingOnYou: true, openQuestions: 1 })] }]).needsYou[0]!.canPutOff).toBe(false);
+  });
+
+  it("works in the sidebar too", () => {
+    const goals = [g("pay", "active", { waitingOnYou: true, untriedTests: 2 })];
+    expect(sidebarSections(goals, { pay: 2 }).map((x) => x.label)).toEqual(["In progress"]);
+    expect(sidebarSections(goals, { pay: 1 }).map((x) => x.label)).toEqual(["Needs you"]);
+  });
+
+  it("keeps a goal the server says waits on you when it gives no reasons (an older Progressor)", () => {
+    expect(sidebarSections([{ ...g("old", "active"), waitingOnYou: true, untriedTests: undefined as unknown as number }], {}).map((x) => x.label)).toEqual(["Needs you"]);
+  });
+});
+
 describe("the sidebar", () => {
   it("groups goals: needs you, in progress, up next; finished goals are left to their own group", () => {
     const goals = [g("a", "active"), g("b", "paused", { waitingOnYou: true }), g("c", "planned"), g("d", "paused"), g("e", "active", { waitingOnYou: true })];

@@ -27,6 +27,12 @@ interface ProjectLike<G extends GoalLike> {
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+/** Why a goal needs the person, after what they put off; empty when it no longer does. */
+export function needsWhy(g: GoalLike, putOff?: number): { why: string; canPutOff: boolean } {
+  const left = stillNeeds(g, putOff);
+  return left.needs ? { why: needsWords(left) || "Waiting on you", canPutOff: (left.untriedTests ?? 0) > 0 } : { why: "", canPutOff: false };
+}
+
 /** "A question for you · 1 step to check · 2 things to try"; empty when nothing waits. */
 export function needsWords(n: Needs): string {
   const q = n.openQuestions ?? 0;
@@ -44,17 +50,38 @@ export function needsWords(n: Needs): string {
 /** "3 of 7 steps", or "No steps yet". */
 export const progressWords = (g: { done: number; total: number }) => (g.total ? `${g.done} of ${count(g.total, "step", "steps")}` : "No steps yet");
 
+/**
+ * Things to try that the person put off with "Not now", by goal: how many were untried then. Kept in
+ * this browser only; the plan is unchanged. A goal comes back once more are untried than were put off.
+ */
+export type PutOff = Record<string, number>;
+
+/** What still needs the person, with things to try left out once put off. */
+function stillNeeds(g: GoalLike, putOff: number | undefined): Needs & { needs: boolean } {
+  const untried = g.untriedTests ?? 0;
+  const left = { openQuestions: g.openQuestions ?? 0, waitingSteps: g.waitingSteps ?? 0, untriedTests: putOff !== undefined && untried <= putOff ? 0 : untried };
+  // An older Progressor sends no reasons: trust its waitingOnYou.
+  const noReasons = !g.openQuestions && !g.waitingSteps && !g.untriedTests;
+  const needs = g.waitingOnYou && open(g) && (noReasons || left.openQuestions > 0 || left.waitingSteps > 0 || left.untriedTests > 0);
+  return { ...left, needs };
+}
+
 const open = (g: GoalLike) => g.status === "active" || g.status === "paused" || g.status === "planned";
 const newestFirst = (a: { goal: GoalLike }, b: { goal: GoalLike }) => (b.goal.updatedAt ?? 0) - (a.goal.updatedAt ?? 0);
 
 /** The home page: what needs the person, what is being worked on, and every project with its counts. */
-export function homeSections<G extends GoalLike, P extends ProjectLike<G>>(projects: P[]) {
-  const all = projects.flatMap((project) => project.goals.map((goal) => ({ project, goal })));
+export function homeSections<G extends GoalLike, P extends ProjectLike<G>>(projects: P[], putOff: PutOff = {}) {
+  const all = projects.flatMap((project) =>
+    project.goals.map((goal) => ({ project, goal, left: stillNeeds(goal, putOff[`${project.id}/${goal.id}`]) })),
+  );
   const needsYou = all
-    .filter(({ goal }) => goal.waitingOnYou && open(goal))
-    .map((x) => ({ ...x, why: needsWords(x.goal) || "Waiting on you" }))
+    .filter(({ left }) => left.needs)
+    .map(({ project, goal, left }) => ({ project, goal, why: needsWords(left) || "Waiting on you", canPutOff: (left.untriedTests ?? 0) > 0 }))
     .sort(newestFirst);
-  const inProgress = all.filter(({ goal }) => goal.status === "active" && !goal.waitingOnYou).sort(newestFirst);
+  const inProgress = all
+    .filter(({ goal, left }) => goal.status === "active" && !left.needs)
+    .map(({ project, goal }) => ({ project, goal }))
+    .sort(newestFirst);
   const summary =
     projects.length === 0
       ? "No projects yet"
@@ -73,9 +100,9 @@ export function homeSections<G extends GoalLike, P extends ProjectLike<G>>(proje
   };
 }
 
-/** The sidebar's groups of goals still open, each left out when empty. */
-export function sidebarSections<G extends GoalLike>(goals: G[]): { label: string; goals: G[] }[] {
-  const needs = goals.filter((g) => g.waitingOnYou && open(g));
+/** The sidebar's groups of goals still open, each left out when empty. putOff is keyed by goal ID. */
+export function sidebarSections<G extends GoalLike>(goals: G[], putOff: PutOff = {}): { label: string; goals: G[] }[] {
+  const needs = goals.filter((g) => stillNeeds(g, putOff[g.id]).needs);
   const rest = goals.filter((g) => !needs.includes(g));
   return [
     { label: "Needs you", goals: needs },
