@@ -9,7 +9,7 @@ import { Project } from "../src/project.js";
 import { parseRoadmap } from "../src/roadmap.js";
 import { createServer, formatRules, scheduleLines } from "../src/server.js";
 import { computeSchedule } from "../src/schedule.js";
-import { tempDir } from "./tmp.js";
+import { tempDir, withoutDates } from "./tmp.js";
 
 let root: string;
 let clock: Date;
@@ -20,7 +20,7 @@ const at = (iso: string) => {
 function agent(): Project {
   return new Project({ root, session: { id: "s-a", pid: process.pid }, now: () => clock });
 }
-const read = (path: string) => readFileSync(join(root, ".progressor", path), "utf8");
+const read = (path: string) => withoutDates(readFileSync(join(root, ".progressor", path), "utf8"));
 
 beforeEach(() => {
   root = tempDir("progressor-");

@@ -205,10 +205,10 @@ describe("one dashboard for every project", () => {
     const base = `/api/projects/${entry(agent).id}`;
     const { body } = await get(d, `${base}/goals/ship-oauth-login`);
     expect(body.decisions).toEqual([
-      { id: "c1", ref: "progressor://ship-oauth-login/c1", text: "Keep the old cookie name", line: expect.any(Number) },
+      { id: "c1", ref: "progressor://ship-oauth-login/c1", text: "Keep the old cookie name", line: expect.any(Number), added: expect.any(Object) },
     ]);
     expect(body.notes).toEqual([
-      { id: "n1", ref: "progressor://ship-oauth-login/n1", text: "Logout overlaps on mobile", resolved: true, line: expect.any(Number) },
+      { id: "n1", ref: "progressor://ship-oauth-login/n1", text: "Logout overlaps on mobile", resolved: true, line: expect.any(Number), added: expect.any(Object), updated: expect.any(Object) },
     ]);
     expect(body.goal).toMatchObject({ waitingOnYou: true, done: 1, total: 3 });
     expect(body.goal.counts).toEqual({
@@ -241,7 +241,7 @@ describe("one dashboard for every project", () => {
 
   it("tells the page which editor opens files", async () => {
     const d = await start(agent, { editor: "cursor" });
-    expect((await get(d, "/api/info")).body).toMatchObject({ app: "progressor", hub: 5, editor: "cursor" });
+    expect((await get(d, "/api/info")).body).toMatchObject({ app: "progressor", hub: 6, editor: "cursor" });
   });
 
   it("says which process and version serve it, so the page can name an outdated one", async () => {

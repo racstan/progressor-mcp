@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DEFAULT_EDITOR, EDITORS, editorUrl } from "../dashboard/editor.js";
 import type { GoalSchedule } from "../schedule.js";
-import { type RoadmapView, useDashboard, useOverview, useSearch, useServers, useStored, useStoredJson } from "./data.js";
+import { type RoadmapView, showInFolder, useDashboard, useOverview, useSearch, useServers, useStored, useStoredJson } from "./data.js";
 import { CONTEXT_HASH, TALK_HASH, contextFromHash } from "./context.js";
 import { ContextPage } from "./ContextPage.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
@@ -395,7 +395,13 @@ export function App() {
   ) : (
     <ErrorBoundary scope="goal" key={`${projectId}:${shownGoal.goal.id}`}>
       <GoalPage projectId={projectId} view={shownGoal} goals={goals} state={stateOf(shownGoal.goal)} schedule={scheduleOf(shownGoal.goal.id)}
-        fileLink={fileLink} onCopy={copy} onChanged={refresh} />
+        fileLink={fileLink} onCopy={copy} onChanged={refresh}
+        onReveal={(path) =>
+          void showInFolder(projectId, path).then(
+            () => toast("Opened the folder in your file manager."),
+            (e: Error) => toast(`Could not open the folder: ${e.message}`),
+          )
+        } />
     </ErrorBoundary>
   );
 

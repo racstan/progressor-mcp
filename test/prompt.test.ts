@@ -46,135 +46,61 @@ const goal: PromptGoal = {
 };
 const ROADMAP = ".progressor/roadmap.md";
 
-describe("Copy as prompt", () => {
-  it("counts released Tasks as done and names the Tasks in other hands", () => {
-    const g = buildGoalGraph(
-      parsePlanFile(
-        "# G\n\n## Tasks\n\n- [x] One ^t1\n  - state: released\n- [/] Two ^t2\n  - state: with a helper\n- [/] Three ^t3\n  - state: waiting on you\n",
-        "login",
-      ),
-    );
-    const text = copyAsPrompt({ kind: "goal", goal, graph: g });
-    expect(text).toContain("Progress: 1 of 3 Tasks done\nWith a helper: t2 \"Two\" (line 7)\nWaiting on you: t3 \"Three\" (line 9)\n");
-  });
-
-  it("describes a Task with its place in the plan, its code and how to look it up", () => {
-    expect(copyAsPrompt({ kind: "node", node: node("t4"), goal, graph })).toBe(`[Progressor] Task t4 "Callback route" (in progress)
-Ref: progressor://login/t4
-Location: .progressor/goals/login.md:11
-Goal: "Ship OAuth login" (progressor://login)
-Position: Task 3 of 4 in the plan
-Previous: t3 "Swap to a PKCE-capable session library" (done, line 8)
-Next: t5 "Session storage" (pending, line 15)
-Added by: Detour d1 "Session library lacks PKCE" (recalibrated)
-References: src/auth/callback.ts, src/auth/session.ts:42
-
-Read .progressor/goals/login.md:11 (or call get_item with progressor://login/t4) before acting on it.`);
-  });
-
-  it("warns that a dropped Task is no longer part of the plan", () => {
-    expect(copyAsPrompt({ kind: "node", node: node("t2"), goal, graph })).toBe(`[Progressor] Task t2 "Callback route" (dropped)
-Ref: progressor://login/t2
-Location: .progressor/goals/login.md:6
-Goal: "Ship OAuth login" (progressor://login)
-Dropped by: Detour d1 "Session library lacks PKCE" (recalibrated)
-This Task is no longer part of the plan. Do not work on it.
-
-Read .progressor/goals/login.md:6 (or call get_item with progressor://login/t2) before acting on it.`);
-  });
-
-  it("describes a Detour with the Task it branched from, its Reason and how it ended", () => {
-    expect(copyAsPrompt({ kind: "node", node: node("d2"), goal, graph })).toBe(`[Progressor] Detour d2 "Logger refactor" (open)
-Ref: progressor://login/d2
-Location: .progressor/goals/login.md:24
-Goal: "Ship OAuth login" (progressor://login)
-Branched from: Task t4 "Callback route" (.progressor/goals/login.md:11)
-Reason: Callback errors were unreadable
-Status: still open; it ends with a Merge back, Return or Recalibration.
-
-Read .progressor/goals/login.md:24 (or call get_item with progressor://login/d2) before acting on it.`);
-    expect(copyAsPrompt({ kind: "node", node: node("d1"), goal, graph })).toContain(
-      "Status: recalibrated; the remaining Tasks were dropped and replaced with t3, t4, t5.",
+// What the Developer pastes into their AI chat: a short pointer, since the AI has Progressor and
+// looks the item up itself. They type what they want after it.
+describe("Copy for your AI", () => {
+  it("points at a step: what it is, where it stands, and how to look it up", () => {
+    expect(copyAsPrompt({ kind: "node", node: node("t4"), goal, graph })).toBe(
+      '[Progressor] Step t4 "Callback route" (in progress) in goal "Ship OAuth login". Look it up with get_item progressor://login/t4 (.progressor/goals/login.md:11).',
     );
   });
 
-  it("summarises a Goal: its Claim, progress, current Task, open Detour and next Task", () => {
-    expect(copyAsPrompt({ kind: "goal", goal, graph })).toBe(`[Progressor] Goal "Ship OAuth login" (active, claimed by Session s-7f3a)
-Ref: progressor://login
-Location: .progressor/roadmap.md:5
-Plan File: .progressor/goals/login.md
-Progress: 2 of 4 Tasks done
-Current Task: t4 "Callback route" (line 11)
-Open Detour: d2 "Logger refactor" (line 24), branched from t4. Reason: Callback errors were unreadable
-Next Task: t5 "Session storage" (line 15)
-
-Read .progressor/goals/login.md (or call get_item with progressor://login) before acting on it.`);
-  });
-
-  it("tells the Agent how to reopen a done Goal for work found in a review", () => {
-    const text = copyAsPrompt({ kind: "goal", goal: { ...goal, status: "done", claim: undefined }, graph });
-    expect(text).toContain(
-      "This Goal is done. If I ask for more work on it, reopen it with claim_goal (login) and add the new Tasks with add_tasks.",
+  it("says a cancelled step is not part of the plan", () => {
+    expect(copyAsPrompt({ kind: "node", node: node("t2"), goal, graph })).toBe(
+      '[Progressor] Step t2 "Callback route" (cancelled, not part of the plan) in goal "Ship OAuth login". Look it up with get_item progressor://login/t2 (.progressor/goals/login.md:6).',
     );
-    expect(text.endsWith("before acting on it.")).toBe(true);
   });
 
-  it("marks an Idea as parked, so the Agent does not start building it", () => {
+  it("points at a side trip", () => {
+    expect(copyAsPrompt({ kind: "node", node: node("d2"), goal, graph })).toBe(
+      '[Progressor] Side trip d2 "Logger refactor" (open) in goal "Ship OAuth login". Look it up with get_item progressor://login/d2 (.progressor/goals/login.md:24).',
+    );
+  });
+
+  it("points at a goal, with how far along it is", () => {
+    expect(copyAsPrompt({ kind: "goal", goal, graph })).toBe(
+      '[Progressor] Goal "Ship OAuth login" (active, 2 of 4 steps done). Look it up with get_item progressor://login (.progressor/goals/login.md).',
+    );
+  });
+
+  it("tells the AI how to reopen a finished goal", () => {
+    expect(copyAsPrompt({ kind: "goal", goal: { ...goal, status: "done", claim: undefined }, graph })).toBe(
+      '[Progressor] Goal "Ship OAuth login" (finished, 2 of 4 steps done). Look it up with get_item progressor://login (.progressor/goals/login.md). For more work on it, reopen it with claim_goal.',
+    );
+  });
+
+  it("counts released steps as done", () => {
+    const g = buildGoalGraph(parsePlanFile("# G\n\n## Tasks\n\n- [x] One ^t1\n  - state: released\n- [/] Two ^t2\n  - state: with a helper\n", "login"));
+    expect(copyAsPrompt({ kind: "goal", goal, graph: g })).toContain("(active, 1 of 2 steps done)");
+  });
+
+  it("marks an idea as parked, so the AI does not start building it", () => {
     expect(
       copyAsPrompt({
         kind: "idea",
         file: ROADMAP,
         idea: { id: "i1", ref: "progressor://roadmap/i1", title: "Magic-link login", line: 20, notes: ["From the Developer"], promotedTo: undefined },
       }),
-    ).toBe(`[Progressor] Idea i1 "Magic-link login" (parked)
-Ref: progressor://roadmap/i1
-Location: .progressor/roadmap.md:20
-Note: From the Developer
-
-This Idea is parked, not planned: do not build it unless I ask you to promote it to a Task or Goal. Read .progressor/roadmap.md:20 (or call get_item with progressor://roadmap/i1) for details.`);
+    ).toBe('[Progressor] Idea i1 "Magic-link login" (parked: not planned, do not build it unless I ask). Look it up with get_item progressor://roadmap/i1 (.progressor/roadmap.md:20).');
   });
 
-  it("quotes a Standing Instruction", () => {
+  it("points at a standing instruction", () => {
     expect(
       copyAsPrompt({
         kind: "standing instruction",
         file: ROADMAP,
         instruction: { id: "s1", ref: "progressor://roadmap/s1", text: "Ask me before recalibrating", line: 25, hard: false },
       }),
-    ).toBe(`[Progressor] Standing Instruction s1 "Ask me before recalibrating"
-Ref: progressor://roadmap/s1
-Location: .progressor/roadmap.md:25
-
-Read .progressor/roadmap.md:25 (or call get_item with progressor://roadmap/s1) before acting on it.`);
-  });
-
-  it("says what a Task changes, in its own words and in the Goal's summary", () => {
-    const plan = `# Login
-
-## Tasks
-
-- [/] Fix callback redirect loop ^t1
-  - summary: Callback re-sets the session cookie on every hit; only set it after token exchange.
-  - code: \`src/auth/callback.ts\`
-- [ ] Add logout ^t2
-  - summary: Clear the session cookie and redirect home.
-`;
-    const g = buildGoalGraph(parsePlanFile(plan, "login"));
-    const fix = g.nodes.find((n) => n.id === "t1")!;
-    expect(copyAsPrompt({ kind: "node", node: fix, goal, graph: g })).toBe(`[Progressor] Task t1 "Fix callback redirect loop" (in progress)
-Ref: progressor://login/t1
-Location: .progressor/goals/login.md:5
-Goal: "Ship OAuth login" (progressor://login)
-Summary: Callback re-sets the session cookie on every hit; only set it after token exchange.
-Position: Task 1 of 2 in the plan
-Next: t2 "Add logout" (pending, line 8)
-References: src/auth/callback.ts
-
-Read .progressor/goals/login.md:5 (or call get_item with progressor://login/t1) before acting on it.`);
-    const summary = copyAsPrompt({ kind: "goal", goal, graph: g });
-    expect(summary).toContain(
-      'Current Task: t1 "Fix callback redirect loop" (line 5)\n  Summary: Callback re-sets the session cookie on every hit; only set it after token exchange.',
-    );
-    expect(summary).toContain('Next Task: t2 "Add logout" (line 8)\n  Summary: Clear the session cookie and redirect home.');
+    ).toBe('[Progressor] Standing Instruction s1 "Ask me before recalibrating". Look it up with get_item progressor://roadmap/s1 (.progressor/roadmap.md:25).');
   });
 });

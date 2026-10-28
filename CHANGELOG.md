@@ -4,6 +4,16 @@ All notable changes to progressor-mcp. Each release is a Goal on Progressor's ow
 
 ## Unreleased
 
+### Handier links on the dashboard
+
+- **Copy for your AI is now short.** It copies a one-line pointer, such as *Step t3 "Login page" (in progress) in goal "Sign-in". Look it up with get_item progressor://sign-in/t3 (.progressor/goals/sign-in.md:12).* Your AI has Progressor, so it looks the rest up itself; paste it and say what you want.
+- **Show in folder.** A goal and each step have a **Show in folder** button that opens your file manager where the plan is saved (Explorer and Finder select the file; on Linux its folder opens). Only files inside the project can be shown, and only from the dashboard's own page.
+- **What waits on you moves a little.** The Needs you box breathes slowly, its label and the waiting step pulse gently, and Needs you in the sidebar and on Home has a beating dot. Turned off when your computer asks for less motion.
+
+### Dates on everything
+
+- **Every goal, step, decision, note and thing to try now says when it was added, who added it (your AI or you) and when it last changed.** On the dashboard it shows in the goal's header, in a step's details and on the map, and under each decision, note and thing to try; hover a date to see the exact day and time. Your messages show when they were sent and answered. Plans you already have keep working: they just have no dates until something changes. In the plan's files: two lines, `added` and `updated`, written by Progressor.
+
 ### Plans kept safe
 
 - **A damaged plan file is no longer written over.** If your list of goals (or one goal's steps) was pasted over or edited into something Progressor can't read, it used to be treated as empty and the next change replaced it, so other goals could vanish. Now Progressor stops and says which file it could not read, and leaves it as it is. Fix the file (git can restore it) and carry on. A new or empty file works as before.

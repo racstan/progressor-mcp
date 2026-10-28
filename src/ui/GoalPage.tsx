@@ -16,7 +16,7 @@ import { StepKey } from "./StepKey.js";
 import { type FileLink, Steps, StepIcon } from "./Steps.js";
 import { Conversation, OpenQuestions } from "./Talk.js";
 import { plainText } from "./text.js";
-import { SIDE_TRIP_HINT, ago, elsewhereTag, finishWords, goalState } from "./words.js";
+import { SIDE_TRIP_HINT, ago, datesLine, datesTitle, elsewhereTag, finishWords, goalState } from "./words.js";
 
 type Goal = RoadmapView["goals"][number];
 type Tab = "steps" | "map" | "talk" | "notes";
@@ -35,7 +35,7 @@ function focus(g: GoalGraph): string | undefined {
  * One goal, top to bottom: where it stands and how far along it is, what needs the person (questions,
  * steps, things to try) in one place, then the steps, the map, the conversation and the notes as tabs.
  */
-export function GoalPage({ projectId, view, goals, state, schedule, fileLink, onCopy, onChanged }: {
+export function GoalPage({ projectId, view, goals, state, schedule, fileLink, onCopy, onReveal, onChanged }: {
   projectId: string;
   view: GoalView;
   goals: Goal[];
@@ -43,6 +43,8 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
   schedule: GoalSchedule | undefined;
   fileLink: FileLink;
   onCopy: (text: string) => void;
+  /** Opens the file manager at a file of the project. */
+  onReveal: (path: string) => void;
   onChanged: () => void;
 }) {
   const { goal, graph } = view;
@@ -73,12 +75,19 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
       <header className="goal-head">
         <div className="top">
           <span className={`state ${now.state}`} title={now.hint}>{now.state === "working" ? <span className="working-dot" /> : <span className="dot" />}{now.label}</span>
-          {state.updatedAt !== undefined && <span className="state">· updated {ago(state.updatedAt)}</span>}
+          {datesLine(goal) ? (
+            <span className="state" title={datesTitle(goal)}>· {datesLine(goal)}</span>
+          ) : (
+            state.updatedAt !== undefined && <span className="state">· updated {ago(state.updatedAt)}</span>
+          )}
           {elsewhere && <span className="state" title={elsewhere.hint}>· {elsewhere.label}</span>}
           <span className="sp" />
           <button className="btn ghost small" title="Copies a description of this goal to paste into your AI chat"
             onClick={() => onCopy(copyAsPrompt({ kind: "goal", goal, graph }))}>
             <Icon name="copy" size={14} /> Copy for your AI
+          </button>
+          <button className="btn ghost small" title={`Opens the folder this goal's plan is saved in: ${goal.planFile}`} onClick={() => onReveal(goal.planFile)}>
+            <Icon name="folder" size={14} /> Show in folder
           </button>
         </div>
         <h1 className="page-title">{goal.title}</h1>
@@ -127,7 +136,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
         <TabButton id="notes" tab={tab} setTab={setTab}>Notes {notes > 0 && <span className="n">{notes}</span>}</TabButton>
       </div>
       <div className="tab-body" role="tabpanel">
-        {tab === "steps" && <Steps view={view} fileLink={fileLink} onCopy={onCopy} />}
+        {tab === "steps" && <Steps view={view} fileLink={fileLink} onCopy={onCopy} onReveal={() => onReveal(goal.planFile)} />}
         {tab === "map" && (
           mapGraph.nodes.length === 0 ? <p className="quiet">No steps yet, so nothing to draw.</p> : (
             <>
@@ -165,7 +174,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
         )}
       </div>
       {selected && selectedNode && (
-        <Popover subject={{ kind: "node", node: selectedNode, goal, graph }} at={selected.at} onClose={() => setSelected(undefined)} fileLink={fileLink} files onCopy={onCopy} />
+        <Popover subject={{ kind: "node", node: selectedNode, goal, graph }} at={selected.at} onClose={() => setSelected(undefined)} fileLink={fileLink} files onCopy={onCopy} onReveal={onReveal} />
       )}
     </div>
   );

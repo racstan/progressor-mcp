@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { parseCodeRef } from "../dashboard/editor.js";
 import type { TaskNode } from "../dashboard/graph.js";
 import { type PromptSubject, copyAsPrompt } from "../dashboard/prompt.js";
+import { Dates } from "./Dates.js";
 import { Icon } from "./Icon.js";
 import { RichText } from "./RichText.js";
 import { StepMark } from "./StepKey.js";
@@ -55,7 +56,7 @@ function describe(subject: PromptSubject): { title: string; meta: string; state?
   }
 }
 
-export function Popover({ subject, at, onClose, fileLink, files, onCopy }: {
+export function Popover({ subject, at, onClose, fileLink, files, onCopy, onReveal }: {
   subject: PromptSubject;
   at: { x: number; y: number };
   onClose: () => void;
@@ -63,6 +64,8 @@ export function Popover({ subject, at, onClose, fileLink, files, onCopy }: {
   /** Whether to show the files and the buttons that open them. */
   files: boolean;
   onCopy: (text: string) => void;
+  /** Opens the file manager at a file of the project. */
+  onReveal?: (path: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: at.x + 12, top: at.y + 12 });
@@ -94,6 +97,7 @@ export function Popover({ subject, at, onClose, fileLink, files, onCopy }: {
       <button className="iconbtn x" aria-label="Close" onClick={onClose}><Icon name="close" /></button>
       <h4>{d.title}</h4>
       <div className="meta">{d.meta}</div>
+      <Dates item={subject.kind === "node" && subject.node.kind === "task" ? subject.node : undefined} />
       {d.time && <div className="meta time" title="How long your AI expected this step to take, and how long it has taken. Time paused (back to To do) does not count.">{d.time}</div>}
       {d.state && STEP_HINT[d.state] && (
         <div className="meta"><StepMark status={d.state} /> {STEP_HINT[d.state]}</div>
@@ -114,8 +118,9 @@ export function Popover({ subject, at, onClose, fileLink, files, onCopy }: {
         <pre>{prompt}</pre>
       </details>
       <div className="row">
-        <button className="btn" title="Copies a description of this that you can paste into your AI chat, to ask about it or change it" onClick={() => onCopy(prompt)}>Copy for your AI</button>
+        <button className="btn" title="Copies a short pointer to this; paste it into your AI chat and say what you want" onClick={() => onCopy(prompt)}>Copy for your AI</button>
         {files && first && <a className="btn ghost" title="Open it in your code editor" {...fileLink(first.path, first.line)}>Open in file</a>}
+        {onReveal && first && <button className="btn ghost" title="Opens the folder it is saved in" onClick={() => onReveal(first.path)}>Show in folder</button>}
       </div>
     </div>
   );

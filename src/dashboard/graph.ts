@@ -1,3 +1,4 @@
+import type { Stamp } from "../dates.js";
 import type { Origin } from "../origin.js";
 import type { Detour, DetourStatus, HelperInfo, Task, TaskStatus } from "../planFile.js";
 
@@ -27,6 +28,9 @@ export interface TaskNode extends NodeBase {
   fromDetour: boolean;
   /** Set when the Task was last added or changed from another project. */
   updatedFrom?: Origin;
+  /** When the Task was added and last changed, and by whom (unknown in older plans). */
+  added?: Stamp;
+  updated?: Stamp;
   /** How long it is expected to take, in minutes, when estimated. */
   estimate?: number;
   /** Minutes worked on it in earlier stretches, when any. */
@@ -101,6 +105,8 @@ export function buildGoalGraph(plan: { tasks: Task[]; detours: Detour[] }): Goal
     reason: t.reason,
     fromDetour: endedBy(t.addedBy, "returned"),
     ...(t.updatedFrom ? { updatedFrom: t.updatedFrom } : {}),
+    ...(t.added ? { added: t.added } : {}),
+    ...(t.updated ? { updated: t.updated } : {}),
     ...(t.estimate !== undefined ? { estimate: t.estimate } : {}),
     ...(t.spent > 0 ? { spent: t.spent } : {}),
     ...(t.timingSince ? { timingSince: t.timingSince } : {}),
