@@ -22,6 +22,7 @@ const PATHS = {
   pin: "M12 21v-6M7 4h10l-2 6 3 3H6l3-3z",
   play: "M8 5v14l11-7z",
   flag: "M5 21V4M5 4h11l-2 4 2 4H5",
+  folder: "M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z",
 } as const;
 
 export type IconName = keyof typeof PATHS;

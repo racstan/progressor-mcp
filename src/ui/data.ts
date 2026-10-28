@@ -257,6 +257,16 @@ export async function markHandTest(projectId: string, goalId: string, itemId: st
   if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
 }
 
+/** Opens the system's file manager at a file of the project (a plan file, or one a step changed). */
+export async function showInFolder(projectId: string, path: string): Promise<void> {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/reveal`, {
+    method: "POST",
+    headers: { "x-progressor": "reveal", "content-type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
+}
+
 /** Sends one of the person's changes about talking with their AI; says what went wrong in words when refused. */
 async function postTalk(projectId: string, goalId: string, path: string, body: unknown): Promise<void> {
   const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/goals/${encodeURIComponent(goalId)}/${path}`, {

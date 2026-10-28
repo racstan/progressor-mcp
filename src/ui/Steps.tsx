@@ -36,7 +36,7 @@ export function StepIcon({ status }: { status: string }) {
  * A goal's steps in plan order, each a row that opens to show what it does, what was checked and the
  * files it changed. Side trips sit under the step they left from. Cancelled steps wait behind a link.
  */
-export function Steps({ view, fileLink, onCopy }: { view: GoalView; fileLink: FileLink; onCopy: (text: string) => void }) {
+export function Steps({ view, fileLink, onCopy, onReveal }: { view: GoalView; fileLink: FileLink; onCopy: (text: string) => void; onReveal: () => void }) {
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [cancelled, setCancelled] = useState(false);
   const rows = checklistRows(view.graph);
@@ -54,7 +54,7 @@ export function Steps({ view, fileLink, onCopy }: { view: GoalView; fileLink: Fi
       <ol className="steps" aria-label="Steps in order">
         {rows.flatMap((row) => [
           ...(row.task && (cancelled || row.task.status !== "dropped")
-            ? [<Step key={row.task.id} task={row.task} open={open.has(row.task.id)} onToggle={() => toggle(row.task!.id)} pictures={view.pictures.filter((p) => p.task === row.task!.id)} fileLink={fileLink} onCopy={() => copy(row.task!)} />]
+            ? [<Step key={row.task.id} task={row.task} open={open.has(row.task.id)} onToggle={() => toggle(row.task!.id)} pictures={view.pictures.filter((p) => p.task === row.task!.id)} fileLink={fileLink} onCopy={() => copy(row.task!)} onReveal={onReveal} />]
             : []),
           ...row.detours.map((d) => <SideTrip key={d.id} detour={d} open={open.has(d.id)} onToggle={() => toggle(d.id)} onCopy={() => copy(d)} />),
         ])}
@@ -70,7 +70,7 @@ export function Steps({ view, fileLink, onCopy }: { view: GoalView; fileLink: Fi
   );
 }
 
-function Step({ task: t, open, onToggle, pictures, fileLink, onCopy }: { task: TaskNode; open: boolean; onToggle: () => void; pictures: PictureItem[]; fileLink: FileLink; onCopy: () => void }) {
+function Step({ task: t, open, onToggle, pictures, fileLink, onCopy, onReveal }: { task: TaskNode; open: boolean; onToggle: () => void; pictures: PictureItem[]; fileLink: FileLink; onCopy: () => void; onReveal: () => void }) {
   const elsewhere = elsewhereTag(t.updatedFrom);
   const meta = [stepTime(t), helperLine(t.helper), t.fromDetour && "Added after a side trip", elsewhere?.label].filter(Boolean).join(" · ");
   const cls = t.status === "in progress" ? "now" : t.status === "waiting on you" ? "you" : statusClass(t.status);
@@ -97,7 +97,8 @@ function Step({ task: t, open, onToggle, pictures, fileLink, onCopy }: { task: T
           )}
           <Pictures pictures={pictures} />
           <div className="actions">
-            <button className="btn ghost small" onClick={onCopy} title="Copies a description of this step to paste into your AI chat"><Icon name="copy" size={14} /> Copy for your AI</button>
+            <button className="btn ghost small" onClick={onCopy} title="Copies a short pointer to this step; paste it into your AI chat and say what you want"><Icon name="copy" size={14} /> Copy for your AI</button>
+            <button className="btn ghost small" onClick={onReveal} title="Opens the folder this step's plan is saved in"><Icon name="folder" size={14} /> Show in folder</button>
           </div>
         </div>
       )}

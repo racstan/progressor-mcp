@@ -28,11 +28,12 @@ import {
 } from "./registry.js";
 import { watchProgress } from "./watch.js";
 import { allProjects, findProjects } from "./workspace.js";
+import { type RevealRunner, insideProject, revealCommand, runReveal } from "./reveal.js";
 
 export const DEFAULT_PORT = 4747;
 const HOST = "127.0.0.1";
 /** Bumped when the hub's API changes, so a hub from an older version is not shared. */
-const HUB_VERSION = 5;
+const HUB_VERSION = 6;
 
 export interface DashboardOptions {
   /** This Session's project; it is added to the registry. Absent when only a Workspace is opened. */
@@ -55,6 +56,8 @@ export interface DashboardOptions {
   workspaceScanMs?: number;
   /** While another process serves the dashboard, how often to check it is still there and take over if not. */
   hubCheckMs?: number;
+  /** Opens the file manager for "Show in folder"; tests pass their own (reveal.ts). */
+  reveal?: RevealRunner;
 }
 
 export interface Dashboard {
@@ -196,7 +199,7 @@ function json(res: ServerResponse, status: number, body: unknown): void {
  * Origin on a POST, and a custom header cannot be sent from another site without a CORS preflight,
  * which the dashboard never answers, so other web pages cannot stop servers.
  */
-function isFromDashboardPage(req: IncomingMessage, header: "stop" | "mark" | "talk"): boolean {
+function isFromDashboardPage(req: IncomingMessage, header: "stop" | "mark" | "talk" | "reveal"): boolean {
   if (req.headers["x-progressor"] !== header) return false;
   try {
     const origin = new URL(String(req.headers.origin ?? ""));
@@ -290,6 +293,8 @@ class Hub {
     private readonly serversDir: string,
     /** Called once a newer Progressor has asked this hub to hand the port over. */
     private readonly onStepDown: () => void,
+    /** Opens the file manager for "Show in folder". */
+    private readonly reveal: RevealRunner = runReveal,
   ) {
     this.sync();
     this.timer = setInterval(() => this.sync(), rescanMs);
@@ -427,6 +432,21 @@ class Hub {
   }
 
   /**
+   * "Show in folder": opens the file manager at a file or folder inside the project, such as a plan
+   * file. Guarded like the other changes (only this page can ask); nothing outside the project.
+   */
+  private async showInFolder(req: IncomingMessage, res: ServerResponse, projectId: string): Promise<void> {
+    const got = await this.guardedBody(req, res, "reveal", projectId, 4096);
+    if (!got) return;
+    const { project, body } = got;
+    if (typeof body.path !== "string") return json(res, 400, { error: "Say which file to show." });
+    const found = insideProject(project.root, body.path);
+    if (!found) return json(res, 404, { error: "There is no such file in this project." });
+    this.reveal(revealCommand(process.platform, found.path, found.isDir));
+    return json(res, 200, { shown: body.path });
+  }
+
+  /**
    * The Developer's mark on a hand test: works, doesn't work (with a note), won't test, or clear to
    * undo. It is written through the same code the Agent's tools use, holding the plan's lock, and
    * only for this page: the custom header and the page's own Origin keep other web pages out.
@@ -464,7 +484,7 @@ class Hub {
    * Reads a JSON body the dashboard's own page sent with the given header, for the project named;
    * answers the request itself and gives undefined when anything is wrong.
    */
-  private async guardedBody(req: IncomingMessage, res: ServerResponse, header: "talk", projectId: string, limit: number) {
+  private async guardedBody(req: IncomingMessage, res: ServerResponse, header: "talk" | "reveal", projectId: string, limit: number) {
     if (!isFromDashboardPage(req, header)) return void json(res, 403, { error: "This can only be sent from the dashboard's own page." });
     if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) return void json(res, 415, { error: "Send it as JSON." });
     if (!this.projects.has(projectId)) this.sync();
@@ -538,6 +558,8 @@ class Hub {
     const stop = /^\/api\/servers\/(\d+)\/stop$/.exec(path);
     if (req.method === "POST" && stop) return this.stopServer(req, res, Number(stop[1]));
     if (req.method === "POST" && path === "/api/hub/step-down") return this.stepDown(req, res);
+    const shown = /^\/api\/projects\/([^/]+)\/reveal$/.exec(path);
+    if (req.method === "POST" && shown) return void this.showInFolder(req, res, decodeURIComponent(shown[1]!));
     const talk = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/((?:messages|questions)(?:\/[^/]+\/(?:delete|answer))?)$/.exec(path);
     if (req.method === "POST" && talk) return void this.talk(req, res, decodeURIComponent(talk[1]!), decodeURIComponent(talk[2]!), talk[3]!);
     const mark = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/hand-tests\/([^/]+)$/.exec(path);
@@ -682,7 +704,7 @@ async function askToStepDown(port: number): Promise<boolean> {
  * the hub moves back to the first port once it is free again.
  */
 export async function startDashboard(options: DashboardOptions): Promise<Dashboard> {
-  const { project, uiDir, editor = DEFAULT_EDITOR, attempts = 20, rescanMs = 5000, workspaceScanMs = 300_000, hubCheckMs = 5000 } = options;
+  const { project, uiDir, editor = DEFAULT_EDITOR, attempts = 20, rescanMs = 5000, workspaceScanMs = 300_000, hubCheckMs = 5000, reveal = runReveal } = options;
   const registryFile = options.registryFile ?? defaultRegistryFile();
   const serversDir = defaultServersDir(registryFile);
   const firstPort = options.port ?? DEFAULT_PORT;
@@ -720,7 +742,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
     const http = createServer();
     const result = await listen(http, p);
     if (result !== "ok") return result;
-    hub ??= new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs, serversDir, () => void stopServing());
+    hub ??= new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs, serversDir, () => void stopServing(), reveal);
     http.on("request", hub.handle);
     const previous = servers;
     [servers, port, role] = [[http], p, "serving"];
