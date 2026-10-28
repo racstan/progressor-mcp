@@ -257,6 +257,27 @@ export async function markHandTest(projectId: string, goalId: string, itemId: st
   if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
 }
 
+/** Sends one of the person's changes about talking with their AI; says what went wrong in words when refused. */
+async function postTalk(projectId: string, goalId: string, path: string, body: unknown): Promise<void> {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/goals/${encodeURIComponent(goalId)}/${path}`, {
+    method: "POST",
+    headers: { "x-progressor": "talk", "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
+}
+
+/** A message to the AI working on a goal. */
+export const sendMessage = (projectId: string, goalId: string, text: string) => postTalk(projectId, goalId, "messages", { text });
+
+/** Takes back a message the AI has not read yet. */
+export const takeBackMessage = (projectId: string, goalId: string, id: string) =>
+  postTalk(projectId, goalId, `messages/${encodeURIComponent(id)}/delete`, {});
+
+/** Answers one of the AI's questions: a choice, or the person's own words. */
+export const answerQuestion = (projectId: string, goalId: string, id: string, answer: string) =>
+  postTalk(projectId, goalId, `questions/${encodeURIComponent(id)}/answer`, { answer });
+
 /** Search results for what is typed, fetched a moment after typing stops; undefined while searching. */
 export function useSearch(query: string): SearchView | undefined {
   const [hits, setHits] = useState<{ query: string; hits: SearchView }>();
