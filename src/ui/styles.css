@@ -636,3 +636,14 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
   70%, 100% { box-shadow: 0 0 0 8px transparent; }
 }
 @keyframes bar { 0%, 100% { box-shadow: inset 4px 0 0 var(--you); } 50% { box-shadow: inset 7px 0 0 var(--you); } }
+
+/* the page may be out of date: a newer Progressor, or out of touch for a while */
+.stale-bar { position: fixed; bottom: var(--s5); left: 50%; transform: translateX(-50%); z-index: 45; width: min(720px, calc(100vw - 32px)); display: flex; align-items: center; gap: var(--s3);
+  padding: var(--s3) var(--s4); background: var(--panel); color: var(--ink); border: 2px solid var(--ink); border-radius: var(--r); box-shadow: var(--shadow); font-size: var(--t-s);
+  animation: pop .25s var(--ease) backwards; }
+.stale-bar > span { flex: 1; min-width: 0; }
+.stale-bar > svg { flex: none; animation: spin-slow 3s linear infinite; }
+.stale-bar .btn { flex: none; }
+[data-theme="vibrant"] .stale-bar { border-color: var(--you); }
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .stale-bar, .stale-bar > svg { animation: none; } }
