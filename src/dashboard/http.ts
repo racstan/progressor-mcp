@@ -9,7 +9,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { type Origin, latestOrigin } from "../origin.js";
-import type { Decision, HandResult, HandTest, Note, TaskStatus } from "../planFile.js";
+import type { Decision, HandResult, HandTest, Message, Note, Question, TaskStatus } from "../planFile.js";
 import { withLock } from "../lock.js";
 import { PROGRESSOR_DIR, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
@@ -106,9 +106,11 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
     };
     // The latest change an AI chat in another project made to the Goal, its Tasks, decisions or notes.
     let fromElsewhere: Origin | undefined = goal.updatedFrom;
+    let openQuestions = 0;
     try {
       const plan = project.plan(goalId);
       for (const t of plan.tasks) counts[t.status]++;
+      openQuestions = plan.questions.filter((q) => q.state === "open").length;
       fromElsewhere = latestOrigin([goal.updatedFrom, ...[...plan.tasks, ...plan.decisions, ...plan.notes].map((i) => i.updatedFrom)]);
       done = counts.done + counts.released;
       total = Object.values(counts).reduce((a, b) => a + b, 0) - counts.dropped;
@@ -124,9 +126,9 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
       }
     };
     const planFile = project.planFilePath(goalId);
-    // A Goal with a Task waiting on the Developer is waiting on them, rather than being worked on.
-    const waitingOnYou = counts["waiting on you"] > 0;
-    return { ...goal, planFile, done, total, counts, waitingOnYou, updatedAt: changed(planFile) ?? changed(roadmapFile), fromElsewhere };
+    // A Goal with a Task waiting on the Developer, or a question for them, is waiting on them.
+    const waitingOnYou = counts["waiting on you"] > 0 || openQuestions > 0;
+    return { ...goal, planFile, done, total, counts, waitingOnYou, openQuestions, updatedAt: changed(planFile) ?? changed(roadmapFile), fromElsewhere };
   };
   return {
     roadmap: () => {
@@ -159,7 +161,9 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
       const decisions: Decision[] = plan.decisions;
       const notes: Note[] = plan.notes;
       const handTests: HandTest[] = plan.handTests;
-      return { goal, graph: buildGoalGraph(plan), decisions, notes, handTests };
+      const messages: Message[] = plan.messages;
+      const questions: Question[] = plan.questions;
+      return { goal, graph: buildGoalGraph(plan), decisions, notes, handTests, messages, questions };
     },
     item: (ref: string) => project.getItem(ref),
   };
@@ -175,7 +179,7 @@ function json(res: ServerResponse, status: number, body: unknown): void {
  * Origin on a POST, and a custom header cannot be sent from another site without a CORS preflight,
  * which the dashboard never answers, so other web pages cannot stop servers.
  */
-function isFromDashboardPage(req: IncomingMessage, header: "stop" | "mark"): boolean {
+function isFromDashboardPage(req: IncomingMessage, header: "stop" | "mark" | "talk"): boolean {
   if (req.headers["x-progressor"] !== header) return false;
   try {
     const origin = new URL(String(req.headers.origin ?? ""));
@@ -190,6 +194,8 @@ function isFromDashboardPage(req: IncomingMessage, header: "stop" | "mark"): boo
 const MARKS: Record<string, HandResult> = { works: "works", "doesn't work": "doesn't work", "won't test": "won't test", clear: "pending" };
 /** A mark is a few words and a short note, so a bigger body is refused unread. */
 const MAX_MARK_BODY = 4096;
+/** A message is at most MAX_MESSAGE characters, which JSON can make a few times bigger. */
+const MAX_TALK_BODY = 16_384;
 
 /** Reads a request body as text, or undefined when it is bigger than the limit. */
 function readBody(req: IncomingMessage, limit: number): Promise<string | undefined> {
@@ -391,6 +397,62 @@ class Hub {
   }
 
   /**
+   * Reads a JSON body the dashboard's own page sent with the given header, for the project named;
+   * answers the request itself and gives undefined when anything is wrong.
+   */
+  private async guardedBody(req: IncomingMessage, res: ServerResponse, header: "talk", projectId: string, limit: number) {
+    if (!isFromDashboardPage(req, header)) return void json(res, 403, { error: "This can only be sent from the dashboard's own page." });
+    if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) return void json(res, 415, { error: "Send it as JSON." });
+    if (!this.projects.has(projectId)) this.sync();
+    const project = this.projects.get(projectId)?.project;
+    if (!project) return void json(res, 404, { error: "No such project on the dashboard." });
+    const text = await readBody(req, limit);
+    if (text === undefined) {
+      res.once("finish", () => req.destroy());
+      return void json(res, 413, { error: "That is too long." });
+    }
+    try {
+      const body = JSON.parse(text) as unknown;
+      if (body && typeof body === "object") return { project, body: body as Record<string, unknown> };
+    } catch {
+      // answered below
+    }
+    return void json(res, 400, { error: "That is not valid JSON." });
+  }
+
+  /**
+   * The Developer talking to their AI: send a message, take back one the AI has not seen, or answer
+   * one of its questions. Written under the plan's lock through the same code the tools use.
+   */
+  private async talk(req: IncomingMessage, res: ServerResponse, projectId: string, goalId: string, action: string): Promise<void> {
+    const got = await this.guardedBody(req, res, "talk", projectId, MAX_TALK_BODY);
+    if (!got) return;
+    const { project, body } = got;
+    const words = (key: string) => {
+      const v = body[key];
+      if (typeof v !== "string" || !v.trim()) throw new Error(`Write the ${key === "text" ? "message" : key} first.`);
+      return v;
+    };
+    try {
+      const answer = withLock(project.root, () => {
+        if (action === "messages") return { status: 201, body: project.sendMessage(goalId, words("text")) };
+        const del = /^messages\/([^/]+)\/delete$/.exec(action);
+        if (del) {
+          project.deleteMessage(goalId, del[1]!);
+          return { status: 200, body: { deleted: del[1] } };
+        }
+        const ans = /^questions\/([^/]+)\/answer$/.exec(action);
+        if (ans) return { status: 200, body: project.answerQuestion(goalId, ans[1]!, words("answer")) };
+        return { status: 404, body: { error: "Nothing to do here." } };
+      });
+      return json(res, answer.status, answer.body);
+    } catch (e) {
+      const message = (e as Error).message;
+      return json(res, /^No /.test(message) ? 404 : /already|withdrawn/.test(message) ? 409 : 400, { error: message });
+    }
+  }
+
+  /**
    * A newer Progressor asks for the port, so the dashboard is served by the newest version. Only
    * the serving stops: this process's Session goes on, and it shares the newer hub from then on.
    * Browsers always send Origin on a POST, and cannot send the custom header to another site
@@ -412,6 +474,8 @@ class Hub {
     const stop = /^\/api\/servers\/(\d+)\/stop$/.exec(path);
     if (req.method === "POST" && stop) return this.stopServer(req, res, Number(stop[1]));
     if (req.method === "POST" && path === "/api/hub/step-down") return this.stepDown(req, res);
+    const talk = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/((?:messages|questions)(?:\/[^/]+\/(?:delete|answer))?)$/.exec(path);
+    if (req.method === "POST" && talk) return void this.talk(req, res, decodeURIComponent(talk[1]!), decodeURIComponent(talk[2]!), talk[3]!);
     const mark = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/hand-tests\/([^/]+)$/.exec(path);
     if (req.method === "POST" && mark)
       return void this.markHandTest(req, res, decodeURIComponent(mark[1]!), decodeURIComponent(mark[2]!), decodeURIComponent(mark[3]!));

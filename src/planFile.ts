@@ -137,8 +137,50 @@ export interface HandTest {
   updatedFrom?: Origin;
 }
 
+/** Where a message from the Developer stands: not yet shown to the Agent, shown, or replied to. */
+export type MessageState = "new" | "seen" | "replied";
+
+/** Something the Developer wrote to the Agent on the dashboard. */
+export interface Message {
+  id: string | undefined;
+  ref: string | undefined;
+  text: string;
+  line: number;
+  state: MessageState;
+  /** When the Developer sent it, when the Agent was shown it and when it replied (ISO times). */
+  sentAt: string | undefined;
+  seenAt: string | undefined;
+  reply: string | undefined;
+  repliedAt: string | undefined;
+}
+
+/** Where a question to the Developer stands. */
+export type QuestionState = "open" | "answered" | "withdrawn";
+
+/** Something the Agent asked the Developer, with choices they can click. */
+export interface Question {
+  id: string | undefined;
+  ref: string | undefined;
+  text: string;
+  line: number;
+  state: QuestionState;
+  choices: string[];
+  /** The ID of the Task it is about, if the Agent said. */
+  task: string | undefined;
+  askedAt: string | undefined;
+  /** The Developer's answer: one of the choices, or their own words. */
+  answer: string | undefined;
+  answeredAt: string | undefined;
+  /** The ID of the decision the answer was recorded as. */
+  decision: string | undefined;
+  /** Whether the Agent has been shown the answer. */
+  seen: boolean;
+}
+
 export const TASKS = "Tasks";
 export const HAND_TESTS = "Hand tests";
+export const MESSAGES = "Messages";
+export const QUESTIONS = "Questions";
 export const DECISIONS = "Decisions";
 export const NOTES = "Notes";
 const DETOUR_PREFIX = "Detour: ";
@@ -167,6 +209,11 @@ export const TASK_MARKER: Record<TaskStatus, Marker> = {
 const HAND_MARKER: Record<HandResult, Marker> = { pending: " ", works: "x", "doesn't work": "/", "won't test": "-" };
 const HAND_RESULT: Record<Marker, HandResult> = { " ": "pending", x: "works", "/": "doesn't work", "-": "won't test" };
 const HAND_ORDER = ["task", "note", "marked", "task added", "seen", ORIGIN_KEY];
+const MESSAGE_MARKER: Record<MessageState, Marker> = { new: " ", seen: "/", replied: "x" };
+const MESSAGE_STATE: Record<Marker, MessageState> = { " ": "new", "/": "seen", x: "replied", "-": "seen" };
+const MESSAGE_ORDER = ["sent", "seen", "reply", "replied"];
+const QUESTION_STATE: Record<Marker, QuestionState> = { " ": "open", "/": "open", x: "answered", "-": "withdrawn" };
+const QUESTION_ORDER = ["choice", "task", "asked", "answer", "answered", "decision", "seen"];
 const STATE_LINE: TaskStatus[] = ["with a helper", "waiting on you", "checked", "released"];
 /** Tasks in these states are over: a Goal can be completed once all its Tasks are. */
 export const FINISHED: readonly TaskStatus[] = ["done", "released", "dropped"];
@@ -385,6 +432,8 @@ export class PlanFile {
       ...itemsIn(this.doc, DECISIONS).map((b) => b.id),
       ...itemsIn(this.doc, NOTES).map((b) => b.id),
       ...itemsIn(this.doc, HAND_TESTS).map((b) => b.id),
+      ...itemsIn(this.doc, MESSAGES).map((b) => b.id),
+      ...itemsIn(this.doc, QUESTIONS).map((b) => b.id),
     ];
   }
 
@@ -395,6 +444,8 @@ export class PlanFile {
     for (const b of itemsIn(this.doc, DECISIONS)) if (!b.id) b.id = nextId(this.allIds(), "c");
     for (const b of itemsIn(this.doc, NOTES)) if (!b.id) b.id = nextId(this.allIds(), "n");
     for (const b of itemsIn(this.doc, HAND_TESTS)) if (!b.id) b.id = nextId(this.allIds(), "h");
+    for (const b of itemsIn(this.doc, MESSAGES)) if (!b.id) b.id = nextId(this.allIds(), "m");
+    for (const b of itemsIn(this.doc, QUESTIONS)) if (!b.id) b.id = nextId(this.allIds(), "q");
   }
 
   addTasks(tasks: NewTask[], addedBy?: string): Task[] {
@@ -704,6 +755,127 @@ export class PlanFile {
       }
     }
     return changed;
+  }
+
+  // --- messages from the Developer ------------------------------------------------
+
+  get messages(): Message[] {
+    return itemsIn(this.doc, MESSAGES).map((b) => ({
+      id: b.id,
+      ref: this.ref(b.id),
+      text: b.text,
+      line: b.line,
+      state: MESSAGE_STATE[b.marker ?? " "],
+      sentAt: getDetail(b, "sent"),
+      seenAt: getDetail(b, "seen"),
+      reply: getDetail(b, "reply"),
+      repliedAt: getDetail(b, "replied"),
+    }));
+  }
+
+  message(id: string): Message | undefined {
+    return this.messages.find((m) => m.id === id);
+  }
+
+  /** Adds a message from the Developer, not yet shown to the Agent. */
+  addMessage(text: string, at: Date): Message {
+    this.assignMissingIds();
+    const id = nextId(this.allIds(), "m");
+    const b = newItem({ marker: MESSAGE_MARKER.new, text: oneLine(text), id });
+    addDetail(b, "sent", at.toISOString());
+    this.addToSection(MESSAGES, b);
+    return this.message(id)!;
+  }
+
+  removeMessage(id: string): void {
+    this.removeBlock(this.entryBlock(MESSAGES, "message", id));
+  }
+
+  /** The Agent's reply to a message; a message replied to again keeps only the last reply. */
+  replyToMessage(id: string, reply: string, at: Date): Message {
+    const b = this.entryBlock(MESSAGES, "message", id);
+    if (!getDetail(b, "seen")) setDetail(b, "seen", at.toISOString());
+    b.marker = MESSAGE_MARKER.replied;
+    setDetail(b, "reply", oneLine(reply));
+    setDetail(b, "replied", at.toISOString());
+    sortDetails(b, MESSAGE_ORDER);
+    return this.message(id)!;
+  }
+
+  /** Marks every message not yet shown to the Agent as seen, and returns them. */
+  takeNewMessages(at: Date): Message[] {
+    const fresh = itemsIn(this.doc, MESSAGES).filter((b) => MESSAGE_STATE[b.marker ?? " "] === "new");
+    for (const b of fresh) {
+      b.marker = MESSAGE_MARKER.seen;
+      setDetail(b, "seen", at.toISOString());
+      sortDetails(b, MESSAGE_ORDER);
+    }
+    const ids = new Set(fresh.map((b) => b.id));
+    return this.messages.filter((m) => ids.has(m.id));
+  }
+
+  // --- questions to the Developer --------------------------------------------------
+
+  get questions(): Question[] {
+    return itemsIn(this.doc, QUESTIONS).map((b) => ({
+      id: b.id,
+      ref: this.ref(b.id),
+      text: b.text,
+      line: b.line,
+      state: QUESTION_STATE[b.marker ?? " "],
+      choices: getDetails(b, "choice"),
+      task: stripRef(getDetail(b, "task")),
+      askedAt: getDetail(b, "asked"),
+      answer: getDetail(b, "answer"),
+      answeredAt: getDetail(b, "answered"),
+      decision: stripRef(getDetail(b, "decision")),
+      seen: getDetail(b, "seen") !== undefined,
+    }));
+  }
+
+  question(id: string): Question | undefined {
+    return this.questions.find((q) => q.id === id);
+  }
+
+  /** Adds an open question with its choices, optionally about one of the Tasks. */
+  addQuestion(text: string, choices: string[], task: string | undefined, at: Date): Question {
+    this.assignMissingIds();
+    if (task) this.taskBlock(task);
+    const id = nextId(this.allIds(), "q");
+    const b = newItem({ marker: " ", text: oneLine(text), id });
+    for (const c of choices) addDetail(b, "choice", oneLine(c));
+    if (task) addDetail(b, "task", `^${task}`);
+    addDetail(b, "asked", at.toISOString());
+    this.addToSection(QUESTIONS, b);
+    return this.question(id)!;
+  }
+
+  /** Records the Developer's answer and the decision it was kept as; the Agent has not seen it yet. */
+  answerQuestion(id: string, answer: string, at: Date, decision: string | undefined): Question {
+    const b = this.entryBlock(QUESTIONS, "question", id);
+    b.marker = "x";
+    setDetail(b, "answer", oneLine(answer));
+    setDetail(b, "answered", at.toISOString());
+    setDetail(b, "decision", decision ? `^${decision}` : undefined);
+    setDetail(b, "seen", undefined);
+    sortDetails(b, QUESTION_ORDER);
+    return this.question(id)!;
+  }
+
+  withdrawQuestion(id: string): Question {
+    this.entryBlock(QUESTIONS, "question", id).marker = "-";
+    return this.question(id)!;
+  }
+
+  /** Marks every answer the Agent has not been shown as seen, and returns those questions. */
+  takeNewAnswers(at: Date): Question[] {
+    const fresh = itemsIn(this.doc, QUESTIONS).filter((b) => QUESTION_STATE[b.marker ?? " "] === "answered" && getDetail(b, "seen") === undefined);
+    for (const b of fresh) {
+      setDetail(b, "seen", at.toISOString());
+      sortDetails(b, QUESTION_ORDER);
+    }
+    const ids = new Set(fresh.map((b) => b.id));
+    return this.questions.filter((q) => ids.has(q.id));
   }
 
   /** Marks a Task, decision or note as last changed from another project (an `updated from` line). */

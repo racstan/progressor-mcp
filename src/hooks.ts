@@ -7,6 +7,7 @@ import { launcherWarning, onPath } from "./init.js";
 import { seenFile, takeElsewhereLine } from "./elsewhere.js";
 import { hardFirst, ruleText } from "./roadmap.js";
 import { handTestLines } from "./handTestText.js";
+import { promptNewsLine, talkLines } from "./talkText.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -54,6 +55,8 @@ function fullStatus(s: Status): string[] {
     ...(s.decisions.length > 0 ? [`Decisions: ${s.decisions.map((d) => `${d.id} ${d.text}`).join("; ")}`] : []),
     ...(s.notes.length > 0 ? [`Notes: ${s.notes.map((n) => `${n.id} ${n.text}${n.from ? ` (from ${n.from})` : ""}`).join("; ")}`] : []),
     ...handTestLines(s.handTests),
+    ...talkLines(s),
+    ...[promptNewsLine(s.messages.filter((m) => m.state === "new"), s.answers)].filter((l): l is string => l !== undefined),
   ];
 }
 
@@ -116,6 +119,16 @@ const STALE = "may be out of date";
  * the plan last changed, since a reminder naming a step a helper finished long ago misleads.
  */
 export function promptReminder(o: ProjectOverview, now = new Date()): string | undefined {
+  const reminder = planReminder(o, now);
+  // What the Developer wrote on the dashboard for the Goals in progress; get_status marks it seen.
+  const news = promptNewsLine(
+    o.active.flatMap((s) => s.messages.filter((m) => m.state === "new")),
+    o.active.flatMap((s) => s.answers),
+  );
+  return reminder && news ? `${reminder}\n${PREFIX} ${news}` : reminder;
+}
+
+function planReminder(o: ProjectOverview, now: Date): string | undefined {
   const [only] = o.active;
   if (!only) return undefined;
   if (o.active.length > 1) {
