@@ -61,12 +61,16 @@ One line saying what done looks like for a Goal, used to judge whether it is fin
 _Avoid_: Acceptance criteria, definition of done, success metric
 
 **Plan File**:
-The markdown file that holds one Goal's Tasks, Decisions, Notes and Detours, and the place every one of them can be opened.
+The markdown file that holds one Goal's Tasks, Decisions, Notes, Hand tests and Detours, and the place every one of them can be opened.
 _Avoid_: Audit file, progress file, todo file
 
 **Task**:
 A planned step toward a Goal, with a short title, the files it touches and a summary of the change it makes. It is pending, in progress (the Agent's own current work, one per Goal), with a helper, waiting on you (the Agent is waiting on the Developer), checked (a helper's work checked, not yet merged), done, released (merged and out) or dropped. A Task that belongs in another Goal can be moved there: it gets a new ID in the other Goal, and the old one stays as a dropped trace saying where it went.
 _Avoid_: Todo, item, step, ticket
+
+**Hand test**:
+Something only the Developer can try by hand, added to a Goal by the Agent (the dashboard says *Things to try by hand*). The Developer marks each one on the dashboard as works, doesn't work (with a note) or won't test, and can undo it. A failure adds a pending Task to the Goal, linked back to the hand test; `get_status` shows open hand tests and new marks, and a Goal can't be completed while one is not tried yet, unless the Agent overrides it.
+_Avoid_: Manual test, checklist item, QA item
 
 **Estimate**:
 How long a Task, or a Goal as a whole, is expected to take, such as 45m or 2h, set by the Agent when it plans and updated when it learns more. A Goal's estimate is the sum of its open Tasks' unless the Goal has one of its own.

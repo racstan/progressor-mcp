@@ -10,6 +10,8 @@ import {
   finishWords,
   goalState,
   goalTime,
+  handTestsLine,
+  handTestsOpen,
   isBadge,
   noteOrigin,
   scheduleLine,
@@ -213,5 +215,18 @@ describe("the schedule in plain words", () => {
     expect(stepTime({ status: "with a helper", estimate: 45, spent: 10, timingSince: new Date(now - 20 * MIN).toISOString() }, now)).toBe("30 m so far, estimated 45 m");
     expect(stepTime({ status: "pending", estimate: 45 })).toBe("Estimated 45 m");
     expect(stepTime({ status: "pending" })).toBeUndefined();
+  });
+});
+
+describe("the things to try by hand", () => {
+  const tests = [{ result: "pending" }, { result: "pending" }, { result: "works" }, { result: "doesn't work" }, { result: "won't test" }];
+  it("sums them up in everyday words, leaving out what there is none of", () => {
+    expect(handTestsLine(tests)).toBe("2 to try · 1 works · 1 doesn't work · 1 won't test");
+    expect(handTestsLine([{ result: "works" }])).toBe("1 works");
+    expect(handTestsLine([])).toBe("");
+  });
+  it("counts what is still to try", () => {
+    expect(handTestsOpen(tests)).toBe(2);
+    expect(handTestsOpen([{ result: "works" }])).toBe(0);
   });
 });

@@ -126,7 +126,7 @@ export function handTestLines(tests: HandTest[]): string[] {
   if (tests.length === 0) return [];
   const count = (r: HandTest["result"]) => tests.filter((h) => h.result === r).length;
   const parts = [
-    `${count("pending")} not tried yet`,
+    ...(count("pending") > 0 ? [`${count("pending")} not tried yet`] : []),
     ...(count("works") > 0 ? [`${count("works")} work`] : []),
     ...(count("doesn't work") > 0 ? [`${count("doesn't work")} don't work`] : []),
     ...(count("won't test") > 0 ? [`${count("won't test")} won't be tested`] : []),

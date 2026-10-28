@@ -2,6 +2,18 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own Roadmap (`.progressor/`); from 0.2.0 on, one release bundles several finished Goals.
 
+## Unreleased
+
+### Things to try by hand
+
+Some things only you can test. Your AI now keeps them in a list on the goal instead of in its chat summary, where they got lost, and you cross them off yourself on the dashboard.
+
+- **A list on each goal.** Your AI adds what to try, optionally with the step it is about (new tools `add_hand_test` and `update_hand_test`). The dashboard shows it as **Things to try by hand**, under the goal's banner.
+- **You mark each one.** **✓ Works**, **✗ Doesn't work** (you type a few words) or **Won't test**, and **Undo** takes a mark back. This is the first thing you can change on the dashboard besides stopping a server: a small `POST` that only the dashboard's own page can send, written through the same code as the tools while holding the plan's lock. The dashboard's hub version is now 4.
+- **A failure becomes a step.** *Doesn't work* adds a pending step to the goal, *Fix: …*, with your words in its details, linked both ways (and reopens a finished goal). Undoing the mark cancels that step if your AI hasn't started it.
+- **Your AI sees your marks.** `get_status` lists what is still to try and, once, the new marks, failures with your note first; hand tests also show in `get_item` and in Claude Code's session-start status. A goal can't be completed while something is still to try, unless your AI is told to finish anyway (`unmarked_hand_tests_ok`).
+- **In the files:** a `## Hand tests` section (`[ ]` not tried, `[x]` works, `[/]` doesn't work, `[-]` won't test) with `task`, `note`, `marked`, `task added` and `seen` lines, and a `from hand test` line on the added step. Plans from before keep working unchanged. See [the format](docs/markdown-format.md#hand-tests).
+
 ## 0.9.0 · How long things take, and not too much at once
 
 Your AI now says how long it expects each step to take, keeps track of how long it really took, and keeps to a limit on how many helpers work at once, so a big push doesn't overload your computer or leave more work to check and merge than your AI can keep up with.

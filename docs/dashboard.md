@@ -2,7 +2,7 @@
 
 The dashboard is a page in your browser that shows what your AI is doing, live. Open **http://localhost:4747** while your AI's app is open: your AI gives you the exact link when it starts, or ask it *"Where's the dashboard?"*. Keep it beside your AI's window, or in a tab. It updates by itself; you never need to refresh.
 
-The dashboard only shows. To change anything in the plan, tell your AI.
+The dashboard shows the plan. The one thing you do on it yourself is mark the things your AI asks you to try by hand (see [Things to try by hand](#things-to-try-by-hand)); to change anything else in the plan, tell your AI.
 
 ## At the top of a goal
 
@@ -59,6 +59,18 @@ When any step of a goal is waiting on you, the whole goal says so, so you can se
 - In **All projects**, the goal says **Waiting on you** and its project shows the same note and comes first in the list.
 
 Once you've done what the step needed, tell your AI in the chat: it moves the step along, and the goal goes back to normal by itself.
+
+## Things to try by hand
+
+Some things only you can test: a permission prompt to allow, a screen to look at. Instead of burying them in its chat summary, your AI adds them to the goal, and they show in a **Things to try by hand** box under the goal's banner, with *2 to try · 1 works · 1 doesn't work* beside the title. The box is open while something is still to try, and folds away once you've marked everything. Each one says what to try, and the step it is about when your AI gave one.
+
+You cross each one off yourself, with its buttons:
+
+- **✓ Works**: it does what it should.
+- **✗ Doesn't work**: asks *What went wrong?*. Type a few words (your AI reads them) and press **Doesn't work, add a step**. The goal gets a new step to do, titled *Fix: …* with your words in its details, and the item says *Added a step for your AI*. If the goal was finished, it's open again.
+- **Won't test**: you'd rather skip it.
+
+Press **Undo** on a marked item to take the mark back. If it had added a step that your AI hasn't started, that step is cancelled. Your AI sees your marks the next time it looks at the plan, with the new ones that failed first, and it can't finish the goal while something is still to try, unless you tell it to finish anyway.
 
 ## Decisions and notes
 
@@ -128,6 +140,10 @@ With **File names** on, clicking a file opens it in VS Code by default. Pick ano
 Every Progressor server adds its project folder to a list for your user, `~/.progressor/projects.json` (`PROGRESSOR_REGISTRY` points it elsewhere). Whichever Progressor holds the port serves every project on that list; if it ends, the next one to start takes over. Projects whose folder has gone are not shown. To take a project off the list, delete its entry from the file.
 
 The dashboard listens only on your own computer (`127.0.0.1`, and `::1` where there is IPv6), on port 4747 (`PROGRESSOR_PORT` changes it). If that port is taken it uses the next free one; the `Dashboard:` line at the end of `get_status` always has the right address. `PROGRESSOR_DASHBOARD=off` runs Progressor without it.
+
+### What the dashboard can change
+
+Only two things, both from the dashboard's own page: stopping a Progressor server, and marking a hand test. Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
 
 ### The dashboard without an AI running
 

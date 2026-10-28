@@ -1,5 +1,7 @@
 # The MCP server also hosts one dashboard for every project
 
+(ADR 0004 later let the Developer mark hand tests on the dashboard, its one write besides stopping a server.)
+
 Progressor ships as one npm package (`progressor-mcp`). The process the Agent's app starts serves both the MCP tools and the Developer's web dashboard on `localhost`, so a single install gives both. The dashboard is view-only: only the Agent writes to the progress record, and the Developer steers by talking to the Agent. Instead of editing, the Developer copies an item as a self-describing prompt (its reference, plan-file location and related code) and pastes it into the Agent chat, so there is never a second writer to keep in sync.
 
 There is one dashboard address, `localhost:4747`, for every project on the machine. Each Progressor server adds its project folder to a per-user registry (`~/.progressor/projects.json`). Whichever Progressor process holds the port is the hub: it serves every registered project, one at a time behind a project switcher, by reading that project's `.progressor/` markdown straight from disk and watching it for changes. Because the files are the source of truth (ADR 0002), the hub needs nothing from the other processes, so there is no protocol between them. The other servers only link to the hub, each `get_status` pointing at its own project (`?project=<id>`). When the hub exits, the next Progressor server to start takes the port, and so does the next `get_status` from one already running.

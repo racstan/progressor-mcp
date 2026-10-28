@@ -3,7 +3,7 @@
 Progress lives in two kinds of file inside the project (see [ADR 0002](adr/0002-progress-stored-as-markdown.md)):
 
 - `.progressor/roadmap.md`: the Roadmap (Goals) and Standing Instructions. Roadmaps from before 0.6 may also hold Ideas, which are still read but no longer added.
-- `.progressor/goals/<goal-id>.md`: one Plan File per Goal, holding its Tasks, decisions, notes and Detours.
+- `.progressor/goals/<goal-id>.md`: one Plan File per Goal, holding its Tasks, decisions, notes, hand tests and Detours.
 - `.progressor/context.md`: the project's Important context, free-form markdown under a `# Important context` heading (at most 4000 characters). It has no items or IDs; `update_context` replaces it whole.
 
 The files are written by the Agent through Progressor's tools, and they are ordinary markdown that a person can read in any viewer. Changes should go through the tools (ask the Agent), which keep the files consistent; but the parser is forgiving, so a hand edit never breaks a file (see [Hand edits](#hand-edits)). This document is the contract between the files and the tools.
@@ -97,6 +97,7 @@ Every item ends its line with an ID marker: a space, a caret and the ID (`^t2`).
 | Detour               | `## Detour: ...` heading in a Plan File | `d1`, `d2`, ...    | `progressor://<goal>/d1`         |
 | Decision             | `## Decisions` in a Plan File           | `c1`, `c2`, ...    | `progressor://<goal>/c1`         |
 | Note                 | `## Notes` in a Plan File               | `n1`, `n2`, ...    | `progressor://<goal>/n1`         |
+| Hand test            | `## Hand tests` in a Plan File          | `h1`, `h2`, ...    | `progressor://<goal>/h1`         |
 | Idea                 | `## Ideas` in roadmap.md                | `i1`, `i2`, ...    | `progressor://roadmap/i1`        |
 | Standing Instruction | `## Standing Instructions`              | `s1`, `s2`, ...    | `progressor://roadmap/s1`        |
 
@@ -108,7 +109,7 @@ Every item also has a line number: the 1-based line of its item line (for a Deto
 
 Every Task has three parts. Its **title** is the item line: a few words, such as "Fix callback redirect loop". Its **files** are its `code` lines. Its **summary** is a `summary` line: one or two sentences on the fix or change it makes. The title is required; files and summary are optional, so a Task typed by hand as a single line is still valid. A summary is kept on one line: line breaks given to the tools become spaces.
 
-When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `estimate`, `time spent`, `timing since`, `moved from`, `added by`, `dropped by`, `reason`, `updated from`. Unknown details follow in the order they were in.
+When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `estimate`, `time spent`, `timing since`, `moved from`, `added by`, `from hand test`, `dropped by`, `reason`, `updated from`. Unknown details follow in the order they were in.
 
 ## Status markers
 
@@ -150,6 +151,7 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 | Task     | `timing since` | The ISO time the stretch still running started, while the Task is in progress, with a helper, waiting on you or checked; written by the tools. |
 | Task     | `moved from`   | The ref of the Task in another Goal this one was moved from (`progressor://billing/t4`). |
 | Task     | `added by`     | The Detour whose Return or Recalibration added this Task (`^d1`).        |
+| Task     | `from hand test` | The hand test whose failure added this Task (`^h2`).                   |
 | Task     | `dropped by`   | The Detour whose Recalibration dropped this Task (`^d1`).                |
 | Task     | `reason`       | Why the Task was dropped, when dropped directly.                         |
 | Goal     | `claimed by`   | The Claim: `<session> (pid <pid>) since <ISO time>`.                     |
@@ -161,7 +163,12 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 | Idea     | `promoted to`  | The ref of the Task or Goal it was promoted to.                          |
 | Idea     | `note`         | Free text recorded with the Idea.                                        |
 | Note     | `from`         | The ref of the Goal being worked on when the note was made, if another one. |
-| Goal, Task, decision, note | `updated from` | The project an Agent working elsewhere changed it from, and when: `<project name> at <ISO time>` (see [below](#changes-from-another-project)). |
+| Hand test | `task`        | The Task the test is about (`^t3`), if the Agent said.                   |
+| Hand test | `note`        | What the Developer typed when it did not work, on one line.              |
+| Hand test | `marked`      | The ISO time the Developer marked it.                                    |
+| Hand test | `task added`  | The Task a failed result added (`^t7`); written by the tools.            |
+| Hand test | `seen`        | `yes` once the Agent has been shown the mark in a status; written by the tools. |
+| Goal, Task, decision, note, hand test | `updated from` | The project an Agent working elsewhere changed it from, and when: `<project name> at <ISO time>` (see [below](#changes-from-another-project)). |
 
 A Detour's facts are the list lines directly under its heading:
 
@@ -178,6 +185,33 @@ A Detour's facts are the list lines directly under its heading:
 `## Notes` holds things spotted that belong to this Goal, often while working on another one: a checklist line each, `[ ]` while open and `[x]` once resolved. A plain list line with no checkbox reads as open. A note made while the Agent was working on a different Goal says which, with a `from` line.
 
 Both sections are created when their first item is added, after the Tasks and before any Detour. Lines are reworded in place; a removed decision or note is deleted from the file.
+
+## Hand tests
+
+`## Hand tests` holds the things only the Developer can try by hand, such as "OpenCode may ask permission to read an attached file: allow it and check the reply". The Agent adds them; the Developer marks each one on the dashboard. One checklist line each, and the checkbox is the result:
+
+| Checkbox | Result         | Meaning                                                    |
+| -------- | -------------- | ---------------------------------------------------------- |
+| `[ ]`    | not tried yet  | Nobody has marked it (a plain list line reads the same).   |
+| `[x]`    | works          | The Developer tried it and it works.                       |
+| `[/]`    | doesn't work   | It failed; the `note` line says how, and a Task was added. |
+| `[-]`    | won't test     | The Developer chose not to test it.                        |
+
+```markdown
+## Hand tests
+
+- [x] Sign in on a phone and stay signed in after a restart ^h1
+  - task: ^t6
+  - marked: 2026-10-28T09:12:00.000Z
+  - seen: yes
+- [/] Allow the permission prompt and check the page greets you by name ^h2
+  - note: it asked twice, then froze
+  - marked: 2026-10-28T09:14:00.000Z
+  - task added: ^t9
+- [ ] Log out and check the cookie is gone ^h3
+```
+
+The section is created after the Notes (or the Tasks) and before any Detour. A failed result adds a pending Task to the Goal, titled `Fix: <the test>` with a summary that holds the note, a `from hand test: ^h2` line and, on the test, the `task added` line that links back. Marking again or clearing drops that Task when nobody has started it. A hand test the Agent has not seen yet (no `seen` line) is shown to it once by `get_status`, which then adds `seen: yes`. A Goal cannot be completed while a hand test is not tried yet, unless the Agent passes `unmarked_hand_tests_ok`. Files from before this section read as having no hand tests; an older Progressor keeps the section as an unknown one.
 
 ## Hard rules
 
@@ -222,6 +256,6 @@ The tools are the way to change the plan, but a file edited by hand, or merged b
 - **Untouched items are copied verbatim.** When the Agent changes one item, only that item's lines are rewritten in the canonical form above; every other line keeps its original spelling (`* [ ]`, `[X]`, extra spaces and so on).
 - **Items without an ID** (a Task line typed by hand, say) are recognised and get the next free ID the next time Progressor writes that file.
 - **Unknown detail lines** under an item are kept, after the known ones, when that item is rewritten.
-- **Unknown sections** (any `##` heading other than the ones above; in a Plan File, `## Tasks`, `## Decisions`, `## Notes` and `## Detour: ...` are known) and anything before the first `##` heading are kept as they are.
+- **Unknown sections** (any `##` heading other than the ones above; in a Plan File, `## Tasks`, `## Decisions`, `## Notes`, `## Hand tests` and `## Detour: ...` are known) and anything before the first `##` heading are kept as they are.
 - **Missing sections** are created at the end of the file when something needs to go in them.
 - Only top-level list lines (no indentation) are items. Indented lines belong to the item above them.
