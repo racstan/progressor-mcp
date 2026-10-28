@@ -9,6 +9,12 @@ All notable changes to progressor-mcp. Each release is a Goal on Progressor's ow
 - **A damaged plan file is no longer written over.** If your list of goals (or one goal's steps) was pasted over or edited into something Progressor can't read, it used to be treated as empty and the next change replaced it, so other goals could vanish. Now Progressor stops and says which file it could not read, and leaves it as it is. Fix the file (git can restore it) and carry on. A new or empty file works as before.
 - **Saving is safer on Windows.** If another program holds a plan file for a moment, Progressor now tries again a few times before saving another way, and no longer leaves a stray `.tmp` file behind.
 
+### Lighter for your AI
+
+- **Short answers for step changes.** Starting, finishing or dropping a step, and ending a side trip, now answer in a line or two and where the work stands, instead of repeating all your rules and background each time. A busy session costs your AI far fewer tokens.
+- **A shorter status when no goal is taken.** It lists only goals that are active, paused or planned, and just counts the finished and cancelled ones.
+- **Shorter standing guidance for your AI.** The instructions your AI reads at the start are about half the size, with the same rules; the detail now lives in each tool's own description.
+
 ### Helpers and checks
 
 - **Where a helper's work is.** When your AI hands a step to a helper, it can record the helper's branch, folder and a label (such as the model). They show on the step in the dashboard and in your AI's status, and are kept after the step is done. If a finished step's branch still holds work that was never merged, or a step has sat in *Checked* for more than a day, your AI's status warns about it. In the plan's files: `helper`, `helper branch`, `helper folder` lines, plus `checked since`.
