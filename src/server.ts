@@ -7,9 +7,10 @@ import { resolveProject, sameFolder, seenFile, takeElsewhereLine } from "./elsew
 import { launchFor, startedViaNpx } from "./init.js";
 import { withLock } from "./lock.js";
 import { parseDuration, roughDuration, sayDuration, timeText } from "./estimate.js";
-import { type Decision, type Detour, type HandTest, type HelperInfo, type NewTask, type Note, type Task, type TaskStatus, TIMED, timeSpent } from "./planFile.js";
+import { type Decision, type Detour, type HelperInfo, type NewTask, type Note, type Task, type TaskStatus, TIMED, timeSpent } from "./planFile.js";
 import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, type Project, type SessionStatus, type Status, type TaskOperation } from "./project.js";
 import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
+import { handTestLines, handTestWord } from "./handTestText.js";
 import { type ResourceLock, holderText, resourceLine } from "./resources.js";
 import { type Goal, type StandingInstruction, hardFirst, helperLimit, ruleText } from "./roadmap.js";
 import type { GoalSchedule, Schedule } from "./schedule.js";
@@ -145,43 +146,6 @@ function helperText(t: Task): string {
 function carryingLine(t: Task): string {
   const extra = [t.status === "checked" && t.evidence ? `evidence: ${t.evidence}` : "", helperText(t)].filter(Boolean).join("; ");
   return extra ? `${taskLine(t)} (${extra})` : taskLine(t);
-}
-
-const handTestWord: Record<HandTest["result"], string> = {
-  pending: "not tried yet",
-  works: "works",
-  "doesn't work": "DOESN'T WORK",
-  "won't test": "the Developer won't test it",
-};
-
-/**
- * What the Developer was asked to try by hand and what they found: counts, what is still open, and
- * every mark the Agent has not been shown yet (a failure says which Task it added).
- */
-export function handTestLines(tests: HandTest[]): string[] {
-  if (tests.length === 0) return [];
-  const count = (r: HandTest["result"]) => tests.filter((h) => h.result === r).length;
-  const parts = [
-    ...(count("pending") > 0 ? [`${count("pending")} not tried yet`] : []),
-    ...(count("works") > 0 ? [`${count("works")} work`] : []),
-    ...(count("doesn't work") > 0 ? [`${count("doesn't work")} don't work`] : []),
-    ...(count("won't test") > 0 ? [`${count("won't test")} won't be tested`] : []),
-  ];
-  const open = tests.filter((h) => h.result === "pending");
-  const fresh = tests.filter((h) => h.result !== "pending" && !h.seen);
-  return [
-    `Hand tests (for the Developer to try; they mark them on the dashboard): ${parts.join(", ")}.`,
-    ...(open.length > 0 ? ["Not tried yet:", ...open.map((h) => `- ${h.id} ${h.text}${h.task ? ` (about ${h.task})` : ""}`)] : []),
-    ...(fresh.length > 0
-      ? [
-          "New marks from the Developer since the last status:",
-          ...fresh.map(
-            (h) =>
-              `- ${h.id} ${handTestWord[h.result]}: ${h.text}${h.note ? ` Their note: ${h.note}` : ""}${h.taskAdded ? ` (step ${h.taskAdded} was added to fix it)` : ""}`,
-          ),
-        ]
-      : []),
-  ];
 }
 
 /** The Tasks in other hands than the Agent's: a helper's, or the Developer's. */

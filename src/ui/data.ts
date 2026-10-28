@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GoalView, InfoView, OverviewView, RoadmapView, SearchView, ServersView } from "../dashboard/http.js";
 import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
+import { newestOnly, sharedEvents } from "./liveEvents.js";
 
 export type { GoalView, InfoView, OverviewView, ProjectEntry, RoadmapView, SearchView, ServersView, WorkspaceEntry };
 export type Connection = "connecting" | "live" | "reconnecting";
+
+/** The page's one live connection to the server (liveEvents.ts). */
+const live = sharedEvents("/api/events");
+// A tab in the background lets go of its connection, so many open tabs cannot use up the browser's
+// few connections to the dashboard; shown again, it reconnects and catches up.
+if (typeof document !== "undefined")
+  document.addEventListener("visibilitychange", () => (document.visibilityState === "hidden" ? live.pause() : live.resume()));
+/** How often the plan is looked at again while the tab is shown, for what no change notice reports. */
+const POLL_MS = 15_000;
 
 async function getJson<T>(path: string): Promise<T | undefined> {
   const res = await fetch(path, { cache: "no-store" });
@@ -27,37 +37,48 @@ export function useDashboard(projectId: string | undefined, goalId: string | und
   const [error, setError] = useState<string>();
   const selection = useRef({ projectId, goalId });
   selection.current = { projectId, goalId };
+  // Loads overlap (a change notice, the timer, a click); an older answer arriving late is dropped.
+  const projectsLoad = useRef(newestOnly()).current;
+  const projectLoad = useRef(newestOnly()).current;
 
   const loadProjects = useCallback(async () => {
+    const newest = projectsLoad();
     try {
       const [i, p, w] = await Promise.all([
         getJson<InfoView>("/api/info"),
         getJson<ProjectEntry[]>("/api/projects"),
         getJson<WorkspaceEntry[]>("/api/workspaces"),
       ]);
+      if (!newest()) return;
       setInfo(i);
       setProjects(p ?? []);
       setWorkspaces(w ?? []);
       setError(undefined);
     } catch (e) {
-      setError((e as Error).message);
+      if (newest()) setError((e as Error).message);
     }
-  }, []);
+  }, [projectsLoad]);
 
   const loadProject = useCallback(async () => {
     const { projectId: id, goalId: goal } = selection.current;
     if (!id) return;
+    const newest = projectLoad();
     try {
       const base = `/api/projects/${encodeURIComponent(id)}`;
-      const r = await getJson<RoadmapView>(`${base}/roadmap`);
-      if (selection.current.projectId !== id) return; // the Developer switched project meanwhile
+      // Both are fetched before either is shown, so the roadmap and the goal never come from different moments.
+      const [r, g] = await Promise.all([
+        getJson<RoadmapView>(`${base}/roadmap`),
+        goal ? getJson<GoalView>(`${base}/goals/${encodeURIComponent(goal)}`) : undefined,
+      ]);
+      // a newer load started meanwhile, or the person picked another project or goal
+      if (!newest() || selection.current.projectId !== id || selection.current.goalId !== goal) return;
       setRoadmap(r ?? null);
-      const g = r && goal ? await getJson<GoalView>(`${base}/goals/${encodeURIComponent(goal)}`) : undefined;
-      if (selection.current.projectId === id) setGoal(g ?? null);
+      setGoal(r && g ? g : null);
+      setError(undefined);
     } catch (e) {
-      setError((e as Error).message);
+      if (newest()) setError((e as Error).message);
     }
-  }, []);
+  }, [projectLoad]);
 
   useEffect(() => {
     void loadProjects();
@@ -72,27 +93,37 @@ export function useDashboard(projectId: string | undefined, goalId: string | und
     void loadProject();
   }, [loadProject, projectId, goalId]);
 
-  useEffect(() => {
-    const events = new EventSource("/api/events");
-    events.onopen = () => {
-      setConnection("live");
-      // catch up on anything missed while disconnected
-      void loadProjects();
-      void loadProject();
-    };
-    events.onerror = () => setConnection("reconnecting");
-    events.addEventListener("projects", () => void loadProjects());
-    events.addEventListener("change", (e) => {
-      const { project } = JSON.parse((e as MessageEvent<string>).data) as { project: string };
-      if (project === selection.current.projectId) void loadProject();
-    });
-    return () => events.close();
-  }, [loadProjects, loadProject]);
+  useEffect(
+    () =>
+      live.on({
+        open: () => {
+          setConnection("live");
+          // catch up on anything missed while disconnected
+          void loadProjects();
+          void loadProject();
+        },
+        error: () => setConnection("reconnecting"),
+        projects: () => void loadProjects(),
+        change: (e) => {
+          let project: string | undefined;
+          try {
+            project = (JSON.parse(e.data) as { project?: string }).project;
+          } catch {
+            return; // a notice that cannot be read changes nothing
+          }
+          if (project === selection.current.projectId) void loadProject();
+        },
+      }),
+    [loadProjects, loadProject],
+  );
 
   // Locks on shared resources are kept outside .progressor/ (so no change event says they moved), and
-  // their times run on: look again every so often.
+  // their times run on: look again every so often while the tab is shown (shown again, it catches up
+  // as it reconnects).
   useEffect(() => {
-    const timer = setInterval(() => void loadProject(), 15_000);
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void loadProject();
+    }, POLL_MS);
     return () => clearInterval(timer);
   }, [loadProject]);
 
@@ -116,12 +147,10 @@ export function useOverview(enabled: boolean): OverviewView | undefined {
         .then((o) => alive && setOverview(o ?? []))
         .catch(() => undefined);
     void load();
-    const events = new EventSource("/api/events");
-    events.addEventListener("projects", load);
-    events.addEventListener("change", load);
+    const stop = live.on({ projects: () => void load(), change: () => void load() });
     return () => {
       alive = false;
-      events.close();
+      stop();
     };
   }, [enabled]);
   return overview;

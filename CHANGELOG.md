@@ -21,6 +21,14 @@ Some things only you can test. Your AI now keeps them in a list on the goal inst
 - **Your AI sees your marks.** `get_status` lists what is still to try and, once, the new marks, failures with your note first; hand tests also show in `get_item` and in Claude Code's session-start status. A goal can't be completed while something is still to try, unless your AI is told to finish anyway (`unmarked_hand_tests_ok`).
 - **In the files:** a `## Hand tests` section (`[ ]` not tried, `[x]` works, `[/]` doesn't work, `[-]` won't test) with `task`, `note`, `marked`, `task added` and `seen` lines, and a `from hand test` line on the added step. Plans from before keep working unchanged. See [the format](docs/markdown-format.md#hand-tests).
 
+### A steadier dashboard
+
+- **Many tabs at once.** Browsers allow only six connections to one address, and each dashboard tab kept up to two live ones open, so with a few tabs open the page could stop loading. A tab now keeps one, and lets go of it while it is in the background; shown again, it reconnects and catches up.
+- **No more blank page.** If part of the page fails to draw, you see a short message and a **Reload** button instead of an empty window; a failure in one goal's view leaves the sidebar working, and picking another goal tries again.
+- **No old answers.** When the page asked the server twice in a row (a change, the timer, a click), a slow older answer could replace the newer one; now only the newest counts, and the roadmap and the goal are always shown from the same moment.
+- **Plainer words.** A lock your AI holds itself reads *by your AI* instead of a session ID, and your AI's status says *1 works, 1 doesn't work*.
+- Claude Code's status hooks start faster: they no longer load the whole MCP server to describe the hand tests.
+
 ## 0.9.0 · How long things take, and not too much at once
 
 Your AI now says how long it expects each step to take, keeps track of how long it really took, and keeps to a limit on how many helpers work at once, so a big push doesn't overload your computer or leave more work to check and merge than your AI can keep up with.

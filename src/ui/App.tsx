@@ -19,6 +19,7 @@ import { VIEWS, VIEW_LABELS, type View, pickView } from "./views.js";
 import { sortProjects } from "./projectList.js";
 import { GoalNotes } from "./GoalNotes.js";
 import { HandTests } from "./HandTests.js";
+import { ErrorBoundary } from "./ErrorBoundary.js";
 import { StepKey, StepMark } from "./StepKey.js";
 import {
   GOAL_WORD,
@@ -699,7 +700,7 @@ export function App() {
           ) : !shownGoal || !graph ? (
             <div className="placeholder">Loading…</div>
           ) : (
-            <>
+            <ErrorBoundary scope="goal" key={`${projectId}:${shownGoal.goal.id}:${view}`}>
               <Banner view={shownGoal} detours={detours} state={stateOf(shownGoal.goal)} schedule={scheduleOf(shownGoal.goal.id)}
                 onOpenStep={(node, at) => setSelected({ key: node.id, at })}
                 planLink={show.files ? fileLink(shownGoal.goal.planFile) : undefined}
@@ -732,7 +733,7 @@ export function App() {
                   <GoalNotes view={shownGoal} goals={goals} dock />
                 </>
               )}
-            </>
+            </ErrorBoundary>
           )}
         </main>
       </div>
