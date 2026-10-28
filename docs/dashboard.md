@@ -91,6 +91,8 @@ The sidebar lists **Your goals** for the project, in the order they'll be done, 
 
 Above the list, once your AI has estimated some steps or you've set a helper limit, a **⏱ schedule** line says what's going on and how long it should take: *Now: 2 helpers busy, at most 2 at once · Next: Memory export, then Translations · Phase 8 done in about 1 h (3 steps not estimated) · all goals done in about 4 h*. It's a rough guide, worked out from the AI's estimates, the order of your goals and how many steps may run at once (your helper limit, or else as many as run now). Steps without an estimate are left out of the times and counted instead. A step's details show its estimate next to how long it took.
 
+A step your AI handed to a helper can also show *Helper: Sonnet · branch feat/export · folder …*, and a step marked Checked can show *Checked: 715 passed, live send OK*: what your AI looked at before calling it checked. Both appear under the step's summary in the list and in its details.
+
 A goal that finishes turns green and gets a green dot until you've looked at it; then it moves to **Finished** at the bottom. Right-click a goal to hide it from the list (the plan keeps it), or to move a finished one along without opening it.
 
 If you use Progressor in several projects, click the project name at the top of the sidebar to switch, or pick **🗂 All projects** for an overview of every project at once.

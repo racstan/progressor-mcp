@@ -46,7 +46,7 @@ The AI calls these; the server's instructions tell it when.
 
 | Tool | What it does |
 | --- | --- |
-| `get_status` | Every Goal this Session holds, each with its current Task, open Detour, Tasks with a helper, waiting on the Developer or checked, next Task, decisions and open notes; the helper limit and the schedule, one short line each, when set; then the Standing Instructions, the project folder and the dashboard link. |
+| `get_status` | Every Goal this Session holds, each with its current Task, open Detour, Tasks with a helper (with their branch, folder and label when recorded), waiting on the Developer or checked (with their evidence), next Task, decisions and open notes; the helper limit and the schedule, one short line each, when set; then the Standing Instructions, the project folder and the dashboard link. |
 | `get_item` | Looks up any item by its `progressor://` ref, with its file and line; a Task with its time against its estimate, a Goal with its estimate and expected finish. |
 | `get_rules` | The Standing Instructions as a block to paste into a helper agent's brief: hard rules first, then the others, the helper limit if one is set, and a line telling the helper not to edit `.progressor/`. |
 | `add_goal` | Adds a Goal with an optional Task list, Outcome, `estimate` and short ID; `claim: true` claims it at once; `done: true` records finished work. |
@@ -58,10 +58,10 @@ The AI calls these; the server's instructions tell it when.
 | `complete_goal` | Marks the claimed Goal done, once every Task is done, released or dropped and no Detour is open. |
 | `add_tasks` | Appends Tasks (title, files, summary and `estimate`) to the claimed Goal. |
 | `start_task` | Marks a Task in progress (one per Goal at a time). |
-| `set_task_state` | Sets a Task's state: with a helper, waiting on you, checked, released (or pending, in progress, done). Setting one Task too many with a helper still works, with a warning naming the helper limit. |
+| `set_task_state` | Sets a Task's state: with a helper, waiting on you, checked, released (or pending, in progress, done). Setting one Task too many with a helper still works, with a warning naming the helper limit. With `with a helper` it takes optional `helper_branch`, `helper_folder` (the worktree path) and `helper_label`; with `checked` an optional `evidence` (one short line, such as "715 passed, live send OK"). Giving either with any other state is refused. |
 | `update_task` | Changes a Task's title, summary, files or `estimate` (empty removes it). |
 | `complete_task` | Marks a Task done, with the files it touched and its final summary. |
-| `update_tasks` | Changes several Tasks in one call: a list of `operations`, each `{task, action, goal?}` with `action` `start`, `complete` (with optional `code` and `summary`), `state` (with `state`), `drop` (with `reason`) or `estimate` (with `estimate`); `estimate` can also go with any other action. Applied in order, all or nothing, with one write per Goal, and answers with one line, plus the time taken by completed Tasks and the helper limit's warning when it applies. |
+| `update_tasks` | Changes several Tasks in one call: a list of `operations`, each `{task, action, goal?}` with `action` `start`, `complete` (with optional `code` and `summary`), `state` (with `state`, and the same `helper_branch`, `helper_folder`, `helper_label` or `evidence` as set_task_state), `drop` (with `reason`) or `estimate` (with `estimate`); `estimate` can also go with any other action. Applied in order, all or nothing, with one write per Goal, and answers with one line, plus the time taken by completed Tasks and the helper limit's warning when it applies. |
 | `move_task` | Moves a Task to another Goal (`to_goal`, optionally `before` or `after` one of its Tasks). It keeps its title, summary, files and state and gets a new ID there, with a `moved from` line; the old Task stays, dropped with the reason `Moved to the goal "<title>" (<ref>)`. |
 | `drop_task` | Drops a Task, with a reason. |
 | `start_detour` | Declares a Detour, with a Reason, branching from the current Task. |
@@ -174,3 +174,14 @@ The full format is in [markdown-format.md](markdown-format.md).
 - **Time spent** is clocked by the tools: a `timing since` line is added when a Task becomes in progress, with a helper, waiting on you or checked, and when it becomes done, released, dropped or pending again the stretch is added to its `time spent` line. Pausing (back to pending) does not count.
 - **The helper limit** is a `helpers at once: 2` line on one Standing Instruction. It lives on a rule because it is one: it reads as a rule in every place rules are shown (get_status, get_rules, the dashboard), so helpers are told about it in their brief, and it needs no new tool. Handing out one Task too many is not refused, since the AI may have a reason; the answer carries a warning.
 - **The schedule** is a greedy list schedule. The open Tasks of the open Goals are taken in Roadmap order, then Task order. Tasks in progress or with a helper run now, with what is left of their estimate; at most as many Tasks run at once as the helper limit allows (without one, as many as run now, at least one), and each next Task starts as soon as one finishes. Tasks waiting on you or checked add no time. A Task without an estimate counts as no time and is counted as *not estimated*, so a finish leaves those out instead of guessing.
+
+## Helper work left behind
+
+Helper info (`helper_branch`, `helper_folder`, `helper_label`) and checked evidence (`evidence`) are optional notes on a Task, shown in get_status, in get_item, and on the dashboard step (under the summary: *Checked: 715 passed, live send OK* and *Helper: Sonnet · branch feat/export · folder /home/me/wt-export*).
+
+get_status also warns about helper work that may have been forgotten, with a line starting `Warning:`:
+
+- A Task that is done, dropped or released, with a helper branch recorded, where that branch still exists in the project's git repository and has work that is not part of the project's current branch (HEAD). Releasing a Task keeps its helper info, so this still works after a release; once the branch is merged or deleted the warning goes away by itself.
+- A Task checked for more than a day and still not released.
+
+The branch check runs two read-only `git for-each-ref` commands in the project folder, each with a 2-second limit, only when some finished Task has a helper branch recorded. If git is missing, slow or the folder is not a repository, the check says nothing and get_status is unaffected. It covers every Goal on the Roadmap, not just the ones this Session holds.

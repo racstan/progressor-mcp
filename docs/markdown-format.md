@@ -108,7 +108,7 @@ Every item also has a line number: the 1-based line of its item line (for a Deto
 
 Every Task has three parts. Its **title** is the item line: a few words, such as "Fix callback redirect loop". Its **files** are its `code` lines. Its **summary** is a `summary` line: one or two sentences on the fix or change it makes. The title is required; files and summary are optional, so a Task typed by hand as a single line is still valid. A summary is kept on one line: line breaks given to the tools become spaces.
 
-When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `estimate`, `time spent`, `timing since`, `moved from`, `added by`, `dropped by`, `reason`, `updated from`. Unknown details follow in the order they were in.
+When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `helper`, `helper branch`, `helper folder`, `evidence`, `checked since`, `estimate`, `time spent`, `timing since`, `moved from`, `added by`, `dropped by`, `reason`, `updated from`. Unknown details follow in the order they were in.
 
 ## Status markers
 
@@ -136,6 +136,22 @@ A Task can also be in one of four more states. Each is a `state` line under a ch
 
 A `state` line counts only under the checkbox in the table; under any other checkbox, or with any other value, it is ignored (and kept, like any unknown detail), and the checkbox alone gives the state. Several Tasks can be with a helper, waiting on you or checked at once; they are not the current Task. Released counts as done in progress counts. A Goal can be completed once each of its Tasks is done, released or dropped. While any Task is waiting on you, the Goal is waiting on the Developer.
 
+### Helper info and evidence
+
+Handing a Task to a helper can record where its work is, and checking it can record what was checked. All of these lines are optional and extra, so a plan from before them reads as having none, and an older Progressor keeps them as unknown details:
+
+```markdown
+- [/] Add the session store ^t8
+  - state: checked
+  - helper: Sonnet
+  - helper branch: feat/session-store
+  - helper folder: /home/me/wt-session-store
+  - evidence: 715 passed, live send OK
+  - checked since: 2026-10-27T09:30:00.000Z
+```
+
+The helper lines are written when the Task is set to "with a helper" and are **kept** after that, through checked, done, released and dropped: they are how a branch left behind is found (see [the orphan warning](reference.md#helper-work-left-behind)). Giving them again replaces only the parts given. `evidence` is written with "checked" and kept through done and released, but removed if the Task goes back to a helper, to waiting on you, to in progress or to pending, since the check no longer holds. `checked since` is added when the Task becomes checked and removed when it stops being checked. Values are kept on one line.
+
 ## Detail lines
 
 Facts about an item are indented list lines under it, in the form `key: value`:
@@ -145,6 +161,11 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 | Task     | `state`        | One of the [states beyond the checkbox](#task-states-beyond-the-checkbox). |
 | Task     | `summary`      | One or two sentences on the fix or change the Task makes, on one line.   |
 | Task     | `code`         | A file the Task touches, in backticks; may end in `:line`. Repeatable.   |
+| Task     | `helper`       | A label for the helper agent working on the Task, such as the model (`Sonnet`). Optional; written with `state: with a helper`. |
+| Task     | `helper branch` | The git branch the helper works on (`feat/export`). Optional; written with `state: with a helper`. |
+| Task     | `helper folder` | The helper's worktree folder (a path). Optional; written with `state: with a helper`. |
+| Task     | `evidence`     | One short line on what was checked (`715 passed, live send OK`). Optional; written with `state: checked`. |
+| Task     | `checked since` | The ISO time the Task became checked, while it is; written by the tools. |
 | Task     | `estimate`     | How long the Task should take: `45m`, `2h`, `1h 30m`. A value that is not a time is ignored (and kept). |
 | Task     | `time spent`   | Time worked on it in earlier stretches, in the same form; written by the tools. |
 | Task     | `timing since` | The ISO time the stretch still running started, while the Task is in progress, with a helper, waiting on you or checked; written by the tools. |
