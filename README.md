@@ -1,29 +1,90 @@
-# Progressor
+<h1 align="center">Progressor</h1>
 
-[![npm](https://img.shields.io/npm/v/progressor-mcp)](https://www.npmjs.com/package/progressor-mcp) [![Test](https://github.com/racstan/progressor-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/racstan/progressor-mcp/actions/workflows/test.yml) [![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
+<p align="center"><b>See what your AI is building, step by step, on a page that updates by itself.</b></p>
 
 <p align="center">
-
-[![Progressor MCP server](https://mcprush.com/badge/progressor-mcp/card.svg)](https://mcprush.com/to/progressor-mcp?ref=badge)
-
+  <a href="https://www.npmjs.com/package/progressor-mcp"><img src="https://img.shields.io/npm/v/progressor-mcp" alt="npm"></a>
+  <a href="https://github.com/racstan/progressor-mcp/actions/workflows/test.yml"><img src="https://github.com/racstan/progressor-mcp/actions/workflows/test.yml/badge.svg" alt="Test"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" alt="License: GPL v3"></a>
 </p>
 
-**See what your AI is building, step by step, in a page that updates by itself.**
+<p align="center">
+  <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/demo.gif" alt="An AI works through &quot;Shopping list from recipes&quot;: steps tick off, a side trip opens and adds a step to the plan, the map shows the route, then Statistics and Home" width="900">
+  <br>
+  <sub><a href="https://github.com/racstan/progressor-mcp/blob/main/docs/media/demo.mp4">▶ Watch the demo as a video</a></sub>
+</p>
 
-![An AI works through "Ship OAuth login": steps tick off, a side trip branches off and rejoins the plan, another changes the plan, and the goal finishes, all live on the dashboard](docs/media/demo.gif)
-
-You tell your AI coding assistant what you want. Progressor makes it plan the work as a **goal** with **steps**, keep that plan up to date as it works, and say so when it has to step off the plan. You watch it all on a dashboard in your browser: what the AI is doing now, how far along it is, and whether it has stopped. The AI manages everything; you don't have to.
+You tell your AI coding assistant what you want. Progressor has it plan the work as a **goal** with **steps**, keep that plan up to date as it works, and say so when it steps off the plan. You follow along on a dashboard in your browser: what the AI is doing right now, how far along it is, what it needs from you, and how long things really take. You can write to your AI from the page too.
 
 It works with any app that supports [MCP](https://modelcontextprotocol.io) (the standard way AI apps add tools): Claude Code, Claude Desktop, VS Code with Copilot, Cursor, Windsurf, Codex and others.
+
+<p align="center">
+  <a href="https://github.com/racstan/progressor-mcp/blob/main/docs/media/demo.mp4"><img src="https://img.shields.io/badge/demo-watch_the_video-111111?style=for-the-badge" alt="Watch the demo"></a>
+  &nbsp;
+  <a href="#set-it-up"><img src="https://img.shields.io/badge/set_it_up-2_minutes-111111?style=for-the-badge" alt="Set it up"></a>
+</p>
+
+## What you get
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/goal.png" alt="A goal's steps: three done with their times, the current one highlighted, a side trip under the step it left from">
+      <h3>Every step, live</h3>
+      What the AI is working on is highlighted and moves; finished steps say when they were done. A <b>side trip</b> shows where the AI stepped off the plan, and why.
+    </td>
+    <td width="50%" valign="top">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/map.png" alt="The plan drawn as a map: stops ticked off along a line, a side trip branching off and a new step joining from it">
+      <h3>The plan as a map</h3>
+      Each step is a stop on a line. Side trips branch off and rejoin, and steps they add join the route, so you can see how the plan changed.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/needs-you.png" alt="A Needs you box: a step waiting on you, and something to try by hand with Works and Doesn't work buttons">
+      <h3>It says when it needs you</h3>
+      A question, a step to check, something to try on your phone: it all waits in <b>Needs you</b>, and you answer with a click. Your AI sees your answer at its next step.
+    </td>
+    <td width="50%" valign="top">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/conversation.png" alt="A goal's Conversation: the AI's question and your answer, your message and the AI's reply">
+      <h3>Talk to your AI from the page</h3>
+      Write to your AI about one goal or the whole project, and its replies show up under your messages. What you write stays on your computer, out of git.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/statistics.png" alt="Statistics: steps done, time worked, goals finished, side trips, and a bar chart of steps finished each day">
+      <h3>Statistics</h3>
+      How long steps take against their estimates, how often the work drifts, and what got done each day, for each project and for all of them on Home.
+    </td>
+    <td width="50%" valign="top">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/notes.png" alt="Project notes: rules the AI follows, one marked Must, and About this project, each with Edit">
+      <h3>Rules your AI keeps</h3>
+      <i>"Always ask before adding a dependency."</i> Lasting rules and the project's background live in <b>Project notes</b>. Add, change or remove them there, and your AI is told.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/home.png" alt="Home: a goal that needs you, a goal in progress, the projects and statistics across all of them">
+      <h3>Every project on one page</h3>
+      <b>Home</b> shows what needs you and what's being worked on across all your projects, in any app, with statistics for all of them.
+    </td>
+    <td width="50%" valign="top">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/vibrant.png" alt="The dashboard in the colourful Vibrant theme">
+      <h3>Light, dark or colourful</h3>
+      A calm black-and-white look in light or dark, or <b>Vibrant</b> if you like colour. <a href="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/dark.png">See dark</a>.
+    </td>
+  </tr>
+</table>
 
 ## Your progress is never lost
 
 AI chats forget. A long chat gets its memory compressed, a new chat starts from nothing, and switching to another app or AI tool usually means explaining your project all over again. With Progressor, none of that costs you your progress:
 
-- **Everything is saved in your project.** The goals, every step and where each one stands, the side trips and why they happened, the decisions made along the way, notes, your rules, and the project's **Important context** (what the project is and the key facts about it) are kept in plain files in your project folder, not in the chat.
-- **New chats pick up where the last one stopped.** Every new chat, and every chat after its memory is compressed, starts by reading the plan. You don't explain anything from scratch: just say *"carry on"*.
+- **Everything is saved in your project.** The goals, every step and where each one stands, the side trips and why they happened, the decisions made along the way, notes, your rules and the project's background are kept in plain files in your project folder, not in the chat.
+- **New chats pick up where the last one stopped.** Every new chat, and every chat after its memory is compressed, starts by reading the plan. Just say *"carry on"*.
 - **Switch apps or AI tools freely.** The plan belongs to the project, not to the app. Start in Claude Code, carry on in Cursor or VS Code, and the next AI sees exactly where things stand.
-- **Clear to you and to the AI.** You see the same plan on the dashboard that the AI reads, so you always know what's done, what's under way, and what's waiting on you.
+- **The same plan for you and the AI.** What you see on the dashboard is what the AI reads, so you always know what's done, what's under way and what's waiting on you.
 
 ## Set it up
 
@@ -46,27 +107,30 @@ Your AI does the rest. To have Progressor in every project without setting each 
 
 ## Then just talk to your AI
 
-Tell it what you want to build, as you would anyway: *"Add a login page with Google sign-in."* It plans the work as a goal, shows you the steps, and starts. You don't need to learn any commands. If you ever want to nudge it, these work in most apps' `/` menu:
+Tell it what you want to build, as you would anyway: *"Add a login page with Google sign-in."* It plans the work as a goal, shows you the steps, and starts. You don't need to learn any commands. If you want to nudge it, these work in most apps' `/` menu:
 
-- **/progressor:next**: carry on where the work was left
-- **/progressor:status**: where things stand, in a few lines
-- **/progressor:plan**: plan something new together
+| Command | What it does |
+| --- | --- |
+| `/progressor:next` | Carry on where the work was left |
+| `/progressor:status` | Where things stand, in a few lines |
+| `/progressor:plan` | Plan something new together |
+| `/progressor:dashboard` | The dashboard's link |
+| `/progressor:review` | Check a goal against what finished looks like, and add steps if something is missing |
+| `/progressor:setup` | Set Progressor up in this project |
 
-## Watch it work
+## On the dashboard
 
-Open **http://localhost:4747** while your AI's app is open (your AI gives you the link). You'll see:
+Open **http://localhost:4747** while your AI's app is open (your AI gives you the link).
 
-- **What the AI is doing**: *AI working · step 3 of 7 · last update 2 min ago*, or *AI stopped* when its chat has closed.
-- **The plan as a map**: each step is a stop on a line, ticked off as it's done. When the AI steps off the plan to deal with something, a **side trip** branches off, with the reason.
-- **Your goals**: everything planned for the project, with how far along each one is.
-- **How long it will take**: your AI estimates each step and the page shows a rough schedule: *Now: 2 helpers busy, at most 2 at once · Next: Add logout · Login done in about 3 h (2 steps not estimated)*. Each step shows how long it took next to its estimate. Tell your AI *"at most 2 helpers at a time"* and it keeps to that, so your computer and its checking keep up.
-- **What's waiting on you**: when the AI needs you, say to try something by hand, the goal turns amber and says *Waiting on you*. Steps handed to helper agents, checked or released show as such, and each goal lists the decisions made along the way.
+- **What the AI is doing:** *AI working*, *Waiting on you*, or *AI stopped* when its chat has closed, with how far along each goal is.
+- **When things happen:** every goal, step, decision and note says when it was added, by whom, and when it changed. Steps say when they started and finished.
+- **How long it will take:** your AI estimates each step, and each goal shows a rough finish: *done in about 2 h*. Tell it *"at most 2 helpers at a time"* and it keeps to that.
+- **Pictures:** your AI can attach a screenshot or screen recording to a goal or step, so you see the change instead of reading about it.
+- **Copy for your AI** and **Show in folder** on every goal and step, to point your AI at it or open the plan file.
+- **Work for one project, recorded in another:** when a chat in one project does work for another, it can record it in that project's plan, tagged *Updated from*.
+- **Never out of date:** if Progressor was updated, or the page lost touch with it, a bar says so with a **Refresh** button.
 
-**Work for one project, recorded in another.** When a chat in one project does work for another (say it releases a library your app uses), your AI can record it in that project's plan without opening a chat there. Those changes carry an **Updated from** tag, and the AI in that project is told about them.
-
-**One dashboard for all your projects.** You don't need a Progressor per project to see them all. As long as one AI chat is running Progressor, in any project and any app, the same page shows every project you've used it in. Switch between them at the top of the sidebar, or pick **🗂 All projects** to see them side by side. Each project's plan stays in its own folder, so chats in different projects, even in different apps, never get in each other's way.
-
-The page only shows; you change the plan by talking to your AI. More in the [dashboard guide](docs/dashboard.md).
+More in the [dashboard guide](docs/dashboard.md).
 
 ## If something goes wrong
 
@@ -85,7 +149,11 @@ Most problems can be fixed by asking your AI. [Troubleshooting](docs/troubleshoo
 
 ## Feedback
 
-Progressor is young, and what you run into shapes what comes next. [Share an idea or feedback](https://github.com/racstan/progressor-mcp/issues/new?template=idea.yml), even a sentence helps, or [see the open issues](https://github.com/racstan/progressor-mcp/issues).
+What you run into shapes what comes next. [Share an idea or feedback](https://github.com/racstan/progressor-mcp/issues/new?template=idea.yml), even a sentence helps, or [see the open issues](https://github.com/racstan/progressor-mcp/issues).
+
+<p align="center">
+  <a href="https://mcprush.com/to/progressor-mcp?ref=badge"><img src="https://mcprush.com/badge/progressor-mcp/card.svg" alt="Progressor MCP server"></a>
+</p>
 
 ## Support
 
