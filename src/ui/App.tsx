@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DEFAULT_EDITOR, EDITORS, editorUrl } from "../dashboard/editor.js";
 import type { GoalSchedule } from "../schedule.js";
-import { type RoadmapView, showInFolder, useDashboard, useOverview, useSearch, useServers, useStored, useStoredJson } from "./data.js";
+import { type RoadmapView, showInFolder, useDashboard, useOverview, useSearch, useServers, usePageStaleness, useStored, useStoredJson } from "./data.js";
 import { CONTEXT_HASH, TALK_HASH, contextFromHash } from "./context.js";
 import { ContextPage } from "./ContextPage.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
@@ -128,6 +128,7 @@ export function App() {
   const onHome = !pickedProject;
   const [goalId, setGoalId] = useState<string | undefined>(picked);
   const { info, projects, workspaces, roadmap, goal: shownView, connection, error, refresh } = useDashboard(pickedProject, goalId);
+  const stale = usePageStaleness(info, connection);
   const project = projects?.find((p) => p.id === pickedProject);
   const overview = useOverview(true);
 
@@ -445,6 +446,13 @@ export function App() {
           <Icon name="settings" size={18} />
         </button>
       </header>
+      {stale && (
+        <div className={`stale-bar ${stale.kind}`} role="status">
+          <Icon name="refresh" size={16} />
+          <span>{stale.text}</span>
+          <button className="btn small" onClick={() => (stale.kind === "updated" ? location.reload() : refresh())}>Refresh</button>
+        </div>
+      )}
 
       {switcherOpen && (
         <ProjectList current={projectId} projects={projects ?? []} onPick={(id) => pickProject(id)} onHome={goHome} onClose={() => setSwitcherOpen(false)} />

@@ -238,6 +238,17 @@ function isLocalHost(req: IncomingMessage): boolean {
   return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
 }
 
+/** Which build of the page is served, from its script's time and size; an open page compares it with the one it was opened with. */
+function uiBuild(uiDir: string | undefined): string | undefined {
+  if (!uiDir) return undefined;
+  try {
+    const s = statSync(join(uiDir, "app.js"));
+    return `${Math.round(s.mtimeMs)}-${s.size}`;
+  } catch {
+    return undefined;
+  }
+}
+
 function serveStatic(res: ServerResponse, uiDir: string | undefined, path: string): void {
   if (!uiDir || !existsSync(join(uiDir, "index.html"))) {
     res.writeHead(503, { "content-type": "text/plain; charset=utf-8" });
@@ -626,7 +637,7 @@ class Hub {
       if (path === "/api/servers") return json(res, 200, this.servers());
       if (path === "/api/search") return json(res, 200, this.search(url.searchParams.get("q") ?? ""));
       if (path === "/api/info")
-        return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, editor: this.editor, pid: process.pid, stepDown: true });
+        return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, build: uiBuild(this.uiDir), editor: this.editor, pid: process.pid, stepDown: true });
       if (path === "/api/projects") return json(res, 200, this.sync(url.searchParams.has("rescan")));
       if (path === "/api/workspaces") return json(res, 200, listWorkspaces(this.registryFile));
       if (path === "/api/overview") return json(res, 200, this.overview());
@@ -912,7 +923,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
 
 export type DashboardApi = ReturnType<typeof dashboardApi>;
 /** `pid` is missing from hubs older than 0.3.2. */
-export type InfoView = { app: "progressor"; hub: number; version: string; editor: string; pid?: number };
+export type InfoView = { app: "progressor"; hub: number; version: string; build?: string; editor: string; pid?: number };
 export type RoadmapView = ReturnType<DashboardApi["roadmap"]>;
 export type GoalView = NonNullable<ReturnType<DashboardApi["goal"]>>;
 export type GoalSummary = GoalView["goal"];

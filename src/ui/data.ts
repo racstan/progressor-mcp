@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { GoalView, InfoView, OverviewView, RoadmapView, SearchView, ServersView } from "../dashboard/http.js";
 import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
 import { newestOnly, sharedEvents } from "./liveEvents.js";
+import { type Staleness, pageStaleness } from "./stale.js";
 
 export type { GoalView, InfoView, OverviewView, ProjectEntry, RoadmapView, SearchView, ServersView, WorkspaceEntry };
 export type Connection = "connecting" | "live" | "reconnecting";
@@ -14,6 +15,8 @@ if (typeof document !== "undefined")
   document.addEventListener("visibilitychange", () => (document.visibilityState === "hidden" ? live.pause() : live.resume()));
 /** How often the plan is looked at again while the tab is shown, for what no change notice reports. */
 const POLL_MS = 15_000;
+/** How often the page asks which build is served, to notice a newer Progressor. */
+const INFO_MS = 60_000;
 
 async function getJson<T>(path: string): Promise<T | undefined> {
   const res = await fetch(path, { cache: "no-store" });
@@ -126,6 +129,14 @@ export function useDashboard(projectId: string | undefined, goalId: string | und
     }, POLL_MS);
     return () => clearInterval(timer);
   }, [loadProject]);
+
+  // A newer Progressor may serve the page with no change notice (a rebuild, or a newer hub taking over).
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void loadProjects();
+    }, INFO_MS);
+    return () => clearInterval(timer);
+  }, [loadProjects]);
 
   // The Refresh button: load everything again now, instead of waiting for the next change.
   const refresh = useCallback(() => {
@@ -329,4 +340,24 @@ export function useSearch(query: string): SearchView | undefined {
     };
   }, [q]);
   return hits?.query === q ? hits.hits : undefined;
+}
+
+/**
+ * Whether the page may be out of date (stale.ts): the build it was opened with against the one served
+ * now, and since when it has been out of touch while shown.
+ */
+export function usePageStaleness(info: InfoView | undefined, connection: Connection): Staleness | undefined {
+  const opened = useRef<string | undefined>(undefined);
+  if (!opened.current && info?.build) opened.current = info.build;
+  const [lostSince, setLostSince] = useState<number>();
+  useEffect(() => {
+    if (connection === "reconnecting") setLostSince((t) => t ?? Date.now());
+    else setLostSince(undefined);
+  }, [connection]);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 10_000);
+    return () => clearInterval(timer);
+  }, []);
+  return pageStaleness({ openedWith: opened.current, serverBuild: info?.build, lostSince, now });
 }

@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { createServer as createHttpServer, request } from "node:http";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -242,6 +242,17 @@ describe("one dashboard for every project", () => {
   it("tells the page which editor opens files", async () => {
     const d = await start(agent, { editor: "cursor" });
     expect((await get(d, "/api/info")).body).toMatchObject({ app: "progressor", hub: 7, editor: "cursor" });
+  });
+
+  it("says which build of the page it serves, so an open page can tell it is out of date", async () => {
+    const ui = tempDir("progressor-ui-");
+    writeFileSync(join(ui, "index.html"), "<html></html>");
+    writeFileSync(join(ui, "app.js"), "one");
+    const d = await start(agent, { uiDir: ui });
+    const first = (await get(d, "/api/info")).body.build;
+    expect(typeof first).toBe("string");
+    utimesSync(join(ui, "app.js"), new Date(2030, 0, 1), new Date(2030, 0, 1));
+    expect((await get(d, "/api/info")).body.build).not.toBe(first);
   });
 
   it("says which process and version serve it, so the page can name an outdated one", async () => {
