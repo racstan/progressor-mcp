@@ -89,6 +89,13 @@ export function useDashboard(projectId: string | undefined, goalId: string | und
     return () => events.close();
   }, [loadProjects, loadProject]);
 
+  // Locks on shared resources are kept outside .progressor/ (so no change event says they moved), and
+  // their times run on: look again every so often.
+  useEffect(() => {
+    const timer = setInterval(() => void loadProject(), 15_000);
+    return () => clearInterval(timer);
+  }, [loadProject]);
+
   // The Refresh button: load everything again now, instead of waiting for the next change.
   const refresh = useCallback(() => {
     void loadProjects();

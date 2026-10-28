@@ -146,6 +146,8 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
         context: project.context(),
         // What runs now, what comes next and when each open Goal should be done (schedule.ts).
         schedule: project.schedule(),
+        // Shared resources in use right now (resources.ts); runtime state, not part of the plan.
+        resources: project.resources(sessionOf).list(),
       };
     },
     goal: (goalId: string) => {
