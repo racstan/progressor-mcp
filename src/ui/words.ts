@@ -461,3 +461,20 @@ export function talkSummary(messages: readonly { state: string }[], answers: rea
   ];
   return parts.join(" · ");
 }
+
+/** How the time finished steps took compares with their estimates, for the Statistics page. */
+export function estimateWords(c: { steps: number; estimated: number; spent: number; withinEstimate: number }): string {
+  if (c.steps === 0 || c.estimated <= 0) return "No finished step has both an estimate and a time yet.";
+  const ratio = c.spent / c.estimated;
+  const how =
+    ratio > 1.1 ? `about ${ratio.toFixed(1)}× as long as estimated` : ratio < 0.9 ? `about ${Math.round((1 - ratio) * 100)}% less time than estimated` : "about as long as estimated";
+  const within = c.withinEstimate === 1 ? "was" : "were";
+  const its = c.steps === 1 ? "its" : c.withinEstimate === 1 ? "its" : "their";
+  return `Steps took ${how}. ${c.withinEstimate} of ${c.steps} ${within} done within ${its} estimate.`;
+}
+
+/** How often work stepped off the plan, for the Statistics page. */
+export function driftWords(d: { sideTrips: number; goalsWithSideTrips: number; goals: number }): string {
+  if (d.sideTrips === 0) return "No side trips: the work kept to the plan.";
+  return `${d.sideTrips} side ${d.sideTrips === 1 ? "trip" : "trips"}, in ${d.goalsWithSideTrips} of ${d.goals} ${d.goals === 1 ? "goal" : "goals"}.`;
+}

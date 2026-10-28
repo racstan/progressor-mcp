@@ -26,6 +26,8 @@ import {
   statusLine,
   stepOf,
   stepTime,
+  estimateWords,
+  driftWords,
   stepTimes,
   stepWhen,
   underWay,
@@ -341,5 +343,20 @@ describe("when a step was started and finished", () => {
     expect(stepTimes({ status: "dropped", finishedAt: at(27, 9, 0) }, NOW).line).toBe("Cancelled yesterday 09:00");
     expect(stepTimes({ status: "in progress", startedAt: at(26, 9, 0) }, NOW).line).toBe("Started 26 Oct 09:00");
     expect(stepTimes({ status: "pending" }, NOW).line).toBe("");
+  });
+});
+
+describe("statistics in words", () => {
+  it("compares the time steps took with their estimates", () => {
+    expect(estimateWords({ steps: 0, estimated: 0, spent: 0, withinEstimate: 0 })).toBe("No finished step has both an estimate and a time yet.");
+    expect(estimateWords({ steps: 4, estimated: 100, spent: 140, withinEstimate: 1 })).toBe("Steps took about 1.4× as long as estimated. 1 of 4 was done within its estimate.");
+    expect(estimateWords({ steps: 2, estimated: 100, spent: 105, withinEstimate: 2 })).toBe("Steps took about as long as estimated. 2 of 2 were done within their estimate.");
+    expect(estimateWords({ steps: 3, estimated: 100, spent: 40, withinEstimate: 3 })).toBe("Steps took about 60% less time than estimated. 3 of 3 were done within their estimate.");
+  });
+
+  it("says how often work drifted", () => {
+    expect(driftWords({ sideTrips: 0, goalsWithSideTrips: 0, goals: 5 })).toBe("No side trips: the work kept to the plan.");
+    expect(driftWords({ sideTrips: 3, goalsWithSideTrips: 2, goals: 10 })).toBe("3 side trips, in 2 of 10 goals.");
+    expect(driftWords({ sideTrips: 1, goalsWithSideTrips: 1, goals: 1 })).toBe("1 side trip, in 1 of 1 goal.");
   });
 });

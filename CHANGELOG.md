@@ -6,6 +6,14 @@ All notable changes to progressor-mcp. Each release is a Goal on Progressor's ow
 
 The dashboard is no longer only for watching. You can write to your AI and answer its questions, mark what you tried, see its screenshots, and edit the rules it follows, all from the page. It also has a calmer new look, with dates and times on everything. Plans made with earlier versions keep working as they are.
 
+### Statistics
+
+- **A Statistics page for each project**, in the sidebar: steps done, time worked, goals finished and side trips at the top; a bar chart of steps finished each day over the last two weeks; how long steps took against their estimates; how often the work stepped off the plan and how those side trips ended; the longest steps; and a line for each goal. All worked out from the plan, nothing new is recorded.
+
+### Out-of-date warning
+
+- **The dashboard says when the page is out of date.** If Progressor was updated after you opened the page, or the page has been out of touch with Progressor for a minute, a bar at the bottom says so, with a **Refresh** button. It goes away by itself once things are back to normal.
+
 ### Fixes
 
 - **The Finished group in the sidebar closes again.** While you were looking at a finished goal, clicking Finished did nothing. Now it closes, and stays closed until you open it or look at another finished goal.

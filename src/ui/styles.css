@@ -647,3 +647,44 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 [data-theme="vibrant"] .stale-bar { border-color: var(--you); }
 @keyframes spin-slow { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .stale-bar, .stale-bar > svg { animation: none; } }
+
+/* statistics */
+.stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s3); margin-top: var(--s5); }
+.stat-tile { padding: var(--s4); background: var(--panel); border: 2px solid var(--line-strong); border-radius: var(--r); animation: rise .3s var(--ease) backwards; }
+.stat-tile:nth-child(2) { animation-delay: 40ms; } .stat-tile:nth-child(3) { animation-delay: 80ms; } .stat-tile:nth-child(4) { animation-delay: 120ms; }
+.stat-tile .v { font-size: 28px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat-tile .l { margin-top: var(--s1); font-weight: 600; }
+.stat-tile .s { font-size: var(--t-s); color: var(--muted); }
+.stat-lead { margin: 0 0 var(--s2); }
+.bars { display: grid; grid-template-columns: repeat(14, 1fr); gap: 2px; height: 180px; padding: 0 0 0; border-bottom: 2px solid var(--ink); margin-top: var(--s3); }
+.bar-col { display: grid; grid-template-rows: 18px 1fr; min-width: 0; position: relative; cursor: default; }
+.bar-col .n { font-size: var(--t-s); font-weight: 600; text-align: center; color: var(--ink); font-variant-numeric: tabular-nums; }
+.bar-col .track { display: flex; align-items: flex-end; justify-content: center; }
+.bar-col .bar { width: min(28px, 70%); background: var(--ink); border-radius: 4px 4px 0 0; transform-origin: bottom; animation: grow .45s var(--ease) backwards; transition: opacity .15s; }
+.bar-col .bar[data-empty] { height: 0 !important; }
+.bars:hover .bar-col .bar { opacity: .45; }
+.bars:hover .bar-col:hover .bar { opacity: 1; }
+.bar-col.today .bar { background: repeating-linear-gradient(135deg, var(--ink) 0 3px, var(--muted) 3px 6px); }
+.bar-col .d { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: var(--t-s); color: var(--muted); }
+.bar-col:hover::after { content: attr(title); position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); white-space: nowrap; z-index: 5;
+  background: var(--ink); color: var(--bg); font-size: var(--t-s); padding: 3px 8px; border-radius: var(--r-s); pointer-events: none; }
+.stats .section:has(.bars) { padding-bottom: var(--s5); }
+@keyframes grow { from { transform: scaleY(0); } to { transform: none; } }
+.stat-chips { list-style: none; margin: 0 0 var(--s2); padding: 0; display: flex; flex-wrap: wrap; gap: var(--s2); }
+.stat-chips li { padding: 4px 10px; border: 2px solid var(--line-strong); border-radius: 999px; font-size: var(--t-s); background: var(--panel); }
+.stat-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.linkrow { display: flex; align-items: center; gap: var(--s3); width: 100%; text-align: left; padding: var(--s3) var(--s4); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); color: var(--ink); cursor: pointer; }
+.linkrow:hover { border-color: var(--ink); }
+.linkrow .t { flex: 1; min-width: 0; }
+.linkrow .v { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.linkrow small { display: block; font-weight: 400; font-size: var(--t-s); color: var(--muted); }
+.table-wrap { overflow-x: auto; }
+.stat-table { width: 100%; border-collapse: collapse; font-size: var(--t-s); font-variant-numeric: tabular-nums; }
+.stat-table th { text-align: left; font-weight: 600; color: var(--muted); padding: var(--s2) var(--s3); border-bottom: 2px solid var(--ink); white-space: nowrap; }
+.stat-table td { padding: var(--s2) var(--s3); border-bottom: 1px solid var(--line); }
+.stat-table td:first-child { width: 50%; }
+.stat-table tr.finished td { color: var(--muted); }
+.stat-table tr:hover td { background: var(--hover); }
+[data-theme="vibrant"] .bar-col .bar { background: var(--accent); }
+[data-theme="vibrant"] .bar-col.today .bar { background: repeating-linear-gradient(135deg, var(--accent) 0 3px, var(--accent-soft, var(--line)) 3px 6px); }
+@media (prefers-reduced-motion: reduce) { .stat-tile, .bar-col .bar { animation: none; } }

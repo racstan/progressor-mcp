@@ -28,6 +28,7 @@ import {
 } from "./registry.js";
 import { watchProgress } from "./watch.js";
 import { allProjects, findProjects } from "./workspace.js";
+import { projectStats } from "../stats.js";
 import { type RevealRunner, insideProject, revealCommand, runReveal } from "./reveal.js";
 
 export const DEFAULT_PORT = 4747;
@@ -186,6 +187,19 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
       return { goal, graph: buildGoalGraph(plan), decisions, notes, handTests, messages, questions, pictures };
     },
     item: (ref: string) => project.getItem(ref),
+    /** Statistics over every goal's steps and side trips (stats.ts); a goal whose plan cannot be read counts as empty. */
+    stats: () =>
+      projectStats(
+        project.roadmap().goals.map((g) => {
+          try {
+            const plan = project.plan(g.id);
+            return { id: g.id, title: g.title, status: g.status, tasks: plan.tasks, detours: plan.detours };
+          } catch {
+            return { id: g.id, title: g.title, status: g.status, tasks: [], detours: [] };
+          }
+        }),
+        new Date(),
+      ),
   };
 }
 
@@ -661,13 +675,14 @@ class Hub {
         }
         return file ? servePicture(req, res, file) : json(res, 404, { error: "No such picture." });
       }
-      const m = /^\/api\/projects\/([^/]+)\/(roadmap|goals\/([^/]+)|item)$/.exec(path);
+      const m = /^\/api\/projects\/([^/]+)\/(roadmap|goals\/([^/]+)|item|stats)$/.exec(path);
       if (m) {
         const id = decodeURIComponent(m[1]!);
         if (!this.projects.has(id)) this.sync();
         const api = this.projects.get(id)?.api;
         if (!api) return json(res, 404, { error: "No such project on the dashboard." });
         if (m[2] === "roadmap") return json(res, 200, api.roadmap());
+        if (m[2] === "stats") return json(res, 200, api.stats());
         if (m[2] === "item") {
           try {
             return json(res, 200, api.item(url.searchParams.get("ref") ?? ""));
@@ -930,3 +945,4 @@ export type GoalSummary = GoalView["goal"];
 export type OverviewView = ReturnType<Hub["overview"]>;
 export type ServersView = ReturnType<Hub["servers"]>;
 export type SearchView = ReturnType<Hub["search"]>;
+export type StatsView = ReturnType<DashboardApi["stats"]>;
