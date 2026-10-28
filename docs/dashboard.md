@@ -123,7 +123,19 @@ If you use Progressor in several projects, click the project name at the top of 
 
 ## Important context
 
-**📌 Important context**, above Your goals, opens the project's one page of rules and background: the rules you've given your AI, then what the project is, key facts and choices that hold for the whole project. Your AI writes it and reads all of it at the start of every conversation. Rules you've said must never be broken come first, each marked with a **Must** label. The rule that holds your helper limit says so: *At most 2 helpers at once*. The page is read-only; to change something, tell your AI in the chat.
+**📌 Important context**, above Your goals, opens the project's one page of rules and background: the rules you've given your AI, then what the project is, key facts and choices that hold for the whole project. Your AI writes it and reads all of it at the start of every conversation. Rules you've said must never be broken come first, each marked with a **Must** label. The rule that holds your helper limit says so: *At most 2 helpers at once*. You can change it yourself: **+ Add a rule**, **Edit** and **Remove** on each rule, and **Edit** on About this project. Your AI is told about each change at its next step.
+
+## Statistics
+
+**Statistics** in the sidebar works out a few numbers from the project's plan:
+
+- **At the top:** steps done, the time worked on them, goals finished and side trips.
+- **Finished each day:** a bar for each of the last two weeks; hover a bar for its day and count. Today's bar is striped.
+- **Estimates:** how long finished steps took against what your AI estimated, such as *Steps took about 1.4× as long as estimated. 8 of 12 were done within their estimate.*
+- **Side trips:** how often the work stepped off the plan, how those side trips ended, and how many steps were added after one or cancelled.
+- **Longest steps** and **Each goal**, newest first; click one to open its goal.
+
+Steps finished before Progressor kept finish times count on the day they last changed, and steps without a time or an estimate are left out of the comparison, never guessed.
 
 ## Search
 
@@ -133,6 +145,7 @@ The search box at the top (press `/` to jump to it) finds projects, goals and st
 
 - **❓ Help**: report a problem or suggest an idea. Both open a form on GitHub with your Progressor version and system already filled in.
 - **⚙️ Settings**: the view a goal opens in, light or dark, and whether finished goals wait for you to look. Under **Advanced**: the code editor files open in, showing hidden goals, and the Progressor servers running on your computer. Settings are saved in your browser.
+- **If the page is out of date**, a bar at the bottom says so, with a **Refresh** button: when Progressor was updated after you opened the page, or when the page has been out of touch with Progressor for a minute. It goes away by itself once things are back to normal.
 - **The green dot** at the top means the page is live. If it turns orange and says *Reconnecting…*, Progressor has closed (it runs while your AI's app is open); it comes back by itself when the app is open again.
 
 ---

@@ -150,6 +150,8 @@ POST /api/projects/<project>/goals/<goal>/questions/<id>/answer   {"answer": "Fo
 
 A message is cut to 2000 characters and written on one line. Messages can go to any Goal that is not cancelled, held or not. `GET /api/projects/<project>/goals/<goal>` now also returns `messages` and `questions`, and each Goal in the roadmap answer has `openQuestions`.
 
+`GET /api/projects/<project>/stats` returns the Statistics page's numbers, worked out from the plan each time (`src/stats.ts`): `goals`, `steps`, `time` (minutes worked, and the finished steps with both an estimate and a time compared), `drift` (side trips and how they ended, steps added after one and steps cancelled), `perDay` (steps finished on each of the last 14 days, by local date), `longest` and `perGoal`. `GET /api/info` also returns `build`, which changes when the dashboard's page is rebuilt, so an open page can tell it is out of date.
+
 Editing the project notes (the rules and the Important context) uses four more, with the header `x-progressor: notes` and the same checks (16 KB at most):
 
 ```
