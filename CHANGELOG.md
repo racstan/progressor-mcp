@@ -4,6 +4,10 @@ All notable changes to progressor-mcp. Each release is a Goal on Progressor's ow
 
 ## Unreleased
 
+### When each step started and finished
+
+- **The Steps list says when a step was finished**, at the end of its row (*Done 14:02*, *Cancelled yesterday 09:00*), and when the step being worked on started (*Working on it · since 13:50*). A step's details and the map say *Started today 13:50 · finished 14:02*; hover for the exact date. Steps finished before this show when they last changed, which is when they were finished. In the plan's files: two lines, `started` and `finished`, written by Progressor.
+
 ### Edit the project notes yourself
 
 - **Add, change and remove your AI's rules on the dashboard.** Project notes has **+ Add a rule** (tick **Must never be broken** for a hard rule), and each rule has **Edit** and **Remove** (Remove asks first). **About this project** has **Edit** too, with a character count. Your AI is told about each change at its next step, as a message you can see on Message your AI.

@@ -37,6 +37,9 @@ export interface TaskNode extends NodeBase {
   spent?: number;
   /** When the stretch still running started, while it is timed. */
   timingSince?: string;
+  /** When work on it first began, and when it was finished (while it is), as ISO times; unknown in older plans. */
+  startedAt?: string;
+  finishedAt?: string;
   /** Where the helper's work is, when the Agent recorded it. */
   helper?: HelperInfo;
   /** What was checked, when the Task was checked with evidence. */
@@ -112,6 +115,8 @@ export function buildGoalGraph(plan: { tasks: Task[]; detours: Detour[] }): Goal
     ...(t.timingSince ? { timingSince: t.timingSince } : {}),
     ...(t.helper ? { helper: t.helper } : {}),
     ...(t.evidence ? { evidence: t.evidence } : {}),
+    ...(t.startedAt ? { startedAt: t.startedAt } : {}),
+    ...(t.finishedAt ? { finishedAt: t.finishedAt } : {}),
     step: 0,
     lane: 0,
   }));

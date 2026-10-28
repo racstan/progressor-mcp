@@ -8,7 +8,7 @@ import { RichText } from "./RichText.js";
 import { StepMark } from "./StepKey.js";
 import type { FileLink } from "./Steps.js";
 import { plainText } from "./text.js";
-import { GOAL_WORD, SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, elsewhereTag, evidenceLine, helperLine, stepTime } from "./words.js";
+import { GOAL_WORD, SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, elsewhereTag, evidenceLine, helperLine, stepTime, stepTimes } from "./words.js";
 
 const tasksOf = (g: { nodes: { kind: string }[] }) => g.nodes.filter((n): n is TaskNode => n.kind === "task");
 
@@ -97,6 +97,9 @@ export function Popover({ subject, at, onClose, fileLink, files, onCopy, onRevea
       <button className="iconbtn x" aria-label="Close" onClick={onClose}><Icon name="close" /></button>
       <h4>{d.title}</h4>
       <div className="meta">{d.meta}</div>
+      {subject.kind === "node" && subject.node.kind === "task" && stepTimes(subject.node).line && (
+        <div className="meta" title={stepTimes(subject.node).title}>{stepTimes(subject.node).line}</div>
+      )}
       <Dates item={subject.kind === "node" && subject.node.kind === "task" ? subject.node : undefined} />
       {d.time && <div className="meta time" title="How long your AI expected this step to take, and how long it has taken. Time paused (back to To do) does not count.">{d.time}</div>}
       {d.state && STEP_HINT[d.state] && (

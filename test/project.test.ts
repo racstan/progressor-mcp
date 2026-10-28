@@ -46,8 +46,11 @@ describe("working through a Goal", () => {
 
 - [x] Add the /login route ^t1
   - code: \`src/routes/login.ts\`
+  - started: 2026-10-18T15:00:00.000Z
+  - finished: 2026-10-18T15:00:00.000Z
 - [/] Handle the OAuth callback ^t2
   - timing since: 2026-10-18T15:00:00.000Z
+  - started: 2026-10-18T15:00:00.000Z
 `);
     const status = agent.status();
     expect(status.goal?.id).toBe("ship-oauth-login");
@@ -78,7 +81,8 @@ describe("working through a Goal", () => {
       "- [x] Fix callback redirect loop ^t1\n" +
         "  - summary: Callback re-sets the session cookie on every hit; only set it after token exchange.\n" +
         "  - code: `src/auth/callback.ts`\n" +
-        "  - code: `src/auth/session.ts:42`\n",
+        "  - code: `src/auth/session.ts:42`\n" +
+        "  - finished: 2026-10-18T15:00:00.000Z\n",
     );
     agent.completeTask("t1", [], "Only set the cookie after token exchange.");
     expect(agent.status().goal && agent.getItem("progressor://g/t1").item).toMatchObject({
@@ -106,7 +110,7 @@ describe("working through a Goal", () => {
     agent.addGoal("G", [{ title: "one" }]);
     agent.claimGoal("g");
     agent.dropTask("t1", "no longer needed");
-    expect(read("goals/g.md")).toContain("- [-] one ^t1\n  - reason: no longer needed\n");
+    expect(read("goals/g.md")).toContain("- [-] one ^t1\n  - reason: no longer needed\n  - finished: 2026-10-18T15:00:00.000Z\n");
   });
 
   it("picks up hand edits made between calls", () => {
@@ -391,10 +395,14 @@ describe("Detours", () => {
     agent.endDetour("recalibrate", [{ title: "Store tokens server-side" }, { title: "Add logout" }]);
 
     expect(read("goals/login.md")).toContain(`- [x] Add route ^t1
+  - finished: 2026-10-18T15:00:00.000Z
 - [-] Handle callback ^t2
   - dropped by: ^d1
+  - started: 2026-10-18T15:00:00.000Z
+  - finished: 2026-10-18T15:00:00.000Z
 - [-] Cookies ^t3
   - dropped by: ^d1
+  - finished: 2026-10-18T15:00:00.000Z
 - [ ] Store tokens server-side ^t4
   - added by: ^d1
 - [ ] Add logout ^t5
@@ -914,7 +922,7 @@ describe("moving a Task to another Goal", () => {
     agent.completeTask("t1", ["src/other.ts"], "Serves the login page.");
     const moved = agent.moveTask("t1", "voice");
     expect(moved).toMatchObject({ id: "t3", title: "Route", status: "done", summary: "Serves the login page.", code: ["src/login.ts", "src/other.ts"] });
-    expect(read("goals/voice.md")).toContain("- [x] Route ^t3\n  - summary: Serves the login page.\n  - code: `src/login.ts`\n  - code: `src/other.ts`\n  - moved from: progressor://login/t1\n");
+    expect(read("goals/voice.md")).toContain("- [x] Route ^t3\n  - summary: Serves the login page.\n  - code: `src/login.ts`\n  - code: `src/other.ts`\n  - moved from: progressor://login/t1\n  - finished: 2026-10-18T15:00:00.000Z\n");
   });
 
   it("puts the Task before or after a Task of the other Goal", () => {
