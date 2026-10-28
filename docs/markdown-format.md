@@ -112,7 +112,7 @@ Every item also has a line number: the 1-based line of its item line (for a Deto
 
 Every Task has three parts. Its **title** is the item line: a few words, such as "Fix callback redirect loop". Its **files** are its `code` lines. Its **summary** is a `summary` line: one or two sentences on the fix or change it makes. The title is required; files and summary are optional, so a Task typed by hand as a single line is still valid. A summary is kept on one line: line breaks given to the tools become spaces.
 
-When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `helper`, `helper branch`, `helper folder`, `evidence`, `checked since`, `estimate`, `time spent`, `timing since`, `moved from`, `added by`, `from hand test`, `dropped by`, `reason`, `updated from`, `added`, `updated`. Unknown details follow in the order they were in.
+When Progressor writes a Task, its known details come first, in this order: `state`, `summary`, `code`, `helper`, `helper branch`, `helper folder`, `evidence`, `checked since`, `estimate`, `time spent`, `timing since`, `moved from`, `added by`, `from hand test`, `dropped by`, `reason`, `updated from`, `started`, `finished`, `added`, `updated`. Unknown details follow in the order they were in.
 
 ## Status markers
 
@@ -172,6 +172,8 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 | Task     | `checked since` | The ISO time the Task became checked, while it is; written by the tools. |
 | Task     | `estimate`     | How long the Task should take: `45m`, `2h`, `1h 30m`. A value that is not a time is ignored (and kept). |
 | Task     | `time spent`   | Time worked on it in earlier stretches, in the same form; written by the tools. |
+| Task     | `started` | The ISO time work on the Task first began (in progress, with a helper, waiting on you or checked); kept for good once written. Written by the tools. |
+| Task     | `finished` | The ISO time the Task was done, released or cancelled, while it still is; removed if it goes back to work. Written by the tools. Older plans have neither line: the dashboard then shows a finished Task's `updated` time instead. |
 | Task     | `timing since` | The ISO time the stretch still running started, while the Task is in progress, with a helper, waiting on you or checked; written by the tools. |
 | Task     | `moved from`   | The ref of the Task in another Goal this one was moved from (`progressor://billing/t4`). |
 | Task     | `added by`     | The Detour whose Return or Recalibration added this Task (`^d1`).        |
