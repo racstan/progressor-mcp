@@ -15,6 +15,7 @@ import { elsewhereNewsLine, newsLines, projectTalkLine, talkLines } from "./talk
 import { type ResourceLock, holderText, resourceLine } from "./resources.js";
 import { type Goal, type StandingInstruction, hardFirst, helperLimit, ruleText } from "./roadmap.js";
 import type { GoalSchedule, Schedule } from "./schedule.js";
+import type { Wish } from "./wishlist.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -259,6 +260,18 @@ function goalListLines(goals: Goal[]): string[] {
   ];
 }
 
+/** The Developer's wishlist: the open wishes, with the granted ones only counted. */
+function wishlistLines(wishes: Wish[]): string[] {
+  if (wishes.length === 0) return [];
+  const open = wishes.filter((w) => !w.granted);
+  const granted = wishes.length - open.length;
+  return [
+    "The Developer's wishlist (theirs to change: suggest goals from it when one fits, never edit it):",
+    ...open.map((w) => `- ${w.id} ${w.text}`),
+    ...(granted > 0 ? [`Granted: ${granted} ${granted === 1 ? "wish" : "wishes"} (not listed).`] : []),
+  ];
+}
+
 export function formatStatus(session: SessionStatus, schedule?: Schedule, warnings: string[] = []): string {
   const rules = hardFirst(session.standingInstructions);
   const instructions =
@@ -267,6 +280,7 @@ export function formatStatus(session: SessionStatus, schedule?: Schedule, warnin
       : [];
   const timing = [...(schedule ? scheduleLines(schedule, session.held.map((s) => s.goal!.id)) : []), ...warnings];
   if (session.context) instructions.push("Important context:", session.context);
+  instructions.push(...wishlistLines(session.wishes));
   if (session.held.length > 1)
     return [
       `This Session holds ${session.held.length} Goals; pass goal (the Goal ID) to the tools that change one.`,

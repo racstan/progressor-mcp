@@ -125,6 +125,10 @@ If you use Progressor in several projects, click the project name at the top of 
 
 **📌 Important context**, above Your goals, opens the project's one page of rules and background: the rules you've given your AI, then what the project is, key facts and choices that hold for the whole project. Your AI writes it and reads all of it at the start of every conversation. Rules you've said must never be broken come first, each marked with a **Must** label. The rule that holds your helper limit says so: *At most 2 helpers at once*. You can change it yourself: **+ Add a rule**, **Edit** and **Remove** on each rule, and **Edit** on About this project. Your AI is told about each change at its next step.
 
+## Wishlist
+
+**Wishlist** in the sidebar is for what you want from the project as a whole, in your own words: not goals or steps, just wishes, such as *People can use it on their phone*. Type one in the box at the top and press **Add wish**. Each wish has **Edit** and **Remove**, and a tick box for when you have what you wished for; ticked-off wishes move down to **You have these**, and unticking puts one back. Only you change the wishlist. Your AI reads it at every status check, is told about each change, and may suggest goals from it, but it never edits it.
+
 ## Statistics
 
 **Statistics** in the sidebar works out a few numbers from the project's plan:
@@ -172,7 +176,7 @@ The dashboard listens only on your own computer (`127.0.0.1`, and `::1` where th
 
 ### What the dashboard can change
 
-Only a few things, all from the dashboard's own page: stopping a Progressor server, marking a hand test, talking with your AI (sending or taking back a message, answering a question), and editing the project notes (adding, rewording or removing a rule, and rewriting About this project; your AI is told about each change). Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark, message, answer or note is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
+Only a few things, all from the dashboard's own page: stopping a Progressor server, marking a hand test, talking with your AI (sending or taking back a message, answering a question), editing the project notes (adding, rewording or removing a rule, and rewriting About this project), and changing the wishlist (adding, rewording, ticking off or removing a wish); your AI is told about each change. Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark, message, answer or note is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
 
 ### The dashboard without an AI running
 

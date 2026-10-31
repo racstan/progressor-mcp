@@ -241,7 +241,7 @@ describe("one dashboard for every project", () => {
 
   it("tells the page which editor opens files", async () => {
     const d = await start(agent, { editor: "cursor" });
-    expect((await get(d, "/api/info")).body).toMatchObject({ app: "progressor", hub: 7, editor: "cursor" });
+    expect((await get(d, "/api/info")).body).toMatchObject({ app: "progressor", hub: 8, editor: "cursor" });
   });
 
   it("serves the project's statistics", async () => {

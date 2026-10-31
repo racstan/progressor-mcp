@@ -2,8 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { DEFAULT_EDITOR, EDITORS, editorUrl } from "../dashboard/editor.js";
 import type { GoalSchedule } from "../schedule.js";
 import { type RoadmapView, showInFolder, useDashboard, useOverview, useSearch, useServers, usePageStaleness, useStored, useStoredJson } from "./data.js";
-import { CONTEXT_HASH, STATS_HASH, TALK_HASH, contextFromHash } from "./context.js";
+import { CONTEXT_HASH, STATS_HASH, TALK_HASH, WISHLIST_HASH, contextFromHash } from "./context.js";
 import { ContextPage } from "./ContextPage.js";
+import { WishlistPage } from "./WishlistPage.js";
 import { StatsPage } from "./StatsPage.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
@@ -106,6 +107,7 @@ export function App() {
   const [onContext, setOnContext] = useState(() => contextFromHash(location.hash));
   const [onTalk, setOnTalk] = useState(() => location.hash === TALK_HASH);
   const [onStats, setOnStats] = useState(() => location.hash === STATS_HASH);
+  const [onWishes, setOnWishes] = useState(() => location.hash === WISHLIST_HASH);
   const [theme, setTheme] = useStored<Theme>("progressor.theme", undefined);
   const [finished, setFinished] = useStored<Finished>("progressor.finished", undefined);
   const [showHidden, setShowHidden] = useStored<"1">("progressor.show-hidden", undefined);
@@ -147,7 +149,7 @@ export function App() {
   // Without a pick, the Goal on screen stays on screen as the plan changes; the default is chosen once per project.
   const shownBefore = useRef<{ project: string | undefined; goal: string | undefined }>({ project: undefined, goal: undefined });
   const kept = shownBefore.current.project === projectId ? shownBefore.current.goal : undefined;
-  const effectiveGoal = onContext || onTalk || onStats
+  const effectiveGoal = onContext || onTalk || onStats || onWishes
     ? undefined
     : picked && goals.some((g) => g.id === picked)
       ? picked
@@ -190,6 +192,7 @@ export function App() {
       setOnContext(contextFromHash(location.hash));
       setOnTalk(location.hash === TALK_HASH);
       setOnStats(location.hash === STATS_HASH);
+      setOnWishes(location.hash === WISHLIST_HASH);
     };
     addEventListener("hashchange", onNavigate);
     addEventListener("popstate", onNavigate);
@@ -209,6 +212,7 @@ export function App() {
     setOnContext(false);
     setOnTalk(false);
     setOnStats(false);
+    setOnWishes(false);
     closeAll();
   };
   const openContext = () => {
@@ -216,6 +220,7 @@ export function App() {
     setOnContext(true);
     setOnTalk(false);
     setOnStats(false);
+    setOnWishes(false);
     closeAll();
   };
   const openTalk = () => {
@@ -223,6 +228,7 @@ export function App() {
     setOnTalk(true);
     setOnContext(false);
     setOnStats(false);
+    setOnWishes(false);
     closeAll();
   };
   const openStats = () => {
@@ -230,6 +236,15 @@ export function App() {
     setOnStats(true);
     setOnContext(false);
     setOnTalk(false);
+    setOnWishes(false);
+    closeAll();
+  };
+  const openWishes = () => {
+    history.replaceState(null, "", `${location.search}${WISHLIST_HASH}`);
+    setOnWishes(true);
+    setOnContext(false);
+    setOnTalk(false);
+    setOnStats(false);
     closeAll();
   };
   const pickProject = (id: string, goalId?: string) => {
@@ -240,6 +255,7 @@ export function App() {
     setOnContext(false);
     setOnTalk(false);
     setOnStats(false);
+    setOnWishes(false);
     closeAll();
     scrollMainToTop();
   };
@@ -251,6 +267,7 @@ export function App() {
     setOnContext(false);
     setOnTalk(false);
     setOnStats(false);
+    setOnWishes(false);
     closeAll();
   };
 
@@ -276,8 +293,8 @@ export function App() {
 
   useEffect(() => {
     const where = onHome ? (workspaces?.find((w) => w.id === pickedWorkspace)?.name ?? "Home") : undefined;
-    document.title = [onContext ? "Project notes" : onTalk ? "Message your AI" : onStats ? "Statistics" : shownGoal?.goal.title, project?.name, where, "Progressor"].filter(Boolean).join(" · ");
-  }, [shownGoal, project, onHome, onContext, onTalk, onStats, workspaces, pickedWorkspace]);
+    document.title = [onContext ? "Project notes" : onTalk ? "Message your AI" : onStats ? "Statistics" : onWishes ? "Wishlist" : shownGoal?.goal.title, project?.name, where, "Progressor"].filter(Boolean).join(" · ");
+  }, [shownGoal, project, onHome, onContext, onTalk, onStats, onWishes, workspaces, pickedWorkspace]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -391,6 +408,8 @@ export function App() {
     <div className="placeholder">Loading…</div>
   ) : onStats && projectId ? (
     <StatsPage projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} />
+  ) : onWishes && projectId ? (
+    <WishlistPage projectId={projectId} wishes={roadmap.wishes} onChanged={refresh} />
   ) : onContext && projectId ? (
     <ContextPage projectId={projectId} rules={roadmap.standingInstructions} context={roadmap.context} onChanged={refresh} />
   ) : onTalk && projectId ? (
@@ -579,6 +598,9 @@ export function App() {
               </button>
               <button className="side-link" aria-current={onContext} onClick={openContext} title="The rules and background your AI keeps for this project">
                 <Icon name="note" /> Project notes
+              </button>
+              <button className="side-link" aria-current={onWishes} onClick={openWishes} title="What you want from this project as a whole; your AI may suggest goals from it">
+                <Icon name="star" /> Wishlist
               </button>
               <button className="side-link" aria-current={onStats} onClick={openStats} title="How long steps take, how often work drifts, and what was finished each day">
                 <Icon name="chart" /> Statistics

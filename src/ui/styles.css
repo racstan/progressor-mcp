@@ -339,6 +339,15 @@ button.list-row:hover { background: var(--hover); }
 .rules .error, .note-form .error { margin-top: var(--s2); font-size: var(--t-s); color: var(--bad); }
 .add-rule { margin-top: var(--s3); }
 .section > h2 .linkbtn { font-weight: 500; }
+.wish-add { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-bottom: var(--s3); }
+.wish-add input { flex: 1; min-width: 200px; padding: var(--s2) var(--s3); border-radius: var(--r-s); border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.wish-add input:focus { outline: none; border-color: var(--accent); }
+.wish-add .error { flex-basis: 100%; font-size: var(--t-s); color: var(--bad); }
+.wishes li { animation: rise .18s ease-out backwards; transition: opacity .2s, background .2s; }
+.wishes .wish-tick { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--s2); cursor: pointer; }
+.wishes .wish-tick input { flex: none; cursor: pointer; }
+.wishes li.granted { opacity: .7; }
+.wishes li.granted .rule-text { text-decoration: line-through; text-decoration-thickness: 1px; color: var(--muted); }
 .note-form { display: flex; flex-direction: column; gap: var(--s2); animation: rise .18s ease-out backwards; }
 .section > .note-form { margin-top: var(--s3); padding: var(--s3) var(--s4); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
 .note-form textarea { width: 100%; padding: var(--s2) var(--s3); border-radius: var(--r-s); border: 1px solid var(--line); background: var(--bg); color: var(--ink); resize: vertical; line-height: 1.5; }

@@ -33,6 +33,7 @@ import { unsafeRoot } from "./root.js";
 import { type Claim, type Goal, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
 import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule } from "./schedule.js";
+import { WISHLIST_FILE, type Wish, formatWishlist, nextWishId, parseWishlist, wishText } from "./wishlist.js";
 
 export interface SessionIdentity {
   id: string;
@@ -153,6 +154,8 @@ export interface SessionStatus {
   held: Status[];
   standingInstructions: StandingInstruction[];
   context: string;
+  /** The Developer's wishlist, which the Agent may suggest Goals from. */
+  wishes: Wish[];
   goals: Goal[];
 }
 
@@ -164,6 +167,7 @@ export interface ProjectOverview {
   planned: Goal[];
   standingInstructions: StandingInstruction[];
   context: string;
+  wishes: Wish[];
   /** The Developer's messages to the whole project not replied to yet. */
   projectMessages: Message[];
 }
@@ -1433,6 +1437,40 @@ export class Project {
     return context;
   }
 
+  // --- wishlist ---------------------------------------------------------------
+
+  /** The Developer's wishlist (see wishlist.ts), in its order. */
+  wishes(): Wish[] {
+    return parseWishlist(this.readText(this.path(WISHLIST_FILE)) ?? "");
+  }
+
+  addWish(text: string): Wish {
+    const wishes = this.wishes();
+    const wish = { id: nextWishId(wishes), text: wishText(text), granted: false };
+    this.writeText(this.path(WISHLIST_FILE), formatWishlist([...wishes, wish]));
+    return wish;
+  }
+
+  /** Rewords a wish or ticks it off (granted) or back. */
+  updateWish(id: string, changes: { text?: string; granted?: boolean }): Wish {
+    const wishes = this.wishes();
+    const wish = wishes.find((w) => w.id === id);
+    if (!wish) throw new Error(`No wish ${id} on the wishlist.`);
+    if (changes.text !== undefined) wish.text = wishText(changes.text);
+    if (changes.granted !== undefined) wish.granted = changes.granted;
+    this.writeText(this.path(WISHLIST_FILE), formatWishlist(wishes));
+    return wish;
+  }
+
+  /** Removes a wish and answers with it. */
+  removeWish(id: string): Wish {
+    const wishes = this.wishes();
+    const wish = wishes.find((w) => w.id === id);
+    if (!wish) throw new Error(`No wish ${id} on the wishlist.`);
+    this.writeText(this.path(WISHLIST_FILE), formatWishlist(wishes.filter((w) => w !== wish)));
+    return wish;
+  }
+
   // --- lookup ----------------------------------------------------------------
 
   /** Finds any item by its ref, such as `progressor://login/t2` or `progressor://roadmap/i1`. */
@@ -1484,6 +1522,7 @@ export class Project {
       held: this.claimedGoals(roadmap).map((g) => this.goalStatus(g, roadmap)),
       standingInstructions: roadmap.standingInstructions,
       context: this.context(),
+      wishes: this.wishes(),
       goals: roadmap.goals,
     };
   }
@@ -1502,6 +1541,7 @@ export class Project {
       planned: roadmap.goals.filter((g) => g.status === "planned"),
       standingInstructions: roadmap.standingInstructions,
       context: this.context(),
+      wishes: this.wishes(),
       projectMessages: this.projectMessages(),
     };
   }
