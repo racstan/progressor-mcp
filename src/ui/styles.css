@@ -566,6 +566,12 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 /* ---------- Vibrant: the colourful theme (light only) ----------
    One indigo accent, green for done, amber for "needs you", soft borders and shadows. The rules
    above stay; these only swap the black that marks a state for its colour. */
+/* Highlights in the AI's words (RichText): weight, a chip and an underline here; colour only in Vibrant. */
+.hl { overflow-wrap: anywhere; transition: background .2s, color .2s, border-color .2s; }
+.hl-label { font-weight: 600; padding: 0 5px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--panel); box-shadow: 0 1px 0 var(--line-strong); }
+.hl-path { font-weight: 600; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
+.hl-file { font: 600 .92em ui-monospace, "Cascadia Code", Consolas, monospace; border-bottom: 1px dashed var(--line-strong); }
+
 :root[data-theme="vibrant"] {
   --bg: #f7f7f5; --panel: #ffffff; --panel2: #f2f1ee; --hover: #ecebe7; --line: #e6e4df; --line-strong: #d6d3cc;
   --ink: #1b1b19; --muted: #6b6963; --faint: #9c9a93;
@@ -700,3 +706,6 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .stat-h { margin: var(--s5) 0 var(--s2); font-size: var(--t-m); font-weight: 600; }
 .stat-gap { margin-top: calc(var(--s6) + 16px); }
 .stat-table td:last-child { text-align: right; }
+[data-theme="vibrant"] .hl-label { color: var(--accent); background: var(--accent-soft); border-color: #c9cdf3; box-shadow: none; }
+[data-theme="vibrant"] .hl-path { color: #0e7c86; text-decoration-color: #9fd3d8; }
+[data-theme="vibrant"] .hl-file { color: #a2337e; border-bottom-color: #e3b5d4; }
