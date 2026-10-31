@@ -18,6 +18,7 @@ import { sortProjects } from "./projectList.js";
 import { type SearchHit, SearchBox } from "./Search.js";
 import { Conversation } from "./Talk.js";
 import { latestReply, unreadReplies } from "./talkView.js";
+import { type Snapshot, finishedNote, newlyFinished, snapshot } from "./notify.js";
 import { ServersPanel } from "./Servers.js";
 import { StepKey } from "./StepKey.js";
 import type { FileLink } from "./Steps.js";
@@ -136,6 +137,8 @@ export function App() {
   const stale = usePageStaleness(info, connection);
   const project = projects?.find((p) => p.id === pickedProject);
   const overview = useOverview(true);
+  const [popUps, setPopUps] = useStored<"on">("progressor.pop-ups", undefined);
+  const lastLook = useRef<Snapshot | undefined>(undefined);
 
   const goals = roadmap?.goals ?? [];
   // Hidden and seen Goals are this browser's view of one project.
@@ -261,6 +264,31 @@ export function App() {
     setOnWishes(false);
     closeAll();
     scrollMainToTop();
+  };
+  // A desktop pop-up for each goal that finished since the last look at every project (notify.ts).
+  useEffect(() => {
+    if (!overview) return;
+    const finished = newlyFinished(lastLook.current, overview);
+    lastLook.current = snapshot(overview);
+    if (popUps !== "on" || canPopUp() !== "granted") return;
+    for (const f of finished) {
+      const { title, body, tag } = finishedNote(f);
+      const pop = new Notification(title, { body, tag });
+      pop.onclick = () => {
+        window.focus();
+        pickProject(f.project.id, f.goal.id);
+        pop.close();
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overview]);
+  const switchPopUps = async (on: boolean) => {
+    if (!on) return setPopUps(undefined);
+    if (canPopUp() === "unsupported") return toast("This browser can't show desktop pop-ups.");
+    const answer = await Notification.requestPermission();
+    if (answer !== "granted") return toast("Your browser didn't allow pop-ups. Allow notifications for this site in the browser's settings, then try again.");
+    setPopUps("on");
+    new Notification("Pop-ups are on", { body: "You'll get one like this when a goal is finished.", tag: "progressor-pop-ups-on" });
   };
   const goHome = () => {
     setParams({ project: undefined, workspace: undefined }, "push");
@@ -517,6 +545,13 @@ export function App() {
               ]} />
           </section>
           <section>
+            <h3>Pop-ups</h3>
+            <label className="option">
+              <input type="checkbox" checked={popUps === "on" && canPopUp() === "granted"} onChange={(e) => void switchPopUps(e.target.checked)} />
+              <span><b>Pop up when a goal is finished</b><small>A desktop pop-up from any project, while a dashboard tab is open, even in the background.{canPopUp() === "denied" ? " Your browser blocks them for this page: allow notifications for this site in the browser's settings." : ""}</small></span>
+            </label>
+          </section>
+          <section>
             <h3>Finished goals</h3>
             <label className="option">
               <input type="radio" name="finished" checked={finished !== "review"} onChange={() => setFinished(undefined)} />
@@ -690,6 +725,9 @@ export function App() {
     </>
   );
 }
+
+/** Whether this browser can show desktop pop-ups for the page, and whether it may. */
+const canPopUp = (): NotificationPermission | "unsupported" => ("Notification" in window ? Notification.permission : "unsupported");
 
 /** The Developer's Buy Me a Coffee page, shown in Settings. */
 const SUPPORT_URL = "https://buymeacoffee.com/rachitasthana";
