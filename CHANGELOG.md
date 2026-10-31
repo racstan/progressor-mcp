@@ -13,6 +13,12 @@ All notable changes to progressor-mcp. Each release is a Goal on Progressor's ow
 
 - **What to look at stands out.** Wherever the dashboard shows your AI's words (things to try, steps, notes, messages), things to click in "quotes", menu paths like Settings › Notifications, file names like `start.ps1` and code are picked out by themselves. In Vibrant each kind has its own colour; Light, Dark and System use bold, a chip and an underline.
 
+### Messages and Needs you
+
+- **The number on Message your AI counts new replies** from your AI that you haven't read, and opening the page clears it. Before, it counted every message your AI hadn't answered, so it could stay up however often you looked.
+- **The dashboard's own notices are small lines.** When you change the rules, the project notes or the wishlist, the note your AI gets shows as a short grey line (*You added wish w1 to the wishlist*), not as a message you wrote.
+- **Your AI sets the order of Needs you.** Goals that need you follow the order of the plan, in the sidebar and now on Home too, and your AI puts the one to check first at the top.
+
 ## 1.0.0 · Work with your AI from the dashboard
 
 The dashboard is no longer only for watching. You can write to your AI and answer its questions, mark what you tried, see its screenshots, and edit the rules it follows, all from the page. It also has a calmer new look, with dates and times on everything. Plans made with earlier versions keep working as they are.

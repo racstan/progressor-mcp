@@ -643,7 +643,7 @@ class Hub {
     const tell = (text: string) => project.sendMessage(PROJECT_TALK, `On the dashboard I ${text}`);
     if (action === "wishes") {
       const added = project.addWish(text ?? "");
-      tell(`added wish ${added.id} to the wishlist: "${added.text}". You may suggest a goal for it; don't change the wishlist yourself.`);
+      tell(`added wish ${added.id} to the wishlist: "${added.text}".`);
       return { status: 201, body: added };
     }
     const del = /^wishes\/([^/]+)\/delete$/.exec(action);

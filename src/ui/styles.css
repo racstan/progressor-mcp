@@ -339,6 +339,9 @@ button.list-row:hover { background: var(--hover); }
 .rules .error, .note-form .error { margin-top: var(--s2); font-size: var(--t-s); color: var(--bad); }
 .add-rule { margin-top: var(--s3); }
 .section > h2 .linkbtn { font-weight: 500; }
+.talk li.said.notice { padding: var(--s1) var(--s3); background: transparent; border: none; border-left: 2px solid var(--line-strong); border-radius: 0; box-shadow: none; font-size: var(--t-s); color: var(--muted); }
+.talk li.said.notice .origin { color: var(--faint); }
+.talk li.said.notice .reply { margin-top: var(--s1); }
 .wish-add { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-bottom: var(--s3); }
 .wish-add input { flex: 1; min-width: 200px; padding: var(--s2) var(--s3); border-radius: var(--r-s); border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
 .wish-add input:focus { outline: none; border-color: var(--accent); }

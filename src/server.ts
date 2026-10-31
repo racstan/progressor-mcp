@@ -706,7 +706,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Move Goal",
       description:
-        "Move a Goal right before or after another Goal, so the Roadmap lists the work in the order it should happen. Give exactly one of before and after.",
+        "Move a Goal right before or after another Goal, so the Roadmap lists the work in the order it should happen. Give exactly one of before and after. The dashboard lists the Goals that need the Developer (things to try, steps to check, questions) in this order too, so put the one they should check first in front.",
       inputSchema: {
         goal: goalId,
         before: z.string().optional().describe("The ID of the Goal to move it in front of."),
