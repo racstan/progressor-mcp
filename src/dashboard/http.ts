@@ -34,7 +34,7 @@ import { type RevealRunner, insideProject, revealCommand, runReveal } from "./re
 export const DEFAULT_PORT = 4747;
 const HOST = "127.0.0.1";
 /** Bumped when the hub's API changes, so a hub from an older version is not shared. */
-const HUB_VERSION = 7;
+const HUB_VERSION = 8;
 
 export interface DashboardOptions {
   /** This Session's project; it is added to the registry. Absent when only a Workspace is opened. */
@@ -162,6 +162,8 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
         ideas: roadmap.ideas,
         standingInstructions: roadmap.standingInstructions,
         context: project.context(),
+        // The Developer's wishlist (wishlist.ts), which they edit on the Wishlist page.
+        wishes: project.wishes(),
         // What runs now, what comes next and when each open Goal should be done (schedule.ts).
         schedule: project.schedule(),
         // Shared resources in use right now (resources.ts); runtime state, not part of the plan.
@@ -577,7 +579,7 @@ class Hub {
 
   /**
    * The Developer editing the project notes: add, reword or remove a rule (a Standing Instruction),
-   * or replace the Important context. Written under the plan's lock through the same code the tools
+   * replace the Important context, or change the wishlist. Written under the plan's lock through the same code the tools
    * use; each change also leaves a message to the whole project, so the AI hears of it at its next call.
    */
   private async notes(req: IncomingMessage, res: ServerResponse, projectId: string, action: string): Promise<void> {
@@ -620,6 +622,7 @@ class Hub {
           project.sendMessage(PROJECT_TALK, `On the dashboard I changed rule ${changed.id} to: "${changed.text}"${changed.hard ? " (it must never be broken)" : ""}. Follow it from now on.`);
           return { status: 200, body: changed };
         }
+        if (action.startsWith("wishes")) return this.wish(project, action, body);
         return { status: 404, body: { error: "Nothing to do here." } };
       });
       return json(res, answer.status, answer.body);
@@ -627,6 +630,41 @@ class Hub {
       const message = (e as Error).message;
       return json(res, /^No /.test(message) ? 404 : 400, { error: message });
     }
+  }
+
+  /**
+   * The Developer adding, rewording, ticking off or removing a wish (wishlist.ts), under the plan's
+   * lock. The AI is told of each change; it may suggest Goals from the wishlist but never edits it.
+   */
+  private wish(project: Project, action: string, body: Record<string, unknown>): { status: number; body: unknown } {
+    const { text, granted } = body;
+    if (text !== undefined && typeof text !== "string") throw new Error("The text must be text.");
+    if (granted !== undefined && typeof granted !== "boolean") throw new Error("Say yes or no to whether you have it.");
+    const tell = (text: string) => project.sendMessage(PROJECT_TALK, `On the dashboard I ${text}`);
+    if (action === "wishes") {
+      const added = project.addWish(text ?? "");
+      tell(`added wish ${added.id} to the wishlist: "${added.text}". You may suggest a goal for it; don't change the wishlist yourself.`);
+      return { status: 201, body: added };
+    }
+    const del = /^wishes\/([^/]+)\/delete$/.exec(action);
+    if (del) {
+      const removed = project.removeWish(del[1]!);
+      tell(`removed wish ${removed.id} from the wishlist: "${removed.text}". I don't want it any more.`);
+      return { status: 200, body: { deleted: removed.id } };
+    }
+    const edit = /^wishes\/([^/]+)$/.exec(action);
+    if (!edit) return { status: 404, body: { error: "Nothing to do here." } };
+    if (text === undefined && granted === undefined) throw new Error("Give the new wording or say whether you have it.");
+    const old = project.wishes().find((w) => w.id === edit[1]);
+    const changed = project.updateWish(edit[1]!, { text, granted });
+    if (old && changed.text !== old.text) tell(`changed wish ${changed.id} to: "${changed.text}".`);
+    if (old && changed.granted !== old.granted)
+      tell(
+        changed.granted
+          ? `ticked off wish ${changed.id}, "${changed.text}": I have what I wished for.`
+          : `put wish ${changed.id}, "${changed.text}", back on the wishlist: I still want it.`,
+      );
+    return { status: 200, body: changed };
   }
 
   /**
@@ -653,7 +691,7 @@ class Hub {
     if (req.method === "POST" && path === "/api/hub/step-down") return this.stepDown(req, res);
     const shown = /^\/api\/projects\/([^/]+)\/reveal$/.exec(path);
     if (req.method === "POST" && shown) return void this.showInFolder(req, res, decodeURIComponent(shown[1]!));
-    const notes = /^\/api\/projects\/([^/]+)\/(context|rules(?:\/[^/]+(?:\/delete)?)?)$/.exec(path);
+    const notes = /^\/api\/projects\/([^/]+)\/(context|(?:rules|wishes)(?:\/[^/]+(?:\/delete)?)?)$/.exec(path);
     if (req.method === "POST" && notes) return void this.notes(req, res, decodeURIComponent(notes[1]!), notes[2]!);
     const talk = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/((?:messages|questions)(?:\/[^/]+\/(?:delete|answer))?)$/.exec(path);
     if (req.method === "POST" && talk) return void this.talk(req, res, decodeURIComponent(talk[1]!), decodeURIComponent(talk[2]!), talk[3]!);

@@ -152,18 +152,21 @@ A message is cut to 2000 characters and written on one line. Messages can go to 
 
 `GET /api/projects/<project>/stats` returns the Statistics page's numbers, worked out from the plan each time (`src/stats.ts`): `goals`, `steps`, `time` (minutes worked, and the finished steps with both an estimate and a time compared), `drift` (side trips and how they ended, steps added after one and steps cancelled), `perDay` (steps finished on each of the last 14 days, by local date), `longest` and `perGoal`. `GET /api/stats` returns the same added up across every project (`combineStats`), with `longest` naming each step's project and a `perProject` line for each. `GET /api/info` also returns `build`, which changes when the dashboard's page is rebuilt, so an open page can tell it is out of date.
 
-Editing the project notes (the rules and the Important context) uses four more, with the header `x-progressor: notes` and the same checks (16 KB at most):
+Editing the project notes (the rules, the Important context and the wishlist) uses seven more, with the header `x-progressor: notes` and the same checks (16 KB at most):
 
 ```
 POST /api/projects/<project>/rules                {"text": "Ask before deleting files", "hard": true} → 201, the rule
 POST /api/projects/<project>/rules/<id>           {"text": "...", "hard": false}                  → 200, the rule (either field may be left out)
 POST /api/projects/<project>/rules/<id>/delete    {}                                              → 200
 POST /api/projects/<project>/context              {"text": "A shop for socks."}                   → 200 (empty text clears it; 400 over 4000 characters)
+POST /api/projects/<project>/wishes               {"text": "Dark mode on phones"}                 → 201, the wish (400 over 300 characters)
+POST /api/projects/<project>/wishes/<id>          {"text": "...", "granted": true}                → 200, the wish (either field may be left out)
+POST /api/projects/<project>/wishes/<id>/delete   {}                                              → 200
 ```
 
-Each change also sends a message to the whole project ("On the dashboard I added a rule…"), so the Agent hears of it at its next call and replies as it would to any message. An unknown rule is 404; an empty rule is 400.
+Each change also sends a message to the whole project ("On the dashboard I added a rule…"), so the Agent hears of it at its next call and replies as it would to any message. An unknown rule or wish is 404; an empty one is 400. `GET /api/projects/<project>/roadmap` includes the `wishes`.
 
-The dashboard's hub version is now 7, so a Progressor with this change takes the port over from an older one that cannot take these.
+The dashboard's hub version is now 8, so a Progressor with this change takes the port over from an older one that cannot take these.
 
 ## `progressor-mcp` commands
 

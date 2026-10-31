@@ -415,6 +415,27 @@ describe("update_standing_instruction", () => {
   });
 });
 
+describe("the wishlist", () => {
+  it("is shown by get_status: open wishes listed, granted ones only counted", async () => {
+    const developer = new Project({ root, session: { id: "s-b", pid: process.pid } });
+    developer.addWish("Dark mode on phones");
+    developer.addWish("Export to PDF");
+    developer.updateWish("w2", { granted: true });
+    const { text } = await call("get_status");
+    expect(text).toContain(
+      [
+        "The Developer's wishlist (theirs to change: suggest goals from it when one fits, never edit it):",
+        "- w1 Dark mode on phones",
+        "Granted: 1 wish (not listed).",
+      ].join("\n"),
+    );
+  });
+
+  it("is left out of get_status while empty", async () => {
+    expect((await call("get_status")).text).not.toContain("wishlist");
+  });
+});
+
 describe("update_context", () => {
   it("replaces the Important context, which get_status then shows after the rules", async () => {
     await call("add_standing_instruction", { text: "Write tests first" });

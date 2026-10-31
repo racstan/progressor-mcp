@@ -2,6 +2,13 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own plan, which is kept on the maintainer's computer; from 0.2.0 on, one release bundles several finished Goals.
 
+## 1.1.0 · A wishlist for each project
+
+### Wishlist
+
+- **A Wishlist page for each project**, in the sidebar. It's for what you want from the project as a whole, in your own words, apart from goals and steps. Add a wish, reword it, tick it off when you have it (it moves to *You have these*), or remove it.
+- **Your AI reads the wishlist but never changes it.** It sees your open wishes every time it checks where the work stands, it's told when you change one, and it may suggest goals from them. The wishes are kept in `.progressor/wishlist.md`.
+
 ## 1.0.0 · Work with your AI from the dashboard
 
 The dashboard is no longer only for watching. You can write to your AI and answer its questions, mark what you tried, see its screenshots, and edit the rules it follows, all from the page. It also has a calmer new look, with dates and times on everything. Plans made with earlier versions keep working as they are.

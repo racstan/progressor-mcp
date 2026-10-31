@@ -11,6 +11,9 @@ export const TALK_HASH = "#/talk";
 /** The address of the Statistics page. */
 export const STATS_HASH = "#/stats";
 
+/** The address of the Wishlist page. */
+export const WISHLIST_HASH = "#/wishlist";
+
 export type ContextBlock = { kind: "paragraph"; text: string } | { kind: "list"; ordered: boolean; items: string[] };
 
 const BULLET = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/;

@@ -322,6 +322,16 @@ export const removeRule = (projectId: string, id: string) => postNotes(projectId
 /** Replaces the About this project text (the Important context). */
 export const saveContext = (projectId: string, text: string) => postNotes(projectId, "context", { text });
 
+/** Adds a wish to the project's wishlist. */
+export const addWish = (projectId: string, text: string) => postNotes(projectId, "wishes", { text });
+
+/** Rewords a wish, or ticks it off (granted) or back. */
+export const changeWish = (projectId: string, id: string, change: { text?: string; granted?: boolean }) =>
+  postNotes(projectId, `wishes/${encodeURIComponent(id)}`, change);
+
+/** Removes a wish. */
+export const removeWish = (projectId: string, id: string) => postNotes(projectId, `wishes/${encodeURIComponent(id)}/delete`, {});
+
 /** Search results for what is typed, fetched a moment after typing stops; undefined while searching. */
 export function useSearch(query: string): SearchView | undefined {
   const [hits, setHits] = useState<{ query: string; hits: SearchView }>();
