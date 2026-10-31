@@ -11,7 +11,17 @@ const MAX_WISH = 300;
  * What the person wants from the project as a whole, apart from goals and steps. Only they change
  * it; their AI reads it and may suggest goals from it.
  */
-export function WishlistPage({ projectId, wishes, onChanged }: { projectId: string; wishes: Wish[]; onChanged: () => void }) {
+export function WishlistPage({ projectId, wishes, onChanged }: { projectId: string; wishes: Wish[] | undefined; onChanged: () => void }) {
+  // An older Progressor still serving the dashboard sends no wishlist (the page comes from the newer files on disk).
+  if (!wishes)
+    return (
+      <div className="page">
+        <h1 className="page-title">Wishlist</h1>
+        <p className="empty">
+          The Progressor running this dashboard is older than this page and has no wishlist yet. Restart your AI chats, then Refresh this page.
+        </p>
+      </div>
+    );
   const open = wishes.filter((w) => !w.granted);
   const granted = wishes.filter((w) => w.granted);
   return (
