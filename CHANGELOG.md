@@ -13,6 +13,10 @@ All notable changes to progressor-mcp. Each release is a Goal on Progressor's ow
 
 - **What to look at stands out.** Wherever the dashboard shows your AI's words (things to try, steps, notes, messages), things to click in "quotes", menu paths like Settings › Notifications, file names like `start.ps1` and code are picked out by themselves. In Vibrant each kind has its own colour; Light, Dark and System use bold, a chip and an underline.
 
+### Pop-ups
+
+- **A desktop pop-up when a goal is finished**, from any project. Turn it on in Settings (your browser asks once for permission); it works while a dashboard tab is open, even in the background. Click it to open the goal.
+
 ### Messages and Needs you
 
 - **The number on Message your AI counts new replies** from your AI that you haven't read, and opening the page clears it. Before, it counted every message your AI hadn't answered, so it could stay up however often you looked.
