@@ -2,9 +2,8 @@ import { useState } from "react";
 import { hardFirst } from "../roadmap.js";
 import { contextBlocks } from "./context.js";
 import { addRule, changeRule, removeRule, saveContext } from "./data.js";
-import { RichText } from "./RichText.js";
+import { Highlighted, RichText } from "./RichText.js";
 import { useSend } from "./Talk.js";
-import { inlineCode } from "./text.js";
 
 type Rule = { id?: string; text: string; hard?: boolean; helpersAtOnce?: number };
 
@@ -12,7 +11,7 @@ type Rule = { id?: string; text: string; hard?: boolean; helpersAtOnce?: number 
 const MAX_CONTEXT = 4000;
 const TOLD = "Your AI is told about each change at its next step.";
 
-const code = (text: string) => inlineCode(text).map((s, i) => (s.code ? <code key={i}>{s.text}</code> : s.text));
+const code = (text: string) => <Highlighted text={text} />;
 
 /**
  * The project's rules and background. The AI keeps them, and the person can add, reword and remove

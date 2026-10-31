@@ -9,6 +9,10 @@ All notable changes to progressor-mcp. Each release is a Goal on Progressor's ow
 - **A Wishlist page for each project**, in the sidebar. It's for what you want from the project as a whole, in your own words, apart from goals and steps. Add a wish, reword it, tick it off when you have it (it moves to *You have these*), or remove it.
 - **Your AI reads the wishlist but never changes it.** It sees your open wishes every time it checks where the work stands, it's told when you change one, and it may suggest goals from them. The wishes are kept in `.progressor/wishlist.md`.
 
+### Highlights
+
+- **What to look at stands out.** Wherever the dashboard shows your AI's words (things to try, steps, notes, messages), things to click in "quotes", menu paths like Settings › Notifications, file names like `start.ps1` and code are picked out by themselves. In Vibrant each kind has its own colour; Light, Dark and System use bold, a chip and an underline.
+
 ## 1.0.0 · Work with your AI from the dashboard
 
 The dashboard is no longer only for watching. You can write to your AI and answer its questions, mark what you tried, see its screenshots, and edit the rules it follows, all from the page. It also has a calmer new look, with dates and times on everything. Plans made with earlier versions keep working as they are.

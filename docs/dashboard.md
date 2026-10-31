@@ -125,6 +125,10 @@ If you use Progressor in several projects, click the project name at the top of 
 
 **📌 Important context**, above Your goals, opens the project's one page of rules and background: the rules you've given your AI, then what the project is, key facts and choices that hold for the whole project. Your AI writes it and reads all of it at the start of every conversation. Rules you've said must never be broken come first, each marked with a **Must** label. The rule that holds your helper limit says so: *At most 2 helpers at once*. You can change it yourself: **+ Add a rule**, **Edit** and **Remove** on each rule, and **Edit** on About this project. Your AI is told about each change at its next step.
 
+## Highlights
+
+Wherever the dashboard shows your AI's words, such as things to try by hand, steps, notes and messages, it picks out what to look at: things to click or type in "quotes" (a chip, like a button), menu paths such as Settings › Notifications (underlined), file names such as start.ps1 (in a typewriter font) and code in `backticks`. It finds them by itself, so nothing changes in how your AI writes. In the Vibrant theme each kind has its own colour; Light, Dark and System keep to black and grey. Hover one to see what kind it is.
+
 ## Wishlist
 
 **Wishlist** in the sidebar is for what you want from the project as a whole, in your own words: not goals or steps, just wishes, such as *People can use it on their phone*. Type one in the box at the top and press **Add wish**. Each wish has **Edit** and **Remove**, and a tick box for when you have what you wished for; ticked-off wishes move down to **You have these**, and unticking puts one back. Only you change the wishlist. Your AI reads it at every status check, is told about each change, and may suggest goals from it, but it never edits it.
