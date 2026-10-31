@@ -70,6 +70,10 @@ When your AI needs you to choose something, it asks here instead of stopping in 
 
 What you've said before stays below, newest first: your messages with your AI's replies, and the answers you gave.
 
+**Message your AI** in the sidebar is the same for the whole project. Its number counts your AI's replies you haven't read yet, and opening the page clears it. When you change the rules, the project notes or the wishlist, the dashboard tells your AI there too; those notices show as small grey lines, such as *You added wish w1 to the wishlist*, so your own messages stand out.
+
+Goals that need you are listed in the order your AI chooses: it puts the one you should check first at the top, in the sidebar and on Home.
+
 What you write here is **kept on this computer only**. It is saved in your project's `.progressor/talk/` folder, which Progressor keeps out of git, so it doesn't end up in your project's history or on GitHub. Your answers to your AI's questions are the exception: each one is also saved as a decision in the goal's plan, which goes into git if you share the plan ([how](faq.md#is-my-plan-private-should-i-commit-the-progressor-folder)).
 
 ## Things to try by hand

@@ -39,8 +39,8 @@ describe("the home page", () => {
   it("puts what needs you first, then what is being worked on, then every project", () => {
     const s = homeSections(overview);
     expect(s.needsYou.map((x) => [x.project.name, x.goal.id, x.why])).toEqual([
-      ["Blog", "post", "2 things to try"],
       ["Shop", "pay", "A question for you"],
+      ["Blog", "post", "2 things to try"],
     ]);
     expect(s.inProgress.map((x) => x.goal.id)).toEqual(["cart"]);
     expect(s.projects.map((p) => [p.name, p.open, p.finished])).toEqual([
@@ -55,9 +55,12 @@ describe("the home page", () => {
     expect(homeSections([]).summary).toBe("No projects yet");
   });
 
-  it("orders what needs you by the latest change, newest first", () => {
-    const s = homeSections(overview);
-    expect(s.needsYou[0]!.goal.updatedAt).toBeGreaterThan(s.needsYou[1]!.goal.updatedAt!);
+  it("lists what needs you in each project's plan order, which the AI sets, not by the latest change", () => {
+    const s = homeSections([
+      { id: "a", name: "Shop", root: "/a", goals: [g("first", "active", { waitingOnYou: true, untriedTests: 1, updatedAt: 1 }), g("second", "active", { waitingOnYou: true, untriedTests: 1, updatedAt: 9 })] },
+      { id: "b", name: "Blog", root: "/b", goals: [g("third", "active", { waitingOnYou: true, openQuestions: 1, updatedAt: 5 })] },
+    ]);
+    expect(s.needsYou.map((x) => x.goal.id)).toEqual(["first", "second", "third"]);
   });
 });
 

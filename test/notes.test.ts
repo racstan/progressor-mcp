@@ -99,7 +99,7 @@ describe("editing the wishlist on the dashboard", () => {
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ id: "w1", text: "Dark mode on phones", granted: false });
     expect(agent.wishes().map((w) => w.text)).toEqual(["Dark mode on phones"]);
-    expect(told()).toEqual(['On the dashboard I added wish w1 to the wishlist: "Dark mode on phones". You may suggest a goal for it; don\'t change the wishlist yourself.']);
+    expect(told()).toEqual(['On the dashboard I added wish w1 to the wishlist: "Dark mode on phones".']);
   });
 
   it("rewords a wish, ticks it off and back, and tells the AI", async () => {

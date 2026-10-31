@@ -2,6 +2,7 @@ import { useState } from "react";
 import { type GoalView, answerQuestion, sendMessage, takeBackMessage } from "./data.js";
 import { Icon } from "./Icon.js";
 import { RichText } from "./RichText.js";
+import { isNotice, noticeWords } from "./talkView.js";
 import { ago, exactDate, messageStateWords, sentWords, talkSummary, whenWords } from "./words.js";
 
 type MessageView = GoalView["messages"][number];
@@ -136,6 +137,15 @@ function Write({ projectId, goalId, onChanged }: Omit<Props, "view">) {
 
 function Said({ message: m, projectId, goalId, onChanged }: { message: MessageView } & Omit<Props, "view">) {
   const { busy, error, run } = useSend(onChanged);
+  // The dashboard's own notice of a change to the rules, notes or wishlist: a small line, not a message.
+  if (isNotice(m.text))
+    return (
+      <li className={`said notice ${m.state}`}>
+        <span className="notice-text">{noticeWords(m.text)}</span>
+        {sentWords(m) && <span className="origin" title={m.sentAt && exactDate(m.sentAt)}> · {sentWords(m)}</span>}
+        {m.reply && <div className="reply"><span className="who">Your AI:</span> <RichText className="inline" text={m.reply} /></div>}
+      </li>
+    );
   return (
     <li className={`said ${m.state}`}>
       <div className="who">You wrote · {messageStateWords(m.state)}</div>

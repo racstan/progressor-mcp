@@ -17,6 +17,7 @@ import { Choice, GoalMenu, MenuPanel } from "./Menus.js";
 import { sortProjects } from "./projectList.js";
 import { type SearchHit, SearchBox } from "./Search.js";
 import { Conversation } from "./Talk.js";
+import { latestReply, unreadReplies } from "./talkView.js";
 import { ServersPanel } from "./Servers.js";
 import { StepKey } from "./StepKey.js";
 import type { FileLink } from "./Steps.js";
@@ -141,6 +142,8 @@ export function App() {
   const projectId = pickedProject;
   const [hidden, setHidden] = useStoredJson<string[]>(projectId && `progressor.hidden.${projectId}`, []);
   const [seen, setSeen, visited] = useStoredJson<Seen>(projectId && `progressor.seen.${projectId}`, {});
+  // When this browser last read the AI's replies to messages about the whole project (talkView.ts).
+  const [readReplies, setReadReplies, readBefore] = useStoredJson<string>(projectId && `progressor.read-replies.${projectId}`, "");
   const roadmapIsProjects = !!roadmap && roadmap.root === project?.root;
   useEffect(() => {
     if (roadmapIsProjects && !visited) setSeen(seenOnFirstVisit(goals));
@@ -374,7 +377,14 @@ export function App() {
     setPanel(panel === which ? undefined : which);
     if (which === "settings") reloadServers();
   };
-  const unanswered = (roadmap?.projectTalk?.messages ?? []).filter((m) => m.state !== "replied").length;
+  const projectMessages = roadmapIsProjects ? (roadmap?.projectTalk?.messages ?? []) : [];
+  const newestReply = latestReply(projectMessages);
+  // Reading the page reads every reply; a browser opening the project for the first time starts with none unread.
+  useEffect(() => {
+    if (!roadmapIsProjects) return;
+    if ((onTalk || !readBefore) && (newestReply ?? "1970-01-01T00:00:00.000Z") > readReplies) setReadReplies(newestReply ?? "1970-01-01T00:00:00.000Z");
+  }, [roadmapIsProjects, onTalk, readBefore, newestReply, readReplies, setReadReplies]);
+  const unread = onTalk ? 0 : unreadReplies(projectMessages, readReplies || undefined);
   const clearFinished = (list: Goal[]) => {
     setHidden(hideAll(hidden, list.map((g) => g.id)));
     toast(`Cleared ${list.length} finished ${list.length === 1 ? "goal" : "goals"}. The plan keeps them; find them under Hidden.`);
@@ -594,7 +604,7 @@ export function App() {
             <>
               <button className="side-link" aria-current={onTalk} onClick={openTalk} title="Write to your AI about the whole project, not one goal">
                 <Icon name="send" /> Message your AI
-                {unanswered > 0 && <span className="n" title="Messages your AI has not answered yet">{unanswered}</span>}
+                {unread > 0 && <span className="n" title="New replies from your AI you haven't read yet">{unread}</span>}
               </button>
               <button className="side-link" aria-current={onContext} onClick={openContext} title="The rules and background your AI keeps for this project">
                 <Icon name="note" /> Project notes

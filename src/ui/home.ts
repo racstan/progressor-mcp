@@ -76,8 +76,8 @@ export function homeSections<G extends GoalLike, P extends ProjectLike<G>>(proje
   );
   const needsYou = all
     .filter(({ left }) => left.needs)
-    .map(({ project, goal, left }) => ({ project, goal, why: needsWords(left) || "Waiting on you", canPutOff: (left.untriedTests ?? 0) > 0 }))
-    .sort(newestFirst);
+    // In each project's plan order: the AI puts what to check first at the top (move_goal).
+    .map(({ project, goal, left }) => ({ project, goal, why: needsWords(left) || "Waiting on you", canPutOff: (left.untriedTests ?? 0) > 0 }));
   const inProgress = all
     .filter(({ goal, left }) => goal.status === "active" && !left.needs)
     .map(({ project, goal }) => ({ project, goal }))
