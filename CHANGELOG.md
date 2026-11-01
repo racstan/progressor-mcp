@@ -2,6 +2,13 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own plan, which is kept on the maintainer's computer; from 0.2.0 on, one release bundles several finished Goals.
 
+## 1.1.1 · Fewer calls, fewer tokens
+
+- **Finished goals wait on your tests instead of looking paused.** When your AI has built everything but you still have things to try, the goal shows as *Waiting on your tests* under Needs you. It finishes by itself once you mark the last one, and if something doesn't work, it reopens with a new step to fix it.
+- **Your AI hears your messages sooner in Claude Code.** If a project is missing Progressor's hooks, your AI is told once, with the command that adds them. Without the hooks, what you write on the dashboard only reaches it the next time it checks in.
+- **Less bookkeeping for small changes.** Your AI can record a small finished change and the thing for you to try in one go, and it only marks a step as started when the work takes more than a few minutes.
+- **Fewer wasted retries.** When your AI calls Progressor the wrong way, the answer shows it a correct example, so the next try works.
+
 ## 1.1.0 · A wishlist for each project
 
 ### Wishlist
