@@ -1,8 +1,8 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { Project } from "../src/project.js";
-import { formatWishlist, MAX_WISH_LENGTH, parseWishlist } from "../src/wishlist.js";
+import { MAX_ATTACHMENT_BYTES, Project } from "../src/project.js";
+import { formatWishlist, parseWishlist } from "../src/wishlist.js";
 import { tempDir } from "./tmp.js";
 
 let root: string;
@@ -77,10 +77,17 @@ describe("a project's wishlist", () => {
     expect(p.wishes().map((w) => w.id)).toEqual(["w2"]);
   });
 
-  it("refuses empty, multi-line, too long and unknown wishes", () => {
+  it("has no length limit", () => {
+    const p = project();
+    const long = Array.from({ length: 5000 }, (_, i) => `word${i}`).join(" ");
+    expect(p.addWish(long).text).toBe(long);
+    expect(p.updateWish("w1", { text: `${long} more` }).text).toBe(`${long} more`);
+    expect(project().wishes()[0]!.text).toBe(`${long} more`);
+  });
+
+  it("refuses empty and unknown wishes and joins lines", () => {
     const p = project();
     expect(() => p.addWish("  ")).toThrow(/Write the wish first/);
-    expect(() => p.addWish("x".repeat(MAX_WISH_LENGTH + 1))).toThrow(/too long/);
     expect(p.addWish("One\ntwo").text).toBe("One two");
     expect(() => p.updateWish("w9", { granted: true })).toThrow(/^No wish w9/);
     expect(() => p.removeWish("w9")).toThrow(/^No wish w9/);
@@ -97,6 +104,82 @@ describe("a project's wishlist", () => {
     project().addWish("One");
     writeFileSync(join(root, ".progressor", "wishlist.md"), "# Wishlist\n\n- [ ] One ^w1\n- [ ] Written by hand\n");
     expect(project().wishes().map((w) => w.id)).toEqual(["w1", "w2"]);
+  });
+
+  describe("attachments", () => {
+    const attached = (p: Project, name: string, data = "data") => p.attachToWish("w1", name, Buffer.from(data));
+
+    it("keeps a file under .progressor/attachments/<wish>/ and lists its path on the wish", () => {
+      const p = project();
+      p.addWish("Make the logo like this");
+      const a = attached(p, "logo.png", "PNG!");
+      expect(a).toMatchObject({ name: "logo.png", size: 4, path: ".progressor/attachments/w1/1-logo.png" });
+      expect(readFileSync(join(root, a.path))).toEqual(Buffer.from("PNG!"));
+      expect(project().wishes()[0]!.attachments).toEqual([a]);
+      expect(file()).toBe("# Wishlist\n\n- [ ] Make the logo like this ^w1\n");
+    });
+
+    it("leaves attachments off a wish with none, and numbers files so same names never clash", () => {
+      const p = project();
+      p.addWish("One");
+      expect(p.wishes()[0]).toEqual({ id: "w1", text: "One", granted: false });
+      expect(attached(p, "a.pdf").path).toBe(".progressor/attachments/w1/1-a.pdf");
+      expect(attached(p, "a.pdf").path).toBe(".progressor/attachments/w1/2-a.pdf");
+    });
+
+    it("never builds a path from the name it came with", () => {
+      const p = project();
+      p.addWish("One");
+      const a = attached(p, "..\\..\\..\\evil name?.PNG");
+      expect(a.path).toMatch(/^\.progressor\/attachments\/w1\/1-[\w.\- ]+\.png$/);
+      expect(a.path).not.toContain("..");
+      expect(a.name).toBe("evil name?.PNG");
+      expect(existsSync(join(root, a.path))).toBe(true);
+    });
+
+    it("refuses empty files, files over the limit and unknown wishes", () => {
+      const p = project();
+      p.addWish("One");
+      expect(() => attached(p, "a.txt", "")).toThrow(/empty/);
+      expect(() => p.attachToWish("w1", "big.bin", Buffer.alloc(MAX_ATTACHMENT_BYTES + 1))).toThrow(/MB/);
+      expect(() => p.attachToWish("w9", "a.txt", Buffer.from("x"))).toThrow(/^No wish w9/);
+    });
+
+    it("finds a stored file only by a name the wish lists, and takes one away", () => {
+      const p = project();
+      p.addWish("One");
+      const a = attached(p, "shot.png");
+      expect(p.attachmentFile("w1", "1-shot.png")).toMatchObject({ path: join(root, a.path), mime: "image/png", name: "shot.png" });
+      expect(p.attachmentFile("w1", "../../wishlist.md")).toBeUndefined();
+      expect(p.attachmentFile("w2", "1-shot.png")).toBeUndefined();
+      expect(p.removeAttachment("w1", "1-shot.png").name).toBe("shot.png");
+      expect(existsSync(join(root, a.path))).toBe(false);
+      expect(p.wishes()[0]!.attachments).toBeUndefined();
+    });
+
+    it("serves only images and PDFs as themselves; anything else is a download", () => {
+      const p = project();
+      p.addWish("One");
+      attached(p, "a.pdf");
+      attached(p, "b.html");
+      expect(p.attachmentFile("w1", "1-a.pdf")).toMatchObject({ mime: "application/pdf", inline: true });
+      expect(p.attachmentFile("w1", "2-b.html")).toMatchObject({ mime: "application/octet-stream", inline: false });
+    });
+
+    it("is removed with its wish, and kept out of git", () => {
+      const p = project();
+      p.addWish("One");
+      attached(p, "a.png");
+      p.removeWish("w1");
+      expect(existsSync(join(root, ".progressor", "attachments", "w1"))).toBe(false);
+    });
+
+    it("keeps the wish's files out of git", () => {
+      const p = project();
+      p.addWish("One");
+      attached(p, "a.png");
+      expect(readFileSync(join(root, ".progressor", ".gitignore"), "utf8")).toMatch(/^attachments\/$/m);
+    });
   });
 
   it("is in the session status and the overview", () => {

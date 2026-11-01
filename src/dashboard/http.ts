@@ -11,7 +11,7 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { type Origin, latestOrigin } from "../origin.js";
 import type { Decision, HandResult, HandTest, Message, Note, Question, TaskStatus } from "../planFile.js";
 import { withLock } from "../lock.js";
-import { PROGRESSOR_DIR, PROJECT_TALK, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
+import { MAX_ATTACHMENT_BYTES, PROGRESSOR_DIR, PROJECT_TALK, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
 import { defaultServersDir, listServers, requestStop, sessionOfProcess } from "../servers.js";
@@ -232,6 +232,25 @@ const MARKS: Record<string, HandResult> = { works: "works", "doesn't work": "doe
 const MAX_MARK_BODY = 4096;
 /** A message is at most MAX_MESSAGE characters, which JSON can make a few times bigger. */
 const MAX_TALK_BODY = 16_384;
+/** A wish has no length limit, so what is sent for one may be large (this is only a guard against runaway requests). */
+const MAX_WISH_BODY = 8 * 1024 * 1024;
+/** How much of a long wish is quoted to the AI in the message that tells it of the wish. */
+const WISH_QUOTE = 200;
+
+/** Reads a request body as bytes, or undefined when it is bigger than the limit. */
+function readBytes(req: IncomingMessage, limit: number): Promise<Buffer | undefined> {
+  return new Promise((done) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (c: Buffer) => {
+      size += c.length;
+      if (size > limit) done(undefined); // the rest is read and dropped
+      else chunks.push(c);
+    });
+    req.on("end", () => done(Buffer.concat(chunks)));
+    req.on("error", () => done(undefined));
+  });
+}
 
 /** Reads a request body as text, or undefined when it is bigger than the limit. */
 function readBody(req: IncomingMessage, limit: number): Promise<string | undefined> {
@@ -279,9 +298,15 @@ function serveStatic(res: ServerResponse, uiDir: string | undefined, path: strin
 }
 
 /** Sends a stored picture or recording, with Range support so a video can be skipped through. */
-function servePicture(req: IncomingMessage, res: ServerResponse, file: { path: string; mime: string }): void {
+function servePicture(req: IncomingMessage, res: ServerResponse, file: { path: string; mime: string; download?: string }): void {
   const size = statSync(file.path).size;
-  const headers = { "content-type": file.mime, "x-content-type-options": "nosniff", "cache-control": "no-cache", "accept-ranges": "bytes" };
+  const headers = {
+    "content-type": file.mime,
+    "x-content-type-options": "nosniff",
+    "cache-control": "no-cache",
+    "accept-ranges": "bytes",
+    ...(file.download ? { "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.download)}` } : {}),
+  };
   const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? ""));
   let start = 0;
   let end = size - 1;
@@ -583,7 +608,7 @@ class Hub {
    * use; each change also leaves a message to the whole project, so the AI hears of it at its next call.
    */
   private async notes(req: IncomingMessage, res: ServerResponse, projectId: string, action: string): Promise<void> {
-    const got = await this.guardedBody(req, res, "notes", projectId, MAX_TALK_BODY);
+    const got = await this.guardedBody(req, res, "notes", projectId, action.startsWith("wishes") ? MAX_WISH_BODY : MAX_TALK_BODY);
     if (!got) return;
     const { project, body } = got;
     const hard = body.hard;
@@ -641,30 +666,71 @@ class Hub {
     if (text !== undefined && typeof text !== "string") throw new Error("The text must be text.");
     if (granted !== undefined && typeof granted !== "boolean") throw new Error("Say yes or no to whether you have it.");
     const tell = (text: string) => project.sendMessage(PROJECT_TALK, `On the dashboard I ${text}`);
+    // A long wish is only started in the message (the AI reads all of it from its status), so a message never swells.
+    const quote = (wish: string) => (wish.length > WISH_QUOTE ? `"${wish.slice(0, WISH_QUOTE).trimEnd()}…" (it is long: read all of it in the wishlist)` : `"${wish}"`);
     if (action === "wishes") {
       const added = project.addWish(text ?? "");
-      tell(`added wish ${added.id} to the wishlist: "${added.text}".`);
+      tell(`added wish ${added.id} to the wishlist: ${quote(added.text)}.`);
       return { status: 201, body: added };
     }
     const del = /^wishes\/([^/]+)\/delete$/.exec(action);
     if (del) {
       const removed = project.removeWish(del[1]!);
-      tell(`removed wish ${removed.id} from the wishlist: "${removed.text}". I don't want it any more.`);
+      tell(`removed wish ${removed.id} from the wishlist: ${quote(removed.text)}. I don't want it any more.`);
       return { status: 200, body: { deleted: removed.id } };
+    }
+    const unattach = /^wishes\/([^/]+)\/attachments\/([^/]+)\/delete$/.exec(action);
+    if (unattach) {
+      const removed = project.removeAttachment(unattach[1]!, decodeURIComponent(unattach[2]!));
+      tell(`took the file "${removed.name}" off wish ${unattach[1]}. Ignore it.`);
+      return { status: 200, body: { deleted: removed.file } };
     }
     const edit = /^wishes\/([^/]+)$/.exec(action);
     if (!edit) return { status: 404, body: { error: "Nothing to do here." } };
     if (text === undefined && granted === undefined) throw new Error("Give the new wording or say whether you have it.");
     const old = project.wishes().find((w) => w.id === edit[1]);
     const changed = project.updateWish(edit[1]!, { text, granted });
-    if (old && changed.text !== old.text) tell(`changed wish ${changed.id} to: "${changed.text}".`);
+    if (old && changed.text !== old.text) tell(`changed wish ${changed.id} to: ${quote(changed.text)}.`);
     if (old && changed.granted !== old.granted)
       tell(
         changed.granted
-          ? `ticked off wish ${changed.id}, "${changed.text}": I have what I wished for.`
-          : `put wish ${changed.id}, "${changed.text}", back on the wishlist: I still want it.`,
+          ? `ticked off wish ${changed.id}, ${quote(changed.text)}: I have what I wished for.`
+          : `put wish ${changed.id}, ${quote(changed.text)}, back on the wishlist: I still want it.`,
       );
     return { status: 200, body: changed };
+  }
+
+  /**
+   * The Developer attaching a file to a wish: the file's bytes are the body, its name is in the
+   * x-file-name header. Kept under .progressor/attachments/; the AI is told only its path.
+   */
+  private async attach(req: IncomingMessage, res: ServerResponse, projectId: string, wishId: string): Promise<void> {
+    if (!isFromDashboardPage(req, "notes")) return json(res, 403, { error: "This can only be sent from the dashboard's own page." });
+    if (!this.projects.has(projectId)) this.sync();
+    const project = this.projects.get(projectId)?.project;
+    if (!project) return json(res, 404, { error: "No such project on the dashboard." });
+    const data = await readBytes(req, MAX_ATTACHMENT_BYTES);
+    if (!data) return json(res, 413, { error: `That file is too big: the limit is ${MAX_ATTACHMENT_BYTES / 1024 / 1024} MB.` });
+    let name = "file";
+    try {
+      name = decodeURIComponent(String(req.headers["x-file-name"] ?? "")) || name;
+    } catch {
+      // keep the plain name
+    }
+    try {
+      const attached = withLock(project.root, () => {
+        const a = project.attachToWish(wishId, name, data);
+        project.sendMessage(
+          PROJECT_TALK,
+          `On the dashboard I attached the file "${a.name}" to wish ${wishId}. It is at ${a.path}: open it by that path only if you need to.`,
+        );
+        return a;
+      });
+      return json(res, 201, attached);
+    } catch (e) {
+      const message = (e as Error).message;
+      return json(res, /^No /.test(message) ? 404 : 400, { error: message });
+    }
   }
 
   /**
@@ -691,7 +757,9 @@ class Hub {
     if (req.method === "POST" && path === "/api/hub/step-down") return this.stepDown(req, res);
     const shown = /^\/api\/projects\/([^/]+)\/reveal$/.exec(path);
     if (req.method === "POST" && shown) return void this.showInFolder(req, res, decodeURIComponent(shown[1]!));
-    const notes = /^\/api\/projects\/([^/]+)\/(context|(?:rules|wishes)(?:\/[^/]+(?:\/delete)?)?)$/.exec(path);
+    const upload = /^\/api\/projects\/([^/]+)\/wishes\/([^/]+)\/attachments$/.exec(path);
+    if (req.method === "POST" && upload) return void this.attach(req, res, decodeURIComponent(upload[1]!), decodeURIComponent(upload[2]!));
+    const notes = /^\/api\/projects\/([^/]+)\/(context|(?:rules|wishes)(?:\/[^/]+(?:\/attachments\/[^/]+)?(?:\/delete)?)?)$/.exec(path);
     if (req.method === "POST" && notes) return void this.notes(req, res, decodeURIComponent(notes[1]!), notes[2]!);
     const talk = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/((?:messages|questions)(?:\/[^/]+\/(?:delete|answer))?)$/.exec(path);
     if (req.method === "POST" && talk) return void this.talk(req, res, decodeURIComponent(talk[1]!), decodeURIComponent(talk[2]!), talk[3]!);
@@ -727,6 +795,18 @@ class Hub {
           file = undefined;
         }
         return file ? servePicture(req, res, file) : json(res, 404, { error: "No such picture." });
+      }
+      const attachment = /^\/api\/projects\/([^/]+)\/wishes\/([^/]+)\/attachments\/([^/]+)$/.exec(path);
+      if (attachment) {
+        const id = decodeURIComponent(attachment[1]!);
+        if (!this.projects.has(id)) this.sync();
+        let file: { path: string; name: string; mime: string; inline: boolean } | undefined;
+        try {
+          file = this.projects.get(id)?.project.attachmentFile(decodeURIComponent(attachment[2]!), decodeURIComponent(attachment[3]!));
+        } catch {
+          file = undefined;
+        }
+        return file ? servePicture(req, res, { path: file.path, mime: file.mime, download: file.inline ? undefined : file.name }) : json(res, 404, { error: "No such file." });
       }
       const m = /^\/api\/projects\/([^/]+)\/(roadmap|goals\/([^/]+)|item|stats)$/.exec(path);
       if (m) {

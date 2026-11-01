@@ -431,6 +431,15 @@ describe("the wishlist", () => {
     );
   });
 
+  it("lists a wish's attached files by path only, never their contents", async () => {
+    const developer = new Project({ root, session: { id: "s-b", pid: process.pid } });
+    developer.addWish("Make the logo like this");
+    developer.attachToWish("w1", "logo.png", Buffer.from("SECRET-PIXELS"));
+    const { text } = await call("get_status");
+    expect(text).toContain("- w1 Make the logo like this\n  Files (open one by its path only if you need it): .progressor/attachments/w1/1-logo.png");
+    expect(text).not.toContain("SECRET-PIXELS");
+  });
+
   it("is left out of get_status while empty", async () => {
     expect((await call("get_status")).text).not.toContain("wishlist");
   });

@@ -33,7 +33,7 @@ import { unsafeRoot } from "./root.js";
 import { type Claim, type Goal, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
 import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule } from "./schedule.js";
-import { WISHLIST_FILE, type Wish, formatWishlist, nextWishId, parseWishlist, wishText } from "./wishlist.js";
+import { WISHLIST_FILE, type Attachment, type Wish,formatWishlist, nextWishId, parseWishlist, wishText } from "./wishlist.js";
 
 export interface SessionIdentity {
   id: string;
@@ -219,6 +219,31 @@ export const PICTURE_TYPES: Record<string, { kind: "image" | "video"; mime: stri
   ".webm": { kind: "video", mime: "video/webm" },
   ".mp4": { kind: "video", mime: "video/mp4" },
 };
+
+/** The folder in .progressor/ that holds the files the Developer attaches to wishes, kept out of git. */
+export const ATTACHMENTS_DIR = "attachments";
+/** The biggest file that can be attached to a wish, in bytes. */
+export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+/** What the dashboard shows as itself (by file extension); everything else is only offered as a download. */
+const SHOWN_ATTACHMENTS: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".pdf": "application/pdf",
+};
+const attachmentNumber = (file: string) => Number(/^(\d+)-/.exec(file)?.[1] ?? 0);
+/** A file name that is safe on every system: no folders, no odd characters, a lower-case extension, not too long. */
+function safeFileName(name: string): string {
+  const ext = extname(name).toLowerCase().replace(/[^a-z0-9.]/g, "");
+  const stem = name
+    .slice(0, name.length - extname(name).length)
+    .replace(/[^\p{L}\p{N}_\- ]/gu, "_")
+    .replace(/^[. _]+/, "")
+    .slice(0, 80);
+  return `${stem || "file"}${ext}`;
+}
 
 /** A screenshot or recording the AI showed the Developer, kept in `.progressor/pictures/<goal>/`. */
 export interface Picture {
@@ -1443,9 +1468,78 @@ export class Project {
 
   // --- wishlist ---------------------------------------------------------------
 
-  /** The Developer's wishlist (see wishlist.ts), in its order. */
+  /** The Developer's wishlist (see wishlist.ts), in its order, each with the files attached to it. */
   wishes(): Wish[] {
-    return parseWishlist(this.readText(this.path(WISHLIST_FILE)) ?? "");
+    return parseWishlist(this.readText(this.path(WISHLIST_FILE)) ?? "").map((w) => {
+      const attachments = this.attachments(w.id);
+      return attachments.length > 0 ? { ...w, attachments } : w;
+    });
+  }
+
+  /** The files attached to a wish, in the order they were attached; only those its index lists. */
+  private attachments(wishId: string): Attachment[] {
+    const index = this.attachmentIndex(wishId);
+    return Object.entries(index)
+      .flatMap(([file, name]) => {
+        try {
+          const size = statSync(this.path(ATTACHMENTS_DIR, wishId, file)).size;
+          return [{ file, name, size, path: `${PROGRESSOR_DIR}/${ATTACHMENTS_DIR}/${wishId}/${file}` }];
+        } catch {
+          return []; // taken away by hand
+        }
+      })
+      .sort((a, b) => attachmentNumber(a.file) - attachmentNumber(b.file));
+  }
+
+  /** Stored name -> the name the file came with, for one wish. */
+  private attachmentIndex(wishId: string): Record<string, string> {
+    try {
+      const index: unknown = JSON.parse(this.readText(this.path(ATTACHMENTS_DIR, wishId, "index.json")) ?? "{}");
+      return index && typeof index === "object" && !Array.isArray(index) ? (index as Record<string, string>) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Keeps a file the Developer attached to a wish in `.progressor/attachments/<wish>/` under a safe
+   * name (1-logo.png), never the one it came with. The AI is told its path, not what is in it.
+   */
+  attachToWish(wishId: string, name: string, data: Buffer): Attachment {
+    if (!this.wishes().some((w) => w.id === wishId)) throw new Error(`No wish ${wishId} on the wishlist.`);
+    if (data.length === 0) throw new Error("That file is empty.");
+    if (data.length > MAX_ATTACHMENT_BYTES)
+      throw new Error(`That file is ${Math.ceil(data.length / 1024 / 1024)} MB; the limit is ${MAX_ATTACHMENT_BYTES / 1024 / 1024} MB.`);
+    const original = name.split(/[\\/]/).pop()?.trim() || "file";
+    const index = this.attachmentIndex(wishId);
+    const next = Object.keys(index).reduce((n, f) => Math.max(n, attachmentNumber(f)), 0) + 1;
+    const file = `${next}-${safeFileName(original)}`;
+    this.ignoreLocal(ATTACHMENTS_DIR, "Files you attach to wishes stay on this computer");
+    const dir = this.path(ATTACHMENTS_DIR, wishId);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, file), data);
+    this.writeText(join(dir, "index.json"), `${JSON.stringify({ ...index, [file]: original }, null, 2)}\n`);
+    return { file, name: original, size: data.length, path: `${PROGRESSOR_DIR}/${ATTACHMENTS_DIR}/${wishId}/${file}` };
+  }
+
+  /** The stored file of an attachment the wish lists, found by its stored name; undefined for anything else. */
+  attachmentFile(wishId: string, file: string): { path: string; name: string; mime: string; inline: boolean } | undefined {
+    const index = this.attachmentIndex(wishId);
+    const path = this.path(ATTACHMENTS_DIR, wishId, file);
+    if (!Object.hasOwn(index, file) || !existsSync(path)) return undefined;
+    const name = index[file]!;
+    const shown = SHOWN_ATTACHMENTS[extname(file)];
+    return { path, name, mime: shown ?? "application/octet-stream", inline: shown !== undefined };
+  }
+
+  /** Takes an attachment away: removes its entry and its stored file. */
+  removeAttachment(wishId: string, file: string): Attachment {
+    const found = this.attachments(wishId).find((a) => a.file === file);
+    if (!found) throw new Error(`No file ${file} on wish ${wishId}.`);
+    const { [file]: _gone, ...rest } = this.attachmentIndex(wishId);
+    this.writeText(this.path(ATTACHMENTS_DIR, wishId, "index.json"), `${JSON.stringify(rest, null, 2)}\n`);
+    rmSync(this.path(ATTACHMENTS_DIR, wishId, file), { force: true });
+    return found;
   }
 
   addWish(text: string): Wish {
@@ -1472,6 +1566,7 @@ export class Project {
     const wish = wishes.find((w) => w.id === id);
     if (!wish) throw new Error(`No wish ${id} on the wishlist.`);
     this.writeText(this.path(WISHLIST_FILE), formatWishlist(wishes.filter((w) => w !== wish)));
+    rmSync(this.path(ATTACHMENTS_DIR, id), { recursive: true, force: true });
     return wish;
   }
 

@@ -2,6 +2,12 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own plan, which is kept on the maintainer's computer; from 0.2.0 on, one release bundles several finished Goals.
 
+## 1.2.0 · Longer wishes, and files on wishes
+
+- **No length limit on wishes.** Write as much as you like; you now write them in a bigger box (Ctrl+Enter adds). Your AI reads the whole wish, but is only told how a long one starts when you add or change it.
+- **Attach files to a wish.** Images, PDFs or any file, up to 25 MB each. Images show as small previews and PDFs open in the browser. The files stay on your computer in `.progressor/attachments/` and out of git, and go away with the wish.
+- **Your AI is only given where each file is, never what is in it**, so a big picture or PDF doesn't fill up its memory. It opens one only when it needs to.
+
 ## 1.1.1 · Fewer calls, fewer tokens
 
 - **Finished goals wait on your tests instead of looking paused.** When your AI has built everything but you still have things to try, the goal shows as *Waiting on your tests* under Needs you. It finishes by itself once you mark the last one, and if something doesn't work, it reopens with a new step to fix it.

@@ -11,9 +11,19 @@
  */
 
 export const WISHLIST_FILE = "wishlist.md";
-/** A wish is one short line; longer thoughts belong in a message to the AI. */
-export const MAX_WISH_LENGTH = 300;
 const HEADING = "# Wishlist";
+
+/** A file the Developer attached to a wish, kept in `.progressor/attachments/<wish>/`. */
+export interface Attachment {
+  /** The stored name, such as "1-logo.png" (never the name it came with). */
+  file: string;
+  /** The name it came with, such as "logo.png". */
+  name: string;
+  /** In bytes. */
+  size: number;
+  /** Where it is, from the project's folder with forward slashes: all the AI is given, never the contents. */
+  path: string;
+}
 
 export interface Wish {
   /** Such as `w3`. */
@@ -21,6 +31,8 @@ export interface Wish {
   text: string;
   /** Ticked off by the Developer: they have what they wished for. */
   granted: boolean;
+  /** Files attached to it; left out when there are none (read from the attachments folder, not the wishlist file). */
+  attachments?: Attachment[];
 }
 
 const ITEM = /^\s*[-*]\s+(?:\[([ xX])\]\s+)?(.*?)\s*$/;
@@ -57,11 +69,9 @@ export function nextWishId(wishes: Wish[]): string {
   return `w${Math.max(0, ...wishes.map((w) => idNumber(w.id))) + 1}`;
 }
 
-/** A wish's words as one trimmed line, or an error a person can act on. */
+/** A wish's words as one trimmed line, however long, or an error a person can act on. */
 export function wishText(text: string): string {
   const one = text.replace(/\s+/g, " ").trim();
   if (!one) throw new Error("Write the wish first.");
-  if (one.length > MAX_WISH_LENGTH)
-    throw new Error(`The wish is too long: ${one.length} characters, and the limit is ${MAX_WISH_LENGTH}. Keep it to one short line.`);
   return one;
 }

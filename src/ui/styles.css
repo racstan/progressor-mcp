@@ -346,6 +346,15 @@ button.list-row:hover { background: var(--hover); }
 .wish-add input { flex: 1; min-width: 200px; padding: var(--s2) var(--s3); border-radius: var(--r-s); border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
 .wish-add input:focus { outline: none; border-color: var(--accent); }
 .wish-add .error { flex-basis: 100%; font-size: var(--t-s); color: var(--bad); }
+.wish-new { flex-direction: column; align-items: stretch; }
+.wish-new textarea { width: 100%; padding: var(--s2) var(--s3); border-radius: var(--r-s); border: 1px solid var(--line); background: var(--bg); color: var(--ink); resize: vertical; line-height: 1.5; font: inherit; }
+.wish-new textarea:focus { outline: none; border-color: var(--accent); }
+.wish-actions { display: flex; gap: var(--s2); justify-content: flex-end; }
+.wish-files { list-style: none; margin: var(--s2) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); font-size: var(--t-s); }
+.wish-files li { display: flex; align-items: center; gap: var(--s2); }
+.wish-files .file-link { display: inline-flex; align-items: center; gap: var(--s2); color: var(--ink); }
+.wish-files img { height: 48px; max-width: 96px; object-fit: cover; border-radius: var(--r-s); border: 1px solid var(--line); }
+.wish-files .muted { color: var(--muted); }
 .wishes li { animation: rise .18s ease-out backwards; transition: opacity .2s, background .2s; }
 .wishes .wish-tick { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--s2); cursor: pointer; }
 .wishes .wish-tick input { flex: none; cursor: pointer; }

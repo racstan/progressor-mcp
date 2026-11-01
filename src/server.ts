@@ -279,7 +279,10 @@ function wishlistLines(wishes: Wish[]): string[] {
   const granted = wishes.length - open.length;
   return [
     "The Developer's wishlist (theirs to change: suggest goals from it when one fits, never edit it):",
-    ...open.map((w) => `- ${w.id} ${w.text}`),
+    ...open.flatMap((w) => [
+      `- ${w.id} ${w.text}`,
+      ...(w.attachments?.length ? [`  Files (open one by its path only if you need it): ${w.attachments.map((a) => a.path).join(", ")}`] : []),
+    ]),
     ...(granted > 0 ? [`Granted: ${granted} ${granted === 1 ? "wish" : "wishes"} (not listed).`] : []),
   ];
 }

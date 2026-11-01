@@ -301,12 +301,19 @@ export const answerQuestion = (projectId: string, goalId: string, id: string, an
 
 /** Sends one of the person's changes to the project notes; says what went wrong in words when refused. */
 async function postNotes(projectId: string, path: string, body: unknown): Promise<void> {
+  await postNotesAnswer(projectId, path, body);
+}
+
+/** Like postNotes, and gives what the server answered. */
+async function postNotesAnswer(projectId: string, path: string, body: unknown): Promise<unknown> {
   const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/${path}`, {
     method: "POST",
     headers: { "x-progressor": "notes", "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
+  const answer: unknown = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((answer as { error?: string }).error ?? `The server answered ${res.status}.`);
+  return answer;
 }
 
 /** Adds a rule for the AI; a hard one must never be broken. */
@@ -323,14 +330,36 @@ export const removeRule = (projectId: string, id: string) => postNotes(projectId
 export const saveContext = (projectId: string, text: string) => postNotes(projectId, "context", { text });
 
 /** Adds a wish to the project's wishlist. */
-export const addWish = (projectId: string, text: string) => postNotes(projectId, "wishes", { text });
+export const addWish = async (projectId: string, text: string) => (await postNotesAnswer(projectId, "wishes", { text })) as { id: string };
 
 /** Rewords a wish, or ticks it off (granted) or back. */
-export const changeWish = (projectId: string, id: string, change: { text?: string; granted?: boolean }) =>
-  postNotes(projectId, `wishes/${encodeURIComponent(id)}`, change);
+export const changeWish = async (projectId: string, id: string, change: { text?: string; granted?: boolean }): Promise<void> => {
+  await postNotes(projectId, `wishes/${encodeURIComponent(id)}`, change);
+};
 
-/** Removes a wish. */
-export const removeWish = (projectId: string, id: string) => postNotes(projectId, `wishes/${encodeURIComponent(id)}/delete`, {});
+/** Removes a wish, with the files attached to it. */
+export const removeWish = async (projectId: string, id: string): Promise<void> => {
+  await postNotes(projectId, `wishes/${encodeURIComponent(id)}/delete`, {});
+};
+
+/** Attaches a file (an image, a PDF, anything) to a wish; the server keeps it and tells the AI only where it is. */
+export async function attachFile(projectId: string, wishId: string, file: File): Promise<void> {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/wishes/${encodeURIComponent(wishId)}/attachments`, {
+    method: "POST",
+    headers: { "x-progressor": "notes", "x-file-name": encodeURIComponent(file.name), "content-type": "application/octet-stream" },
+    body: file,
+  });
+  if (!res.ok) throw new Error(`${file.name}: ${((await res.json().catch(() => ({}))) as { error?: string }).error ?? `the server answered ${res.status}.`}`);
+}
+
+/** Takes a file off a wish. */
+export const removeAttachment = async (projectId: string, wishId: string, file: string): Promise<void> => {
+  await postNotes(projectId, `wishes/${encodeURIComponent(wishId)}/attachments/${encodeURIComponent(file)}/delete`, {});
+};
+
+/** Where a wish's attached file is shown or downloaded from. */
+export const attachmentUrl = (projectId: string, wishId: string, file: string) =>
+  `/api/projects/${encodeURIComponent(projectId)}/wishes/${encodeURIComponent(wishId)}/attachments/${encodeURIComponent(file)}`;
 
 /** Search results for what is typed, fetched a moment after typing stops; undefined while searching. */
 export function useSearch(query: string): SearchView | undefined {

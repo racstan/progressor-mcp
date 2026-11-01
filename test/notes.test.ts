@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type Dashboard, startDashboard } from "../src/dashboard/http.js";
 import { projectEntry } from "../src/dashboard/registry.js";
 import { parsePlanFile } from "../src/planFile.js";
-import { MAX_CONTEXT_LENGTH, PROJECT_TALK, Project } from "../src/project.js";
+import { MAX_ATTACHMENT_BYTES, MAX_CONTEXT_LENGTH, PROJECT_TALK, Project } from "../src/project.js";
 import { tempDir } from "./tmp.js";
 
 let root: string;
@@ -126,6 +126,73 @@ describe("editing the wishlist on the dashboard", () => {
     agent.addWish("Export to PDF");
     const res = await fetch(new URL(`/api/projects/${id}/roadmap`, d.url));
     expect((await res.json()).wishes).toEqual([{ id: "w1", text: "Export to PDF", granted: false }]);
+  });
+
+  it("takes a very long wish, and tells the AI only how it starts", async () => {
+    const long = `${"Make it faster. ".repeat(10_000)}The end`;
+    const res = await post("wishes", { text: long });
+    expect(res.status).toBe(201);
+    expect(agent.wishes()[0]!.text).toBe(long.trim());
+    const [message] = told();
+    expect(message!.length).toBeLessThan(500);
+    expect(message).toMatch(/^On the dashboard I added wish w1 to the wishlist: "Make it faster\. .*…" \(it is long: read all of it in the wishlist\)\.$/);
+  });
+
+  describe("attachments", () => {
+    const upload = (wish: string, name: string, data: string | Buffer, headers: Record<string, string> = {}) =>
+      fetch(new URL(`/api/projects/${id}/wishes/${wish}/attachments`, d.url), {
+        method: "POST",
+        headers: { origin: new URL(d.url).origin, "x-progressor": "notes", "x-file-name": encodeURIComponent(name), "content-type": "application/octet-stream", ...headers },
+        body: typeof data === "string" ? data : new Uint8Array(data),
+      });
+    const get = (path: string) => fetch(new URL(`/api/projects/${id}/wishes/${path}`, d.url));
+
+    it("stores an uploaded file, tells the AI its path, and shows it on the wish", async () => {
+      agent.addWish("Like this");
+      const res = await upload("w1", "my shot.png", Buffer.from([1, 2, 3]));
+      expect(res.status).toBe(201);
+      expect(await res.json()).toMatchObject({ name: "my shot.png", size: 3, path: ".progressor/attachments/w1/1-my shot.png" });
+      expect(told()).toEqual([
+        'On the dashboard I attached the file "my shot.png" to wish w1. It is at .progressor/attachments/w1/1-my shot.png: open it by that path only if you need to.',
+      ]);
+      const shown = await (await fetch(new URL(`/api/projects/${id}/roadmap`, d.url))).json();
+      expect(shown.wishes[0].attachments).toHaveLength(1);
+    });
+
+    it("serves an image as itself and any other file as a download", async () => {
+      agent.addWish("Like this");
+      await upload("w1", "a.png", Buffer.from([1, 2, 3]));
+      await upload("w1", "b.html", "<script>alert(1)</script>");
+      const png = await get("w1/attachments/1-a.png");
+      expect(png.status).toBe(200);
+      expect(png.headers.get("content-type")).toBe("image/png");
+      expect(Buffer.from(await png.arrayBuffer())).toEqual(Buffer.from([1, 2, 3]));
+      const html = await get("w1/attachments/2-b.html");
+      expect(html.headers.get("content-type")).toBe("application/octet-stream");
+      expect(html.headers.get("content-disposition")).toMatch(/^attachment/);
+      expect((await get("w1/attachments/..%2F..%2Fwishlist.md")).status).toBe(404);
+      expect((await get("w1/attachments/9-none.png")).status).toBe(404);
+    });
+
+    it("takes a file away again, and tells the AI", async () => {
+      agent.addWish("Like this");
+      await upload("w1", "a.png", "x");
+      expect((await post("wishes/w1/attachments/1-a.png/delete", {})).status).toBe(200);
+      expect(agent.wishes()[0]!.attachments).toBeUndefined();
+      expect(told().at(-1)).toBe('On the dashboard I took the file "a.png" off wish w1. Ignore it.');
+      expect((await post("wishes/w1/attachments/1-a.png/delete", {})).status).toBe(404);
+    });
+
+    it("refuses other pages, empty or oversized files and missing wishes", async () => {
+      agent.addWish("Like this");
+      expect((await upload("w1", "a.png", "x", { origin: "https://evil.example" })).status).toBe(403);
+      expect((await upload("w1", "a.png", "x", { "x-progressor": "talk" })).status).toBe(403);
+      expect((await upload("w1", "a.png", "")).status).toBe(400);
+      expect((await upload("w1", "a.png", Buffer.alloc(MAX_ATTACHMENT_BYTES + 1024))).status).toBe(413);
+      expect((await upload("w9", "a.png", "x")).status).toBe(404);
+      expect(agent.wishes()[0]!.attachments).toBeUndefined();
+      expect(told()).toEqual([]);
+    });
   });
 
   it("refuses other pages, empty or bad wishes and missing ones", async () => {
