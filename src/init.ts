@@ -116,6 +116,7 @@ export function launcherWarning(root: string, canRun: (command: string) => boole
 
 const MCP_FILE = ".mcp.json";
 const SETTINGS_FILE = join(".claude", "settings.json");
+const LOCAL_SETTINGS_FILE = join(".claude", "settings.local.json");
 // Claude Code reads CLAUDE.md; most other apps (Cursor, Copilot, Windsurf, Codex) read AGENTS.md.
 const NOTE_FILES = ["CLAUDE.md", "AGENTS.md"];
 const SERVER_NAME = "progressor";
@@ -150,6 +151,38 @@ function readJson(root: string, file: string): Json | undefined {
 /** A hook entry that runs one of Progressor's hook commands, whichever way it starts Progressor. */
 const isProgressorHook = (h: any, event: string) =>
   typeof h?.command === "string" && new RegExp(`progressor-mcp(@\\S+)? hook ${event}\\b`).test(h.command);
+
+/** Whether a settings file has both of Progressor's hooks; false for one that is missing or unreadable. */
+function hasHooks(dir: string, file: string): boolean {
+  try {
+    const hooks = readJson(dir, file)?.hooks;
+    return Object.entries(HOOKS).every(([event, name]) =>
+      (Array.isArray(hooks?.[event]) ? hooks[event] : []).some((e: any) => Array.isArray(e?.hooks) && e.hooks.some((h: any) => isProgressorHook(h, name))),
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A line for the Agent when Claude Code has no Progressor hooks for this folder (in the project's
+ * settings, its local settings or the user's), saying how to add them; undefined when they are there.
+ * Without the prompt hook, the Developer's dashboard messages reach the Agent only at its next call.
+ */
+export function hooksAdvice(root: string, home: string, launch: Launch): string | undefined {
+  if (hasHooks(root, SETTINGS_FILE) || hasHooks(root, LOCAL_SETTINGS_FILE) || hasHooks(home, SETTINGS_FILE)) return undefined;
+  let inMcpJson = false;
+  try {
+    inMcpJson = readJson(root, MCP_FILE)?.mcpServers?.[SERVER_NAME] !== undefined;
+  } catch {
+    // a broken .mcp.json: the init without the server is the safe advice
+  }
+  const command = `${launch.hook.replace(/ hook$/, "")} init${inMcpJson ? "" : " --no-server"}`;
+  return (
+    "Hooks aren't set up in this project, so the Developer's dashboard messages reach you only when you call Progressor. " +
+    `Offer to run \`${command}\` in this folder, which adds them to .claude/settings.json.`
+  );
+}
 
 const change = (root: string, file: string, what: string, contents: string | null): Change => ({
   file: display(file),

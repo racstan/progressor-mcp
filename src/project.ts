@@ -665,6 +665,7 @@ export class Project {
       );
     roadmap.setClaim(goalId, { session: this.session.id, pid: this.session.pid, since: this.now().toISOString() });
     roadmap.setGoalStatus(goalId, "started");
+    roadmap.setWaitingOnTests(goalId, false);
     this.saveRoadmap(roadmap);
     return roadmap.goal(goalId)!;
   }
@@ -691,15 +692,13 @@ export class Project {
 
   // --- Goals and Tasks -----------------------------------------------------
 
-  /** Marks a claimed Goal done and releases it, once every Task is done, released or dropped and no Detour is open. */
+  /**
+   * Marks a claimed Goal done and releases it, once every Task is done, released or dropped and no
+   * Detour is open. While the Developer has hand tests left to mark, it is released as "testing"
+   * instead, and markHandTest finishes it when the last one is marked.
+   */
   completeGoal(goalId?: string, options: { unmarkedHandTests?: boolean } = {}): Goal {
     const { goal, plan } = this.requireClaim(goalId);
-    const untried = plan.handTests.filter((h) => h.result === "pending");
-    if (untried.length > 0 && !options.unmarkedHandTests)
-      throw new Error(
-        `Goal ${goal.id} still has ${untried.length} hand ${untried.length === 1 ? "test" : "tests"} the Developer has not marked: ${untried.map((h) => `${h.id} ${h.text}`).join("; ")}. ` +
-          "Ask the Developer to mark them on the dashboard, or, if they say to finish anyway, call complete_goal again with unmarked_hand_tests_ok: true.",
-      );
     const open = plan.tasks.filter((t) => !FINISHED.includes(t.status));
     if (open.length > 0)
       throw new Error(
@@ -707,9 +706,11 @@ export class Project {
       );
     if (plan.openDetour)
       throw new Error(`Goal ${goal.id} has an open Detour, "${plan.openDetour.title}". End it with end_detour first.`);
+    const untested = plan.handTests.some((h) => h.result === "pending") && !options.unmarkedHandTests;
     const roadmap = this.roadmap();
     roadmap.setClaim(goal.id, undefined);
-    roadmap.setGoalStatus(goal.id, "done");
+    roadmap.setGoalStatus(goal.id, untested ? "started" : "done");
+    roadmap.setWaitingOnTests(goal.id, untested);
     this.markGoal(roadmap, goal.id);
     this.saveRoadmap(roadmap);
     return roadmap.goal(goal.id)!;
@@ -1098,11 +1099,14 @@ export class Project {
     } else {
       const [task] = plan.addTasks([{ title: handFailureTitle(test.text), summary: handFailureSummary(test.text, text), fromHandTest: id }]);
       plan.setHandTestTask(id, task!.id);
-      reopen = goal.status === "done";
+      reopen = goal.status === "done" || goal.status === "testing";
     }
     this.savePlan(plan);
-    if (reopen) {
-      roadmap.setGoalStatus(goalId, "started");
+    // A Goal waiting on these tests finishes once none is left unmarked and no failure added a step.
+    const finished = goal.status === "testing" && !reopen && plan.tasks.every((t) => FINISHED.includes(t.status)) && plan.handTests.every((h) => h.result !== "pending");
+    if (reopen || finished) {
+      roadmap.setGoalStatus(goalId, finished ? "done" : "started");
+      roadmap.setWaitingOnTests(goalId, false);
       this.saveRoadmap(roadmap);
     }
     return plan.handTest(id)!;
@@ -1473,9 +1477,9 @@ export class Project {
 
   // --- lookup ----------------------------------------------------------------
 
-  /** Finds any item by its ref, such as `progressor://login/t2` or `progressor://roadmap/i1`. */
+  /** Finds any item by its ref, such as `progressor://login/t2` or `progressor://roadmap/i1`; the `progressor://` may be left off. */
   getItem(ref: string): FoundItem {
-    const m = /^progressor:\/\/([^/\s]+)(?:\/([^/\s]+))?\/?$/.exec(ref.trim());
+    const m = /^(?:progressor:\/\/)?([^/\s:]+)(?:\/([^/\s]+))?\/?$/.exec(ref.trim());
     if (!m) throw new Error(`"${ref}" is not a ref; refs look like progressor://<goal>/<item>.`);
     const [, scope, id] = m as unknown as [string, string, string | undefined];
     const roadmapFile = `${PROGRESSOR_DIR}/${ROADMAP_FILE}`;
@@ -1490,6 +1494,7 @@ export class Project {
       throw missing();
     }
     const goal = this.roadmap().goal(scope);
+    if (!goal && !id) throw new Error(`No Goal ${scope}. Refs look like progressor://<goal>/<item>, such as progressor://login/t2.`);
     if (!goal) throw missing();
     if (!id) return { kind: "goal", ref, file: roadmapFile, line: goal.line, item: goal, planFile: this.planFilePath(scope) };
     const plan = this.plan(scope);

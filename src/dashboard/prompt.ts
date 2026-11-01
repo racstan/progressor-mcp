@@ -30,7 +30,7 @@ const doneOf = (graph: GoalGraph) => {
   return `${live.filter((t) => t.status === "done" || t.status === "released").length} of ${live.length} steps done`;
 };
 /** A Goal's status in the Developer's words. */
-const GOAL_STATE: Record<GoalStatus, string> = { planned: "not started", active: "active", paused: "paused", done: "finished", dropped: "cancelled" };
+const GOAL_STATE: Record<GoalStatus, string> = { planned: "not started", active: "active", paused: "paused", testing: "built, waiting on your tests", done: "finished", dropped: "cancelled" };
 
 export function copyAsPrompt(subject: PromptSubject): string {
   switch (subject.kind) {

@@ -108,6 +108,14 @@ describe("the sidebar", () => {
     ]);
   });
 
+  it("puts a goal waiting on your tests under Needs you, and under Up next once its tests are put off", () => {
+    const goals = [g("t", "testing", { waitingOnYou: true, untriedTests: 2 })];
+    expect(sidebarSections(goals).map((x) => x.label)).toEqual(["Needs you"]);
+    expect(sidebarSections(goals, { t: 2 }).map((x) => x.label)).toEqual(["Up next"]);
+    expect(homeSections([{ id: "p", name: "P", root: "/p", goals }]).needsYou.map((x) => x.goal.id)).toEqual(["t"]);
+    expect(homeSections([{ id: "p", name: "P", root: "/p", goals }]).projects[0]!.open).toBe(1);
+  });
+
   it("leaves out a group with nothing in it", () => {
     expect(sidebarSections([g("a", "planned")]).map((x) => x.label)).toEqual(["Up next"]);
   });

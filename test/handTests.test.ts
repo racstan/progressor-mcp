@@ -157,8 +157,42 @@ describe("completing a Goal", () => {
     agent.addHandTest("Look at the reply");
   });
 
-  it("is refused while a hand test is unmarked, and says which", () => {
-    expect(() => agent.completeGoal()).toThrow(/h1 Look at the reply/);
+  it("waits on the Developer's tests while a hand test is unmarked, instead of looking paused", () => {
+    const g = agent.completeGoal();
+    expect(g.status).toBe("testing");
+    expect(g.claim).toBeUndefined();
+    expect(agent.claimedGoals()).toHaveLength(0);
+    expect(agent.overview().paused.map((s) => s.goal!.id)).not.toContain("attachments");
+  });
+
+  it("still refuses while a step is open, before looking at the tests", () => {
+    agent.addTasks([{ title: "More" }]);
+    expect(() => agent.completeGoal()).toThrow(/t3 More/);
+  });
+
+  it("finishes by itself once the Developer marks the last test", () => {
+    agent.addHandTest("Try the mic");
+    agent.completeGoal();
+    agent.markHandTest("attachments", "h1", "works");
+    expect(agent.roadmap().goal("attachments")!.status).toBe("testing");
+    agent.markHandTest("attachments", "h2", "won't test");
+    expect(agent.roadmap().goal("attachments")!.status).toBe("done");
+  });
+
+  it("reopens with a new step when a test fails while it waits", () => {
+    agent.completeGoal();
+    agent.markHandTest("attachments", "h1", "doesn't work", "blank reply");
+    expect(agent.roadmap().goal("attachments")!.status).toBe("paused");
+    expect(agent.plan("attachments").tasks.at(-1)).toMatchObject({ status: "pending", fromHandTest: "h1" });
+  });
+
+  it("stops waiting once claimed again, and waits again on the next complete", () => {
+    agent.completeGoal();
+    expect(agent.claimGoal("attachments").status).toBe("active");
+    agent.releaseGoal();
+    expect(agent.roadmap().goal("attachments")!.status).toBe("paused");
+    agent.claimGoal("attachments");
+    expect(agent.completeGoal().status).toBe("testing");
   });
 
   it("goes ahead when the Agent says to finish anyway", () => {
@@ -217,14 +251,25 @@ describe("the Agent's tools", () => {
     expect(text).toMatch(/New marks[^]*h3 the Developer won't test it: Skim the settings page/);
   });
 
-  it("refuses complete_goal while items are unmarked, and the override finishes it", async () => {
+  it("parks complete_goal on the Developer's tests while items are unmarked, and the override finishes it", async () => {
     await call("complete_task", { task: "t1" });
     await call("complete_task", { task: "t2" });
     await call("add_hand_test", { text: "Look at the reply" });
-    const refused = await call("complete_goal");
-    expect(refused.isError).toBe(true);
-    expect(refused.text).toContain("unmarked_hand_tests_ok");
-    expect((await call("complete_goal", { unmarked_hand_tests_ok: true })).isError).toBe(false);
+    const parked = await call("complete_goal");
+    expect(parked.isError).toBe(false);
+    expect(parked.text).toMatch(/built and waiting on the Developer's hand tests[^]*finishes by itself/);
+    await call("claim_goal", { goal: "attachments" });
+    expect((await call("complete_goal", { unmarked_hand_tests_ok: true })).text).toContain("is done");
+  });
+
+  it("lists a goal waiting on tests as such, not as paused to claim", async () => {
+    await call("complete_task", { task: "t1" });
+    await call("complete_task", { task: "t2" });
+    await call("add_hand_test", { text: "Look at the reply" });
+    await call("complete_goal");
+    const { text } = await call("get_status");
+    expect(text).toContain("attachments: Attachments (built, waiting on the Developer's hand tests)");
+    expect(text).not.toMatch(/is paused: claim it/);
   });
 
   it("counts in the right number: one works, two work", () => {

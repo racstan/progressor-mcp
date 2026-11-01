@@ -18,9 +18,17 @@ import { formatDuration, parseDuration } from "./estimate.js";
 import { type Stamp, withDates } from "./dates.js";
 import { ORIGIN_KEY, type Origin, formatOrigin, parseOrigin } from "./origin.js";
 
-/** What the checkbox says; whether a started Goal is active or paused depends on its Claim. */
+/**
+ * What the checkbox says; whether a started Goal is active or paused depends on its Claim. A started
+ * Goal nobody holds whose work is built but whose hand tests the Developer has not all marked is
+ * "testing": a `waiting on: hand tests` line says so, which an older Progressor reads as paused.
+ */
 export type GoalMarker = "planned" | "started" | "done" | "dropped";
-export type GoalStatus = "planned" | "active" | "paused" | "done" | "dropped";
+export type GoalStatus = "planned" | "active" | "paused" | "testing" | "done" | "dropped";
+
+/** The detail line on a Goal that is built and waiting on the Developer's hand tests. */
+const WAITING_ON = "waiting on";
+const HAND_TESTS = "hand tests";
 
 export interface Claim {
   session: string;
@@ -151,7 +159,17 @@ export class Roadmap {
       const estimate = parseDuration(getDetail(b, "estimate") ?? "");
       const link = LINK.exec(b.text);
       const status: GoalStatus =
-        b.marker === "x" ? "done" : b.marker === "-" ? "dropped" : claim ? "active" : b.marker === "/" ? "paused" : "planned";
+        b.marker === "x"
+          ? "done"
+          : b.marker === "-"
+            ? "dropped"
+            : claim
+              ? "active"
+              : b.marker === "/"
+                ? getDetail(b, WAITING_ON) === HAND_TESTS
+                  ? "testing"
+                  : "paused"
+                : "planned";
       return {
         id: b.id!,
         ref: `progressor://${b.id}`,
@@ -283,6 +301,11 @@ export class Roadmap {
 
   setGoalStatus(id: string, status: GoalMarker): void {
     this.goalBlock(id).marker = GOAL_MARKER[status];
+  }
+
+  /** Marks a started Goal as built and waiting on the Developer's hand tests, or takes the mark off. */
+  setWaitingOnTests(id: string, waiting: boolean): void {
+    setDetail(this.goalBlock(id), WAITING_ON, waiting ? HAND_TESTS : undefined);
   }
 
   /** Marks a Goal as last changed from another project (an `updated from` line). */

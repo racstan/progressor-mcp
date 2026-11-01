@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { type Launch, applyChanges, launchFor, onPath, planInit, planLocal, planLocalRemove, planRemove, startedViaNpx } from "../src/init.js";
+import { type Launch, applyChanges, hooksAdvice, launchFor, onPath, planInit, planLocal, planLocalRemove, planRemove, startedViaNpx } from "../src/init.js";
 import { tempDir } from "./tmp.js";
 
 let root: string;
@@ -200,5 +200,47 @@ describe("init --remove", () => {
     init(npx);
     applyChanges(planRemove(root));
     for (const f of [".mcp.json", ".claude/settings.json", "CLAUDE.md", "AGENTS.md"]) expect(existsSync(join(root, f))).toBe(false);
+  });
+});
+
+describe("the hooks check", () => {
+  const hooksJson = JSON.stringify({
+    hooks: {
+      SessionStart: [{ hooks: [{ type: "command", command: "progressor-mcp hook session-start" }] }],
+      UserPromptSubmit: [{ hooks: [{ type: "command", command: "npx -y progressor-mcp@1.1.0 hook prompt" }] }],
+    },
+  });
+
+  it("says how to add the hooks when no settings file has them", () => {
+    const home = tempDir("progressor-home-");
+    expect(hooksAdvice(root, home, global)).toMatch(/progressor-mcp init --no-server/);
+  });
+
+  it("asks for the plain init when .mcp.json starts Progressor, and npx when that is how it runs", () => {
+    const home = tempDir("progressor-home-");
+    write(".mcp.json", JSON.stringify({ mcpServers: { progressor: { command: "progressor-mcp" } } }));
+    expect(hooksAdvice(root, home, global)).toMatch(/`progressor-mcp init`/);
+    expect(hooksAdvice(root, home, npx)).toMatch(/`npx -y progressor-mcp init`/);
+  });
+
+  it("is quiet when the project, its local settings or the user's settings have both hooks", () => {
+    const home = tempDir("progressor-home-");
+    for (const file of [".claude/settings.json", ".claude/settings.local.json"]) {
+      const r = tempDir("progressor-init-");
+      mkdirSync(join(r, ".claude"), { recursive: true });
+      writeFileSync(join(r, file), hooksJson);
+      expect(hooksAdvice(r, home, global)).toBeUndefined();
+    }
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    writeFileSync(join(home, ".claude", "settings.json"), hooksJson);
+    expect(hooksAdvice(root, home, global)).toBeUndefined();
+  });
+
+  it("still speaks up when only one of the two hooks is there, or a settings file is broken", () => {
+    const home = tempDir("progressor-home-");
+    write(".claude/settings.json", JSON.stringify({ hooks: { SessionStart: JSON.parse(hooksJson).hooks.SessionStart } }));
+    expect(hooksAdvice(root, home, global)).toBeDefined();
+    write(".claude/settings.json", "{ not json");
+    expect(hooksAdvice(root, home, global)).toBeDefined();
   });
 });

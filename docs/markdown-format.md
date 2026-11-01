@@ -185,6 +185,7 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 | Goal     | `claimed by`   | The Claim: `<session> (pid <pid>) since <ISO time>`.                     |
 | Goal     | `outcome`      | The Outcome: what done looks like, on one line.                          |
 | Goal     | `reason`       | Why the Goal was dropped.                                                |
+| Goal     | `waiting on`   | `hand tests` on a started Goal nobody holds whose work is built but whose hand tests the Developer has not all marked; it reads as waiting on their tests instead of paused. |
 | Goal     | `estimate`     | How long the Goal should take; it covers its open Tasks that have no estimate. Without it, the Goal's estimate is the sum of its open Tasks'. |
 | Standing Instruction | `hard`  | `yes` (or `true`) for a hard rule that must never be broken; absent for a preference. |
 | Standing Instruction | `helpers at once` | The project's helper limit, a whole number from 1: the most Tasks that may be with a helper at once. One rule holds it; the tools move it rather than add a second. Any other value is ignored. |
@@ -240,7 +241,7 @@ Both sections are created when their first item is added, after the Tasks and be
 - [ ] Log out and check the cookie is gone ^h3
 ```
 
-The section is created after the Notes (or the Tasks) and before any Detour. A failed result adds a pending Task to the Goal, titled `Fix: <the test>` with a summary that holds the note, a `from hand test: ^h2` line and, on the test, the `task added` line that links back. Marking again or clearing drops that Task when nobody has started it. A hand test the Agent has not seen yet (no `seen` line) is shown to it once by `get_status`, which then adds `seen: yes`. A Goal cannot be completed while a hand test is not tried yet, unless the Agent passes `unmarked_hand_tests_ok`. Files from before this section read as having no hand tests; an older Progressor keeps the section as an unknown one.
+The section is created after the Notes (or the Tasks) and before any Detour. A failed result adds a pending Task to the Goal, titled `Fix: <the test>` with a summary that holds the note, a `from hand test: ^h2` line and, on the test, the `task added` line that links back. Marking again or clearing drops that Task when nobody has started it. A hand test the Agent has not seen yet (no `seen` line) is shown to it once by `get_status`, which then adds `seen: yes`. Completing a Goal while a hand test is not tried yet leaves it started with a `waiting on: hand tests` line in the Roadmap, which comes off when the last test is marked (the Goal is then done) or when it is claimed again; `unmarked_hand_tests_ok` finishes it at once. Files from before this section read as having no hand tests; an older Progressor keeps the section as an unknown one.
 
 ## Messages and questions
 

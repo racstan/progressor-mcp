@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { applyChanges, launchFor, planInit } from "../src/init.js";
 import { Project } from "../src/project.js";
 import { setupPrompt } from "../src/prompts.js";
-import { appRoots, createServer } from "../src/server.js";
+import { TOOL_EXAMPLES, appRoots, createServer } from "../src/server.js";
 import { tempDir } from "./tmp.js";
 
 let client: Client;
@@ -719,5 +719,76 @@ describe("move_task", () => {
 
   it("is in the instructions", () => {
     expect(client.getInstructions() ?? "").toContain("move_task");
+  });
+});
+
+describe("the hooks check in get_status", () => {
+  async function connect(name: string) {
+    const dir = tempDir("progressor-");
+    const project = new Project({ root: dir, session: { id: "s-h", pid: process.pid } });
+    const server = createServer(project, { claudeHome: tempDir("progressor-home-") });
+    const [c, s] = InMemoryTransport.createLinkedPair();
+    const app = new Client({ name, version: "0" });
+    await Promise.all([server.connect(s), app.connect(c)]);
+    const status = async () => ((await app.callTool({ name: "get_status", arguments: {} })) as { content: { text: string }[] }).content[0]!.text;
+    return { dir, status };
+  }
+
+  it("tells Claude Code once when the project has no hooks", async () => {
+    const { status } = await connect("claude-code");
+    expect(await status()).toMatch(/Hooks aren't set up in this project.*progressor-mcp init --no-server/);
+    expect(await status()).not.toMatch(/Hooks aren't set up/);
+  });
+
+  it("says nothing to other apps, which have no hooks to set up", async () => {
+    const { status } = await connect("cursor");
+    expect(await status()).not.toMatch(/Hooks aren't set up/);
+  });
+
+  it("says nothing once the hooks are there", async () => {
+    const { dir, status } = await connect("claude-code");
+    applyChanges(planInit(dir, launchFor({ viaNpx: false, platform: "linux" }), { server: false }));
+    expect(await status()).not.toMatch(/Hooks aren't set up/);
+  });
+});
+
+describe("small finished work in one call", () => {
+  it("records a done step and its hand test together", async () => {
+    await call("add_goal", { title: "Login", claim: true, tasks: [{ title: "Form" }] });
+    const r = await call("add_tasks", { tasks: [{ title: "Fix typo", done: true, code: ["a.ts"], hand_test: "Open the login page and read the button" }] });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("Added: t2 Fix typo");
+    expect(r.text).toContain("hand test h1 about t2");
+    const { text } = await call("get_status");
+    expect(text).toContain("- h1 Open the login page and read the button");
+  });
+
+  it("asks for start_task only for work longer than a few minutes", async () => {
+    expect(client.getInstructions()).toMatch(/longer than a few minutes, call start_task/);
+  });
+});
+
+describe("a call with the wrong shape", () => {
+  it("answers with a correct example call for that tool", async () => {
+    await call("add_goal", { title: "Login", claim: true, tasks: [{ title: "Form" }] });
+    const r = await call("update_tasks", { action: "complete", task: "t1" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("operations");
+    expect(r.text).toContain('A correct call: update_tasks({ operations: [{ action: "complete", task: "t2" }');
+  });
+
+  it("has an example for every tool", async () => {
+    const { tools } = await client.listTools();
+    expect(Object.keys(TOOL_EXAMPLES).sort()).toEqual(tools.map((t) => t.name).sort());
+    for (const [name, example] of Object.entries(TOOL_EXAMPLES)) expect(example.startsWith(`${name}(`), name).toBe(true);
+  });
+});
+
+describe("get_item", () => {
+  it("takes a ref with or without progressor://", async () => {
+    await call("add_goal", { title: "Login", claim: true, tasks: [{ title: "Form" }] });
+    expect((await call("get_item", { ref: "login/t1" })).text).toContain("Task t1: Form");
+    expect((await call("get_item", { ref: "login" })).text).toContain("Goal login: Login");
+    expect((await call("get_item", { ref: "http://x/y" })).isError).toBe(true);
   });
 });
