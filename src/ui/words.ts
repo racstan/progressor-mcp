@@ -8,6 +8,7 @@ export const GOAL_WORD: Record<string, string> = {
   planned: "Not started",
   active: "In progress",
   paused: "Paused",
+  testing: "Waiting on your tests",
   done: "Finished",
   dropped: "Cancelled",
 };
@@ -272,6 +273,12 @@ export function goalState(goal: GoalStatus, now = Date.now()): { state: GoalStat
       return { state: "cancelled", label: "Cancelled", hint: "This was cancelled and will not be done." };
     case "planned":
       return { state: "planned", label: "Not started", hint: "Your AI has planned this but not started it yet." };
+    case "testing":
+      return {
+        state: "you",
+        label: "Waiting on your tests",
+        hint: "Your AI has built this. Try each thing on its list and mark it; the goal finishes by itself once you've marked the last one.",
+      };
   }
   // A step that needs the person comes before everything else: it is what they should look at.
   if (goal.waitingOnYou)

@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod";
 import type { Dashboard } from "./dashboard/http.js";
 import { projectEntry } from "./dashboard/registry.js";
 import { resolveProject, sameFolder, seenFile, takeElsewhereLine } from "./elsewhere.js";
-import { launchFor, startedViaNpx } from "./init.js";
+import { hooksAdvice, launchFor, startedViaNpx } from "./init.js";
 import { withLock } from "./lock.js";
 import { parseDuration, roughDuration, sayDuration, timeText } from "./estimate.js";
 import { type Decision, type Detour, type HelperInfo, type NewTask, type Note, type Task, type TaskStatus, TIMED, timeSpent } from "./planFile.js";
@@ -21,9 +22,9 @@ const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", impor
 
 export const INSTRUCTIONS = `Progressor keeps the plan for this project in .progressor/ and shows it to the Developer on a live dashboard. Change the plan only with these tools, never by editing those files. The Developer may not be a programmer: you run the plan, they watch.
 
-1. First thing in every conversation, and again after your context is compressed, call get_status and follow the Standing Instructions it lists. If it says one Goal is paused, claim it (claim_goal) and carry on.
+1. At the start of every conversation and after context compression, call get_status and follow the Standing Instructions it lists. If it says one Goal is paused, claim it (claim_goal) and carry on.
 2. When the Developer asks for work no Goal covers, plan it as a Goal: a short title, an Outcome (one sentence) and Tasks, each with the files it touches, a one-line summary and an estimate ("45m", "2h"). Tell the Developer the plan in a few plain lines, then add_goal with claim: true. A quick question needs no Goal.
-3. Before you change code for a Task, call start_task; when it is done, complete_task with the files you touched. Keep summaries and estimates true with update_task; drop_task what is not needed. Record every change as it happens, so the dashboard keeps moving. set_task_state records Tasks in other hands (with a helper, waiting on you, checked, released); if get_status shows a helper limit, keep to it.
+3. Before code for a Task longer than a few minutes, call start_task; when done, complete_task with the files touched. Record a small finished change in one call: add_tasks with done: true (and hand_test if the Developer should try it). Keep summaries and estimates true with update_task; drop_task what is not needed. set_task_state records Tasks in other hands (with a helper, waiting on you, checked, released); keep to any helper limit get_status shows.
 4. To change several Tasks at once, make one update_tasks call (applied in order, all or nothing). move_task moves a Task to another Goal. To hold several Goals, claim each one and pass goal (its ID) to the tools that change a Goal.
 5. About to change code for something that is not the current Task? Call start_detour with the reason first; afterwards end_detour ("merge back", "return" or "recalibrate").
 6. When every Task is done, released or dropped and the Outcome is true, call complete_goal and tell the Developer in one sentence.
@@ -33,7 +34,7 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 10. The Developer can write to you on the dashboard: their messages and answers arrive at the end of your next Progressor reply under "New from the Developer". Act on each message as their instruction and answer with reply_to_developer (whole_project: true for a message to the whole project). For a product or UX choice, use ask_developer with 2 to 4 short choices instead of stopping in the chat.
 11. When you brief a helper agent, paste in the block from get_rules: helpers don't see the Standing Instructions. Before starting something only one can use at a time (a dev window, a port), call claim_resource; release_resource when done.
 12. Work that belongs to another project using Progressor goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it.
-13. A * line in .progressor/.gitignore keeps the plan out of git. If the Developer wants it in git, delete that line; to make it private again, add it back.`;
+13. A * line in .progressor/.gitignore keeps the plan out of git; delete it if the Developer wants the plan in git.`;
 
 const resourceName = z.string().max(80).describe("The shared thing's name, such as 'dev-window' or 'plasmashell'. Case and spaces do not matter.");
 const resourceLabel = z
@@ -76,6 +77,14 @@ const taskInput = z.object({
 /** A Task being added, which may already be done when past work is recorded. */
 const newTaskInput = taskInput.extend({
   done: z.boolean().optional().describe("Add the Task already done, for work finished before it was recorded."),
+});
+
+/** A Task added to a claimed Goal, which can bring the hand test for it along. */
+const addTaskInput = newTaskInput.extend({
+  hand_test: z
+    .string()
+    .optional()
+    .describe("Something only the Developer can try by hand for this Task; added as a hand test about it, as with add_hand_test."),
 });
 
 const goalId = z.string().describe("The Goal ID, such as 'ship-oauth-login'.");
@@ -124,8 +133,11 @@ export function resourceLines(locks: ResourceLock[], now: Date): string[] {
     : [];
 }
 
+/** A Goal's status as the Agent reads it in a list. */
+const statusText = (g: Goal) => (g.status === "testing" ? "built, waiting on the Developer's hand tests" : g.status);
+
 function goalLine(g: Goal): string {
-  return `- ${g.id}: ${g.title} (${g.status})`;
+  return `- ${g.id}: ${g.title} (${statusText(g)})`;
 }
 
 function taskLine(t: Task): string {
@@ -395,7 +407,7 @@ export function formatItem(found: FoundItem, schedule?: Schedule, now = new Date
     case "goal": {
       const g = found.item;
       return [
-        `Goal ${g.id}: ${g.title} (${g.status})`,
+        `Goal ${g.id}: ${g.title} (${statusText(g)})`,
         ...(g.outcome ? [`Outcome: ${g.outcome}`] : []),
         ...(g.reason ? [`Reason: ${g.reason}`] : []),
         `Ref: ${g.ref}`,
@@ -469,6 +481,59 @@ function helperOf(branch?: string, folder?: string, label?: string): HelperInfo 
   return Object.keys(h).length > 0 ? h : undefined;
 }
 
+/** One correct call per tool, added to the SDK's answer when a call has the wrong shape, so the next try is right. */
+export const TOOL_EXAMPLES: Record<string, string> = {
+  get_status: "get_status({})",
+  get_item: 'get_item({ ref: "progressor://login/t2" })',
+  get_rules: "get_rules({})",
+  add_goal: 'add_goal({ title: "Ship login", outcome: "Users can sign in", tasks: [{ title: "Add form", estimate: "45m" }], claim: true })',
+  update_goal: 'update_goal({ goal: "login", outcome: "Users can sign in with Google" })',
+  move_goal: 'move_goal({ goal: "login", before: "billing" })',
+  drop_goal: 'drop_goal({ goal: "login", reason: "Not needed any more" })',
+  claim_goal: 'claim_goal({ goal: "login" })',
+  claim_resource: 'claim_resource({ resource: "dev-window", reason: "running the UI test" })',
+  release_resource: 'release_resource({ resource: "dev-window" })',
+  list_resources: "list_resources({})",
+  release_goal: "release_goal({})",
+  complete_goal: "complete_goal({})",
+  add_tasks: 'add_tasks({ tasks: [{ title: "Fix typo", done: true, code: ["src/a.ts"], hand_test: "Check the button text" }] })',
+  start_task: 'start_task({ task: "t2" })',
+  set_task_state: 'set_task_state({ task: "t2", state: "checked", evidence: "715 passed" })',
+  update_tasks: 'update_tasks({ operations: [{ action: "complete", task: "t2" }, { action: "start", task: "t3" }] })',
+  move_task: 'move_task({ task: "t2", to_goal: "billing" })',
+  complete_task: 'complete_task({ task: "t2", code: ["src/a.ts"] })',
+  update_task: 'update_task({ task: "t2", estimate: "2h" })',
+  drop_task: 'drop_task({ task: "t2", reason: "Covered by t3" })',
+  start_detour: 'start_detour({ title: "Fix flaky test", reason: "It blocks the build" })',
+  end_detour: 'end_detour({ ending: "merge back" })',
+  add_decision: 'add_decision({ text: "Keep the old API for a release" })',
+  update_decision: 'update_decision({ id: "c2", text: "" })',
+  add_note: 'add_note({ goal: "login", text: "The logout link is broken" })',
+  update_note: 'update_note({ goal: "login", id: "n2", resolved: true })',
+  ask_developer: 'ask_developer({ question: "Dark mode by default?", choices: ["Yes", "Follow the computer"] })',
+  reply_to_developer: 'reply_to_developer({ message: "m2", reply: "Done: the button is bigger now." })',
+  add_hand_test: 'add_hand_test({ text: "Open the login page and sign in", task: "t2" })',
+  attach_picture: 'attach_picture({ path: "shot.png", caption: "The new login page" })',
+  update_hand_test: 'update_hand_test({ id: "h2", text: "" })',
+  add_standing_instruction: 'add_standing_instruction({ text: "Ask me before changing the plan" })',
+  update_standing_instruction: 'update_standing_instruction({ id: "s2", hard: true })',
+  update_context: 'update_context({ text: "What the project is, in a few lines" })',
+};
+
+/**
+ * Adds a tool's example to the SDK's answer to arguments of the wrong shape, which otherwise names
+ * only the field that failed. The SDK builds every such answer in its createToolError.
+ */
+function withExamples(server: McpServer): void {
+  const sdk = server as unknown as { createToolError?: (message: string) => { content: { type: "text"; text: string }[]; isError: true } };
+  const original = sdk.createToolError?.bind(server);
+  if (!original) return;
+  sdk.createToolError = (message) => {
+    const example = TOOL_EXAMPLES[/Invalid arguments for tool (\w+)/.exec(message)?.[1] ?? ""];
+    return original(example ? `${message}\nA correct call: ${example}` : message);
+  };
+}
+
 /** Runs a tool body, turning thrown domain errors into MCP tool errors the Agent can read. */
 function respond(body: () => string) {
   try {
@@ -483,7 +548,12 @@ export interface ServerOptions {
   dashboard?: { readonly url: string | undefined; readonly notice?: string | undefined; refresh(): Promise<void> };
   /** The project registry, for finding other projects; `~/.progressor/projects.json` unless set. */
   registryFile?: string;
+  /** Where Claude Code keeps the user's settings (`.claude/settings.json` in it), for the hooks check; the home folder unless set. */
+  claudeHome?: string;
 }
+
+/** Whether the app is Claude Code, the one app with hooks; it names itself "claude-code". */
+const isClaudeCode = (server: McpServer) => /^claude[- ]?code/i.test(server.server.getClientVersion()?.name ?? "");
 
 /** Another project's plan, as get_status shows it when given project: read-only, for changing it from here. */
 export function formatOtherProject(other: Project, name: string): string {
@@ -523,6 +593,7 @@ export async function appRoots(server: McpServer, timeoutMs: number): Promise<st
 
 export function createServer(project: Project, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: "progressor", version: VERSION }, { instructions: INSTRUCTIONS });
+  withExamples(server);
   // What the Developer wrote on the dashboard to the whole project (shown to whichever Session calls
   // first, with or without a Goal) and to the Goals this Session holds, now marked as shown.
   const takeNews = () =>
@@ -564,6 +635,13 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   // don't show the whole status end with where the work stands.
   const withNow = (text: string) => `${text}\n${nowLine(project.sessionStatus())}`;
   const { dashboard, registryFile } = options;
+  // Told once per Session: each get_status after that would only repeat it.
+  let hooksChecked = false;
+  const hooksLine = (): string | undefined => {
+    if (hooksChecked || !isClaudeCode(server)) return undefined;
+    hooksChecked = true;
+    return hooksAdvice(project.root, options.claudeHome ?? homedir(), launchFor({ viaNpx: startedViaNpx(), platform: process.platform }));
+  };
   // The plan a tool acts on: this project's, or with `project` another one's, changed from here.
   const planOf = (wanted: string | undefined): Project => {
     if (!wanted?.trim()) return project;
@@ -602,9 +680,11 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       return respondIn(wanted, (p) => {
         if (p !== project) return formatOtherProject(p, nameOf(p));
         const elsewhere = takeElsewhereLine(project, seenFile(registryFile));
+        const hooks = hooksLine();
         return [
           status(),
           ...(elsewhere ? [elsewhere] : []),
+          ...(hooks ? [hooks] : []),
           `Project folder: ${project.root}`,
           ...(dashboard?.url ? [`Dashboard: ${dashboard.url}`] : []),
           ...(dashboard?.url && dashboard.notice ? [`Dashboard note: ${dashboard.notice}`] : []),
@@ -828,21 +908,30 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Complete Goal",
       description:
-        "Mark the claimed Goal done and release it, once its Outcome is true and its Tasks are done, released or dropped (not with a helper, waiting on the Developer or only checked) and the Developer has marked every hand test (add_hand_test) on the dashboard; unmarked_hand_tests_ok overrides that only when the Developer says to finish anyway. If more work turns up later, claim_goal reopens it.",
+        "Mark the claimed Goal done and release it, once its Outcome is true and its Tasks are done, released or dropped (not with a helper, waiting on the Developer or only checked). While the Developer still has hand tests (add_hand_test) to mark, the Goal is released as built and waiting on their tests instead: it finishes by itself when they mark the last one, and a failure reopens it with a new Task. unmarked_hand_tests_ok finishes it now, only when the Developer says to finish anyway. If more work turns up later, claim_goal reopens it.",
       inputSchema: {
         goal: heldGoal,
         unmarked_hand_tests_ok: z
           .boolean()
           .optional()
-          .describe("Finish even though some hand tests are still not marked by the Developer. Only when the Developer says to finish anyway."),
+          .describe("Finish now even though some hand tests are still not marked by the Developer. Only when the Developer says to finish anyway."),
         project: otherProject,
       },
     },
     ({ goal: id, unmarked_hand_tests_ok, project: wanted }) =>
       respondIn(wanted, (p) => {
         const options = { unmarkedHandTests: unmarked_hand_tests_ok };
-        if (p !== project) return doneIn(p, `Goal ${p.completeGoal(id, options).id} is done.`);
-        const goal = project.completeGoal(id, options);
+        const goal = p.completeGoal(id, options);
+        if (goal.status === "testing") {
+          const left = p.plan(goal.id).handTests.filter((h) => h.result === "pending").length;
+          const said =
+            `Goal ${goal.id} is built and waiting on the Developer's hand tests (${left} not marked yet); it is released. ` +
+            "It finishes by itself when they mark the last one, and a failure reopens it with a new Task.";
+          return p === project
+            ? `${said} Tell the Developer in one plain sentence that "${goal.title}" is built and ${left === 1 ? "one thing is" : `${left} things are`} waiting for them to try${dashboard?.url ? ` at ${dashboard.url}` : " on the dashboard"}.`
+            : doneIn(p, said);
+        }
+        if (p !== project) return doneIn(p, `Goal ${goal.id} is done.`);
         return `Goal ${goal.id} is done. Tell the Developer in one plain sentence that "${goal.title}" is finished${dashboard?.url ? `, and that they can see it at ${dashboard.url}` : ""}.`;
       }),
   );
@@ -852,13 +941,14 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Add Tasks",
       description:
-        "Append Tasks to the claimed Goal's plan, each with an estimate of how long it takes. For work that is not part of the plan, declare a Detour instead. Set done on a Task that is already finished.",
-      inputSchema: { goal: heldGoal, tasks: z.array(newTaskInput).min(1), project: otherProject },
+        "Append Tasks to the claimed Goal's plan, each with an estimate of how long it takes. For work that is not part of the plan, declare a Detour instead. Set done on a Task that is already finished: a small change you have made is recorded in this one call, with hand_test for what the Developer should try.",
+      inputSchema: { goal: heldGoal, tasks: z.array(addTaskInput).min(1), project: otherProject },
     },
     ({ goal, tasks, project: wanted }) =>
       respondIn(wanted, (p) => {
-        const added = p.addTasks(newTasks(tasks), goal);
-        return doneIn(p, `Added: ${added.map(taskLine).join("; ")}`);
+        const added = p.addTasks(newTasks(tasks.map(({ hand_test, ...t }) => t)), goal);
+        const tests = tasks.flatMap((t, i) => (t.hand_test?.trim() ? [p.addHandTest(t.hand_test, goal, added[i]!.id)] : []));
+        return doneIn(p, [`Added: ${added.map(taskLine).join("; ")}`, ...tests.map((h) => `Saved hand test ${h.id} about ${h.task}: ${h.text}`)].join("\n"));
       }),
   );
 
@@ -1208,7 +1298,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Add hand test",
       description:
-        "Add something only the Developer can try by hand to a claimed Goal, such as 'OpenCode may ask permission to read an attached file: allow it and check the reply'. Put it here instead of in your chat summary: the Developer sees the Goal's hand-test list on the dashboard and marks each one there as works, doesn't work (with a note) or won't test. A failure adds a Task to the Goal by itself; get_status shows what is still open and the new marks. A Goal cannot be completed while a hand test is unmarked.",
+        "Add something only the Developer can try by hand to a claimed Goal, such as 'OpenCode may ask permission to read an attached file: allow it and check the reply'. Put it here instead of in your chat summary: the Developer sees the Goal's hand-test list on the dashboard and marks each one there as works, doesn't work (with a note) or won't test. A failure adds a Task to the Goal by itself; get_status shows what is still open and the new marks. complete_goal with tests unmarked leaves the Goal waiting on them, and it finishes when the last is marked.",
       inputSchema: {
         goal: heldGoal,
         text: z.string().min(1).describe("What to try and what to look for, in one or two short plain sentences."),

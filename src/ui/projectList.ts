@@ -9,7 +9,7 @@ interface Entry {
 
 const busy = (p: Entry) => (p.goals ?? []).some((g) => g.status === "active" || g.status === "paused");
 
-const needsYou = (p: Entry) => (p.goals ?? []).some((g) => g.waitingOnYou && (g.status === "active" || g.status === "paused"));
+const needsYou = (p: Entry) => (p.goals ?? []).some((g) => g.waitingOnYou && (g.status === "active" || g.status === "paused" || g.status === "testing"));
 
 /** Projects with a step waiting on the Developer first, then those with a Goal in progress, then the others; each part by name, ignoring case. */
 export function sortProjects<P extends Entry>(projects: P[]): P[] {

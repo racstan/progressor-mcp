@@ -66,7 +66,7 @@ function stillNeeds(g: GoalLike, putOff: number | undefined): Needs & { needs: b
   return { ...left, needs };
 }
 
-const open = (g: GoalLike) => g.status === "active" || g.status === "paused" || g.status === "planned";
+const open = (g: GoalLike) => g.status === "active" || g.status === "paused" || g.status === "testing" || g.status === "planned";
 const newestFirst = (a: { goal: GoalLike }, b: { goal: GoalLike }) => (b.goal.updatedAt ?? 0) - (a.goal.updatedAt ?? 0);
 
 /** The home page: what needs the person, what is being worked on, and every project with its counts. */
@@ -107,6 +107,6 @@ export function sidebarSections<G extends GoalLike>(goals: G[], putOff: PutOff =
   return [
     { label: "Needs you", goals: needs },
     { label: "In progress", goals: rest.filter((g) => g.status === "active") },
-    { label: "Up next", goals: rest.filter((g) => g.status === "planned" || g.status === "paused") },
+    { label: "Up next", goals: rest.filter((g) => g.status === "planned" || g.status === "paused" || g.status === "testing") },
   ].filter((s) => s.goals.length > 0);
 }

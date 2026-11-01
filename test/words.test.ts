@@ -38,7 +38,7 @@ const now = Date.parse("2026-10-20T12:00:00Z");
 
 describe("plain words", () => {
   it("names every status in everyday words", () => {
-    expect(GOAL_WORD).toEqual({ planned: "Not started", active: "In progress", paused: "Paused", done: "Finished", dropped: "Cancelled" });
+    expect(GOAL_WORD).toEqual({ planned: "Not started", active: "In progress", paused: "Paused", testing: "Waiting on your tests", done: "Finished", dropped: "Cancelled" });
     expect(STEP_WORD.pending).toBe("To do");
     expect(STEP_WORD["in progress"]).toBe("Working on it");
     expect(STEP_WORD.dropped).toBe("Cancelled");
@@ -71,6 +71,12 @@ describe("which step", () => {
 
 describe("what the AI is doing", () => {
   const active = { status: "active", updatedAt: now - 2 * MIN };
+  it("says a built goal waits on the person's tests, not that it is paused", () => {
+    const s = goalState({ status: "testing", updatedAt: now - 3 * 60 * MIN, running: undefined, waitingOnYou: true }, now);
+    expect(s).toMatchObject({ state: "you", label: "Waiting on your tests" });
+    expect(s.hint).toMatch(/finishes by itself/);
+    expect(goalState({ status: "testing", updatedAt: undefined, running: undefined }, now).label).toBe("Waiting on your tests");
+  });
   it("is working while its chat is open and the plan changed lately", () => {
     expect(goalState({ ...active, running: true }, now).state).toBe("working");
   });

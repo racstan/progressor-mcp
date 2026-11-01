@@ -49,7 +49,7 @@ const editorName = (e: string) => EDITOR_NAMES[e] ?? (e.includes("{") ? "your ed
 
 /** The Goal shown first: one waiting on the Developer, else one being worked on, else a paused one, else the next planned one. */
 function defaultGoal(goals: Goal[]): string | undefined {
-  const waiting = goals.find((g) => g.waitingOnYou && (g.status === "active" || g.status === "paused"));
+  const waiting = goals.find((g) => g.waitingOnYou && (g.status === "active" || g.status === "paused" || g.status === "testing"));
   if (waiting) return waiting.id;
   for (const status of ["active", "paused", "planned", "done"])
     for (const g of goals) if (g.status === status) return g.id;
