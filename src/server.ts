@@ -24,14 +24,14 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 
 1. At the start of every conversation and after context compression, call get_status and follow the Standing Instructions it lists. If it says one Goal is paused, claim it (claim_goal) and carry on.
 2. When the Developer asks for work no Goal covers, plan it as a Goal: a short title, an Outcome (one sentence) and Tasks, each with the files it touches, a one-line summary and an estimate ("45m", "2h"). Tell the Developer the plan in a few plain lines, then add_goal with claim: true. A quick question needs no Goal.
-3. Before code for a Task longer than a few minutes, call start_task; when done, complete_task with the files touched. Record a small finished change in one call: add_tasks with done: true (and hand_test if the Developer should try it). Keep summaries and estimates true with update_task; drop_task what is not needed. set_task_state records Tasks in other hands (with a helper, waiting on you, checked, released); keep to any helper limit get_status shows.
+3. Before code for a Task longer than a few minutes, call start_task; when done, complete_task with the files touched. Record a small finished change in one call: add_tasks with done: true (and hand_test if the Developer should try it). Keep summaries and estimates true with update_task, or give complete_task the new summary if the work differs; drop_task what is not needed. set_task_state records Tasks in other hands (with a helper, waiting on you, checked, released); keep to any helper limit get_status shows.
 4. To change several Tasks at once, make one update_tasks call (applied in order, all or nothing). move_task moves a Task to another Goal. To hold several Goals, claim each one and pass goal (its ID) to the tools that change a Goal.
 5. About to change code for something that is not the current Task? Call start_detour with the reason first; afterwards end_detour ("merge back", "return" or "recalibrate").
 6. When every Task is done, released or dropped and the Outcome is true, call complete_goal and tell the Developer in one sentence.
-7. Talk to the Developer in everyday words: say "step" for Task and "side trip" for Detour, and leave out tool names, IDs and the files in .progressor/. Give them the dashboard link from get_status at the start of a conversation and when a Goal is finished.
+7. Talk to the Developer in everyday words: say "step" for Task and "side trip" for Detour, and leave out tool names, IDs and the files in .progressor/. Give them the dashboard link from get_status at the start and when a Goal is finished.
 8. A lasting rule from the Developer ("always...", "never...") is saved with add_standing_instruction (update_standing_instruction changes or removes one); a rule that must never be broken (they say "never", "this is a hard rule") with hard: true. update_context keeps the project's short Important context page; add_decision records a choice that is not a project rule; add_note records something that belongs to a Goal instead of fixing it now.
-9. Anything only the Developer can try by hand goes in add_hand_test, not in your chat summary. Show them a screenshot or screen recording with attach_picture instead of naming a file.
-10. The Developer can write to you on the dashboard: their messages and answers arrive at the end of your next Progressor reply under "New from the Developer". Act on each message as their instruction and answer with reply_to_developer (whole_project: true for a message to the whole project). For a product or UX choice, use ask_developer with 2 to 4 short choices instead of stopping in the chat.
+9. Anything only the Developer can try by hand goes in add_hand_test, not in your chat summary. Show a screenshot or recording with attach_picture instead of naming a file.
+10. The Developer can write to you on the dashboard: their messages and answers arrive at the end of your next Progressor reply under "New from the Developer". Act on each one and answer with reply_to_developer (whole_project: true for a message to the whole project). For a product or UX choice, use ask_developer with 2 to 4 short choices instead of stopping in the chat.
 11. When you brief a helper agent, paste in the block from get_rules: helpers don't see the Standing Instructions. Before starting something only one can use at a time (a dev window, a port), call claim_resource; release_resource when done.
 12. Work that belongs to another project using Progressor goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it.
 13. A * line in .progressor/.gitignore keeps the plan out of git; delete it if the Developer wants the plan in git.`;
@@ -192,7 +192,8 @@ export function nowLine(session: SessionStatus): string {
   const next = s.currentTask ?? s.nextTask;
   if (s.openDetour) return `Now: side trip "${s.openDetour.title}" (end it with end_detour) · then ${next ? taskLine(next) : "complete_goal"}`;
   if (s.currentTask) return `Now: ${taskLine(s.currentTask)} · Next: ${s.nextTask ? taskLine(s.nextTask) : "complete_goal"}`;
-  if (s.nextTask) return `Now: no Task in progress · Next: start_task ${taskLine(s.nextTask)}`;
+  if (s.nextTask)
+    return `Now: no Task in progress · Next: ${taskLine(s.nextTask)} (start_task, or complete_task if it is already built; update_tasks finishes several in one call)`;
   const waiting = elsewhere(s);
   return waiting.length > 0
     ? `Now: no Task in progress · Waiting: ${waiting.map(([t, state]) => `${taskLine(t)} (${state})`).join(", ")}`
@@ -418,6 +419,7 @@ export function formatItem(found: FoundItem, schedule?: Schedule, now = new Date
         `Plan File: ${found.planFile}`,
         ...(g.claim ? [`Claimed by: Session ${g.claim.session}${g.claim.since ? ` since ${g.claim.since}` : ""}`] : []),
         ...goalTime(g, schedule?.goals.find((x) => x.id === g.id)),
+        ...goalTaskLines(found.tasks),
       ].join("\n");
     }
     case "task": {
@@ -478,6 +480,20 @@ export function formatItem(found: FoundItem, schedule?: Schedule, now = new Date
   }
 }
 
+/** A Goal's Tasks for get_item: the open ones with their summaries, then the finished and dropped ones by name. */
+function goalTaskLines(tasks: Task[]): string[] {
+  const done = tasks.filter((t) => t.status === "done");
+  const dropped = tasks.filter((t) => t.status === "dropped");
+  const open = tasks.filter((t) => t.status !== "done" && t.status !== "dropped");
+  if (tasks.length === 0) return ["Tasks: none yet."];
+  return [
+    `Tasks (${done.length} of ${done.length + open.length} done):`,
+    ...open.map((t) => `- ${taskLine(t)} (${t.status})${t.summary ? `: ${t.summary}` : ""}`),
+    ...(done.length > 0 ? [`Done: ${done.map(taskLine).join("; ")}`] : []),
+    ...(dropped.length > 0 ? [`Dropped: ${dropped.map(taskLine).join("; ")}`] : []),
+  ];
+}
+
 /** The helper info a state change was given, or nothing when none was. */
 function helperOf(branch?: string, folder?: string, label?: string): HelperInfo | undefined {
   const h: HelperInfo = { ...(branch?.trim() ? { branch } : {}), ...(folder?.trim() ? { folder } : {}), ...(label?.trim() ? { label } : {}) };
@@ -524,16 +540,26 @@ export const TOOL_EXAMPLES: Record<string, string> = {
 };
 
 /**
- * Adds a tool's example to the SDK's answer to arguments of the wrong shape, which otherwise names
- * only the field that failed. The SDK builds every such answer in its createToolError.
+ * Adds the fields a tool takes and its example to the SDK's answer to arguments of the wrong shape,
+ * which otherwise names only the field that failed. The SDK builds every such answer in its createToolError.
  */
 function withExamples(server: McpServer): void {
-  const sdk = server as unknown as { createToolError?: (message: string) => { content: { type: "text"; text: string }[]; isError: true } };
+  const sdk = server as unknown as {
+    createToolError?: (message: string) => { content: { type: "text"; text: string }[]; isError: true };
+    _registeredTools?: Record<string, { inputSchema?: { shape?: Record<string, { isOptional?: () => boolean }> } }>;
+  };
   const original = sdk.createToolError?.bind(server);
   if (!original) return;
   sdk.createToolError = (message) => {
-    const example = TOOL_EXAMPLES[/Invalid arguments for tool (\w+)/.exec(message)?.[1] ?? ""];
-    return original(example ? `${message}\nA correct call: ${example}` : message);
+    const name = /Invalid arguments for tool (\w+)/.exec(message)?.[1] ?? "";
+    const shape = sdk._registeredTools?.[name]?.inputSchema?.shape ?? {};
+    const required = Object.keys(shape).filter((f) => !shape[f]!.isOptional?.());
+    const optional = Object.keys(shape).filter((f) => shape[f]!.isOptional?.());
+    const fields = [...required.map((f) => `${f} (required)`), ...optional];
+    const example = TOOL_EXAMPLES[name];
+    return original(
+      [message, ...(fields.length > 0 ? [`${name} takes: ${fields.join(", ")}.`] : []), ...(example ? [`A correct call: ${example}`] : [])].join("\n"),
+    );
   };
 }
 
@@ -1073,7 +1099,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Complete Task",
       description:
-        "Mark a Task of the claimed Goal done, recording the files it touched and, if it changed, the final summary of what it did. Works whether or not the Task was started. Answers briefly, with the time it took and where the work stands. For a Task that turned out unnecessary, use drop_task instead; to change a Task without finishing it, use update_task.",
+        "Mark a Task of the claimed Goal done, recording the files it touched. When what you built differs from the summary (a part left out, done another way, put somewhere else), pass the new summary so the plan matches the work. Works whether or not the Task was started; to finish several, use update_tasks. Answers briefly, with the time it took and where the work stands. For a Task that turned out unnecessary, use drop_task instead; to change a Task without finishing it, use update_task.",
       inputSchema: {
         goal: heldGoal,
         task: taskId,

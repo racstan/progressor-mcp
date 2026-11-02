@@ -38,7 +38,7 @@ describe("short answers for the step tools", () => {
     await call("start_task", { task: "t1" });
     const { text } = await call("complete_task", { task: "t1", code: ["a.ts"] });
     expect(text.split("\n")[0]).toBe("Done: t1 Route.");
-    expect(text.split("\n").at(-1)).toBe("Now: no Task in progress · Next: start_task t2 Logout");
+    expect(text.split("\n").at(-1)).toBe("Now: no Task in progress · Next: t2 Logout (start_task, or complete_task if it is already built; update_tasks finishes several in one call)");
     expect(text).not.toContain("Standing Instructions");
   });
 

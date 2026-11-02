@@ -775,6 +775,13 @@ describe("small finished work in one call", () => {
   it("asks for start_task only for work longer than a few minutes", async () => {
     expect(client.getInstructions()).toMatch(/longer than a few minutes, call start_task/);
   });
+
+  it("asks for a new summary when what was built differs from the plan", async () => {
+    expect(client.getInstructions()).toMatch(/give complete_task the new summary if the work differs/);
+    expect(client.getInstructions()).toMatch(/change several Tasks at once, make one update_tasks call/);
+    const { tools } = await client.listTools();
+    expect(tools.find((t) => t.name === "complete_task")?.description).toMatch(/differs from the summary/);
+  });
 });
 
 describe("a call with the wrong shape", () => {
@@ -784,6 +791,14 @@ describe("a call with the wrong shape", () => {
     expect(r.isError).toBe(true);
     expect(r.text).toContain("operations");
     expect(r.text).toContain('A correct call: update_tasks({ operations: [{ action: "complete", task: "t2" }');
+  });
+
+  it("names the fields the tool takes, required ones first", async () => {
+    const r = await call("get_item", { id: "login" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("get_item takes: ref (required).");
+    const h = await call("add_hand_test", { title: "Try it", steps: "Open the page" });
+    expect(h.text).toContain("add_hand_test takes: text (required), goal, task.");
   });
 
   it("has an example for every tool", async () => {
@@ -799,5 +814,20 @@ describe("get_item", () => {
     expect((await call("get_item", { ref: "login/t1" })).text).toContain("Task t1: Form");
     expect((await call("get_item", { ref: "login" })).text).toContain("Goal login: Login");
     expect((await call("get_item", { ref: "http://x/y" })).isError).toBe(true);
+  });
+
+  it("lists a Goal's open steps with their summaries, and which are finished", async () => {
+    await call("add_goal", {
+      title: "Login",
+      claim: true,
+      tasks: [{ title: "Form", summary: "The sign-in form" }, { title: "Route", summary: "POST /login" }, { title: "Logout" }, { title: "Old idea" }],
+    });
+    await call("complete_task", { task: "t1" });
+    await call("start_task", { task: "t2" });
+    await call("drop_task", { task: "t4", reason: "Not needed" });
+    const { text } = await call("get_item", { ref: "login" });
+    expect(text).toContain(
+      ["Tasks (1 of 3 done):", "- t2 Route (in progress): POST /login", "- t3 Logout (pending)", "Done: t1 Form", "Dropped: t4 Old idea"].join("\n"),
+    );
   });
 });

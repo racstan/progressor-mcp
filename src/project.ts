@@ -173,7 +173,7 @@ export interface ProjectOverview {
 }
 
 export type FoundItem =
-  | { kind: "goal"; ref: string; file: string; line: number; item: Goal; planFile: string }
+  | { kind: "goal"; ref: string; file: string; line: number; item: Goal; planFile: string; tasks: Task[] }
   | { kind: "task"; ref: string; file: string; line: number; item: Task }
   | { kind: "detour"; ref: string; file: string; line: number; item: Detour }
   | { kind: "decision"; ref: string; file: string; line: number; item: Decision }
@@ -1591,7 +1591,15 @@ export class Project {
     const goal = this.roadmap().goal(scope);
     if (!goal && !id) throw new Error(`No Goal ${scope}. Refs look like progressor://<goal>/<item>, such as progressor://login/t2.`);
     if (!goal) throw missing();
-    if (!id) return { kind: "goal", ref, file: roadmapFile, line: goal.line, item: goal, planFile: this.planFilePath(scope) };
+    if (!id) {
+      let tasks: Task[] = [];
+      try {
+        tasks = this.plan(scope).tasks;
+      } catch {
+        // a Goal whose Plan File cannot be read is still found
+      }
+      return { kind: "goal", ref, file: roadmapFile, line: goal.line, item: goal, planFile: this.planFilePath(scope), tasks };
+    }
     const plan = this.plan(scope);
     const file = this.planFilePath(scope);
     const task = plan.task(id);
