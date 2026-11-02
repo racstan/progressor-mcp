@@ -2,6 +2,13 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own plan, which is kept on the maintainer's computer; from 0.2.0 on, one release bundles several finished Goals.
 
+## 1.2.1 · Smoother bookkeeping for your AI
+
+- **Your AI sees a goal's steps when it looks the goal up**: the open steps with what each is for, then the finished and cancelled ones by name. Before, it had to open the plan file to see them.
+- **A wrong call names the fields the tool takes**, required ones first, along with the correct example, so your AI gets it right on the next try.
+- **No needless calls after finishing a step.** The hint after a finished step used to tell your AI to start the next one, even when it had already built it. Now it says to finish an already-built step straight away, and to finish several in one call.
+- **Steps stay true to what was built.** When the work turns out different from a step's description, your AI is asked to update the description as it finishes the step, so the plan matches what really happened.
+
 ## 1.2.0 · Longer wishes, and files on wishes
 
 - **No length limit on wishes.** Write as much as you like; you now write them in a bigger box (Ctrl+Enter adds). Your AI reads the whole wish, but is only told how a long one starts when you add or change it.
