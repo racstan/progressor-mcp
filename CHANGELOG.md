@@ -2,7 +2,7 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own plan, which is kept on the maintainer's computer; from 0.2.0 on, one release bundles several finished Goals.
 
-## Unreleased · Hotfixes, and What's new
+## 1.2.2 · Hotfixes, and What's new
 
 - **Report a bug and it jumps the queue.** Paste a bug report, such as one from a customer, on the new **Report a bug** page, or ask your AI to add a hotfix. It goes to the top of your goals with a **Hotfix** tag, after any older hotfix, and keeps the report word for word on its page. See [Hotfixes](docs/using.md#hotfixes).
 - **Every AI chat in the project is told** until one takes it: that chat finishes the step it is on, writes a test that shows the bug, then fixes it.
