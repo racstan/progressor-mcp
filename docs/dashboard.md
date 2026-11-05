@@ -137,6 +137,10 @@ Turn on **Pop up when a goal is finished** in Settings and the dashboard shows a
 
 Wherever the dashboard shows your AI's words, such as things to try by hand, steps, notes and messages, it picks out what to look at: things to click or type in "quotes" (a chip, like a button), menu paths such as Settings › Notifications (underlined), file names such as start.ps1 (in a typewriter font) and code in `backticks`. It finds them by itself, so nothing changes in how your AI writes. In the Vibrant theme each kind has its own colour; Light, Dark and System keep to black and grey. Hover one to see what kind it is.
 
+## Report a bug
+
+**Report a bug** in the sidebar is for a bug to fix before anything else. Paste the report as it was written, give it a short name if you like (the report's first line otherwise), and press **Add hotfix**. It goes to the top of your goals with a **Hotfix** tag, and its page shows the report. Your AI is told at once; see [Hotfixes](using.md#hotfixes).
+
 ## Wishlist
 
 **Wishlist** in the sidebar is for what you want from the project as a whole, in your own words: not goals or steps, just wishes, such as *People can use it on their phone*. Type one in the box at the top and press **Add wish**. Each wish has **Edit** and **Remove**, and a tick box for when you have what you wished for; ticked-off wishes move down to **You have these**, and unticking puts one back. Only you change the wishlist. Your AI reads it at every status check, is told about each change, and may suggest goals from it, but it never edits it.
@@ -188,7 +192,7 @@ The dashboard listens only on your own computer (`127.0.0.1`, and `::1` where th
 
 ### What the dashboard can change
 
-Only a few things, all from the dashboard's own page: stopping a Progressor server, marking a hand test, talking with your AI (sending or taking back a message, answering a question), editing the project notes (adding, rewording or removing a rule, and rewriting About this project), and changing the wishlist (adding, rewording, ticking off or removing a wish); your AI is told about each change. Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark, message, answer or note is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
+Only a few things, all from the dashboard's own page: stopping a Progressor server, marking a hand test, talking with your AI (sending or taking back a message, answering a question), editing the project notes (adding, rewording or removing a rule, and rewriting About this project), changing the wishlist (adding, rewording, ticking off or removing a wish), and reporting a bug as a hotfix; your AI is told about each change. Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark, message, answer or note is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
 
 ### The dashboard without an AI running
 

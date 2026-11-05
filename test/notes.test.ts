@@ -39,6 +39,26 @@ afterEach(async () => {
   await d.close();
 });
 
+describe("reporting a bug on the dashboard", () => {
+  it("adds a hotfix at the top with the report, tells the AI, and shows it on the goal", async () => {
+    agent.addGoal("Login");
+    const res = await post("hotfixes", { text: "Checkout fails with a coupon\n- add an item\n- apply SAVE10", title: "Coupon breaks checkout" });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({ id: "coupon-breaks-checkout", hotfix: true, status: "planned" });
+    expect(agent.roadmap().goals.map((g) => g.id)).toEqual(["coupon-breaks-checkout", "login"]);
+    expect(told()).toEqual(['On the dashboard I added hotfix coupon-breaks-checkout: "Coupon breaks checkout". Finish the step you are on, then claim it and fix it test first.']);
+    const view = await (await fetch(new URL(`/api/projects/${id}/goals/coupon-breaks-checkout`, d.url))).json();
+    expect(view.report).toBe("Checkout fails with a coupon\n- add an item\n- apply SAVE10");
+    expect(view.goal.hotfix).toBe(true);
+  });
+
+  it("refuses an empty report, and a request from another page", async () => {
+    expect((await post("hotfixes", { text: "  " })).status).toBe(400);
+    expect((await post("hotfixes", { text: "Bug" }, { origin: "https://evil.example" })).status).toBe(403);
+    expect(agent.roadmap().goals).toEqual([]);
+  });
+});
+
 describe("editing the project notes on the dashboard", () => {
   it("adds a rule, a must-never-break one too, and tells the AI", async () => {
     const res = await post("rules", { text: "Never push without asking", hard: true });

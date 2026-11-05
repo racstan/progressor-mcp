@@ -36,6 +36,7 @@ describe("the MCP server", () => {
         "add_decision",
         "add_goal",
         "add_hand_test",
+        "add_hotfix",
         "add_note",
         "add_standing_instruction",
         "add_tasks",

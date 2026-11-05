@@ -29,6 +29,8 @@ export type GoalStatus = "planned" | "active" | "paused" | "testing" | "done" | 
 /** The detail line on a Goal that is built and waiting on the Developer's hand tests. */
 const WAITING_ON = "waiting on";
 const HAND_TESTS = "hand tests";
+/** The detail line on a hotfix: a bug that jumps the queue (see Roadmap.addGoal). */
+const HOTFIX = "hotfix";
 
 export interface Claim {
   session: string;
@@ -52,6 +54,8 @@ export interface Goal {
    * open Tasks' (see schedule.ts); with one, it covers the open Tasks that have none of their own.
    */
   estimate?: number;
+  /** A hotfix: a bug to fix before any other work. Hotfixes stay at the top of the Roadmap. */
+  hotfix?: true;
   /** Set when the Goal was last added or changed from another project. */
   updatedFrom?: Origin;
   /** When it was added and last changed, and by whom; unknown in plans from before dates. */
@@ -102,7 +106,8 @@ export function slugify(title: string): string {
 }
 
 const HARD_VALUES = ["yes", "true"];
-const isHard = (b: ItemBlock) => HARD_VALUES.includes(getDetail(b, "hard")?.trim().toLowerCase() ?? "");
+const isYes = (value: string | undefined) => HARD_VALUES.includes(value?.trim().toLowerCase() ?? "");
+const isHard = (b: ItemBlock) => isYes(getDetail(b, "hard"));
 /** The detail line on a Standing Instruction that sets the project's helper limit. */
 export const HELPERS_AT_ONCE = "helpers at once";
 function helpersAtOnce(b: ItemBlock): number | undefined {
@@ -124,6 +129,19 @@ export function helperLimit(rules: StandingInstruction[]): { limit: number; rule
   let found: { limit: number; rule: StandingInstruction } | undefined;
   for (const rule of rules) if (rule.helpersAtOnce && (!found || rule.helpersAtOnce < found.limit)) found = { limit: rule.helpersAtOnce, rule };
   return found;
+}
+
+/**
+ * Hotfixes nobody is working on: not started, or started and let go. A hotfix a Session holds is
+ * being fixed; one built and waiting on hand tests is fixed.
+ */
+export const waitingHotfixes = (goals: Goal[]): Goal[] => goals.filter((g) => g.hotfix && (g.status === "planned" || g.status === "paused"));
+
+/** What a Session is told while a hotfix waits: finish the step in hand, then take the oldest one. */
+export function hotfixLine(goals: Goal[]): string | undefined {
+  const [first, ...more] = waitingHotfixes(goals);
+  if (!first) return undefined;
+  return `HOTFIX waiting: ${first.id} "${first.title}"${more.length > 0 ? ` (and ${more.length} more)` : ""}. Finish the step you are on, then claim it (claim_goal) and fix it test first: a test that shows the bug, then the fix.`;
 }
 
 function parseClaim(value: string | undefined): Claim | undefined {
@@ -180,6 +198,7 @@ export class Roadmap {
         outcome: getDetail(b, "outcome"),
         reason: getDetail(b, "reason"),
         ...(estimate !== undefined ? { estimate } : {}),
+        ...(isYes(getDetail(b, HOTFIX)) ? { hotfix: true as const } : {}),
         ...(origin ? { updatedFrom: origin } : {}),
         ...withDates(b),
       };
@@ -252,8 +271,11 @@ export class Roadmap {
     return id;
   }
 
-  /** Adds a Goal at the end of the Roadmap, under the given ID or one made from its title. */
-  addGoal(title: string, options: { id?: string; outcome?: string; estimate?: number } = {}): Goal {
+  /**
+   * Adds a Goal at the end of the Roadmap, under the given ID or one made from its title. A hotfix goes
+   * at the top instead, after any hotfixes already there, so the oldest bug is fixed first.
+   */
+  addGoal(title: string, options: { id?: string; outcome?: string; estimate?: number; hotfix?: boolean } = {}): Goal {
     this.ensureTitle();
     this.assignMissingIds();
     const id = options.id ?? this.freeGoalId(title);
@@ -265,6 +287,15 @@ export class Roadmap {
     const b = newItem({ marker: " ", text: `[${oneLine(title)}](goals/${id}.md)`, id });
     if (options.outcome?.trim()) addDetail(b, "outcome", oneLine(options.outcome));
     if (options.estimate !== undefined) addDetail(b, "estimate", formatDuration(options.estimate));
+    if (options.hotfix) {
+      addDetail(b, HOTFIX, "yes");
+      const first = this.goalBlocks().find((g) => !isYes(getDetail(g, HOTFIX)));
+      if (first) {
+        b.section = GOALS;
+        this.doc.blocks.splice(this.doc.blocks.indexOf(first), 0, b);
+        return this.goal(id)!;
+      }
+    }
     appendToSection(this.doc, GOALS, [b]);
     return this.goal(id)!;
   }

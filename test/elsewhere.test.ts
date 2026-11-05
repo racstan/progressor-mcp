@@ -297,7 +297,7 @@ describe("the tools", () => {
     const withProject = tools.filter((t) => "project" in ((t.inputSchema as { properties?: object }).properties ?? {})).map((t) => t.name);
     expect(withProject.sort()).toEqual(
       [
-        "add_decision", "add_goal", "add_note", "add_tasks", "complete_goal", "complete_task", "get_status",
+        "add_decision", "add_goal", "add_hotfix", "add_note", "add_tasks", "complete_goal", "complete_task", "get_status",
         "move_goal", "set_task_state", "update_goal", "update_note", "update_task", "update_tasks",
       ].sort(),
     );

@@ -1,6 +1,7 @@
 import {
   type HeadingBlock,
   type ItemBlock,
+  type TextBlock,
   type Marker,
   type MarkdownDoc,
   addDetail,
@@ -200,6 +201,10 @@ export const MESSAGES = "Messages";
 export const QUESTIONS = "Questions";
 export const DECISIONS = "Decisions";
 export const NOTES = "Notes";
+/** A hotfix's bug report, as the Developer or a customer wrote it, quoted so no line of it is read as plan. */
+export const REPORT = "Report";
+/** The longest bug report a hotfix keeps. */
+export const MAX_REPORT = 8000;
 const DETOUR_PREFIX = "Detour: ";
 
 const TASK_STATUS: Record<Marker, TaskStatus> = {
@@ -366,6 +371,35 @@ export class PlanFile {
     const h = this.doc.blocks.find((b): b is HeadingBlock => b.type === "heading" && b.level === 1);
     if (h) h.text = oneLine(title);
     else this.doc.blocks.unshift(newHeading(1, oneLine(title)), { type: "text", text: "" });
+  }
+
+  /** A hotfix's bug report, word for word; undefined when the Goal has none. */
+  get report(): string | undefined {
+    const h = findSection(this.doc, REPORT);
+    if (h < 0) return undefined;
+    const lines: string[] = [];
+    for (const b of this.doc.blocks.slice(h + 1)) {
+      if (b.type === "heading") break;
+      if (b.type === "text" && /^>/.test(b.text)) lines.push(b.text.replace(/^> ?/, ""));
+    }
+    return lines.join("\n").trim() || undefined;
+  }
+
+  /** Keeps a hotfix's bug report under ## Report, before the Tasks; a new report replaces the old one. */
+  set report(text: string | undefined) {
+    const h = findSection(this.doc, REPORT);
+    if (h >= 0) {
+      let end = h + 1;
+      while (end < this.doc.blocks.length && this.doc.blocks[end]!.type !== "heading") end++;
+      this.doc.blocks.splice(h, end - h);
+    }
+    const body = text?.replace(/\r\n?/g, "\n").trim();
+    if (!body) return;
+    const quoted: TextBlock[] = body.split("\n").map((line) => ({ type: "text", text: line.trim() ? `> ${line.trimEnd()}` : ">" }));
+    const blocks = [newHeading(2, REPORT), { type: "text", text: "" } as TextBlock, ...quoted, { type: "text", text: "" } as TextBlock];
+    const tasks = findSection(this.doc, TASKS);
+    if (tasks >= 0) this.doc.blocks.splice(tasks, 0, ...blocks);
+    else this.doc.blocks.push({ type: "text", text: "" }, ...blocks);
   }
 
   private taskBlocks(): ItemBlock[] {

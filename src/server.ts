@@ -14,7 +14,7 @@ import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, sta
 import { handTestLines, handTestWord } from "./handTestText.js";
 import { elsewhereNewsLine, newsLines, projectTalkLine, talkLines } from "./talkText.js";
 import { type ResourceLock, holderText, resourceLine } from "./resources.js";
-import { type Goal, type StandingInstruction, hardFirst, helperLimit, ruleText } from "./roadmap.js";
+import { type Goal, type StandingInstruction, hardFirst, helperLimit, hotfixLine, ruleText } from "./roadmap.js";
 import type { GoalSchedule, Schedule } from "./schedule.js";
 import type { Wish } from "./wishlist.js";
 
@@ -137,7 +137,17 @@ export function resourceLines(locks: ResourceLock[], now: Date): string[] {
 const statusText = (g: Goal) => (g.status === "testing" ? "built, waiting on the Developer's hand tests" : g.status);
 
 function goalLine(g: Goal): string {
-  return `- ${g.id}: ${g.title} (${statusText(g)})`;
+  return `- ${g.id}: ${g.hotfix ? "HOTFIX " : ""}${g.title} (${statusText(g)})`;
+}
+
+/** A held hotfix's bug report, quoted, so the Agent fixes what was reported. */
+const reportLines = (s: Status) => (s.goal?.hotfix && s.report ? ["Bug report:", ...s.report.split("\n").map((l) => `> ${l}`)] : []);
+
+/** The hotfix line first, while one waits and this Session is not already fixing a hotfix. */
+function hotfixFirst(session: SessionStatus): string[] {
+  if (session.held.some((s) => s.goal?.hotfix)) return [];
+  const line = hotfixLine(session.goals);
+  return line ? [line] : [];
 }
 
 function taskLine(t: Task): string {
@@ -185,6 +195,12 @@ const nextLine = (s: Status) =>
 
 /** One line on where the work stands, for the end of results that don't show the whole status. */
 export function nowLine(session: SessionStatus): string {
+  const [hotfix] = hotfixFirst(session);
+  const now = plainNowLine(session);
+  return hotfix ? `${hotfix}\n${now}` : now;
+}
+
+function plainNowLine(session: SessionStatus): string {
   const { held } = session;
   if (held.length === 0) return "Now: no Goal claimed; call get_status.";
   if (held.length > 1) return `Now: ${held.map((s) => `${s.goal!.id}: ${goalNow(s)}`).join(" · ")}`;
@@ -214,9 +230,10 @@ function heldGoalLines(s: Status): string[] {
   const g = s.goal!;
   const d = s.openDetour;
   return [
-    `Goal ${g.id}: ${g.title} (${g.ref}), ${s.done} of ${s.total} Tasks done${s.waitingOnYou.length > 0 ? ", waiting on the Developer" : ""}`,
+    `${g.hotfix ? "HOTFIX" : "Goal"} ${g.id}: ${g.title} (${g.ref}), ${s.done} of ${s.total} Tasks done${s.waitingOnYou.length > 0 ? ", waiting on the Developer" : ""}`,
     ...[
       ...(g.outcome ? [`Outcome: ${g.outcome}`] : []),
+      ...reportLines(s),
       s.currentTask ? `Current Task: ${taskLine(s.currentTask)} (${s.planFile}:${s.currentTask.line})` : "Current Task: none",
       ...(d ? [`Open Detour: ${d.id} ${d.title}. Reason: ${d.reason ?? "none given"}`] : []),
       ...elsewhereLines(s),
@@ -297,8 +314,10 @@ export function formatStatus(session: SessionStatus, schedule?: Schedule, warnin
   const timing = [...(schedule ? scheduleLines(schedule, session.held.map((s) => s.goal!.id)) : []), ...warnings];
   if (session.context) instructions.push("Important context:", session.context);
   instructions.push(...wishlistLines(session.wishes));
+  const hotfix = hotfixFirst(session);
   if (session.held.length > 1)
     return [
+      ...hotfix,
       `This Session holds ${session.held.length} Goals; pass goal (the Goal ID) to the tools that change one.`,
       ...session.held.flatMap(heldGoalLines),
       ...timing,
@@ -308,6 +327,7 @@ export function formatStatus(session: SessionStatus, schedule?: Schedule, warnin
   if (!s?.goal) {
     const paused = session.goals.filter((g) => g.status === "paused");
     return [
+      ...hotfix,
       paused.length === 1
         ? `No Goal is claimed by this Session. Goal ${paused[0]!.id} ("${paused[0]!.title}") is paused: claim it with claim_goal and carry on.`
         : "No Goal is claimed by this Session. Claim one with claim_goal, or plan one and add it with add_goal (claim: true).",
@@ -318,7 +338,9 @@ export function formatStatus(session: SessionStatus, schedule?: Schedule, warnin
   }
   const d = s.openDetour;
   return [
-    `Goal: ${s.goal.title} (${s.goal.ref}), claimed by this Session`,
+    ...hotfix,
+    `${s.goal.hotfix ? "HOTFIX" : "Goal"}: ${s.goal.title} (${s.goal.ref}), claimed by this Session`,
+    ...reportLines(s),
     ...(s.goal.outcome ? [`Outcome: ${s.goal.outcome}`] : []),
     `Plan File: ${s.planFile}`,
     `Progress: ${s.done} of ${s.total} Tasks done`,
@@ -505,6 +527,7 @@ export const TOOL_EXAMPLES: Record<string, string> = {
   get_status: "get_status({})",
   get_item: 'get_item({ ref: "progressor://login/t2" })',
   get_rules: "get_rules({})",
+  add_hotfix: 'add_hotfix({ report: "Checkout fails with a 500 when the cart has a coupon" })',
   add_goal: 'add_goal({ title: "Ship login", outcome: "Users can sign in", tasks: [{ title: "Add form", estimate: "45m" }], claim: true })',
   update_goal: 'update_goal({ goal: "login", outcome: "Users can sign in with Google" })',
   move_goal: 'move_goal({ goal: "login", before: "billing" })',
@@ -783,6 +806,32 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks, claimed by this Session.\n\n${status()}`;
         }
         return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks. Claim it with claim_goal to work on it.`;
+      }),
+  );
+
+  server.registerTool(
+    "add_hotfix",
+    {
+      title: "Add hotfix",
+      description:
+        "Add a hotfix: a bug the Developer wants fixed before any other work, often from a customer report. Pass the report word for word. It goes at the top of the Roadmap with two Tasks (a test that shows the bug, then the fix), and every Session is told it is waiting until one claims it. With claim: true, claim it now; otherwise finish the step you are on first, then claim it.",
+      inputSchema: {
+        report: z.string().min(1).describe("The bug report as the Developer or customer wrote it: what goes wrong, and how to make it happen if known."),
+        title: z.string().optional().describe("A few words naming the bug; the report's first line when left out."),
+        claim: z.boolean().optional().describe("Claim the hotfix straight away, to start on it now."),
+        project: otherProject,
+      },
+    },
+    ({ report, title, claim, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        if (p !== project && claim) throw new Error("A hotfix added to another project's plan cannot be claimed from here; leave out claim.");
+        const goal = p.addHotfix(report, { title });
+        if (p !== project) return doneIn(p, `Added hotfix ${goal.id} (${goal.ref}) at the top of the Roadmap.`);
+        if (claim) {
+          project.claimGoal(goal.id);
+          return `Added hotfix ${goal.id} (${goal.ref}), claimed by this Session. Start with t1: a test that shows the bug.\n\n${status()}`;
+        }
+        return withNow(`Added hotfix ${goal.id} (${goal.ref}) at the top of the Roadmap. Finish the step you are on, then claim it with claim_goal.`);
       }),
   );
 

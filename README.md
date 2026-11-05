@@ -132,6 +132,7 @@ Open **http://localhost:4747** while your AI's app is open (your AI gives you th
 - **What the AI is doing:** *AI working*, *Waiting on you*, or *AI stopped* when its chat has closed, with how far along each goal is.
 - **When things happen:** every goal, step, decision and note says when it was added, by whom, and when it changed. Steps say when they started and finished.
 - **How long it will take:** your AI estimates each step, and each goal shows a rough finish: *done in about 2 h*. Tell it *"at most 2 helpers at a time"* and it keeps to that.
+- **Report a bug:** paste a bug report, such as one from a customer, and it goes to the top of your goals as a **hotfix**. Every AI chat in the project is told; the one that takes it finishes the step it is on, writes a test that shows the bug, then fixes it.
 - **Pictures:** your AI can attach a screenshot or screen recording to a goal or step, so you see the change instead of reading about it.
 - **Copy for your AI** and **Show in folder** on every goal and step, to point your AI at it or open the plan file.
 - **Work for one project, recorded in another:** when a chat in one project does work for another, it can record it in that project's plan, tagged *Updated from*.

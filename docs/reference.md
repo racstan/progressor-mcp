@@ -50,6 +50,7 @@ The AI calls these; the server's instructions tell it when.
 | `get_item` | Looks up any item by its `progressor://` ref (the `progressor://` may be left off), with its file and line; a Task with its time against its estimate, a Goal with its estimate and expected finish. |
 | `get_rules` | The Standing Instructions as a block to paste into a helper agent's brief: hard rules first, then the others, the helper limit if one is set, and a line telling the helper not to edit `.progressor/`. |
 | `add_goal` | Adds a Goal with an optional Task list, Outcome, `estimate` and short ID; `claim: true` claims it at once; `done: true` records finished work. |
+| `add_hotfix` | Adds a hotfix from a bug `report` (kept word for word; at most 8,000 characters) and an optional `title` (the report's first line otherwise): a Goal at the top of the Roadmap, after older hotfixes, with two Tasks, a test that shows the bug and the fix. `claim: true` claims it at once. See [Hotfixes](#hotfixes). |
 | `update_goal` | Renames a Goal or changes its Outcome or `estimate` (empty removes it). |
 | `move_goal` | Moves a Goal before or after another. |
 | `drop_goal` | Drops a Goal that is no longer wanted, with a reason. |
@@ -109,6 +110,10 @@ The project's own Session hears about those changes once: `get_status`, and Clau
 While a tool reads and rewrites a plan, it holds that plan, so a Session in the project and a change from another project take turns instead of one overwriting the other. The hold is a small file in the system's temp folder; one left by a process that ended is taken over. If another Progressor holds the plan for more than 5 seconds, the tool answers *The plan in … is busy: another Progressor is changing it. Try again in a moment.*
 
 Every tool that changes a claimed Goal (`add_tasks`, `start_task`, `set_task_state`, `update_task`, `complete_task`, `drop_task`, `update_tasks`, `move_task` (the Goal the Task is in), `start_detour`, `end_detour`, `add_decision`, `update_decision`, `add_hand_test`, `update_hand_test`, `attach_picture`, `ask_developer`, `reply_to_developer`, `complete_goal`, `release_goal`) takes an optional `goal`: the Goal's ID. It is needed only while the Session holds several Goals.
+
+### Hotfixes
+
+A hotfix is a Goal with a `hotfix: yes` line in the Roadmap and its bug report under a `## Report` heading in its Plan File, each line quoted with `> ` so no line of it is read as a Task. While a hotfix is not claimed (planned, or paused), `get_status`, the `Now:` line that ends other tools' answers and Claude Code's hooks start with `HOTFIX waiting: <goal> "<title>"`, telling the Agent to finish the step it is on, then claim it and fix it test first. A Session already holding a hotfix is not told. The held hotfix's status shows the report. The dashboard adds one with `POST /api/projects/<project>/hotfixes` (`{ "text": "<report>", "title": "<optional>" }`, the `notes` header), which also tells the Agent in a message to the whole project.
 
 ### Hand tests
 
@@ -216,7 +221,7 @@ The hook reads `.progressor/` straight from disk, so it needs no running server,
 
 Everything lives in `.progressor/` in the project:
 
-- `roadmap.md`: the Goals in order, with their Outcomes and Claims, and the Standing Instructions (a hard rule has a `hard: yes` line).
+- `roadmap.md`: the Goals in order, with their Outcomes and Claims, and the Standing Instructions (a hard rule has a `hard: yes` line). A hotfix has a `hotfix: yes` line.
 - `goals/<id>.md`: one Plan File per Goal, with its Tasks, decisions, notes, hand tests and Detours.
 
 They are plain markdown, written only by the server's tools. Locks on shared resources are not in them (see [Locks on shared resources](#locks-on-shared-resources)). An example Plan File:

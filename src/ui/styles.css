@@ -721,3 +721,17 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 [data-theme="vibrant"] .hl-label { color: var(--accent); background: var(--accent-soft); border-color: #c9cdf3; box-shadow: none; }
 [data-theme="vibrant"] .hl-path { color: #0e7c86; text-decoration-color: #9fd3d8; }
 [data-theme="vibrant"] .hl-file { color: #a2337e; border-bottom-color: #e3b5d4; }
+
+/* hotfixes: a bug to fix before anything else; marked by an inverted tag, never by colour */
+.hotfix-tag { display: inline-block; margin-right: var(--s2); padding: 0 var(--s2); border-radius: 99px; background: var(--ink); color: var(--bg); font-size: 11px; font-weight: 700; line-height: 18px; vertical-align: 1px; letter-spacing: .02em; }
+.hotfix-tag.big { font-size: var(--t-s); line-height: 22px; padding: 0 var(--s3); vertical-align: 4px; }
+.hotfix-report { margin-top: var(--s3); border: var(--heavy); border-radius: var(--r); background: var(--panel); }
+.hotfix-report summary { cursor: pointer; padding: var(--s2) var(--s3); font-weight: 600; }
+.hotfix-report pre { margin: 0; padding: 0 var(--s3) var(--s3); white-space: pre-wrap; word-break: break-word; font: inherit; line-height: 1.5; }
+.hotfix-form { display: flex; flex-direction: column; gap: var(--s3); }
+.hotfix-form .field { display: flex; flex-direction: column; gap: var(--s1); font-weight: 600; }
+.hotfix-form .field .muted { font-weight: 400; color: var(--muted); }
+.hotfix-form textarea, .hotfix-form input { width: 100%; padding: var(--s2) var(--s3); border-radius: var(--r-s); border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-weight: 400; line-height: 1.5; }
+.hotfix-form textarea { resize: vertical; }
+.hotfix-form textarea:focus, .hotfix-form input:focus { outline: none; border-color: var(--accent); }
+.hotfix-form .error { font-size: var(--t-s); color: var(--bad); margin-right: auto; }

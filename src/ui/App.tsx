@@ -2,7 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { DEFAULT_EDITOR, EDITORS, editorUrl } from "../dashboard/editor.js";
 import type { GoalSchedule } from "../schedule.js";
 import { type RoadmapView, showInFolder, useDashboard, useOverview, useSearch, useServers, usePageStaleness, useStored, useStoredJson } from "./data.js";
-import { CONTEXT_HASH, STATS_HASH, TALK_HASH, WISHLIST_HASH, contextFromHash } from "./context.js";
+import { CONTEXT_HASH, HOTFIX_HASH, STATS_HASH, TALK_HASH, WISHLIST_HASH, contextFromHash } from "./context.js";
+import { HotfixPage } from "./HotfixPage.js";
 import { ContextPage } from "./ContextPage.js";
 import { WishlistPage } from "./WishlistPage.js";
 import { StatsPage } from "./StatsPage.js";
@@ -110,6 +111,7 @@ export function App() {
   const [onTalk, setOnTalk] = useState(() => location.hash === TALK_HASH);
   const [onStats, setOnStats] = useState(() => location.hash === STATS_HASH);
   const [onWishes, setOnWishes] = useState(() => location.hash === WISHLIST_HASH);
+  const [onHotfix, setOnHotfix] = useState(() => location.hash === HOTFIX_HASH);
   const [theme, setTheme] = useStored<Theme>("progressor.theme", undefined);
   const [finished, setFinished] = useStored<Finished>("progressor.finished", undefined);
   const [showHidden, setShowHidden] = useStored<"1">("progressor.show-hidden", undefined);
@@ -155,7 +157,7 @@ export function App() {
   // Without a pick, the Goal on screen stays on screen as the plan changes; the default is chosen once per project.
   const shownBefore = useRef<{ project: string | undefined; goal: string | undefined }>({ project: undefined, goal: undefined });
   const kept = shownBefore.current.project === projectId ? shownBefore.current.goal : undefined;
-  const effectiveGoal = onContext || onTalk || onStats || onWishes
+  const effectiveGoal = onContext || onTalk || onStats || onWishes || onHotfix
     ? undefined
     : picked && goals.some((g) => g.id === picked)
       ? picked
@@ -199,6 +201,7 @@ export function App() {
       setOnTalk(location.hash === TALK_HASH);
       setOnStats(location.hash === STATS_HASH);
       setOnWishes(location.hash === WISHLIST_HASH);
+      setOnHotfix(location.hash === HOTFIX_HASH);
     };
     addEventListener("hashchange", onNavigate);
     addEventListener("popstate", onNavigate);
@@ -219,6 +222,7 @@ export function App() {
     setOnTalk(false);
     setOnStats(false);
     setOnWishes(false);
+    setOnHotfix(false);
     closeAll();
   };
   const openContext = () => {
@@ -227,6 +231,7 @@ export function App() {
     setOnTalk(false);
     setOnStats(false);
     setOnWishes(false);
+    setOnHotfix(false);
     closeAll();
   };
   const openTalk = () => {
@@ -235,6 +240,7 @@ export function App() {
     setOnContext(false);
     setOnStats(false);
     setOnWishes(false);
+    setOnHotfix(false);
     closeAll();
   };
   const openStats = () => {
@@ -243,6 +249,16 @@ export function App() {
     setOnContext(false);
     setOnTalk(false);
     setOnWishes(false);
+    setOnHotfix(false);
+    closeAll();
+  };
+  const openHotfix = () => {
+    history.replaceState(null, "", `${location.search}${HOTFIX_HASH}`);
+    setOnHotfix(true);
+    setOnWishes(false);
+    setOnContext(false);
+    setOnTalk(false);
+    setOnStats(false);
     closeAll();
   };
   const openWishes = () => {
@@ -262,6 +278,7 @@ export function App() {
     setOnTalk(false);
     setOnStats(false);
     setOnWishes(false);
+    setOnHotfix(false);
     closeAll();
     scrollMainToTop();
   };
@@ -299,6 +316,7 @@ export function App() {
     setOnTalk(false);
     setOnStats(false);
     setOnWishes(false);
+    setOnHotfix(false);
     closeAll();
   };
 
@@ -324,8 +342,8 @@ export function App() {
 
   useEffect(() => {
     const where = onHome ? (workspaces?.find((w) => w.id === pickedWorkspace)?.name ?? "Home") : undefined;
-    document.title = [onContext ? "Project notes" : onTalk ? "Message your AI" : onStats ? "Statistics" : onWishes ? "Wishlist" : shownGoal?.goal.title, project?.name, where, "Progressor"].filter(Boolean).join(" · ");
-  }, [shownGoal, project, onHome, onContext, onTalk, onStats, onWishes, workspaces, pickedWorkspace]);
+    document.title = [onContext ? "Project notes" : onTalk ? "Message your AI" : onStats ? "Statistics" : onWishes ? "Wishlist" : onHotfix ? "Report a bug" : shownGoal?.goal.title, project?.name, where, "Progressor"].filter(Boolean).join(" · ");
+  }, [shownGoal, project, onHome, onContext, onTalk, onStats, onWishes, onHotfix, workspaces, pickedWorkspace]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -394,7 +412,7 @@ export function App() {
           setGoalMenu({ id: g.id, at: { x: e.clientX, y: e.clientY } });
         }}>
         <Ring done={g.done} total={g.total} finished={g.status === "done"} />
-        <span className="t">{g.title}{fresh && <span className="fresh" role="img" aria-label="finished, not looked at yet" />}</span>
+        <span className="t">{g.hotfix && g.status !== "done" && <span className="hotfix-tag" title="A bug to fix before anything else">Hotfix</span>}{g.title}{fresh && <span className="fresh" role="img" aria-label="finished, not looked at yet" />}</span>
         <span className="n">{g.total ? `${g.done}/${g.total}` : ""}</span>
         {why && <span className="why">{why}</span>}
       </button>
@@ -446,6 +464,8 @@ export function App() {
     <div className="placeholder">Loading…</div>
   ) : onStats && projectId ? (
     <StatsPage projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} />
+  ) : onHotfix && projectId ? (
+    <HotfixPage projectId={projectId} onAdded={(id) => { refresh(); pickGoal(id); toast("Hotfix added. Your AI takes it as soon as it finishes the step it is on."); }} />
   ) : onWishes && projectId ? (
     <WishlistPage projectId={projectId} wishes={roadmap.wishes} onChanged={refresh} />
   ) : onContext && projectId ? (
@@ -637,6 +657,9 @@ export function App() {
             </div>
           ) : (
             <>
+              <button className="side-link" aria-current={onHotfix} onClick={openHotfix} title="A bug to fix before anything else: your AI finishes the step it is on, then fixes it, test first">
+                <Icon name="flag" /> Report a bug
+              </button>
               <button className="side-link" aria-current={onTalk} onClick={openTalk} title="Write to your AI about the whole project, not one goal">
                 <Icon name="send" /> Message your AI
                 {unread > 0 && <span className="n" title="New replies from your AI you haven't read yet">{unread}</span>}

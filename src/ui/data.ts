@@ -326,6 +326,10 @@ export const changeRule = (projectId: string, id: string, text: string, hard: bo
 /** Removes a rule. */
 export const removeRule = (projectId: string, id: string) => postNotes(projectId, `rules/${encodeURIComponent(id)}/delete`, {});
 
+/** Adds a hotfix: a bug report the AI fixes before any other work. */
+export const addHotfix = async (projectId: string, report: string, title?: string) =>
+  (await postNotesAnswer(projectId, "hotfixes", { text: report, ...(title?.trim() ? { title } : {}) })) as { id: string };
+
 /** Replaces the About this project text (the Important context). */
 export const saveContext = (projectId: string, text: string) => postNotes(projectId, "context", { text });
 

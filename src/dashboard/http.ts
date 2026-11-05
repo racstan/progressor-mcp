@@ -186,7 +186,9 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
       // Each picture comes with the address the page loads it from (served by the hub below); the
       // time it was added is in it, so a new picture that reuses a removed one's name is not cached.
       const pictures = project.pictures(goalId).map((p) => ({ ...p, url: `/api/projects/${encodeURIComponent(projectId)}/goals/${encodeURIComponent(goalId)}/pictures/${encodeURIComponent(p.file)}?v=${encodeURIComponent(p.addedAt)}` }));
-      return { goal, graph: buildGoalGraph(plan), decisions, notes, handTests, messages, questions, pictures };
+      // A hotfix's bug report, word for word (planFile.ts).
+      const report = goal.hotfix ? plan.report : undefined;
+      return { goal, graph: buildGoalGraph(plan), decisions, notes, handTests, messages, questions, pictures, ...(report ? { report } : {}) };
     },
     item: (ref: string) => project.getItem(ref),
     /** Statistics over every goal's steps and side trips (stats.ts); a goal whose plan cannot be read counts as empty. */
@@ -647,6 +649,7 @@ class Hub {
           project.sendMessage(PROJECT_TALK, `On the dashboard I changed rule ${changed.id} to: "${changed.text}"${changed.hard ? " (it must never be broken)" : ""}. Follow it from now on.`);
           return { status: 200, body: changed };
         }
+        if (action === "hotfixes") return this.hotfix(project, body);
         if (action.startsWith("wishes")) return this.wish(project, action, body);
         return { status: 404, body: { error: "Nothing to do here." } };
       });
@@ -655,6 +658,19 @@ class Hub {
       const message = (e as Error).message;
       return json(res, /^No /.test(message) ? 404 : 400, { error: message });
     }
+  }
+
+  /**
+   * The Developer adding a hotfix: a bug report to fix before any other work (Project.addHotfix). The
+   * AI hears of it at its next call, and every Session is told it is waiting until one claims it.
+   */
+  private hotfix(project: Project, body: Record<string, unknown>): { status: number; body: unknown } {
+    const { text, title } = body;
+    if (typeof text !== "string" || !text.trim()) throw new Error("Paste the bug report first.");
+    if (title !== undefined && typeof title !== "string") throw new Error("The title must be text.");
+    const added = project.addHotfix(text, { title });
+    project.sendMessage(PROJECT_TALK, `On the dashboard I added hotfix ${added.id}: "${added.title}". Finish the step you are on, then claim it and fix it test first.`);
+    return { status: 201, body: added };
   }
 
   /**
@@ -759,7 +775,7 @@ class Hub {
     if (req.method === "POST" && shown) return void this.showInFolder(req, res, decodeURIComponent(shown[1]!));
     const upload = /^\/api\/projects\/([^/]+)\/wishes\/([^/]+)\/attachments$/.exec(path);
     if (req.method === "POST" && upload) return void this.attach(req, res, decodeURIComponent(upload[1]!), decodeURIComponent(upload[2]!));
-    const notes = /^\/api\/projects\/([^/]+)\/(context|(?:rules|wishes)(?:\/[^/]+(?:\/attachments\/[^/]+)?(?:\/delete)?)?)$/.exec(path);
+    const notes = /^\/api\/projects\/([^/]+)\/(context|hotfixes|(?:rules|wishes)(?:\/[^/]+(?:\/attachments\/[^/]+)?(?:\/delete)?)?)$/.exec(path);
     if (req.method === "POST" && notes) return void this.notes(req, res, decodeURIComponent(notes[1]!), notes[2]!);
     const talk = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/((?:messages|questions)(?:\/[^/]+\/(?:delete|answer))?)$/.exec(path);
     if (req.method === "POST" && talk) return void this.talk(req, res, decodeURIComponent(talk[1]!), decodeURIComponent(talk[2]!), talk[3]!);

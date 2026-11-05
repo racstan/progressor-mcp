@@ -14,6 +14,9 @@ export const STATS_HASH = "#/stats";
 /** The address of the Wishlist page. */
 export const WISHLIST_HASH = "#/wishlist";
 
+/** The address of the page for reporting a bug to fix first (a hotfix). */
+export const HOTFIX_HASH = "#/hotfix";
+
 export type ContextBlock = { kind: "paragraph"; text: string } | { kind: "list"; ordered: boolean; items: string[] };
 
 const BULLET = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/;

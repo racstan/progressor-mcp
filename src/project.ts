@@ -19,6 +19,7 @@ import {
   type TaskStatus,
   DECISIONS,
   HAND_TESTS,
+  MAX_REPORT,
   NOTES,
   TASKS,
   newPlanFile,
@@ -146,6 +147,8 @@ export interface Status {
   goals: Goal[];
   /** When the Goal's plan last changed (the Plan File's time, else the Roadmap's), in ms since 1970. */
   updatedAt: number | undefined;
+  /** A hotfix's bug report, word for word. */
+  report?: string;
 }
 
 /** Every Goal this Session holds, with what get_status shows besides. */
@@ -313,6 +316,14 @@ const PLAN_DATES: DateScope = {
 };
 
 /** The progress record of one project, as seen by one Session. Every call re-reads the files. */
+/** A hotfix's title from its report: the first line, cut at a word to at most 80 characters. */
+export function hotfixTitle(report: string): string {
+  const first = report.split("\n").map((l) => l.replace(/\s+/g, " ").trim()).find((l) => l) ?? "Hotfix";
+  if (first.length <= 80) return first;
+  const cut = first.slice(0, 80);
+  return `${cut.slice(0, cut.lastIndexOf(" ") > 40 ? cut.lastIndexOf(" ") : 80).trimEnd()}…`;
+}
+
 export class Project {
   private folder: string;
   readonly session: SessionIdentity;
@@ -774,6 +785,33 @@ export class Project {
     const plan = newPlanFile(goal.id, title);
     plan.now = this.now;
     if (tasks.length > 0) this.markItems(plan, plan.addTasks(tasks).map((t) => t.id));
+    this.saveRoadmap(roadmap);
+    this.savePlan(plan);
+    return roadmap.goal(goal.id)!;
+  }
+
+  /**
+   * Adds a hotfix: a bug to fix before any other work. It goes at the top of the Roadmap (after older
+   * hotfixes), keeps the report word for word, and has two Tasks: a test that shows the bug, then the
+   * fix. Its title is the report's first line unless one is given. Every Session is told about it
+   * until one claims it (see waitingHotfixes).
+   */
+  addHotfix(report: string, options: { title?: string } = {}): Goal {
+    const text = report.replace(/\r\n?/g, "\n").trim();
+    if (!text) throw new Error("Give the bug report: what goes wrong, and how to make it happen if known.");
+    if (text.length > MAX_REPORT) throw new Error(`The report is ${text.length} characters; keep it to ${MAX_REPORT}.`);
+    const title = options.title?.replace(/\s+/g, " ").trim() || hotfixTitle(text);
+    const roadmap = this.roadmap();
+    const goal = roadmap.addGoal(title, { hotfix: true, outcome: "The reported bug is fixed, with a test that showed it failing and now passes." });
+    this.markGoal(roadmap, goal.id);
+    const plan = newPlanFile(goal.id, title);
+    plan.now = this.now;
+    plan.report = text;
+    const tasks = plan.addTasks([
+      { title: "Write a test that shows the bug", summary: "A test that follows the report and fails because of the bug." },
+      { title: "Fix the bug", summary: "Make that test pass without breaking the others." },
+    ]);
+    this.markItems(plan, tasks.map((t) => t.id));
     this.saveRoadmap(roadmap);
     this.savePlan(plan);
     return roadmap.goal(goal.id)!;
@@ -1694,6 +1732,7 @@ export class Project {
       decisions: plan.decisions,
       notes: plan.notes.filter((n) => !n.resolved),
       handTests: plan.handTests,
+      ...(goal.hotfix && plan.report ? { report: plan.report } : {}),
       ...this.talkStatus(goal.id),
       updatedAt: this.changedAt(this.planFilePath(goal.id)) ?? this.changedAt(`${PROGRESSOR_DIR}/${ROADMAP_FILE}`),
       ...common,

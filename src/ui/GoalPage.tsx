@@ -90,7 +90,13 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
             <Icon name="folder" size={14} /> Show in folder
           </button>
         </div>
-        <h1 className="page-title">{goal.title}</h1>
+        <h1 className="page-title">{goal.hotfix && <span className="hotfix-tag big" title="A bug to fix before anything else">Hotfix</span>}{goal.title}</h1>
+        {view.report && (
+          <details className="hotfix-report" open={goal.status !== "done"}>
+            <summary>The bug report</summary>
+            <pre>{view.report}</pre>
+          </details>
+        )}
         {goal.outcome && <p className="outcome" title="What finished looks like: your AI checks the work against this before it calls the goal finished">Finished when: {plainText(goal.outcome)}</p>}
         {goal.status === "dropped" && <p className="outcome">Cancelled{goal.reason ? `: ${plainText(goal.reason)}` : ""}</p>}
         {live.length > 0 && (

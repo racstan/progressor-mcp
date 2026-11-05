@@ -5,7 +5,7 @@ import type { Task } from "./planFile.js";
 import { PROGRESSOR_DIR, Project, type ProjectOverview, type Status } from "./project.js";
 import { launcherWarning, onPath } from "./init.js";
 import { seenFile, takeElsewhereLine } from "./elsewhere.js";
-import { hardFirst, ruleText } from "./roadmap.js";
+import { hardFirst, hotfixLine, ruleText } from "./roadmap.js";
 import { handTestLines } from "./handTestText.js";
 import { promptNewsLine, talkLines } from "./talkText.js";
 import { existsSync } from "node:fs";
@@ -66,6 +66,17 @@ function fullStatus(s: Status): string[] {
  */
 export function sessionStatus(o: ProjectOverview): string | undefined {
   if (o.active.length === 0 && o.paused.length === 0 && o.planned.length === 0 && !o.context) return undefined;
+  const hotfix = hotfixOf(o);
+  const text = sessionText(o);
+  return hotfix ? `${PREFIX} ${hotfix}\n${text}` : text;
+}
+
+/** The hotfix line, while one is not started or was let go (see hotfixLine). */
+function hotfixOf(o: ProjectOverview): string | undefined {
+  return hotfixLine([...o.planned, ...o.paused.flatMap((s) => (s.goal ? [s.goal] : []))]);
+}
+
+function sessionText(o: ProjectOverview): string {
   const [only] = o.active;
   if (only && o.active.length === 1)
     return [
@@ -119,7 +130,10 @@ const STALE = "may be out of date";
  * the plan last changed, since a reminder naming a step a helper finished long ago misleads.
  */
 export function promptReminder(o: ProjectOverview, now = new Date()): string | undefined {
-  const reminder = planReminder(o, now);
+  // A waiting hotfix is said in every Session, even one with no Goal in progress, until one claims it.
+  const hotfix = hotfixOf(o);
+  const plan = planReminder(o, now);
+  const reminder = hotfix ? [`${PREFIX} ${hotfix}`, ...(plan ? [plan] : [])].join("\n") : plan;
   // What the Developer wrote on the dashboard for the Goals in progress; get_status marks it seen.
   // Messages to the whole project show even when no Goal is in progress: they can say what to start.
   const news = promptNewsLine(
