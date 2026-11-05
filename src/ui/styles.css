@@ -735,3 +735,26 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .hotfix-form textarea { resize: vertical; }
 .hotfix-form textarea:focus, .hotfix-form input:focus { outline: none; border-color: var(--accent); }
 .hotfix-form .error { font-size: var(--t-s); color: var(--bad); margin-right: auto; }
+
+/* What's new: the changelog, from Help. */
+.menu-panel button.card { width: 100%; text-align: left; font: inherit; background: var(--panel); cursor: pointer; }
+.menu-btn { position: relative; }
+.new-dot { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px var(--bg); }
+.release-tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--muted); vertical-align: 1px; }
+.release-tag.new { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.changes-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, .35); display: flex; justify-content: center; align-items: flex-start; padding: 6vh var(--s4) var(--s4); }
+.changes { width: 720px; max-width: 100%; max-height: 88vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+.changes > header { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); border-bottom: 1px solid var(--line); }
+.changes > header h2 { margin: 0; font-size: var(--t-l); }
+.changes > header .sp { flex: 1; }
+.changes-body { overflow: auto; padding: var(--s2) var(--s4) var(--s4); }
+.release { border-bottom: 1px solid var(--line); padding: var(--s3) 0; }
+.release:last-child { border-bottom: 0; }
+.release > summary { cursor: pointer; display: flex; align-items: baseline; gap: var(--s2); flex-wrap: wrap; }
+.release > summary span:not(.release-tag) { color: var(--muted); }
+.release-body { font-size: var(--t-s); line-height: 1.6; padding-top: var(--s2); }
+.release-body h4 { margin: var(--s3) 0 var(--s1); font-size: var(--t-s); }
+.release-body p { margin: var(--s2) 0; }
+.release-body ul { margin: var(--s1) 0; padding-left: 20px; }
+.release-body li + li { margin-top: 4px; }
+.release-body code { font-size: .92em; background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }

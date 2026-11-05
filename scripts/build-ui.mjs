@@ -14,6 +14,8 @@ const options = {
   format: "esm",
   target: "es2022",
   jsx: "automatic",
+  // CHANGELOG.md, shown as What's new in Help.
+  loader: { ".md": "text" },
   minify: !watch,
   sourcemap: watch,
   define: { "process.env.NODE_ENV": JSON.stringify(watch ? "development" : "production") },

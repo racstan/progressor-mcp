@@ -4,6 +4,7 @@ import type { GoalSchedule } from "../schedule.js";
 import { type RoadmapView, showInFolder, useDashboard, useOverview, useSearch, useServers, usePageStaleness, useStored, useStoredJson } from "./data.js";
 import { CONTEXT_HASH, HOTFIX_HASH, STATS_HASH, TALK_HASH, WISHLIST_HASH, contextFromHash } from "./context.js";
 import { HotfixPage } from "./HotfixPage.js";
+import { WhatsNew, changelog } from "./WhatsNew.js";
 import { ContextPage } from "./ContextPage.js";
 import { WishlistPage } from "./WishlistPage.js";
 import { StatsPage } from "./StatsPage.js";
@@ -121,6 +122,8 @@ export function App() {
   const [putOff, setPutOff] = useStoredJson<PutOff>("progressor.put-off", {});
   const [editorChoice, setEditorChoice] = useStored<string>("progressor.editor", undefined);
   const [panel, setPanel] = useState<"help" | "settings">();
+  const [showChanges, setShowChanges] = useState(false);
+  const [seenChanges, setSeenChanges] = useStored<string>("progressor.seenChanges", undefined);
   const [drawer, setDrawer] = useState(false);
   // On a wide window the sidebar can be folded away; on a narrow one it is a drawer instead.
   const [collapsed, setCollapsed] = useStored<"1">("progressor.sidebar-collapsed", undefined);
@@ -419,6 +422,15 @@ export function App() {
     );
   };
   const menuGoal = goalMenu && goals.find((g) => g.id === goalMenu.id);
+  const latest = changelog.releases[0];
+  /** A release this browser has not opened What's new for yet. */
+  const unseen = !!latest && seenChanges !== latest.title;
+  const openChanges = () => {
+    setPanel(undefined);
+    setShowChanges(true);
+    if (latest) setSeenChanges(latest.title);
+  };
+  const closeChanges = useCallback(() => setShowChanges(false), []);
   const openPanel = (which: "help" | "settings") => {
     setPanel(panel === which ? undefined : which);
     if (which === "settings") reloadServers();
@@ -532,8 +544,9 @@ export function App() {
           title={connection === "live" ? "Live: this page updates by itself as your AI works." : "Lost touch with Progressor. It comes back by itself once your AI chat is open again."}
           aria-label={connection === "live" ? "Live" : "Reconnecting"} />
         <button className={`iconbtn menu-btn ${panel === "help" ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={panel === "help"}
-          title="Help" aria-label="Help" onClick={() => openPanel("help")}>
+          title={unseen ? "Help · What's new in this version" : "Help"} aria-label="Help" onClick={() => openPanel("help")}>
           <Icon name="help" size={18} />
+          {unseen && <span className="new-dot" aria-hidden="true" />}
         </button>
         <button className={`iconbtn menu-btn ${panel === "settings" ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={panel === "settings"}
           title="Settings" aria-label="Settings" onClick={() => openPanel("settings")}>
@@ -620,6 +633,13 @@ export function App() {
       {panel === "help" && (
         <MenuPanel label="Help" onClose={() => setPanel(undefined)}>
           <section>
+            <h3>What's new</h3>
+            <button className="card" onClick={openChanges}>
+              {unseen && <span className="release-tag new">New</span>} {latest ? `${latest.version}${latest.name ? ` · ${latest.name}` : ""}` : "What's new"}
+              <small>What changed in each version of Progressor.</small>
+            </button>
+          </section>
+          <section>
             <h3>What the marks on a step mean</h3>
             <StepKey statuses={[]} all />
           </section>
@@ -640,6 +660,8 @@ export function App() {
           </section>
         </MenuPanel>
       )}
+
+      {showChanges && <WhatsNew version={info?.version} onClose={closeChanges} />}
 
       <div className={`shell ${drawer ? "side-open" : ""} ${collapsed ? "collapsed" : ""}`}>
         <aside className="sidebar" aria-label={onHome ? "Projects" : "Your goals"}>
