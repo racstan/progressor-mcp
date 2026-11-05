@@ -132,11 +132,13 @@ Open **http://localhost:4747** while your AI's app is open (your AI gives you th
 - **What the AI is doing:** *AI working*, *Waiting on you*, or *AI stopped* when its chat has closed, with how far along each goal is.
 - **When things happen:** every goal, step, decision and note says when it was added, by whom, and when it changed. Steps say when they started and finished.
 - **How long it will take:** your AI estimates each step, and each goal shows a rough finish: *done in about 2 h*. Tell it *"at most 2 helpers at a time"* and it keeps to that.
-- **Report a bug:** paste a bug report, such as one from a customer, and it goes to the top of your goals as a **hotfix**. Every AI chat in the project is told; the one that takes it finishes the step it is on, writes a test that shows the bug, then fixes it.
+- **Report a bug:** paste a bug report, such as one from a customer, and it goes to the top of your goals as a **hotfix**. Every AI chat in the project is told; the one that takes it finishes the step it is on, writes a test that shows the bug, then fixes it. You can also just tell your AI: *"Hotfix: checkout fails when the cart has a coupon."*
+- **A wishlist:** what you want from the project as a whole, in your own words, with files or pictures attached if you like. Your AI reads it and may suggest goals from it, but only you change it.
+- **A pop-up when a goal is finished,** from any of your projects, if you turn it on in Settings.
 - **Pictures:** your AI can attach a screenshot or screen recording to a goal or step, so you see the change instead of reading about it.
 - **Copy for your AI** and **Show in folder** on every goal and step, to point your AI at it or open the plan file.
 - **Work for one project, recorded in another:** when a chat in one project does work for another, it can record it in that project's plan, tagged *Updated from*.
-- **Never out of date:** if Progressor was updated, or the page lost touch with it, a bar says so with a **Refresh** button.
+- **Never out of date:** if Progressor was updated, or the page lost touch with it, a bar says so with a **Refresh** button. **What's new** in ❓ Help lists what changed in each version, and a dot on Help says when there is something you haven't seen.
 
 More in the [dashboard guide](docs/dashboard.md).
 

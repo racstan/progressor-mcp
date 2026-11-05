@@ -165,7 +165,7 @@ The search box at the top (press `/` to jump to it) finds projects, goals and st
 
 ## Help and Settings
 
-- **❓ Help**: report a problem or suggest an idea. Both open a form on GitHub with your Progressor version and system already filled in.
+- **❓ Help**: **What's new**, what changed in each version, newest first, with yours marked (a dot on the Help button means there is a version you haven't looked at); then report a problem or suggest an idea. Both open a form on GitHub with your Progressor version and system already filled in.
 - **⚙️ Settings**: the view a goal opens in, light or dark, and whether finished goals wait for you to look. Under **Advanced**: the code editor files open in, showing hidden goals, and the Progressor servers running on your computer. Settings are saved in your browser.
 - **If the page is out of date**, a bar at the bottom says so, with a **Refresh** button: when Progressor was updated after you opened the page, or when the page has been out of touch with Progressor for a minute. It goes away by itself once things are back to normal.
 - **The green dot** at the top means the page is live. If it turns orange and says *Reconnecting…*, Progressor has closed (it runs while your AI's app is open); it comes back by itself when the app is open again.
