@@ -116,7 +116,7 @@ The AI calls these; the server's instructions tell it when.
 
 **Routines.** A `## Routines` section in `roadmap.md` holds each routine (see [the format](markdown-format.md#routines)). When one is due and the goal it made last is finished or dropped, `get_status` (and the dashboard's timer, about once a minute, when `createFromDashboard` is on) adds a fresh goal from it, each in its own undoable change under the plan's lock, and moves its next time on in the same write. Missed turns are skipped. `GET /api/projects/<id>/routines`, `POST …/routines/<routine>/pause|resume|stop` (`routines` header).
 
-**Phone notifications.** With `ntfy.enabled` and a topic, the dashboard sends a push to `<server>/<topic>` for each new event of the kinds turned on, shortly after the plan changes; `includeTitles: false` leaves goal titles out. `POST /api/settings/ntfy/test` sends a test message.
+**Phone notifications.** With `ntfy.enabled` and a topic, the dashboard sends a push to `<server>/<topic>` for each new event of the kinds turned on, shortly after the plan changes; `includeTitles: false` leaves goal titles out. `POST /api/settings/ntfy/test` sends a test message, and `POST /api/settings/ntfy/new-topic` makes a new private topic (`progressor-` and 16 hex digits) and answers like `GET /api/settings`. A topic you set yourself must be 3 to 64 letters, digits, `-` or `_`.
 
 **Alternatives.** See `ask_developer` above. The dashboard shows them as cards on the goal page; `POST /api/projects/<id>/goals/<goal>/questions/<q>/more` asks the AI for other options (`talk` header).
 

@@ -6,6 +6,8 @@ The dashboard shows the plan. The one thing you do on it yourself is mark the th
 
 ## Finding your way
 
+**The tour.** The first time you open the dashboard in a browser, a short tour of six steps points at the main parts of the page: Home and your projects, a goal and its steps, Needs you, Message your AI, the project's Dashboard and Calendar, and Settings. **Next** and **Back** move through it and **Skip the tour** (or Escape) ends it. It never stops you using the page, and it shows only once; **Take the tour again** in ❓ Help brings it back.
+
 **Breadcrumbs** at the top of every page say where you are: *Home* on Home, *Home › Settings*, *Home › Bindery › Calendar*, or *Home › Bindery › Ship OAuth login* on a goal. Click **Home** to see every project, or the project's name to go back to its goals. On a phone the middle of the trail shortens, with *…*, instead of running off the screen.
 
 In a project, the sidebar has **Home** at the top, then the project's own pages under its name: **Dashboard** first, then Hotfixes, Message your AI, Project notes, Wishlist, Calendar, History and Handoffs. **Settings** comes after them, then the project's goals. On Home, the sidebar has Home, Settings and your projects.
@@ -171,7 +173,7 @@ Wherever the dashboard shows your AI's words, such as things to try by hand, ste
 - **Finished each day:** a bar for each of the last two weeks; hover a bar for its day and count. Today's bar is striped.
 - **Estimates:** how long finished steps took against what your AI estimated, such as *Steps took about 1.4× as long as estimated. 8 of 12 were done within their estimate.*
 - **Side trips:** how often the work stepped off the plan, how those side trips ended, and how many steps were added after one or cancelled.
-- **Longest steps** and **Each goal**, newest first; click one to open its goal.
+- **Longest steps**, and **Each goal** with **Sort by**: newest first (the usual), oldest first, longest time spent, most over its estimate, most side trips, or A to Z. The heading says which, your browser remembers it, and a long list scrolls in its own box. Click a goal to open it.
 
 **Home** has the same numbers added up across all your projects, with a line per project; its **Dashboard** link opens that project's page.
 
@@ -197,7 +199,12 @@ On **Project notes**, **Goals that come back** lists the goals your AI set to re
 
 ## Phone notifications
 
-In **Settings → Notifications → Phone notifications**, turn it on, install the free ntfy app on your phone and subscribe to the topic shown. You get a push when your AI asks a question, has something for you to try, finishes a goal, offers ways to go, or a bug report comes in; untick the ones you don't want. **Send a test** checks it works. Keep the topic private: anyone who knows it can read the messages.
+In **Settings → Notifications → Phone notifications**, turn on **Send me messages on my phone**, install the free ntfy app on your phone, and pick one:
+
+- **Use the default (recommended):** the free ntfy.sh service with a private address Progressor made for you. **Copy** the address (it says *Copied*), or **Open** it, and subscribe to it in the ntfy app. **Make a new private address** gives you a new one, after you confirm; your phone then needs to subscribe to the new one.
+- **Use my own:** your own ntfy server, a topic you choose (letters, digits, - and _, 3 to 64 of them) and, for a protected topic, a token.
+
+You get a push when your AI asks a question, has something for you to try, finishes a goal, offers ways to go, or a bug report comes in; untick the ones you don't want under **Tell me**. **Send a test** checks it works. Keep the address private: anyone who knows it can read the messages.
 
 ## Search
 
@@ -205,7 +212,7 @@ The search box at the top (press `/` to jump to it) finds projects, goals and st
 
 ## Settings
 
-**Settings** has its own page: click the gear at the top right, or **Settings** in the sidebar. Nothing on it is ever required: Progressor and your AI work fully with the defaults, whether or not you ever open it. On a wide window a menu on the left jumps to each group and marks the one you are reading; on a phone the groups are stacked, with a row of buttons at the top.
+**Settings** has its own page: click the gear at the top right, or **Settings** in the sidebar. Nothing on it is ever required: Progressor and your AI work fully with the defaults, whether or not you ever open it. On a wide window a menu on the left jumps to each group and marks the one you are reading; the button above it folds it away to a slim rail so the settings get more room, and your browser remembers which you chose. On a phone the groups are stacked, with a row of buttons at the top that folds away the same way.
 
 - **Look**: the theme (Vibrant, the default, or Light, Dark and System in black, white and greys) and whether finished goals fold away straight away or wait for you to look.
 - **Notifications**: a desktop pop-up when a goal is finished, and [phone notifications](#phone-notifications).
@@ -218,7 +225,7 @@ Every section has **Reset this section**. How the page looks is kept in your bro
 
 ## Help
 
-- **❓ Help**: **What's new**, what changed in each version, newest first, with yours marked (a dot on the Help button means there is a version you haven't looked at); then report a problem or suggest an idea. Both open a form on GitHub with your Progressor version and system already filled in.
+- **❓ Help**: **What's new**, what changed in each version, newest first, with yours marked (a dot on the Help button means there is a version you haven't looked at); **Take the tour again**; then report a problem or suggest an idea. Both open a form on GitHub with your Progressor version and system already filled in.
 - **If the page is out of date**, a bar at the bottom says so, with a **Refresh** button: when Progressor was updated after you opened the page, or when the page has been out of touch with Progressor for a minute. It goes away by itself once things are back to normal.
 - **The green dot** at the top means the page is live. If it turns orange and says *Reconnecting…*, Progressor has closed (it runs while your AI's app is open); it comes back by itself when the app is open again.
 

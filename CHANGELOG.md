@@ -28,19 +28,21 @@ Plans made with earlier versions keep working as they are. Everything new runs b
 
 ### Staying in touch
 
-- **Phone notifications** through the free ntfy app: a push when your AI asks a question, has something for you to try, finishes a goal, offers ways to go, or a bug report comes in. Pick which ones you want, and **Send a test** to check it works.
+- **Phone notifications** through the free ntfy app: a push when your AI asks a question, has something for you to try, finishes a goal, offers ways to go, or a bug report comes in. Use the default, with a private ntfy.sh address Progressor makes and a **Copy** button, or your own server, topic and token. Pick which ones you want, and **Send a test** to check it works.
 
 ### New pages and a new look
 
 - **Calendar.** The project by month, week, day or as a list: steps finished, goals added and finished, releases, hotfixes, your hand tests and handoffs, and ahead of today the steps planned next, when each goal should be done and when goals that come back are due.
 - **Hotfixes** has its own page in the sidebar, listing the project's urgent bugs, open ones first, with the box to report a new one.
-- **Settings is a page of its own**, from the gear at the top or the sidebar, instead of a narrow panel. Its sections are grouped into Look, Notifications, AI & plan, History & releases, Advanced and About, with a menu on the left on a wide window. Every section has **Reset this section**, and **Reset all settings to defaults** puts everything back. Settings for how Progressor works are kept on your computer, for every project, and a project can have its own.
+- **Settings is a page of its own**, from the gear at the top or the sidebar, instead of a narrow panel. Its sections are grouped into Look, Notifications, AI & plan, History & releases, Advanced and About, with a menu on the left on a wide window that folds away to a slim rail. Every section has **Reset this section**, and **Reset all settings to defaults** puts everything back. Settings for how Progressor works are kept on your computer, for every project, and a project can have its own.
 - **Breadcrumbs** at the top of every page, such as *Home › Bindery › Dashboard*. Home and the project take you back; on a phone the trail shortens instead of running off the screen.
 - **Statistics is now called Dashboard**, and it comes first among a project's pages in the sidebar, right after Home. Old links to it still work.
 - **Every project page says which project it is about**, in its heading and the browser tab: *Bindery Dashboard*, *Bindery Wishlist*, *Message your AI about Bindery*. In the sidebar, the project's pages sit under its name.
 - **Vibrant is the default theme**, with a new logo. Light, Dark and System are still there, in black, white and greys.
 - **Search is much faster.** Results now come back in a few hundredths of a second instead of about two seconds with many projects.
-- **A note that Progressor is free**, at the bottom of Settings and Help: there is no paid version or subscription, and anyone selling one is not us.
+- **A note that Progressor is free**, in bold at the bottom of Settings and Help: there is no paid version or subscription, and anyone selling one is not us.
+- **A short tour for first-timers.** The first time you open the dashboard, six quick steps point at Home, a goal, Needs you, Message your AI, the Dashboard and Calendar, and Settings. Skip it at any time; **Take the tour again** is in Help.
+- **Sort the goals on the Dashboard page**: newest or oldest first, longest time spent, most over its estimate, most side trips, or A to Z. The list scrolls in its own box, so a long one doesn't stretch the page.
 
 ### Setup
 
