@@ -3,7 +3,7 @@
 // CLAUDE.md and AGENTS.md and creates the Roadmap. Every change is worked out first, so the Developer sees the
 // list before anything is written; running it again changes nothing, and --remove undoes it all
 // except the progress record.
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { delimiter, dirname, isAbsolute, join } from "node:path";
 import { PRIVATE_GITIGNORE, PROGRESSOR_DIR, ROADMAP_FILE } from "./project.js";
 
@@ -131,6 +131,30 @@ ${NOTE_END}`;
 
 type Json = Record<string, any>;
 
+const withEol = (text: string, eol: string) => (eol === "\n" ? text : text.replace(/\n/g, eol));
+
+/**
+ * Where Progressor's note sits in a file, or undefined when it has none. A start marker without its
+ * end, a second copy, or an end without a start means the file was edited by hand; setup and --remove
+ * then stop with a clear message instead of guessing what to cut out.
+ */
+function findNote(text: string, file: string): { start: number; end: number } | undefined {
+  const count = (marker: string) => text.split(marker).length - 1;
+  const starts = count(NOTE_START);
+  const ends = count(NOTE_END);
+  if (starts === 0 && ends === 0) return undefined;
+  const start = text.indexOf(NOTE_START);
+  const end = text.indexOf(NOTE_END);
+  const fix = "Nothing was changed. Fix it by hand (keep one pair of those lines, or delete them all) and run this again.";
+  if (starts > 1 || ends > 1) return fail(`${file} has Progressor's note more than once (${NOTE_START} ... ${NOTE_END}). ${fix}`);
+  if (starts === 1 && ends === 1 && end > start) return { start, end: end + NOTE_END.length };
+  return fail(`${file} has a damaged Progressor note: the ${starts ? NOTE_START : NOTE_END} line has no matching ${starts ? NOTE_END : NOTE_START} line, or they are the wrong way round. ${fix}`);
+}
+
+function fail(message: string): never {
+  throw new Error(message);
+}
+
 const display = (file: string) => file.split("\\").join("/");
 const text = (data: Json) => `${JSON.stringify(data, null, 2)}\n`;
 
@@ -227,16 +251,16 @@ export function planInit(root: string, launch: Launch, { server = true }: { serv
   for (const file of NOTE_FILES) {
     const notePath = join(root, file);
     const note = existsSync(notePath) ? readFileSync(notePath, "utf8") : undefined;
-    const block = note === undefined ? -1 : note.indexOf(NOTE_START);
+    const found = note === undefined ? undefined : findNote(note, file);
+    const eol = note?.includes("\r\n") ? "\r\n" : "\n";
+    const block = withEol(NOTE, eol);
     if (note === undefined) {
       changes.push(change(root, file, "create it with a short note telling the Agent to use Progressor", `${NOTE}\n`));
-    } else if (block < 0) {
-      const sep = note.endsWith("\n\n") ? "" : note.endsWith("\n") ? "\n" : "\n\n";
-      changes.push(change(root, file, "add a short note telling the Agent to use Progressor", `${note}${sep}${NOTE}\n`));
-    } else {
-      const end = note.indexOf(NOTE_END, block);
-      const existing = note.slice(block, end < 0 ? note.length : end + NOTE_END.length);
-      if (existing !== NOTE) changes.push(change(root, file, "update Progressor's note to the Agent", note.replace(existing, NOTE)));
+    } else if (!found) {
+      const sep = note === "" || note.endsWith(eol + eol) ? "" : note.endsWith("\n") ? eol : eol + eol;
+      changes.push(change(root, file, "add a short note telling the Agent to use Progressor", `${note}${sep}${block}${eol}`));
+    } else if (note.slice(found.start, found.end) !== block) {
+      changes.push(change(root, file, "update Progressor's note to the Agent", note.slice(0, found.start) + block + note.slice(found.end)));
     }
   }
 
@@ -289,13 +313,105 @@ export function planRemove(root: string): Change[] {
   for (const file of NOTE_FILES) {
     const notePath = join(root, file);
     const note = existsSync(notePath) ? readFileSync(notePath, "utf8") : "";
-    const start = note.indexOf(NOTE_START);
-    if (start < 0) continue;
-    const endAt = note.indexOf(NOTE_END, start);
-    const end = endAt < 0 ? note.length : endAt + NOTE_END.length;
-    const rest = `${note.slice(0, start).replace(/\s+$/, "")}\n${note.slice(end).replace(/^\s+/, "")}`.replace(/^\n+/, "");
-    changes.push(change(root, file, "remove Progressor's note to the Agent", rest.trim() ? `${rest.replace(/\n+$/, "")}\n` : null));
+    const found = findNote(note, file);
+    if (!found) continue;
+    const eol = note.includes("\r\n") ? "\r\n" : "\n";
+    const rest = `${note.slice(0, found.start).replace(/\s+$/, "")}${eol}${note.slice(found.end).replace(/^\s+/, "")}`.replace(/^(\r?\n)+/, "");
+    changes.push(change(root, file, "remove Progressor's note to the Agent", rest.trim() ? `${rest.replace(/\s+$/, "")}${eol}` : null));
   }
 
   return changes;
+}
+
+/** Where Claude Desktop keeps its settings on this system; only the folders that exist (the app is installed). */
+export function desktopConfigs({ env, platform, home }: { env: Record<string, string | undefined>; platform: NodeJS.Platform; home: string }): string[] {
+  const file = "claude_desktop_config.json";
+  const out: string[] = [];
+  if (platform === "win32") {
+    if (env.APPDATA && existsSync(join(env.APPDATA, "Claude"))) out.push(join(env.APPDATA, "Claude", file));
+    // The Microsoft Store version keeps its settings inside its own package folder.
+    if (env.LOCALAPPDATA) {
+      const packages = join(env.LOCALAPPDATA, "Packages");
+      let names: string[] = [];
+      try {
+        names = readdirSync(packages).filter((n) => /^Claude_/.test(n)).sort();
+      } catch {
+        // no packages folder
+      }
+      for (const n of names) out.push(join(packages, n, "LocalCache", "Roaming", "Claude", file));
+    }
+    return out;
+  }
+  const folder = platform === "darwin" ? join(home, "Library", "Application Support", "Claude") : join(home, ".config", "Claude");
+  return existsSync(folder) ? [join(folder, file)] : [];
+}
+
+function readDesktop(path: string): Json {
+  if (!existsSync(path)) return {};
+  const raw = readFileSync(path, "utf8");
+  if (!raw.trim()) return {};
+  try {
+    const data = JSON.parse(raw) as unknown;
+    if (data && typeof data === "object" && !Array.isArray(data)) return data as Json;
+  } catch {
+    // reported below
+  }
+  throw new Error(`${path} is not valid JSON; fix it (or move it aside) and run setup again.`);
+}
+
+/** The project folder Claude Desktop's Progressor works on now, if it has one. */
+export function desktopProject(configPath: string): string | undefined {
+  try {
+    const root = readDesktop(configPath).mcpServers?.[SERVER_NAME]?.env?.PROGRESSOR_ROOT;
+    return typeof root === "string" ? root : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Claude Desktop starts servers without a shell, so on Windows it gets the cmd /c form. It has no project folder, so it is told one. */
+export function planDesktop(
+  root: string,
+  launch: Launch,
+  configPath: string,
+  { switchProject = true }: { switchProject?: boolean } = {},
+): Change | undefined {
+  const config = readDesktop(configPath);
+  const how = launch.local ?? launch.server;
+  const entry = { command: how.command, args: how.args, env: { PROGRESSOR_ROOT: root } };
+  const current = config.mcpServers?.[SERVER_NAME];
+  if (JSON.stringify(current) === JSON.stringify(entry)) return undefined;
+  // Claude Desktop has one project folder: a plain setup in another project leaves it where it is.
+  const itsRoot = current?.env?.PROGRESSOR_ROOT;
+  if (!switchProject && typeof itsRoot === "string" && itsRoot !== root) return undefined;
+  const next = { ...config, mcpServers: { ...(config.mcpServers ?? {}), [SERVER_NAME]: entry } };
+  return {
+    file: display(configPath),
+    what: `${current ? "update" : "add"} the "${SERVER_NAME}" server for Claude Desktop (project folder ${root})`,
+    contents: text(next),
+    path: configPath,
+  };
+}
+
+/** Takes Progressor out of Claude Desktop's settings; the file itself stays, as it belongs to the app. */
+export function planDesktopRemove(configPath: string, root?: string): Change | undefined {
+  if (!existsSync(configPath)) return undefined;
+  const config = readDesktop(configPath);
+  if (config.mcpServers?.[SERVER_NAME] === undefined) return undefined;
+  // Claude Desktop has one project folder: leave it alone when it points at another project.
+  const itsRoot = config.mcpServers[SERVER_NAME]?.env?.PROGRESSOR_ROOT;
+  if (root !== undefined && typeof itsRoot === "string" && itsRoot !== root) return undefined;
+  const { [SERVER_NAME]: _, ...servers } = config.mcpServers as Json;
+  const next: Json = { ...config, mcpServers: servers };
+  if (Object.keys(servers).length === 0) delete next.mcpServers;
+  return { file: display(configPath), what: `remove the "${SERVER_NAME}" server from Claude Desktop`, contents: text(next), path: configPath };
+}
+
+/** What a run sets up: the project for Claude Code (always, unless --desktop alone), and Claude Desktop where it is installed. */
+export function pickTargets(flags: string[], found: string[]): { code: boolean; desktop: string[] } {
+  const code = flags.includes("--code");
+  const desktop = flags.includes("--desktop");
+  if (flags.includes("--all")) return { code: true, desktop: found };
+  if (!code && !desktop) return { code: true, desktop: found };
+  return { code, desktop: desktop ? found : [] };
 }

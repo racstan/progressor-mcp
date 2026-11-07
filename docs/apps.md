@@ -20,16 +20,16 @@ In a terminal, in your project folder:
 progressor-mcp init
 ```
 
-It shows what it will add and asks once:
+That is the whole setup. It looks at what is installed on your computer, shows you what it will change, and asks once (add `--yes` to skip the question). When it is done it starts Progressor once to check that it runs, and tells you plainly what it did.
 
-- the `progressor` server in `.mcp.json`, so Claude Code starts it in this project;
-- two hooks in `.claude/settings.json` that hand your AI the plan at the start of every conversation and a one-line reminder with every message, so it never loses track;
-- a short note in `CLAUDE.md` and `AGENTS.md` telling the AI to use Progressor;
-- an empty plan in `.progressor/`.
+- **Claude Code** (the terminal app, and the **Code** tab of the Claude desktop app): it adds the `progressor` server to `.mcp.json`, two hooks in `.claude/settings.json` that hand your AI the plan at the start of every conversation and a one-line reminder with every message, a short note in `CLAUDE.md` and `AGENTS.md` telling the AI to use Progressor, and an empty plan in `.progressor/`.
+- **Claude Desktop** (the chat app), if it is installed: it adds `progressor` to Claude Desktop's settings file, next to any servers you already have, and tells it which project folder to use. It finds the settings file for you, including the one the Microsoft Store version uses on Windows.
 
-Restart Claude Code in that folder and approve `progressor`. Its commands are in the `/` menu as `/progressor:status (MCP)` and so on: type `/progressor` to see them.
+If you only want one of them, add `--code` (just the project) or `--desktop` (just Claude Desktop). `--all` means both. Running it again changes nothing that is already right, and updates anything that is out of date. To take it all out again, run `progressor-mcp init --remove`; it leaves your plan in `.progressor/` alone, and it only removes Claude Desktop's entry if that entry points at this project.
 
-**In every project at once.** Instead of `init` in each project, register Progressor once for your user:
+Then restart: Claude Code in that folder (approve `progressor` if it asks), and Claude Desktop by quitting it completely and opening it again. Claude Code's commands are in the `/` menu as `/progressor:status (MCP)` and so on.
+
+**In every Claude Code project at once.** Instead of `init` in each project, register Progressor once for your user:
 
 ```bash
 claude mcp add --scope user progressor -- progressor-mcp
@@ -37,13 +37,13 @@ claude mcp add --scope user progressor -- progressor-mcp
 
 Then type **/progressor:setup** in any project's chat: your AI adds the hooks, the notes and the empty plan to that folder for you. Use one way or the other, not both, or Claude Code starts two copies.
 
-**On Windows**, `init` sets up the right command for you. `.mcp.json` gets the same command on every system, and Claude Code is told to start Progressor through `cmd /c` on your computer only, so a project set up on Windows still works on a Mac or Linux. If you add Progressor by hand, put `cmd /c` before the command: `claude mcp add --scope user progressor -- cmd /c progressor-mcp`.
-
-The Claude desktop app's **Code** tab is Claude Code, so all of this applies there too.
+**On Windows**, `init` uses the right command for you. `.mcp.json` gets the same command on every system, and Claude Code and Claude Desktop are told to start Progressor through `cmd /c` on your computer only, so a project set up on Windows still works on a Mac or Linux. If you add Progressor by hand, put `cmd /c` before the command: `claude mcp add --scope user progressor -- cmd /c progressor-mcp`.
 
 ## Claude Desktop (the chat app)
 
-Open **Settings → Developer → Edit Config**. It opens `claude_desktop_config.json` (on Windows in `%APPDATA%\Claude\`, on macOS in `~/Library/Application Support/Claude/`). Add Progressor under `mcpServers`, with your project's folder:
+The one command above sets this up too, if the app is installed (or `progressor-mcp init --desktop` for just this). **Claude Desktop works on one project folder.** It is not opened in a folder, so it uses the one `init` gave it. To work on a different project, run `progressor-mcp init --desktop` in that other folder (it switches Claude Desktop over), or just ask your AI to use another project: it can reach every project Progressor knows about by naming it in the `project` parameter, with no setup.
+
+**By hand in Claude Desktop.** If you would rather edit the file yourself, open **Settings → Developer → Edit Config** and add Progressor under `mcpServers`, with your project's folder:
 
 ```json
 {
@@ -57,7 +57,7 @@ Open **Settings → Developer → Edit Config**. It opens `claude_desktop_config
 }
 ```
 
-The chat app is not opened in a project folder, so `PROGRESSOR_ROOT` tells Progressor where your project is (on macOS and Linux, a path like `/Users/you/projects/my-app`). If the file already has other servers, add `"progressor": { ... }` next to them. Save, then quit Claude Desktop completely and open it again.
+On Windows, use `"command": "cmd", "args": ["/c", "progressor-mcp"]`. On macOS and Linux the folder looks like `/Users/you/projects/my-app`. Save, then quit Claude Desktop completely and open it again.
 
 ## VS Code (GitHub Copilot)
 
