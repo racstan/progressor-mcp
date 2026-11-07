@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { createServer as createHttpServer, request } from "node:http";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -241,7 +241,7 @@ describe("one dashboard for every project", () => {
 
   it("tells the page which editor opens files", async () => {
     const d = await start(agent, { editor: "cursor" });
-    expect((await get(d, "/api/info")).body).toMatchObject({ app: "progressor", hub: 8, editor: "cursor" });
+    expect((await get(d, "/api/info")).body).toMatchObject({ app: "progressor", hub: 9, editor: "cursor" });
   });
 
   it("serves the project's statistics", async () => {
@@ -611,5 +611,60 @@ describe("searching", () => {
     );
     expect((await get(d, "/api/search?q=remember")).body.map((h: any) => h.kind)).toEqual([]);
     expect((await get(d, "/api/search")).body).toEqual([]);
+  });
+});
+
+describe("settings", () => {
+  const settingsPost = (d: Dashboard, path: string, body: unknown, headers: Record<string, string> = {}) =>
+    fetch(new URL(path, d.url), {
+      method: "POST",
+      headers: { origin: new URL(d.url).origin, "x-progressor": "settings", "content-type": "application/json", ...headers },
+      body: typeof body === "string" ? body : JSON.stringify(body),
+    });
+  const settingsFile = () => join(dirname(registry), "settings.json");
+
+  it("shows the defaults, saves a change next to the project list, and resets it", async () => {
+    const d = await start(agent);
+    const shown = (await get(d, "/api/settings")).body;
+    expect(shown.settings.history).toEqual({ enabled: true, keepDays: 30, maxEntries: 500, maxMB: 20 });
+    expect(shown.sections).toContain("ntfy");
+    const saved = await settingsPost(d, "/api/settings", { section: "history", values: { keepDays: 7 } });
+    expect(saved.status).toBe(200);
+    expect((await saved.json()).settings.history.keepDays).toBe(7);
+    expect(JSON.parse(readFileSync(settingsFile(), "utf8"))).toEqual({ history: { keepDays: 7 } });
+    expect((await get(d, "/api/settings")).body.settings.history.keepDays).toBe(7);
+    expect((await settingsPost(d, "/api/settings/reset", {})).status).toBe(200);
+    expect((await get(d, "/api/settings")).body.settings.history.keepDays).toBe(30);
+  });
+
+  it("keeps one project's own settings apart, and never shows a secret", async () => {
+    const d = await start(agent);
+    const id = entry(agent).id;
+    await settingsPost(d, "/api/settings", { section: "estimates", values: { window: 5 }, project: id });
+    await settingsPost(d, "/api/settings", { section: "ntfy", values: { token: "tk_secret" } });
+    const here = (await get(d, `/api/settings?project=${id}`)).body;
+    expect(here.settings.estimates.window).toBe(5);
+    expect(here.project).toEqual({ estimates: { window: 5 } });
+    expect(here.settings.ntfy.token).toBe("");
+    expect(here.secretsSet).toEqual(["ntfy.token"]);
+    expect((await get(d, "/api/settings")).body.settings.estimates.window).toBe(20);
+    await settingsPost(d, "/api/settings/reset", { section: "estimates", project: id });
+    expect((await get(d, `/api/settings?project=${id}`)).body.settings.estimates.window).toBe(20);
+    expect((await get(d, "/api/settings?project=nope")).status).toBe(404);
+  });
+
+  it("refuses a change from another page, without the header, not as JSON, or that does not fit", async () => {
+    const d = await start(agent);
+    expect((await settingsPost(d, "/api/settings", { section: "history", values: { keepDays: 7 } }, { origin: "https://evil.example" })).status).toBe(403);
+    expect((await settingsPost(d, "/api/settings", { section: "history", values: { keepDays: 7 } }, { "x-progressor": "notes" })).status).toBe(403);
+    expect((await settingsPost(d, "/api/settings/reset", {}, { "x-progressor": "talk" })).status).toBe(403);
+    expect((await settingsPost(d, "/api/settings", "{ nope")).status).toBe(400);
+    expect((await settingsPost(d, "/api/settings", { section: "history", values: { keepDays: 7 } }, { "content-type": "text/plain" })).status).toBe(415);
+    const bad = await settingsPost(d, "/api/settings", { section: "history", values: { keepDays: "soon" } });
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error).toMatch(/keepDays/);
+    expect((await settingsPost(d, "/api/settings", { section: "colours", values: {} })).status).toBe(400);
+    expect((await settingsPost(d, "/api/settings/reset", { section: "colours" })).status).toBe(400);
+    expect(existsSync(settingsFile())).toBe(false);
   });
 });

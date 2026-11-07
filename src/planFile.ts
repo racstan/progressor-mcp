@@ -262,6 +262,11 @@ const EVIDENCE = "evidence";
 const CHECKED_SINCE = "checked since";
 const STARTED = "started";
 const FINISHED_AT = "finished";
+/** Task details later features write (step evidence): the commits, branch, test result, and whether its files have unsaved changes. */
+export const TASK_COMMITS = "commits";
+export const TASK_BRANCH = "branch";
+export const TASK_TESTS = "tests";
+export const TASK_UNCOMMITTED = "uncommitted";
 
 function taskStatus(b: ItemBlock): TaskStatus {
   const marked = TASK_STATUS[b.marker!];
@@ -334,7 +339,7 @@ export interface TaskChanges {
 }
 
 /** Known Task details come first, in this order, when a Task is rewritten; unknown ones follow as they were. */
-const DETAIL_ORDER = ["state", "summary", "code", HELPER, HELPER_BRANCH, HELPER_FOLDER, EVIDENCE, CHECKED_SINCE, ESTIMATE, SPENT, SINCE, "moved from", "added by", "from hand test", "dropped by", "reason", ORIGIN_KEY, STARTED, FINISHED_AT, ADDED, UPDATED];
+const DETAIL_ORDER = ["state", "summary", "code", HELPER, HELPER_BRANCH, HELPER_FOLDER, EVIDENCE, CHECKED_SINCE, TASK_COMMITS, TASK_BRANCH, TASK_TESTS, TASK_UNCOMMITTED, ESTIMATE, SPENT, SINCE, "moved from", "added by", "from hand test", "dropped by", "reason", ORIGIN_KEY, STARTED, FINISHED_AT, ADDED, UPDATED];
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 
 function sortDetails(b: ItemBlock, order: string[] = DETAIL_ORDER): void {
@@ -485,6 +490,22 @@ export class PlanFile {
     const b = this.taskBlocks().find((t) => t.id === id);
     if (!b) throw new Error(`No Task ${id} in Goal ${this.goalId}.`);
     return b;
+  }
+
+  /** Every value of one detail line on a Task, such as its `commits`; for features with details of their own. */
+  taskDetail(id: string, key: string): string[] {
+    return getDetails(this.taskBlock(id), key);
+  }
+
+  /**
+   * Replaces one detail line on a Task (none, one, or several with the same key) and puts the Task's
+   * details back in their usual order (DETAIL_ORDER); unknown details keep their place after the known ones.
+   */
+  setTaskDetail(id: string, key: string, values: string | string[] | undefined): void {
+    const b = this.taskBlock(id);
+    b.children = b.children.filter((c) => !("key" in c && c.key === key));
+    for (const v of typeof values === "string" ? [values] : (values ?? [])) if (v.trim()) addDetail(b, key, oneLine(v));
+    sortDetails(b);
   }
 
   private allIds(): (string | undefined)[] {

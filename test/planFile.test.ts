@@ -374,3 +374,46 @@ describe("when a step was started and finished", () => {
     expect(moved).toMatchObject({ startedAt: "2026-10-28T09:00:00.000Z", finishedAt: "2026-10-28T10:00:00.000Z" });
   });
 });
+
+describe("details later features write on a Task", () => {
+  const withEvidence = `# Ship OAuth login
+
+## Tasks
+
+- [x] Add the /login route ^t1
+  - summary: The route
+  - code: \`src/routes/login.ts\`
+  - commits: a1b2c3d e4f5a6b
+  - branch: main
+  - tests: 715 passed
+  - uncommitted: yes
+  - estimate: 30m
+  - finished: 2026-10-20T12:00:00.000Z
+`;
+
+  it("reads and writes the file back unchanged", () => {
+    const plan = parsePlanFile(withEvidence, "ship-oauth-login");
+    expect(plan.toString()).toBe(withEvidence);
+    expect(plan.taskDetail("t1", "commits")).toEqual(["a1b2c3d e4f5a6b"]);
+    expect(plan.taskDetail("t1", "uncommitted")).toEqual(["yes"]);
+  });
+
+  it("puts them in their usual place when written, whatever order they come in", () => {
+    const plan = parsePlanFile(withEvidence, "ship-oauth-login");
+    for (const key of ["uncommitted", "tests", "branch", "commits"]) plan.setTaskDetail("t1", key, undefined);
+    expect(plan.toString()).not.toMatch(/commits|branch|tests|uncommitted/);
+    plan.setTaskDetail("t1", "uncommitted", "yes");
+    plan.setTaskDetail("t1", "tests", "715 passed");
+    plan.setTaskDetail("t1", "branch", "main");
+    plan.setTaskDetail("t1", "commits", "a1b2c3d e4f5a6b");
+    expect(plan.toString()).toBe(withEvidence);
+    expect(parsePlanFile(plan.toString(), "ship-oauth-login").toString()).toBe(withEvidence);
+  });
+
+  it("writes several lines of one detail, and keeps unknown details after the known ones", () => {
+    const plan = parsePlanFile("# G\n\n## Tasks\n\n- [ ] One ^t1\n  - colour: blue\n", "g");
+    plan.setTaskDetail("t1", "commits", ["a1b2c3d", "  ", "e4f5a6b"]);
+    expect(plan.toString()).toBe("# G\n\n## Tasks\n\n- [ ] One ^t1\n  - commits: a1b2c3d\n  - commits: e4f5a6b\n  - colour: blue\n");
+    expect(() => plan.setTaskDetail("t9", "commits", "x")).toThrow(/No Task t9/);
+  });
+});

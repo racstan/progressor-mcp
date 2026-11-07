@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { DEFAULT_EDITOR, EDITORS, editorUrl } from "../dashboard/editor.js";
+import { DEFAULT_EDITOR, editorUrl } from "../dashboard/editor.js";
 import type { GoalSchedule } from "../schedule.js";
-import { type RoadmapView, showInFolder, useDashboard, useOverview, useSearch, useServers, usePageStaleness, useStored, useStoredJson } from "./data.js";
+import { type RoadmapView, showInFolder, useDashboard, useOverview, useSearch, useServers, usePageStaleness, useSettings, useStored, useStoredJson, resetComputerSettings, saveSettings } from "./data.js";
 import { CONTEXT_HASH, HOTFIX_HASH, STATS_HASH, TALK_HASH, WISHLIST_HASH, contextFromHash } from "./context.js";
 import { HotfixPage } from "./HotfixPage.js";
 import { WhatsNew, changelog } from "./WhatsNew.js";
@@ -15,39 +15,21 @@ import { GoalPage } from "./GoalPage.js";
 import { Home } from "./HomePage.js";
 import { type PutOff, needsWhy, sidebarSections } from "./home.js";
 import { Icon, Ring } from "./Icon.js";
-import { Choice, GoalMenu, MenuPanel } from "./Menus.js";
+import { GoalMenu, MenuPanel } from "./Menus.js";
 import { sortProjects } from "./projectList.js";
 import { type SearchHit, SearchBox } from "./Search.js";
 import { Conversation } from "./Talk.js";
 import { latestReply, unreadReplies } from "./talkView.js";
 import { type Snapshot, finishedNote, newlyFinished, snapshot } from "./notify.js";
-import { ServersPanel } from "./Servers.js";
+import { Settings } from "./Settings.js";
+import { FreeNotice } from "./FreeNotice.js";
+import { canPopUp, editorName } from "./settings/Look.js";
+import type { SettingsContext, Theme } from "./settings/index.js";
 import { StepKey } from "./StepKey.js";
 import type { FileLink } from "./Steps.js";
 import { goalState, resourceWords } from "./words.js";
 
 type Goal = RoadmapView["goals"][number];
-type Theme = "light" | "dark" | "system" | "vibrant";
-
-const EDITOR_NAMES: Record<string, string> = {
-  vscode: "VS Code",
-  "vscode-insiders": "VS Code Insiders",
-  vscodium: "VSCodium",
-  cursor: "Cursor",
-  windsurf: "Windsurf",
-  zed: "Zed",
-  jetbrains: "IntelliJ IDEA",
-  idea: "IntelliJ IDEA",
-  webstorm: "WebStorm",
-  pycharm: "PyCharm",
-  phpstorm: "PhpStorm",
-  goland: "GoLand",
-  rider: "Rider",
-  rubymine: "RubyMine",
-  clion: "CLion",
-  rustrover: "RustRover",
-};
-const editorName = (e: string) => EDITOR_NAMES[e] ?? (e.includes("{") ? "your editor" : e);
 
 /** The Goal shown first: one waiting on the Developer, else one being worked on, else a paused one, else the next planned one. */
 function defaultGoal(goals: Goal[]): string | undefined {
@@ -310,6 +292,16 @@ export function App() {
     setPopUps("on");
     new Notification("Pop-ups are on", { body: "You'll get one like this when a goal is finished.", tag: "progressor-pop-ups-on" });
   };
+  // The settings for how Progressor works, kept on this computer, as they are for the project shown.
+  const [computer, setComputer] = useSettings(projectId);
+  const settingsContext: SettingsContext = {
+    theme, setTheme, popUps, switchPopUps, setPopUps, finished, setFinished,
+    editor, info, setEditorChoice, putOff, setPutOff,
+    servers, reloadServers: reloadServers, toast,
+    computer, projectId,
+    save: async (section, values, forProject) => setComputer(await saveSettings(section, values, forProject ? projectId : undefined)),
+    resetComputer: async (section) => setComputer(await resetComputerSettings(section)),
+  };
   const goHome = () => {
     setParams({ project: undefined, workspace: undefined }, "push");
     setPickedProject(undefined);
@@ -565,70 +557,7 @@ export function App() {
         <ProjectList current={projectId} projects={projects ?? []} onPick={(id) => pickProject(id)} onHome={goHome} onClose={() => setSwitcherOpen(false)} />
       )}
 
-      {panel === "settings" && (
-        <MenuPanel label="Settings" onClose={() => setPanel(undefined)}>
-          <section>
-            <h3>Theme</h3>
-            <Choice value={theme ?? "light"} onChange={(t) => setTheme(t === "light" ? undefined : t)}
-              options={[
-                { value: "light", label: "Light", hint: "Always light" },
-                { value: "dark", label: "Dark", hint: "Always dark" },
-                { value: "system", label: "System", hint: "Light or dark, following your computer's setting" },
-                { value: "vibrant", label: "Vibrant", hint: "Colourful: an indigo accent, green for done and amber for what needs you" },
-              ]} />
-          </section>
-          <section>
-            <h3>Pop-ups</h3>
-            <label className="option">
-              <input type="checkbox" checked={popUps === "on" && canPopUp() === "granted"} onChange={(e) => void switchPopUps(e.target.checked)} />
-              <span><b>Pop up when a goal is finished</b><small>A desktop pop-up from any project, while a dashboard tab is open, even in the background.{canPopUp() === "denied" ? " Your browser blocks them for this page: allow notifications for this site in the browser's settings." : ""}</small></span>
-            </label>
-          </section>
-          <section>
-            <h3>Finished goals</h3>
-            <label className="option">
-              <input type="radio" name="finished" checked={finished !== "review"} onChange={() => setFinished(undefined)} />
-              <span><b>Move to Finished straight away</b><small>Finished goals fold away as soon as they finish. The usual choice.</small></span>
-            </label>
-            <label className="option">
-              <input type="radio" name="finished" checked={finished === "review"} onChange={() => setFinished("review")} />
-              <span><b>Wait for me to look</b><small>A finished goal stays under Just finished until you open it.</small></span>
-            </label>
-          </section>
-          <details className="advanced">
-            <summary title="Options for people who look at the code">Advanced</summary>
-            <section>
-              <h3>Open files in</h3>
-              <select className="picker" aria-label="Open files in" title="The code editor that opens when you click a file name on a step"
-                value={editor} onChange={(e) => setEditorChoice(e.target.value === info?.editor ? undefined : e.target.value)}>
-                {info?.editor && !EDITORS.includes(info.editor) && <option value={info.editor}>Custom (PROGRESSOR_EDITOR)</option>}
-                {EDITORS.filter((e) => e !== "jetbrains").map((e) => (
-                  <option key={e} value={e}>{editorName(e)}</option>
-                ))}
-              </select>
-            </section>
-            <section>
-              <h3>Things to try you put off</h3>
-              <button className="btn ghost small" disabled={Object.keys(putOff).length === 0}
-                onClick={() => {
-                  setPutOff({});
-                  toast("Everything you put off is back under Needs you.");
-                }}>
-                Bring them all back
-              </button>
-            </section>
-            <ServersPanel servers={servers} hub={info} reload={reloadServers} toast={toast} />
-          </details>
-          <section>
-            <h3>Support Progressor</h3>
-            <a className="card" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
-              Buy me a coffee
-              <small>Progressor is free for personal and noncommercial use. If it keeps you on track, a coffee keeps it going.</small>
-            </a>
-          </section>
-          <p className="hint">Settings are saved in this browser.</p>
-        </MenuPanel>
-      )}
+      {panel === "settings" && <Settings ctx={settingsContext} onClose={() => setPanel(undefined)} />}
 
       {panel === "help" && (
         <MenuPanel label="Help" onClose={() => setPanel(undefined)}>
@@ -658,6 +587,7 @@ export function App() {
               {info?.version && <> · Progressor {info.version}</>}
             </p>
           </section>
+          <FreeNotice />
         </MenuPanel>
       )}
 
@@ -770,12 +700,6 @@ export function App() {
     </>
   );
 }
-
-/** Whether this browser can show desktop pop-ups for the page, and whether it may. */
-const canPopUp = (): NotificationPermission | "unsupported" => ("Notification" in window ? Notification.permission : "unsupported");
-
-/** The Developer's Buy Me a Coffee page, shown in Settings. */
-const SUPPORT_URL = "https://buymeacoffee.com/rachitasthana";
 
 const scrollMainToTop = () => document.getElementById("main")?.scrollTo({ top: 0 });
 

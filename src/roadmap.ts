@@ -15,7 +15,7 @@ import {
   setDetail,
 } from "./markdown.js";
 import { formatDuration, parseDuration } from "./estimate.js";
-import { type Stamp, withDates } from "./dates.js";
+import { ADDED, type Stamp, UPDATED, withDates } from "./dates.js";
 import { ORIGIN_KEY, type Origin, formatOrigin, parseOrigin } from "./origin.js";
 
 /**
@@ -31,6 +31,13 @@ const WAITING_ON = "waiting on";
 const HAND_TESTS = "hand tests";
 /** The detail line on a hotfix: a bug that jumps the queue (see Roadmap.addGoal). */
 const HOTFIX = "hotfix";
+/** Goal details later features write: what it waits on, the release it is and the goals it bundles, and the routine that made it. */
+export const GOAL_WAITS_ON = "waits on";
+export const GOAL_RELEASE = "release";
+export const GOAL_BUNDLES = "bundles";
+export const GOAL_FROM_ROUTINE = "from routine";
+/** Known Goal details, in this order, when one is written with setGoalDetail; unknown ones follow as they were. */
+const GOAL_DETAIL_ORDER = ["outcome", "estimate", HOTFIX, GOAL_WAITS_ON, GOAL_RELEASE, GOAL_BUNDLES, GOAL_FROM_ROUTINE, WAITING_ON, "claimed by", "reason", "note", ORIGIN_KEY, ADDED, UPDATED];
 
 export interface Claim {
   session: string;
@@ -246,6 +253,29 @@ export class Roadmap {
     const b = this.goalBlocks().find((g) => g.id === id);
     if (!b) throw new Error(`No Goal ${id} on the Roadmap.`);
     return b;
+  }
+
+  /** Every value of one detail line on a Goal, such as its `waits on`; for features with details of their own. */
+  goalDetail(id: string, key: string): string[] {
+    return getDetails(this.goalBlock(id), key);
+  }
+
+  /**
+   * Replaces one detail line on a Goal (none, one, or several with the same key) and puts the Goal's
+   * details in their usual order (GOAL_DETAIL_ORDER); unknown details keep their place after the known ones.
+   */
+  setGoalDetail(id: string, key: string, values: string | string[] | undefined): void {
+    const b = this.goalBlock(id);
+    b.children = b.children.filter((c) => !("key" in c && c.key === key));
+    for (const v of typeof values === "string" ? [values] : (values ?? [])) if (v.trim()) addDetail(b, key, oneLine(v));
+    const rank = (c: ItemBlock["children"][number]) => {
+      const i = "key" in c ? GOAL_DETAIL_ORDER.indexOf(c.key) : -1;
+      return i < 0 ? GOAL_DETAIL_ORDER.length : i;
+    };
+    b.children = b.children
+      .map((c, i) => ({ c, i }))
+      .sort((x, y) => rank(x.c) - rank(y.c) || x.i - y.i)
+      .map((x) => x.c);
   }
 
   /** Gives every Idea and Standing Instruction typed by hand without an ID the next free one. */

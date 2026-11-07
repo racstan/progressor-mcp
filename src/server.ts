@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod";
 import type { Dashboard } from "./dashboard/http.js";
-import { projectEntry } from "./dashboard/registry.js";
+import { defaultRegistryFile, projectEntry } from "./dashboard/registry.js";
 import { resolveProject, sameFolder, seenFile, takeElsewhereLine } from "./elsewhere.js";
 import { hooksAdvice, launchFor, startedViaNpx } from "./init.js";
 import { withLock } from "./lock.js";
@@ -17,6 +17,8 @@ import { type ResourceLock, holderText, resourceLine } from "./resources.js";
 import { type Goal, type StandingInstruction, hardFirst, helperLimit, hotfixLine, ruleText } from "./roadmap.js";
 import type { GoalSchedule, Schedule } from "./schedule.js";
 import type { Wish } from "./wishlist.js";
+import { settingsFileFor } from "./settings.js";
+import { registerFeatureTools } from "./tools/index.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -600,6 +602,8 @@ export interface ServerOptions {
   dashboard?: { readonly url: string | undefined; readonly notice?: string | undefined; refresh(): Promise<void> };
   /** The project registry, for finding other projects; `~/.progressor/projects.json` unless set. */
   registryFile?: string;
+  /** The settings for how Progressor works (settings.ts); `settings.json` next to the registry unless set. */
+  settingsFile?: string;
   /** Where Claude Code keeps the user's settings (`.claude/settings.json` in it), for the hooks check; the home folder unless set. */
   claudeHome?: string;
 }
@@ -1494,6 +1498,15 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   );
 
   // Slash commands: Claude Code lists them in its / menu as /<server name>:status (MCP) and so on.
+  registerFeatureTools(server, {
+    project,
+    registryFile,
+    settingsFile: options.settingsFile ?? settingsFileFor(registryFile ?? defaultRegistryFile()),
+    respondIn,
+    withNow,
+    doneIn,
+  });
+
   const message = (text: string) => ({ messages: [{ role: "user" as const, content: { type: "text" as const, text } }] });
 
   server.registerPrompt(
