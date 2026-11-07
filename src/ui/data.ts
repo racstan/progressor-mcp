@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AllStatsView, GoalView, InfoView, OverviewView, RoadmapView, SearchView, ServersView, StatsView } from "../dashboard/http.js";
 import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
+import type { SettingsView } from "../dashboard/routes/settings.js";
 import { newestOnly, sharedEvents } from "./liveEvents.js";
 import { type Staleness, pageStaleness } from "./stale.js";
 
+export type { SettingsView };
 export type { AllStatsView, GoalView, InfoView, OverviewView, ProjectEntry, RoadmapView, SearchView, ServersView, StatsView, WorkspaceEntry };
 export type Connection = "connecting" | "live" | "reconnecting";
 
@@ -430,4 +432,45 @@ function useStatsAt<T>(path: string, version: unknown): T | null | undefined {
     };
   }, [path, version]);
   return stats?.path === path ? stats.stats : undefined;
+}
+
+/** Sends a change to the settings for how Progressor works; says what went wrong in words when refused. */
+async function postSettings(path: string, body: unknown): Promise<SettingsView> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "x-progressor": "settings", "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const answer = (await res.json().catch(() => ({}))) as SettingsView & { error?: string };
+  if (!res.ok) throw new Error(answer.error ?? `The server answered ${res.status}.`);
+  return answer;
+}
+
+/** Changes one section of the settings, for every project or, with projectId, for that project only. */
+export const saveSettings = (section: string, values: Record<string, unknown>, projectId?: string) =>
+  postSettings("/api/settings", { section, values, project: projectId });
+
+/** Puts one section, or every section when none is named, back to its defaults. */
+export const resetComputerSettings = (section?: string, projectId?: string) => postSettings("/api/settings/reset", { section, project: projectId });
+
+/**
+ * The settings for how Progressor works (settings.ts), as they are for the project shown, fetched
+ * again when any page changes them. Undefined until loaded, and null when the hub is older and has none.
+ */
+export function useSettings(projectId: string | undefined): [SettingsView | null | undefined, (view: SettingsView) => void] {
+  const [view, setView] = useState<SettingsView | null>();
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      getJson<SettingsView>(`/api/settings${projectId ? `?project=${encodeURIComponent(projectId)}` : ""}`)
+        .then((v) => alive && setView(v ?? null))
+        .catch(() => undefined);
+    void load();
+    const stop = live.on({ settings: () => void load() });
+    return () => {
+      alive = false;
+      stop();
+    };
+  }, [projectId]);
+  return [view, setView];
 }

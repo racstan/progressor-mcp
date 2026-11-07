@@ -194,3 +194,40 @@ describe("hard rules", () => {
     expect(hardFirst(r.standingInstructions).map((s) => s.id)).toEqual(["s2", "s4", "s1", "s3"]);
   });
 });
+
+describe("details later features write on a Goal", () => {
+  const withDetails = `# Roadmap
+
+## Goals
+
+- [ ] [Release 1.4.0](goals/release-1-4-0.md) ^release-1-4-0
+  - outcome: 1.4.0 is published
+  - waits on: billing
+  - waits on: shop/checkout
+  - release: 1.4.0
+  - bundles: billing, search
+  - from routine: ^r1
+  - claimed by: s-7f3a (pid 18244) since 2026-10-18T15:02:11.000Z
+- [ ] [Billing](goals/billing.md) ^billing
+`;
+
+  it("reads and writes the file back unchanged", () => {
+    const roadmap = parseRoadmap(withDetails);
+    expect(roadmap.toString()).toBe(withDetails);
+    expect(roadmap.goalDetail("release-1-4-0", "waits on")).toEqual(["billing", "shop/checkout"]);
+    expect(roadmap.goalDetail("release-1-4-0", "from routine")).toEqual(["^r1"]);
+    expect(roadmap.goal("release-1-4-0")!.status).toBe("active");
+  });
+
+  it("puts them in their usual place when written, whatever order they come in", () => {
+    const roadmap = parseRoadmap(withDetails);
+    for (const key of ["waits on", "release", "bundles", "from routine"]) roadmap.setGoalDetail("release-1-4-0", key, undefined);
+    expect(roadmap.toString()).not.toMatch(/waits on|release:|bundles|from routine/);
+    roadmap.setGoalDetail("release-1-4-0", "from routine", "^r1");
+    roadmap.setGoalDetail("release-1-4-0", "bundles", "billing, search");
+    roadmap.setGoalDetail("release-1-4-0", "release", "1.4.0");
+    roadmap.setGoalDetail("release-1-4-0", "waits on", ["billing", "shop/checkout"]);
+    expect(roadmap.toString()).toBe(withDetails);
+    expect(parseRoadmap(roadmap.toString()).toString()).toBe(withDetails);
+  });
+});

@@ -26,6 +26,9 @@ import {
   projectEntry,
   registerProject,
 } from "./registry.js";
+import { isFromDashboardPage, json, readBody, readBytes } from "./respond.js";
+import { type HubContext, featureRoutes, runFeatureRoute } from "./routes.js";
+import { settingsFileFor } from "../settings.js";
 import { watchProgress } from "./watch.js";
 import { allProjects, findProjects } from "./workspace.js";
 import { combineStats, projectStats } from "../stats.js";
@@ -34,7 +37,7 @@ import { type RevealRunner, insideProject, revealCommand, runReveal } from "./re
 export const DEFAULT_PORT = 4747;
 const HOST = "127.0.0.1";
 /** Bumped when the hub's API changes, so a hub from an older version is not shared. */
-const HUB_VERSION = 8;
+const HUB_VERSION = 9;
 
 export interface DashboardOptions {
   /** This Session's project; it is added to the registry. Absent when only a Workspace is opened. */
@@ -59,6 +62,8 @@ export interface DashboardOptions {
   hubCheckMs?: number;
   /** Opens the file manager for "Show in folder"; tests pass their own (reveal.ts). */
   reveal?: RevealRunner;
+  /** The settings file (settings.ts); `settings.json` next to the registry unless set. */
+  settingsFile?: string;
 }
 
 export interface Dashboard {
@@ -207,27 +212,6 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
   };
 }
 
-function json(res: ServerResponse, status: number, body: unknown): void {
-  res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
-  res.end(JSON.stringify(body));
-}
-
-/**
- * Whether a request that changes something comes from the dashboard's own page. Browsers always send
- * Origin on a POST, and a custom header cannot be sent from another site without a CORS preflight,
- * which the dashboard never answers, so other web pages cannot stop servers.
- */
-function isFromDashboardPage(req: IncomingMessage, header: "stop" | "mark" | "talk" | "reveal" | "notes"): boolean {
-  if (req.headers["x-progressor"] !== header) return false;
-  try {
-    const origin = new URL(String(req.headers.origin ?? ""));
-    const port = (req.headers.host ?? "").match(/:(\d+)$/)?.[1] ?? "80";
-    return ["localhost", "127.0.0.1", "[::1]"].includes(origin.hostname) && (origin.port || "80") === port;
-  } catch {
-    return false;
-  }
-}
-
 /** What the Developer may send as a mark: a result, or "clear" to undo it. */
 const MARKS: Record<string, HandResult> = { works: "works", "doesn't work": "doesn't work", "won't test": "won't test", clear: "pending" };
 /** A mark is a few words and a short note, so a bigger body is refused unread. */
@@ -238,36 +222,6 @@ const MAX_TALK_BODY = 16_384;
 const MAX_WISH_BODY = 8 * 1024 * 1024;
 /** How much of a long wish is quoted to the AI in the message that tells it of the wish. */
 const WISH_QUOTE = 200;
-
-/** Reads a request body as bytes, or undefined when it is bigger than the limit. */
-function readBytes(req: IncomingMessage, limit: number): Promise<Buffer | undefined> {
-  return new Promise((done) => {
-    const chunks: Buffer[] = [];
-    let size = 0;
-    req.on("data", (c: Buffer) => {
-      size += c.length;
-      if (size > limit) done(undefined); // the rest is read and dropped
-      else chunks.push(c);
-    });
-    req.on("end", () => done(Buffer.concat(chunks)));
-    req.on("error", () => done(undefined));
-  });
-}
-
-/** Reads a request body as text, or undefined when it is bigger than the limit. */
-function readBody(req: IncomingMessage, limit: number): Promise<string | undefined> {
-  return new Promise((done) => {
-    const chunks: Buffer[] = [];
-    let size = 0;
-    req.on("data", (c: Buffer) => {
-      size += c.length;
-      if (size > limit) done(undefined); // the rest is read and dropped
-      else chunks.push(c);
-    });
-    req.on("end", () => done(Buffer.concat(chunks).toString("utf8")));
-    req.on("error", () => done(undefined));
-  });
-}
 
 /** Only answer requests addressed to the loopback host, so other web pages cannot read the record through DNS rebinding. */
 function isLocalHost(req: IncomingMessage): boolean {
@@ -349,6 +303,8 @@ class Hub {
     private readonly onStepDown: () => void,
     /** Opens the file manager for "Show in folder". */
     private readonly reveal: RevealRunner = runReveal,
+    /** The settings for how Progressor works (settings.ts). */
+    private readonly settingsFile: string = settingsFileFor(registryFile),
   ) {
     this.sync();
     this.timer = setInterval(() => this.sync(), rescanMs);
@@ -764,10 +720,24 @@ class Hub {
     return json(res, 202, { steppingDown: process.pid });
   }
 
+  /** What the feature routes (routes.ts) get from the hub. */
+  private hubContext(): HubContext {
+    return {
+      project: (id) => {
+        if (!this.projects.has(id)) this.sync();
+        return this.projects.get(id)?.project;
+      },
+      settingsFile: this.settingsFile,
+      registryFile: this.registryFile,
+      send: (event, data) => this.send(event, data),
+    };
+  }
+
   handle = (req: IncomingMessage, res: ServerResponse): void => {
     if (!isLocalHost(req)) return json(res, 403, { error: "The dashboard only answers on localhost." });
     const url = new URL(`http://localhost${req.url ?? "/"}`);
     const path = url.pathname;
+    if (runFeatureRoute(featureRoutes, req, res, url, this.hubContext())) return;
     const stop = /^\/api\/servers\/(\d+)\/stop$/.exec(path);
     if (req.method === "POST" && stop) return this.stopServer(req, res, Number(stop[1]));
     if (req.method === "POST" && path === "/api/hub/step-down") return this.stepDown(req, res);
@@ -973,7 +943,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
     const http = createServer();
     const result = await listen(http, p);
     if (result !== "ok") return result;
-    hub ??= new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs, serversDir, () => void stopServing(), reveal);
+    hub ??= new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs, serversDir, () => void stopServing(), reveal, options.settingsFile ?? settingsFileFor(registryFile));
     http.on("request", hub.handle);
     const previous = servers;
     [servers, port, role] = [[http], p, "serving"];

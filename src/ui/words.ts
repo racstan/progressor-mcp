@@ -485,3 +485,81 @@ export function driftWords(d: { sideTrips: number; goalsWithSideTrips: number; g
   if (d.sideTrips === 0) return "No side trips: the work kept to the plan.";
   return `${d.sideTrips} side ${d.sideTrips === 1 ? "trip" : "trips"}, in ${d.goalsWithSideTrips} of ${d.goals} ${d.goals === 1 ? "goal" : "goals"}.`;
 }
+
+// --- settings ---
+// The Settings panel (Settings.tsx) and the notice at the bottom of Settings and Help (FreeNotice.tsx).
+
+/** The Developer's own words, shown at the bottom of Settings and Help. */
+export const FREE_NOTICE = "Progressor is free. There is no paid version or subscription; anyone selling one is not us, so beware of impostors.";
+
+/** Which settings are kept where, under the Settings panel. */
+export const SETTINGS_WHERE =
+  "How the page looks (theme, pop-ups, finished goals and Advanced) is kept in this browser. Settings for how Progressor works are kept on this computer, for all your projects.";
+
+export const RESET_SECTION = "Reset this section";
+export const RESET_ALL = "Reset all settings to defaults";
+export const RESET_ALL_CONFIRM =
+  "Put every setting back to how it was when Progressor was installed? This changes how the page looks in this browser and how Progressor works on this computer. Your goals and plans are not touched.";
+export const RESET_ALL_DONE = "Every setting is back to its default.";
+
+// Each feature below keeps its words in its own block, so features can be added side by side.
+
+// --- history ---
+// Plan history and undo.
+//
+//
+//
+
+// --- evidence ---
+// Steps linked to commits and test runs.
+//
+//
+//
+
+// --- estimates ---
+// Estimates that learn.
+//
+//
+//
+
+// --- checkup ---
+// The plan check-up.
+//
+//
+//
+
+// --- release ---
+// The changelog from finished goals.
+//
+//
+//
+
+// --- dependencies ---
+// Goals that wait on other goals.
+//
+//
+//
+
+// --- routines ---
+// Recurring goals.
+//
+//
+//
+
+// --- ntfy ---
+// Phone notifications.
+//
+//
+//
+
+// --- alternatives ---
+// Alternatives to choose from.
+//
+//
+//
+
+// --- handoffs ---
+// Handoffs.
+//
+//
+//

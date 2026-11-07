@@ -758,3 +758,42 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .release-body ul { margin: var(--s1) 0; padding-left: 20px; }
 .release-body li + li { margin-top: 4px; }
 .release-body code { font-size: .92em; background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+
+/* ---------- settings (Settings.tsx; each feature's section is in its own block below) ---------- */
+.menu-panel .settings-head { display: flex; align-items: baseline; gap: var(--s2); margin-bottom: var(--s2); }
+.menu-panel .settings-head h3 { margin: 0; flex: 1; }
+.reset-section { background: none; border: none; padding: 0; font-size: var(--t-s); color: var(--faint); text-decoration: underline; text-underline-offset: 2px; }
+.reset-section:hover { color: var(--ink); }
+.menu-panel .settings-foot { margin-top: var(--s3); }
+.menu-panel .reset-all { border-top: 1px solid var(--line); padding-top: var(--s4); }
+.free-notice { margin: var(--s4) 0 0; padding: var(--s2) var(--s3); border: 1px solid var(--line-strong); border-radius: var(--r-s); font-size: var(--t-s); font-weight: 600; color: var(--ink); }
+
+/* ---------- history: plan history and undo ---------- */
+
+
+/* ---------- evidence: steps linked to commits and test runs ---------- */
+
+
+/* ---------- estimates: estimates that learn ---------- */
+
+
+/* ---------- checkup: the plan check-up ---------- */
+
+
+/* ---------- release: the changelog from finished goals ---------- */
+
+
+/* ---------- dependencies: goals that wait on other goals ---------- */
+
+
+/* ---------- routines: recurring goals ---------- */
+
+
+/* ---------- ntfy: phone notifications ---------- */
+
+
+/* ---------- alternatives: alternatives to choose from ---------- */
+
+
+/* ---------- handoffs ---------- */
+

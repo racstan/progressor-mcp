@@ -8,6 +8,8 @@ import { removeTempDirs } from "./tmp.js";
 
 const registryDir = mkdtempSync(join(tmpdir(), "progressor-registry-"));
 process.env.PROGRESSOR_REGISTRY = join(registryDir, "projects.json");
+// Settings then sit next to that throwaway registry, never in the Developer's own settings file.
+delete process.env.PROGRESSOR_SETTINGS;
 
 // Registered first, so it runs after each file's own afterEach (which closes servers and watchers).
 afterEach(() => removeTempDirs());
