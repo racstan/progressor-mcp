@@ -30,6 +30,8 @@ import { FreeNotice } from "./FreeNotice.js";
 import { canPopUp, editorName } from "./settings/Look.js";
 import type { SettingsContext, Theme } from "./settings/index.js";
 import { StepKey } from "./StepKey.js";
+import { Tour } from "./Tour.js";
+import { markTourSeen, tourSeen } from "./tourSteps.js";
 import type { FileLink } from "./Steps.js";
 import { goalState, resourceWords } from "./words.js";
 
@@ -122,6 +124,15 @@ export function App() {
   const [goalMenu, setGoalMenu] = useState<{ id: string; at: { x: number; y: number } }>();
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [toast, toastNode] = useToast();
+  // The first-run tour: once per browser, never when the browser can't remember it (tourSteps.ts), and again from Help.
+  const [touring, setTouring] = useState(false);
+  const browserStore = () => {
+    try {
+      return localStorage;
+    } catch {
+      return { getItem: () => { throw new Error("no storage"); }, setItem: () => undefined };
+    }
+  };
 
   // Without a project in the address, the page is Home: every project, or one Workspace's.
   const onHome = !pickedProject;
@@ -372,6 +383,17 @@ export function App() {
     if (latest) setSeenChanges(latest.title);
   };
   const closeChanges = useCallback(() => setShowChanges(false), []);
+  const closeTour = useCallback(() => setTouring(false), []);
+  // Shown once the page has something on it, the first time this browser opens the dashboard.
+  const loaded = projects !== undefined;
+  useEffect(() => {
+    if (!loaded) return;
+    const store = browserStore();
+    if (tourSeen(store)) return;
+    markTourSeen(store);
+    setTouring(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded]);
   const openPanel = (which: "help") => setPanel(panel === which ? undefined : which);
   // The Settings page lists the running servers; look again each time it opens.
   useEffect(() => {
@@ -509,7 +531,7 @@ export function App() {
           <Icon name="help" size={18} />
           {unseen && <span className="new-dot" aria-hidden="true" />}
         </button>
-        <button className={`iconbtn ${page === "settings" ? "on" : ""}`} aria-current={page === "settings" ? "page" : undefined}
+        <button data-tour="settings" className={`iconbtn ${page === "settings" ? "on" : ""}`} aria-current={page === "settings" ? "page" : undefined}
           title="Settings" aria-label="Settings" onClick={() => openPage("settings")}>
           <Icon name="settings" size={18} />
         </button>
@@ -536,6 +558,13 @@ export function App() {
             </button>
           </section>
           <section>
+            <h3>New here?</h3>
+            <button className="card" onClick={() => { setPanel(undefined); setTouring(true); }}>
+              Take the tour again
+              <small>A short walk past the main parts of the dashboard. Skip it at any time.</small>
+            </button>
+          </section>
+          <section>
             <h3>What the marks on a step mean</h3>
             <StepKey statuses={[]} all />
           </section>
@@ -558,11 +587,12 @@ export function App() {
         </MenuPanel>
       )}
 
+      {touring && <Tour onClose={closeTour} />}
       {showChanges && <WhatsNew version={info?.version} onClose={closeChanges} />}
 
       <div className={`shell ${drawer ? "side-open" : ""} ${collapsed ? "collapsed" : ""}`}>
         <aside className="sidebar" aria-label={onHome ? "Projects" : "Your goals"}>
-          <button className="side-link" aria-current={onHome && page !== "settings"} onClick={goHome}>
+          <button className="side-link" data-tour="home" aria-current={onHome && page !== "settings"} onClick={goHome}>
             <Icon name="home" /> Home
           </button>
           {onHome ? (
@@ -581,15 +611,15 @@ export function App() {
             </>
           ) : (
             <>
-              <div className="side-group project-links">
+              <div className="side-group project-links" data-tour="project">
                 <h3 title={project?.root}>{project?.name ?? "This project"}</h3>
-                <button className="side-link" aria-current={page === "dashboard"} onClick={() => openPage("dashboard")} title={`${project?.name ?? "This project"}: how long steps take, how often work drifts, and what was finished each day`}>
+                <button className="side-link" data-tour="dashboard" aria-current={page === "dashboard"} onClick={() => openPage("dashboard")} title={`${project?.name ?? "This project"}: how long steps take, how often work drifts, and what was finished each day`}>
                   <Icon name="chart" /> Dashboard
                 </button>
                 <button className="side-link" aria-current={page === "hotfix"} onClick={() => openPage("hotfix")} title="Urgent bugs in this project, fixed before anything else: your AI finishes the step it is on, then fixes it, test first">
                   <Icon name="flag" /> Hotfixes
                 </button>
-                <button className="side-link" aria-current={page === "talk"} onClick={() => openPage("talk")} title="Write to your AI about the whole project, not one goal">
+                <button className="side-link" data-tour="talk" aria-current={page === "talk"} onClick={() => openPage("talk")} title="Write to your AI about the whole project, not one goal">
                   <Icon name="send" /> Message your AI
                   {unread > 0 && <span className="n" title="New replies from your AI you haven't read yet">{unread}</span>}
                 </button>

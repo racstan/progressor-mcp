@@ -1162,3 +1162,20 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .phone-address-row code { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; padding: 6px var(--s2); border: 1px solid var(--line); border-radius: var(--r-s); background: var(--panel2); font-size: var(--t-s); }
 .phone-choice { margin: var(--s3) 0; }
 .phone-problem { margin: 0 0 var(--s2); font-size: var(--t-s); font-weight: 600; color: var(--ink); }
+
+/* ---------- the first-run tour (Tour.tsx): never blocks the page, so clicks go through the dimming ---------- */
+.tour { position: fixed; inset: 0; z-index: 80; pointer-events: none; }
+.tour-dim { position: absolute; inset: 0; background: rgba(0, 0, 0, .28); }
+.tour-spot { position: absolute; border-radius: var(--r); box-shadow: 0 0 0 9999px rgba(0, 0, 0, .28); outline: 3px solid var(--ink); outline-offset: 0; transition: top .25s var(--ease), left .25s var(--ease), width .25s var(--ease), height .25s var(--ease); }
+[data-theme="vibrant"] .tour-spot { outline-color: var(--accent); }
+.tour-card { position: absolute; pointer-events: auto; width: 340px; max-width: calc(100vw - 24px); background: var(--panel); color: var(--ink); border: var(--heavy); border-radius: var(--r); box-shadow: var(--shadow); padding: var(--s4); animation: pop .16s var(--ease) both; }
+.tour-card:focus { outline: none; }
+.tour-card:focus-visible { box-shadow: var(--shadow), 0 0 0 3px var(--line-strong); }
+.tour-card.docked { left: 12px; right: 12px; margin: 0 auto; bottom: var(--s5); width: min(420px, calc(100vw - 24px)); }
+.tour-card h2 { margin: 0 0 var(--s2); font-size: var(--t-l); }
+.tour-card p { margin: 0 0 var(--s3); }
+.tour-count { font-size: var(--t-s); color: var(--muted); }
+.tour-actions { display: flex; align-items: center; gap: var(--s2); }
+.tour-actions .sp { flex: 1; }
+@media (max-width: 640px) { .tour-card.docked { bottom: var(--s3); } }
+@media (prefers-reduced-motion: reduce) { .tour-spot, .tour-card { transition: none; animation: none; } }
