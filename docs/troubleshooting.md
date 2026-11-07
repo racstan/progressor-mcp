@@ -55,7 +55,7 @@ Every `get_status` ends with a `Project folder:` line. If it isn't your project,
 
 ## The dashboard doesn't open
 
-- It runs while an AI app is running Progressor. Open your AI app first.
+- It runs while an AI app is running Progressor. Open your AI app first, or keep it up all the time with `progressor-mcp daemon install` (see [the dashboard in the background](dashboard.md#the-dashboard-in-the-background)); `progressor-mcp daemon status` says whether that runs, and what it last said is in `~/.progressor/daemon.log`.
 - The address may not be 4747 if that port was taken. The `Dashboard:` line at the end of `get_status` has the right one.
 - Check that `PROGRESSOR_DASHBOARD` isn't set to `off` in the app's MCP settings.
 

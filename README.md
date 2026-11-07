@@ -141,13 +141,15 @@ Tell it what you want to build, as you would anyway: *"Add a login page with Goo
 
 Open **http://localhost:4747** while your AI's app is open (your AI gives you the link). Everything on it is optional: your AI runs the plan by itself, and the page lets you watch and step in when you want to.
 
+**Where it runs.** Usually the dashboard runs inside your AI's app and stops when the last one closes. If you'd like it up all the time, choose **Always, in the background** under Settings › Advanced, or run `progressor-mcp daemon install`: a small process starts when you log in and keeps the dashboard up with no AI app open (it uses about 30 MB of memory). Your AI's sessions share it, and `progressor-mcp daemon uninstall` puts things back. Both ways work the same; neither is needed.
+
 **Finding your way**
 
 - **Home** shows every project at once: what needs you, what's being worked on, and the numbers across all of them.
 - **Breadcrumbs** at the top of every page say where you are, such as *Home › Bindery › Dashboard*; click Home or the project to go back.
 - **Search** in the top bar (press `/`) finds projects, goals and steps across all your projects as you type.
 - **Settings** has its own page, from the gear at the top or the sidebar, grouped into Look, Notifications, AI & plan, History & releases and Advanced, with a menu that folds away. Nothing there is required: Progressor works fully with the defaults.
-- **A short tour** the first time you open the dashboard: a welcome that says Progressor is free (anyone selling it is not us), then the main parts of the page. Close it with Skip or ×, tick Don't show again, or take it again from ❓ Help.
+- **A short tour** the first time you open the dashboard: a welcome that says Progressor is free (anyone selling it is not us), then the main parts of the page. Close it with Skip or ×, tick Don't show again, or take it again from ❓ Help or Settings › Look, where **Show the tour when the page opens** turns it on or off. If you're updating from an earlier Progressor, you get What's new instead.
 - **Light, Dark, System or Vibrant.** Vibrant, the colourful one with black text, is the default; Light, Dark and System keep to black, white and greys.
 
 **Each goal**

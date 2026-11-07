@@ -6,7 +6,7 @@ The dashboard shows the plan. The one thing you do on it yourself is mark the th
 
 ## Finding your way
 
-**The tour.** The first time you open the dashboard in a browser, a short tour opens with a welcome that says, in bold, that Progressor is free (there is no paid version or subscription, so anyone selling one is not us), then six steps point at the main parts of the page: Home and your projects, a goal and its steps, Needs you, Message your AI, the project's Dashboard and Calendar, and Settings. **Next** and **Back** move through it. **Skip the tour**, the **×** in its corner or Escape close it for now, and it comes back once the next time you open the dashboard; finishing it, or closing it with **Don't show again** ticked, puts it away for good. It never stops you using the page; **Take the tour again** in ❓ Help always brings it back.
+**The tour.** The first time you open the dashboard in a browser, a short tour opens with a welcome that says, in bold, that Progressor is free (there is no paid version or subscription, so anyone selling one is not us), then six steps point at the main parts of the page: Home and your projects, a goal and its steps, Needs you, Message your AI, the project's Dashboard and Calendar, and Settings. **Next** and **Back** move through it. **Skip the tour**, the **×** in its corner or Escape close it for now, and it comes back once the next time you open the dashboard; finishing it, or closing it with **Don't show again** ticked, puts it away for good. It never stops you using the page; **Take the tour again** in ❓ Help always brings it back, and so does **Take the tour** in Settings › Look, where **Show the tour when the page opens** makes it open each time until you finish it or turn that off. A browser that used an earlier Progressor doesn't get the tour by itself, just What's new.
 
 **Breadcrumbs** at the top of every page say where you are: *Home* on Home, *Home › Settings*, *Home › Bindery › Calendar*, or *Home › Bindery › Ship OAuth login* on a goal. Click **Home** to see every project, or the project's name to go back to its goals. On a phone the middle of the trail shortens, with *…*, instead of running off the screen.
 
@@ -218,7 +218,7 @@ The search box at the top (press `/` to jump to it) finds projects, goals and st
 - **Notifications**: a desktop pop-up when a goal is finished, and [phone notifications](#phone-notifications).
 - **AI & plan**: what your AI does by itself: estimates, commits and tests, goals that wait, the plan check-up, goals that come back, handoffs and ways to go.
 - **History & releases**: how long the plan's history is kept, and which files a release updates.
-- **Advanced**: the code editor files open in, bringing back the things to try you put off, and the Progressor servers running on your computer.
+- **Advanced**: where the dashboard runs (with your AI sessions, or always, in the background), the code editor files open in, bringing back the things to try you put off, and the Progressor servers running on your computer.
 - **About**: support Progressor, **Reset all settings to defaults** (after you confirm), and the note that Progressor is free: there is no paid version or subscription, and anyone selling one is not us.
 
 Every section has **Reset this section**. How the page looks is kept in your browser; settings for how Progressor works are kept on your computer, for all your projects, and a project can have its own. The old `#/stats` address of the Dashboard page still works; Settings is at `#/settings`.
@@ -227,7 +227,7 @@ Every section has **Reset this section**. How the page looks is kept in your bro
 
 - **❓ Help**: **What's new**, what changed in each version, newest first, with yours marked (a dot on the Help button means there is a version you haven't looked at). It also opens by itself the first time you open the dashboard after an update (not on your very first visit, when the tour comes first); tick **Don't show again** in it to stop that; **Take the tour again**; then report a problem or suggest an idea. Both open a form on GitHub with your Progressor version and system already filled in.
 - **If the page is out of date**, a bar at the bottom says so, with a **Refresh** button: when Progressor was updated after you opened the page, or when the page has been out of touch with Progressor for a minute. It goes away by itself once things are back to normal.
-- **The green dot** at the top means the page is live. If it turns orange and says *Reconnecting…*, Progressor has closed (it runs while your AI's app is open); it comes back by itself when the app is open again.
+- **The green dot** at the top means the page is live. If it turns orange and says *Reconnecting…*, Progressor has closed (it runs while your AI's app is open, unless it runs in the background); it comes back by itself when the app is open again.
 
 ---
 
@@ -253,6 +253,25 @@ The dashboard listens only on your own computer (`127.0.0.1`, and `::1` where th
 
 Only a few things, all from the dashboard's own page: stopping a Progressor server, marking a hand test, talking with your AI (sending or taking back a message, answering a question), editing the project notes (adding, rewording or removing a rule, and rewriting About this project), changing the wishlist (adding, rewording, ticking off or removing a wish), and reporting a bug as a hotfix; your AI is told about each change. Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark, message, answer or note is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
 
+### The dashboard in the background
+
+Usually the dashboard runs inside your AI's app (each chat runs a small Progressor server, and one of them serves the page), so it stops when the last chat closes. To keep it up all the time, choose **Always, in the background** under **Settings → Advanced → Where the dashboard runs**, or ask your AI to run:
+
+```bash
+progressor-mcp daemon install
+```
+
+A small background process then starts every time you log in and serves every project and Workspace, with no AI app open. It is the same dashboard: your AI's sessions share it, and when you update Progressor the newer version takes the page over and the background process moves to it by itself. It uses about 31 MB of private memory (about 68 MB working set) on Windows with two dozen projects, and its heap is capped at 96 MB. It starts without admin rights: a Task Scheduler task on Windows (or a script in your Startup folder if that isn't allowed), a LaunchAgent on macOS, and a systemd user service on Linux (or an autostart entry where there's no systemd). Its output goes to `~/.progressor/daemon.log`.
+
+| Command | What it does |
+| --- | --- |
+| `progressor-mcp daemon status` | Says whether it runs, its address, version and memory. |
+| `progressor-mcp daemon start` / `stop` | Starts it now (until you log out), or stops it. |
+| `progressor-mcp daemon install` | Starts it at every login, and now. |
+| `progressor-mcp daemon uninstall` | Stops starting it at login, and stops it. |
+
+Choosing **With your AI sessions** again in Settings does the same as `uninstall`. Neither way is needed: everything works the same either way.
+
 ### The dashboard without an AI running
 
 To open the dashboard on all the projects in a folder, with no AI app open:
@@ -265,4 +284,4 @@ Progressor looks through that folder and its subfolders (5 levels deep, skipping
 
 ### Running servers
 
-**Settings → Advanced** lists the Progressor servers running on your computer: one per open AI chat, plus any `progressor-mcp dashboard`. For each it shows the project, the goals it's working on (a chat can work on several at once), its memory and when it started. **Stop** ends one after you confirm; that chat loses Progressor until it starts again. Stopping the one serving the dashboard hands it to another within a few seconds.
+**Settings → Advanced** lists the Progressor servers running on your computer: one per open AI chat, plus any `progressor-mcp dashboard` and the background dashboard. For each it shows the project, the goals it's working on (a chat can work on several at once), its memory and when it started. **Stop** ends one after you confirm; that chat loses Progressor until it starts again. Stopping the one serving the dashboard hands it to another within a few seconds.

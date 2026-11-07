@@ -222,6 +222,7 @@ The dashboard's hub version is now 8, so a Progressor with this change takes the
 | `progressor-mcp init [folder] [--yes] [--no-server]` | Sets a project up: the server in `.mcp.json` (left out with `--no-server`), Claude Code's hooks in `.claude/settings.json`, the note in `CLAUDE.md` and `AGENTS.md`, and an empty Roadmap. Lists the changes and asks first; `--yes` skips the question. Running it again changes nothing unless something is missing. |
 | `progressor-mcp init [folder] --remove [--yes]` | Takes all of that out again, leaving `.progressor/` alone. |
 | `progressor-mcp dashboard [folder] [--no-open] [--forget <folder>]` | Opens the dashboard on every project in a folder, with no AI app running. See [the dashboard](dashboard.md#the-dashboard-without-an-ai-running). |
+| `progressor-mcp daemon <start\|stop\|status\|install\|uninstall>` | Runs the dashboard in a small background process, now or from every login. See [the dashboard in the background](dashboard.md#the-dashboard-in-the-background). |
 | `progressor-mcp hook <session-start\|prompt>` | Claude Code's hooks: prints the plan for the AI. |
 | `progressor-mcp --version` | Prints the version. |
 
