@@ -10,7 +10,7 @@ import { StatsPage } from "./StatsPage.js";
 import { HistoryPage } from "./HistoryPage.js";
 import { HandoffsPage } from "./HandoffsPage.js";
 import { CalendarPage } from "./CalendarPage.js";
-import { PAGE_HASH, PAGE_TITLE, type Page, type Route, breadcrumbs, routeFromHash } from "./route.js";
+import { PAGE_HASH, PAGE_TITLE, type Page, type Route, breadcrumbs, newHash, routeFromHash } from "./route.js";
 import { Breadcrumbs } from "./Breadcrumbs.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
@@ -90,6 +90,16 @@ export function App() {
   const [pickedWorkspace, setPickedWorkspace] = useState<string | undefined>(workspaceFromUrl);
   // The page shown, from the address's hash (route.ts): a goal's, or one of the other pages.
   const [route, setRoute] = useState<Route>(() => routeFromHash(location.hash));
+  // An old address (#/stats) opens its page under the new one (#/dashboard).
+  useEffect(() => {
+    const moved = () => {
+      const to = newHash(location.hash);
+      if (to) history.replaceState(null, "", `${location.pathname}${location.search}${to}`);
+    };
+    moved();
+    addEventListener("hashchange", moved);
+    return () => removeEventListener("hashchange", moved);
+  }, []);
   const { page, goal: picked } = route;
   const [theme, setTheme] = useStored<Theme>("progressor.theme", undefined);
   const [finished, setFinished] = useStored<Finished>("progressor.finished", undefined);
@@ -399,7 +409,7 @@ export function App() {
     </div>
   ) : onHome ? (
     <Home overview={overview} workspaces={workspaces ?? []} only={pickedWorkspace} query={query} hits={hits}
-      putOff={putOff} onPutOff={onPutOff} onOpen={pickProject} onOpenStats={(id) => { pickProject(id); openPage("stats"); }} onShowAll={goHome} />
+      putOff={putOff} onPutOff={onPutOff} onOpen={pickProject} onOpenStats={(id) => { pickProject(id); openPage("dashboard"); }} onShowAll={goHome} />
   ) : roadmap === null || (roadmap === undefined && !project) ? (
     <div className="placeholder">
       <h2>Nothing planned here yet</h2>
@@ -408,7 +418,7 @@ export function App() {
     </div>
   ) : !roadmap ? (
     <div className="placeholder">Loading…</div>
-  ) : page === "stats" && projectId ? (
+  ) : page === "dashboard" && projectId ? (
     <StatsPage projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} />
   ) : page === "history" && projectId ? (
     <HistoryPage projectId={projectId} roadmap={roadmap} toast={toast} />
@@ -579,8 +589,8 @@ export function App() {
               <button className="side-link" aria-current={page === "wishlist"} onClick={() => openPage("wishlist")} title="What you want from this project as a whole; your AI may suggest goals from it">
                 <Icon name="star" /> Wishlist
               </button>
-              <button className="side-link" aria-current={page === "stats"} onClick={() => openPage("stats")} title="How long steps take, how often work drifts, and what was finished each day">
-                <Icon name="chart" /> Statistics
+              <button className="side-link" aria-current={page === "dashboard"} onClick={() => openPage("dashboard")} title="How long steps take, how often work drifts, and what was finished each day">
+                <Icon name="chart" /> Dashboard
               </button>
               <button className="side-link" aria-current={page === "calendar"} onClick={() => openPage("calendar")} title="What your AI did and what comes next, by month, week or day">
                 <Icon name="calendar" /> Calendar

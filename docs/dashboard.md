@@ -155,9 +155,9 @@ Wherever the dashboard shows your AI's words, such as things to try by hand, ste
 
 **Wishlist** in the sidebar is for what you want from the project as a whole, in your own words: not goals or steps, just wishes, such as *People can use it on their phone*. Type one in the box at the top and press **Add wish**. Each wish has **Edit** and **Remove**, and a tick box for when you have what you wished for; ticked-off wishes move down to **You have these**, and unticking puts one back. Only you change the wishlist. Your AI reads it at every status check, is told about each change, and may suggest goals from it, but it never edits it.
 
-## Statistics
+## Dashboard
 
-**Statistics** in the sidebar works out a few numbers from the project's plan:
+**Dashboard** in the sidebar (called Statistics before 1.3.0; old links still open it) works out a few numbers from the project's plan:
 
 - **At the top:** steps done, the time worked on them, goals finished and side trips.
 - **Finished each day:** a bar for each of the last two weeks; hover a bar for its day and count. Today's bar is striped.
@@ -165,7 +165,7 @@ Wherever the dashboard shows your AI's words, such as things to try by hand, ste
 - **Side trips:** how often the work stepped off the plan, how those side trips ended, and how many steps were added after one or cancelled.
 - **Longest steps** and **Each goal**, newest first; click one to open its goal.
 
-**Home** has the same numbers added up across all your projects, with a line per project; its **Statistics** link opens that project's page.
+**Home** has the same numbers added up across all your projects, with a line per project; its **Dashboard** link opens that project's page.
 
 The **Plan check-up** card shows what your AI's last look over the plan fixed and what is left to look at, with **Check now** to run it again.
 

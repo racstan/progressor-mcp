@@ -20,7 +20,7 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
   putOff: PutOff;
   onPutOff: (key: string, untried: number) => void;
   onOpen: (projectId: string, goalId?: string) => void;
-  /** Opens a project's Statistics page. */
+  /** Opens a project's Dashboard page. */
   onOpenStats: (projectId: string) => void;
   onShowAll: () => void;
 }) {
@@ -110,14 +110,14 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
   );
 }
 
-/** Statistics across every project: the headline numbers, each day's finished steps, estimates and side trips, and a line per project. */
+/** The Dashboard numbers across every project: the headline numbers, each day's finished steps, estimates and side trips, and a line per project. */
 function AllStats({ version, onOpen, onOpenStats }: { version: unknown; onOpen: (projectId: string, goalId?: string) => void; onOpenStats: (projectId: string) => void }) {
   const s = useAllStats(version);
   if (!s) return null;
   const fortnight = s.perDay.reduce((n, d) => n + d.count, 0);
   return (
     <section className="section stats">
-      <h2>Statistics <span className="quiet">· all your projects</span></h2>
+      <h2>Dashboard <span className="quiet">· all your projects</span></h2>
       <div className="stat-tiles">
         <Tile value={String(s.steps.done)} label="Steps done" sub={`${s.steps.open} to go · ${s.steps.cancelled} cancelled`} />
         <Tile value={time(s.time.spent)} label="Time worked" sub="On every step, so far" />
@@ -142,7 +142,7 @@ function AllStats({ version, onOpen, onOpenStats }: { version: unknown; onOpen: 
                   <td>{p.done}/{p.done + p.open}</td>
                   <td>{time(p.spent)}</td>
                   <td>{p.sideTrips || "–"}</td>
-                  <td><button className="linkbtn" onClick={() => onOpenStats(p.id)}>Statistics</button></td>
+                  <td><button className="linkbtn" onClick={() => onOpenStats(p.id)}>Dashboard</button></td>
                 </tr>
               ))}
             </tbody>

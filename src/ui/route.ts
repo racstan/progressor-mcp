@@ -1,13 +1,13 @@
 // Which page the address shows: `#/goal/<id>` for a goal, or one hash per page. The project is in
 // the address's ?project= part, so each page works on Home and in any project alike.
 
-export type Page = "goal" | "context" | "talk" | "stats" | "wishlist" | "hotfix" | "history" | "handoffs" | "calendar" | "settings";
+export type Page = "goal" | "context" | "talk" | "dashboard" | "wishlist" | "hotfix" | "history" | "handoffs" | "calendar" | "settings";
 
 /** The hash of every page other than a goal's. */
 export const PAGE_HASH: Record<Exclude<Page, "goal">, string> = {
   context: "#/context",
   talk: "#/talk",
-  stats: "#/stats",
+  dashboard: "#/dashboard",
   wishlist: "#/wishlist",
   hotfix: "#/hotfix",
   history: "#/history",
@@ -20,7 +20,7 @@ export const PAGE_HASH: Record<Exclude<Page, "goal">, string> = {
 export const PAGE_TITLE: Record<Exclude<Page, "goal">, string> = {
   context: "Project notes",
   talk: "Message your AI",
-  stats: "Statistics",
+  dashboard: "Dashboard",
   wishlist: "Wishlist",
   hotfix: "Hotfixes",
   history: "History",
@@ -35,7 +35,14 @@ export interface Route {
   goal?: string;
 }
 
+/** Addresses pages had before, and where they are now: Statistics became Dashboard in 1.3.0. */
+const MOVED: Record<string, string> = { "#/stats": PAGE_HASH.dashboard };
+
+/** The address an old hash moved to, so the page can show the new one; undefined when it did not move. */
+export const newHash = (hash: string): string | undefined => MOVED[hash];
+
 export function routeFromHash(hash: string): Route {
+  hash = newHash(hash) ?? hash;
   const goal = /^#\/goal\/(.+)$/.exec(hash);
   if (goal) return { page: "goal", goal: decodeURIComponent(goal[1]!) };
   for (const [page, h] of Object.entries(PAGE_HASH)) if (h === hash) return { page: page as Page };

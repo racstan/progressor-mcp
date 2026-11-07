@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PAGE_HASH, PAGE_TITLE, breadcrumbs, routeFromHash } from "../src/ui/route.js";
+import { PAGE_HASH, PAGE_TITLE, breadcrumbs, newHash, routeFromHash } from "../src/ui/route.js";
 
 describe("the page in the address", () => {
   it("is a goal's page for #/goal/<id>, and the default goal's page with no hash", () => {
@@ -44,5 +44,20 @@ describe("the breadcrumb trail", () => {
   it("ends with the goal's title on a goal's page, or at the project while it loads", () => {
     expect(breadcrumbs({ page: "goal", project: "Bindery", goal: "Ship OAuth login" }).map((c) => c.label)).toEqual(["Home", "Bindery", "Ship OAuth login"]);
     expect(breadcrumbs({ page: "goal", project: "Bindery" })).toEqual([{ label: "Home", to: "home" }, { label: "Bindery" }]);
+  });
+});
+
+describe("the Dashboard page (once called Statistics)", () => {
+  it("lives at #/dashboard and is called Dashboard", () => {
+    expect(routeFromHash("#/dashboard")).toEqual({ page: "dashboard" });
+    expect(PAGE_TITLE.dashboard).toBe("Dashboard");
+    expect(breadcrumbs({ page: "dashboard", project: "Bindery" }).map((c) => c.label)).toEqual(["Home", "Bindery", "Dashboard"]);
+  });
+
+  it("still opens from the old #/stats address, which moves to the new one", () => {
+    expect(routeFromHash("#/stats")).toEqual({ page: "dashboard" });
+    expect(newHash("#/stats")).toBe("#/dashboard");
+    expect(newHash("#/dashboard")).toBeUndefined();
+    expect(newHash("#/goal/stats")).toBeUndefined();
   });
 });
