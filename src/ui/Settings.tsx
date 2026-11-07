@@ -3,6 +3,7 @@
 // then Support, "Reset all settings to defaults", where settings are kept, and the free notice.
 import { useEffect, useRef, useState } from "react";
 import { FreeNotice } from "./FreeNotice.js";
+import { Icon } from "./Icon.js";
 import { resetAll } from "./settings/reset.js";
 import { groupSections } from "./settings/groups.js";
 import { SETTINGS_SECTIONS, type SettingsContext, type SettingsSection } from "./settings/index.js";
@@ -47,11 +48,31 @@ function Section({ section, ctx }: { section: SettingsSection; ctx: SettingsCont
 }
 
 const ABOUT = { id: "about", title: "About" };
+const FOLD_KEY = "progressor.settings-menu";
+
+/** Whether the section menu was folded away, kept in this browser; open when storage can't be read. */
+function storedFold(): boolean {
+  try {
+    return localStorage.getItem(FOLD_KEY) === "folded";
+  } catch {
+    return false;
+  }
+}
 
 export function Settings({ ctx }: { ctx: SettingsContext }) {
   const [resetting, setResetting] = useState(false);
   const groups = groupSections(SETTINGS_SECTIONS);
   const [current, setCurrent] = useState(groups[0]?.id ?? ABOUT.id);
+  const [folded, setFoldedState] = useState(storedFold);
+  const setFolded = (f: boolean) => {
+    setFoldedState(f);
+    try {
+      if (f) localStorage.setItem(FOLD_KEY, "folded");
+      else localStorage.removeItem(FOLD_KEY);
+    } catch {
+      // not remembered; the menu still folds
+    }
+  };
   // The menu marks the group being read as the page scrolls: the last one whose heading has passed the
   // top, or the last one of all at the bottom of the page. Just after a click, the clicked one stays marked.
   const clickedAt = useRef(0);
@@ -95,12 +116,22 @@ export function Settings({ ctx }: { ctx: SettingsContext }) {
     <div className="page wide settings-page">
       <h1 className="page-title">Settings</h1>
       <p className="page-sub">Everything here is optional: Progressor and your AI work the same if you never open this page.</p>
-      <div className="settings-layout">
-        <nav className="settings-nav" aria-label="Settings sections">
-          {[...groups, ABOUT].map((g) => (
-            <button key={g.id} aria-current={current === g.id} onClick={() => go(g.id)}>{g.title}</button>
-          ))}
-        </nav>
+      <div className={`settings-layout ${folded ? "folded" : ""}`}>
+        <div className="settings-side">
+          <button className="settings-fold iconbtn" aria-expanded={!folded} aria-controls="settings-nav"
+            title={folded ? "Show the list of sections" : "Fold the list of sections away"} aria-label={folded ? "Show the list of sections" : "Fold the list of sections away"}
+            onClick={() => setFolded(!folded)}>
+            <Icon name={folded ? "chevronRight" : "chevronLeft"} size={16} />
+            <span className="fold-words">{folded ? "Sections" : "Hide"}</span>
+          </button>
+          {!folded && (
+            <nav className="settings-nav" id="settings-nav" aria-label="Settings sections">
+              {[...groups, ABOUT].map((g) => (
+                <button key={g.id} aria-current={current === g.id} onClick={() => go(g.id)}>{g.title}</button>
+              ))}
+            </nav>
+          )}
+        </div>
         <div className="settings-body">
           {groups.map((g) => (
             <section key={g.id} id={`settings-${g.id}`} className="settings-group" aria-labelledby={`settings-${g.id}-title`}>
