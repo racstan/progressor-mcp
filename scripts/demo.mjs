@@ -467,7 +467,7 @@ await page.getByRole("tab", { name: /Steps/ }).waitFor();
 
 // The end.
 await card("Never lose track again.", "You and your AI always know what was planned, what's done and what's next, across every chat, every app and every project.", "Progressor", 7000);
-await card("Set it up in two minutes.", "Free and open source. Works with Claude Code, Antigravity, opencode, pi, Cursor, VS Code, Codex, Windsurf and any app that supports MCP.", "github.com/racstan/progressor-mcp", 3500);
+await card("Set it up in two minutes.", "Free for personal use. Works with Claude Code, Antigravity, opencode, pi, Cursor, VS Code, Codex, Windsurf and any app that supports MCP.", "github.com/racstan/progressor-mcp", 3500);
 await demo("cardCode", "npm install -g progressor-mcp");
 await pause(7000);
 mark("end");

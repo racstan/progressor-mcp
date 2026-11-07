@@ -10,7 +10,7 @@ Any app that supports MCP servers: Claude Code (in a terminal, an editor or the 
 
 ## Does it cost anything, or send my code anywhere?
 
-Progressor is free and open source. It runs on your computer and keeps the plan in your project's `.progressor` folder. It doesn't send anything anywhere: the dashboard is served from your own computer and can't be reached from others. Your AI app works as it always does.
+Progressor is free for personal and other noncommercial use (PolyForm Noncommercial 1.0.0). It runs on your computer and keeps the plan in your project's `.progressor` folder. It doesn't send anything anywhere: the dashboard is served from your own computer and can't be reached from others. Your AI app works as it always does.
 
 ## Does it slow my AI down?
 

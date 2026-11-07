@@ -623,7 +623,7 @@ export function App() {
             <h3>Support Progressor</h3>
             <a className="card" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
               Buy me a coffee
-              <small>Progressor is free and open source. If it keeps you on track, a coffee keeps it going.</small>
+              <small>Progressor is free for personal and noncommercial use. If it keeps you on track, a coffee keeps it going.</small>
             </a>
           </section>
           <p className="hint">Settings are saved in this browser.</p>

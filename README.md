@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/progressor-mcp"><img src="https://img.shields.io/npm/v/progressor-mcp" alt="npm"></a>
   <a href="https://github.com/racstan/progressor-mcp/actions/workflows/test.yml"><img src="https://github.com/racstan/progressor-mcp/actions/workflows/test.yml/badge.svg" alt="Test"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" alt="License: GPL v3"></a>
+  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue" alt="License: PolyForm Noncommercial 1.0.0"></a>
 </p>
 
 **The problem:** AI chats forget. When a long chat gets its memory compressed, or you start a new chat, the AI no longer knows what was planned, what's done or what's left, and you end up explaining it all again.
@@ -167,10 +167,10 @@ What you run into shapes what comes next. [Share an idea or feedback](https://gi
 
 ## Support
 
-Progressor is free and open source. If it helps you, you can [buy me a coffee](https://buymeacoffee.com/rachitasthana); the link is also in the dashboard's ⚙️ Settings.
+Progressor is free for personal and other noncommercial use. If it helps you, you can [buy me a coffee](https://buymeacoffee.com/rachitasthana); the link is also in the dashboard's ⚙️ Settings.
 
 ## License
 
 Copyright (C) 2026 Rachit Asthana
 
-Progressor is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full text.
+Progressor is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). You may use, change and share it for noncommercial purposes as that license defines them: personal use with no commercial application (study, research, hobby projects and the like) and use by charities, schools, public research bodies and government institutions. Any other use, including use by a business, needs a separate license from the author. See [LICENSE.md](LICENSE.md) for the full terms. Versions up to 1.2.2 were released under GPL-3.0-or-later, and copies of those versions keep that license.

@@ -1,6 +1,6 @@
 {
   "name": "progressor-mcp",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "mcpName": "io.github.racstan/progressor-mcp",
   "description": "An MCP server that keeps an AI Agent and the Developer focused on their Goals across context compression and distractions.",
   "author": "Rachit Asthana",
@@ -21,7 +21,7 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE.md"
   ],
   "engines": {
     "node": ">=22"
@@ -41,7 +41,7 @@
     "planning",
     "progress"
   ],
-  "license": "GPL-3.0-or-later",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "funding": "https://buymeacoffee.com/rachitasthana",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",

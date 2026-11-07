@@ -2,6 +2,12 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own plan, which is kept on the maintainer's computer; from 0.2.0 on, one release bundles several finished Goals.
 
+## 1.3.0 · A new license
+
+- **Progressor is now under the PolyForm Noncommercial License 1.0.0.** It stays free for personal use with no commercial purpose (study, research, hobby projects and the like) and for charities, schools, public research bodies and government institutions. Any other use, including use by a business, needs a separate license from the author. See [LICENSE.md](LICENSE.md).
+- **Nothing else changes.** The tools, the dashboard and your plans work exactly as in 1.2.2.
+- **1.2.2 and earlier stay under GPL-3.0-or-later.** Copies of those versions keep that license.
+
 ## 1.2.2 · Hotfixes, and What's new
 
 - **Report a bug and it jumps the queue.** Paste a bug report, such as one from a customer, on the new **Report a bug** page, or ask your AI to add a hotfix. It goes to the top of your goals with a **Hotfix** tag, after any older hotfix, and keeps the report word for word on its page. See [Hotfixes](docs/using.md#hotfixes).
