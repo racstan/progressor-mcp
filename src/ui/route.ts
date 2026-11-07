@@ -44,3 +44,20 @@ export function routeFromHash(hash: string): Route {
 
 /** Pages that belong to one project; on Home they make no sense, so Home is shown instead. */
 export const projectPage = (page: Page) => page !== "settings";
+
+/** One link of the breadcrumb trail at the top of every page; the last one, the page itself, has no `to`. */
+export interface Crumb {
+  label: string;
+  to?: "home" | "project";
+}
+
+/** Home › project › page (or the goal's title): where the page is, each step back clickable. */
+export function breadcrumbs(at: { page: Page; project?: string; workspace?: string; goal?: string }): Crumb[] {
+  const here = at.page === "goal" ? at.goal : PAGE_TITLE[at.page];
+  const trail: Crumb[] = [{ label: "Home", to: "home" }];
+  if (at.project) trail.push({ label: at.project, to: "project" });
+  else if (at.page === "goal" && at.workspace) trail.push({ label: at.workspace });
+  if (at.page !== "goal" || (at.project && here)) trail.push({ label: here! });
+  const last = trail.length - 1;
+  return trail.map((c, i) => (i === last ? { label: c.label } : c));
+}

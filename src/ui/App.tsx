@@ -10,7 +10,8 @@ import { StatsPage } from "./StatsPage.js";
 import { HistoryPage } from "./HistoryPage.js";
 import { HandoffsPage } from "./HandoffsPage.js";
 import { CalendarPage } from "./CalendarPage.js";
-import { PAGE_HASH, PAGE_TITLE, type Page, type Route, routeFromHash } from "./route.js";
+import { PAGE_HASH, PAGE_TITLE, type Page, type Route, breadcrumbs, routeFromHash } from "./route.js";
+import { Breadcrumbs } from "./Breadcrumbs.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
 import { type Finished, type Seen, doneMark, groupGoals, groupOpen, hideAll, seenOnFirstVisit } from "./goalList.js";
@@ -453,6 +454,14 @@ export function App() {
     </ErrorBoundary>
   );
 
+  // Home › project › page, at the top of every page; Home shows itself for a project's page opened without a project.
+  const trail = breadcrumbs({
+    page: onHome && page !== "settings" ? "goal" : page,
+    ...(project ? { project: project.name } : {}),
+    ...(onHome && pickedWorkspace ? { workspace: workspaces?.find((w) => w.id === pickedWorkspace)?.name ?? "Workspace" } : {}),
+    ...(shownGoal ? { goal: shownGoal.goal.title } : {}),
+  });
+
   return (
     <>
       <header className="topbar">
@@ -631,7 +640,10 @@ export function App() {
           )}
         </aside>
         <div className="scrim" onClick={() => setDrawer(false)} />
-        <main className="main" id="main">{main}</main>
+        <main className="main" id="main">
+          <Breadcrumbs trail={trail} onHome={goHome} onProject={() => projectId && pickProject(projectId)} />
+          {main}
+        </main>
       </div>
 
       {goalMenu && menuGoal && (

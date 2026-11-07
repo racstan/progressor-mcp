@@ -1116,3 +1116,21 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
   .cal-head-day b { font-size: var(--t-l); }
   .cal-peek { right: var(--s4); bottom: var(--s4); }
 }
+
+/* ---------- breadcrumbs: Home › project › page, at the top of every page (Breadcrumbs.tsx) ---------- */
+.crumbs { padding: var(--s3) var(--s5) 0; font-size: var(--t-s); }
+.crumbs ol { display: flex; align-items: center; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.crumbs li { display: flex; align-items: center; min-width: 0; white-space: nowrap; }
+.crumbs li.first { flex: none; }
+.crumbs li.middle { flex: 0 1 auto; min-width: 3.5em; }
+.crumbs li.last { flex: 0 1 auto; min-width: 0; }
+.crumbs .sep { padding: 0 var(--s2); color: var(--faint); flex: none; }
+.crumbs .crumb-link, .crumbs .crumb-here { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.crumbs .crumb-link { border: none; background: none; padding: 2px var(--s1); margin: 0 calc(-1 * var(--s1)); border-radius: var(--r-s); color: var(--muted); font: inherit; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 2px; }
+.crumbs .crumb-link:hover { color: var(--ink); text-decoration-color: currentColor; }
+.crumbs .crumb-here { color: var(--ink); font-weight: 600; }
+[data-theme="vibrant"] .crumbs .crumb-link:hover { color: var(--accent); }
+@media (max-width: 640px) {
+  .crumbs { padding: var(--s2) var(--s4) 0; }
+  .crumbs li.middle { max-width: 30vw; }
+}
