@@ -17,6 +17,8 @@ export interface GitFacts {
   branch(root: string): string | undefined;
   /** The web address a short hash is added to, to see that commit; undefined without a known remote. */
   commitLink(root: string): string | undefined;
+  /** The commits after `ref` (a tag such as `v1.3.0`): how many, and the newest `max` as "hash subject"; undefined when `ref` is unknown. */
+  commitsAfter?(root: string, ref: string, max: number): { total: number; lines: string[] } | undefined;
 }
 
 function run(root: string, args: string[]): string | undefined {
@@ -90,5 +92,12 @@ export const realGit: GitFacts = {
   commitLink(root) {
     const out = run(root, ["remote", "get-url", "origin"])?.trim();
     return out ? commitLinkBase(out) : undefined;
+  },
+  commitsAfter(root, ref, max) {
+    if (!/^[\w./-]+$/.test(ref) || ref.startsWith("-")) return undefined;
+    const total = run(root, ["rev-list", "--count", `${ref}..HEAD`])?.trim();
+    if (total === undefined || !/^\d+$/.test(total)) return undefined;
+    const out = run(root, ["log", `--max-count=${max}`, "--format=%h %s", "--abbrev=7", `${ref}..HEAD`]);
+    return { total: Number(total), lines: (out ?? "").split(/\r?\n/).filter(Boolean) };
   },
 };
