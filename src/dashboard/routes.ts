@@ -11,6 +11,7 @@ import { ntfyRoutes } from "./routes/ntfy.js";
 import { historyRoutes } from "./routes/history.js";
 import { checkupRoutes } from "./routes/checkup.js";
 import { settingsRoutes } from "./routes/settings.js";
+import { routinesRoutes } from "./routes/routines.js";
 
 /** What the hub gives every feature route. */
 export interface HubContext {
@@ -51,6 +52,7 @@ export const featureRoutes: FeatureRoute[] = [
   ...ntfyRoutes,
   ...historyRoutes,
   ...checkupRoutes,
+  ...routinesRoutes,
 ];
 
 /** A body bigger than this is refused unread, unless the route asks for more. */

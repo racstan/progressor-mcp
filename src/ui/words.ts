@@ -676,10 +676,18 @@ export function checkupSummary(last: { at: string; findings: { fixed: boolean }[
 //
 
 // --- routines ---
-// Recurring goals.
-//
-//
-//
+// Recurring goals: goals your AI brings back on a set pace, by itself.
+export const ROUTINES_TITLE = "Goals that come back";
+export const ROUTINES_LEAD = "Your AI adds a fresh goal from each of these when it is due, once the last one is finished. You can pause or stop one here.";
+export const ROUTINES_EMPTY = "None yet. When something should happen regularly, such as a weekly check, tell your AI and it sets it up here.";
+export const ROUTINE_HINT = "Your AI adds a fresh goal like this one each time it comes back, once the last one is finished.";
+/** The chip on a goal a routine made: "Comes back every week". */
+export const routineChip = (words: string) => `Comes back ${words}`;
+/** When a routine's next goal comes, or that it is paused. */
+export function routineWhen(r: { next?: string; paused: boolean }): string {
+  if (r.paused) return "Paused: no new goals until you let it carry on.";
+  return r.next ? `Next one: ${exactDate(r.next)}` : "";
+}
 
 // --- ntfy ---
 // Phone notifications.

@@ -17,6 +17,7 @@ import {
 import { formatDuration, parseDuration } from "./estimate.js";
 import { ADDED, type Stamp, UPDATED, withDates } from "./dates.js";
 import { ORIGIN_KEY, type Origin, formatOrigin, parseOrigin } from "./origin.js";
+import type { Routine } from "./routines.js";
 
 /**
  * What the checkbox says; whether a started Goal is active or paused depends on its Claim. A started
@@ -37,6 +38,12 @@ export const GOAL_RELEASE = "release";
 export const GOAL_BUNDLES = "bundles";
 export const GOAL_FROM_ROUTINE = "from routine";
 /** Known Goal details, in this order, when one is written with setGoalDetail; unknown ones follow as they were. */
+/** A routine's details (routines.ts). */
+const ROUTINE_EVERY = "every";
+const ROUTINE_NEXT = "next";
+const ROUTINE_STEP = "step";
+const ROUTINE_LAST = "last goal";
+const ROUTINE_PAUSED = "paused";
 const GOAL_DETAIL_ORDER = ["outcome", "estimate", HOTFIX, GOAL_WAITS_ON, GOAL_RELEASE, GOAL_BUNDLES, GOAL_FROM_ROUTINE, WAITING_ON, "claimed by", "reason", "note", ORIGIN_KEY, ADDED, UPDATED];
 
 export interface Claim {
@@ -69,6 +76,8 @@ export interface Goal {
   release?: string;
   /** The finished goals a release goal bundles, by ID. */
   bundles?: string[];
+  /** The routine that made it, by ID (routines.ts). */
+  fromRoutine?: string;
   /** Set when the Goal was last added or changed from another project. */
   updatedFrom?: Origin;
   /** When it was added and last changed, and by whom; unknown in plans from before dates. */
@@ -99,6 +108,7 @@ export interface StandingInstruction {
 export const GOALS = "Goals";
 export const IDEAS = "Ideas";
 export const STANDING_INSTRUCTIONS = "Standing Instructions";
+export const ROUTINES = "Routines";
 export const ROADMAP_REF = "roadmap";
 
 const GOAL_MARKER: Record<GoalMarker, Marker> = { planned: " ", started: "/", done: "x", dropped: "-" };
@@ -183,6 +193,10 @@ export class Roadmap {
     return itemsIn(this.doc, STANDING_INSTRUCTIONS);
   }
 
+  private routineBlocks(): ItemBlock[] {
+    return itemsIn(this.doc, ROUTINES).filter((b) => b.marker === undefined);
+  }
+
   get goals(): Goal[] {
     return this.goalBlocks().map((b) => {
       const claim = parseClaim(getDetail(b, "claimed by"));
@@ -215,6 +229,7 @@ export class Roadmap {
         ...(getDetails(b, GOAL_WAITS_ON).length > 0 ? { waitsOn: getDetails(b, GOAL_WAITS_ON) } : {}),
         ...(getDetail(b, GOAL_RELEASE) ? { release: getDetail(b, GOAL_RELEASE)! } : {}),
         ...(getDetails(b, GOAL_BUNDLES).length > 0 ? { bundles: getDetails(b, GOAL_BUNDLES) } : {}),
+        ...(getDetail(b, GOAL_FROM_ROUTINE) ? { fromRoutine: getDetail(b, GOAL_FROM_ROUTINE)!.replace(/^\^/, "") } : {}),
         ...(origin ? { updatedFrom: origin } : {}),
         ...withDates(b),
       };
@@ -244,6 +259,63 @@ export class Roadmap {
         ...(limit ? { helpersAtOnce: limit } : {}),
       };
     });
+  }
+
+  /** The routines that bring goals back (routines.ts), in the order written. */
+  get routines(): Routine[] {
+    return this.routineBlocks()
+      .filter((b) => b.id)
+      .map((b) => ({
+        id: b.id!,
+        ref: `progressor://${ROADMAP_REF}/${b.id}`,
+        title: b.text,
+        every: getDetail(b, ROUTINE_EVERY) ?? "",
+        next: getDetail(b, ROUTINE_NEXT),
+        outcome: getDetail(b, "outcome"),
+        steps: getDetails(b, ROUTINE_STEP),
+        lastGoal: getDetail(b, ROUTINE_LAST),
+        paused: isYes(getDetail(b, ROUTINE_PAUSED)),
+        line: b.line,
+      }));
+  }
+
+  routine(id: string): Routine | undefined {
+    return this.routines.find((r) => r.id === id);
+  }
+
+  private routineBlock(id: string): ItemBlock {
+    const b = this.routineBlocks().find((r) => r.id === id);
+    if (!b) throw new Error(`No routine ${id} on the Roadmap.`);
+    return b;
+  }
+
+  /** Adds a routine at the end of the Routines section (made when missing). */
+  addRoutine(fields: { title: string; every: string; next: string; outcome?: string; steps: string[]; lastGoal?: string }): Routine {
+    this.ensureTitle();
+    this.assignMissingIds();
+    const id = nextId(this.routineBlocks().map((r) => r.id), "r");
+    const b = newItem({ marker: undefined, text: oneLine(fields.title), id });
+    addDetail(b, ROUTINE_EVERY, fields.every);
+    addDetail(b, ROUTINE_NEXT, fields.next);
+    if (fields.outcome?.trim()) addDetail(b, "outcome", oneLine(fields.outcome));
+    for (const step of fields.steps) if (step.trim()) addDetail(b, ROUTINE_STEP, oneLine(step));
+    if (fields.lastGoal) addDetail(b, ROUTINE_LAST, fields.lastGoal);
+    appendToSection(this.doc, ROUTINES, [b]);
+    return this.routine(id)!;
+  }
+
+  /** Moves a routine on (its next time and last goal) or pauses it. */
+  updateRoutine(id: string, changes: { next?: string; lastGoal?: string; paused?: boolean }): Routine {
+    const b = this.routineBlock(id);
+    if (changes.next !== undefined) setDetail(b, ROUTINE_NEXT, changes.next);
+    if (changes.lastGoal !== undefined) setDetail(b, ROUTINE_LAST, changes.lastGoal);
+    if (changes.paused !== undefined) setDetail(b, ROUTINE_PAUSED, changes.paused ? "yes" : undefined);
+    return this.routine(id)!;
+  }
+
+  /** Takes a routine off the Roadmap; the goals it made stay. */
+  removeRoutine(id: string): void {
+    this.doc.blocks.splice(this.doc.blocks.indexOf(this.routineBlock(id)), 1);
   }
 
   goal(id: string): Goal | undefined {
@@ -293,6 +365,7 @@ export class Roadmap {
     for (const b of this.ideaBlocks()) if (!b.id) b.id = nextId(this.ideaBlocks().map((i) => i.id), "i");
     for (const b of this.instructionBlocks())
       if (!b.id) b.id = nextId(this.instructionBlocks().map((i) => i.id), "s");
+    for (const b of this.routineBlocks()) if (!b.id) b.id = nextId(this.routineBlocks().map((i) => i.id), "r");
   }
 
   private ensureTitle(): void {

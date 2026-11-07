@@ -841,6 +841,16 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 
 
 /* ---------- routines: recurring goals ---------- */
+.routine-list { list-style: none; margin: var(--s2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.routine-list li { padding: var(--s3) var(--s4); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+.routine-list li.paused { border-style: dashed; }
+.routine-list li.paused .routine-head b { font-weight: 500; }
+.routine-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.routine-pace { font-size: var(--t-s); font-weight: 600; padding: 0 var(--s2); border: 1px solid var(--line-strong); border-radius: var(--r-s); }
+.routine-when { margin: var(--s1) 0 0; font-size: var(--t-s); }
+.routine-when a { color: var(--ink); font-weight: 600; }
+.routine-chip { text-decoration: none; }
+[data-theme="vibrant"] .routine-pace { border-color: var(--accent); color: var(--accent); }
 
 
 /* ---------- ntfy: phone notifications ---------- */

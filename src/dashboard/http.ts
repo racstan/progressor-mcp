@@ -27,6 +27,7 @@ import {
 } from "./registry.js";
 import { isFromDashboardPage, json, readBody, readBytes } from "./respond.js";
 import { type HubContext, featureRoutes, runFeatureRoute } from "./routes.js";
+import { runRoutinesIn } from "./routes/routines.js";
 import { type FetchFn, lookAtProject, sendNew } from "../ntfy.js";
 import { type Look, eventsBetween } from "../events.js";
 import { readSettings, settingsFileFor } from "../settings.js";
@@ -314,6 +315,9 @@ function servePicture(req: IncomingMessage, res: ServerResponse, file: { path: s
 }
 
 /** The hub: serves every registered project, and watches each one's .progressor/ folder. */
+/** How often the hub looks for due routines. */
+const ROUTINES_EVERY_MS = 60_000;
+
 class Hub {
   private readonly clients = new Set<ServerResponse>();
   private readonly projects = new Map<string, { api: ReturnType<typeof dashboardApi>; project: Project; stop: () => void }>();
@@ -342,8 +346,19 @@ class Hub {
   ) {
     this.sync();
     this.look = this.lookNow();
-    this.timer = setInterval(() => this.sync(), rescanMs);
+    this.timer = setInterval(() => {
+      this.sync();
+      this.runRoutines();
+    }, rescanMs);
     this.timer.unref();
+  }
+
+  private routinesAt = 0;
+  /** Recurring goals (routines.ts): adds the goals of due routines about once a minute, even with no AI chat open. */
+  private runRoutines(): void {
+    if (Date.now() - this.routinesAt < ROUTINES_EVERY_MS) return;
+    this.routinesAt = Date.now();
+    for (const e of this.entries) runRoutinesIn(e.root, this.settingsFile);
   }
 
   /** Every project as it is now, for phone notifications; undefined when the list cannot be read. */

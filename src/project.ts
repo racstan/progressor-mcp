@@ -40,7 +40,9 @@ import { type GoalLookup, type Waiting, finishedState, parseWaitRef, waitCycle }
 import { type Origin } from "./origin.js";
 import { ResourceLocks } from "./resources.js";
 import { unsafeRoot } from "./root.js";
-import { type Claim, type Goal, GOAL_BUNDLES, GOAL_RELEASE, GOAL_WAITS_ON, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
+import { type Routine, dueRoutines, formatEvery, nextAfter, nextDue, parseEvery, splitStep } from "./routines.js";
+import { formatDuration, parseDuration } from "./estimate.js";
+import { type Claim, type Goal, GOAL_BUNDLES, GOAL_FROM_ROUTINE, GOAL_RELEASE, GOAL_WAITS_ON, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
 import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule } from "./schedule.js";
 import { type Calibration, calibration } from "./stats.js";
@@ -1074,8 +1076,8 @@ export class Project {
     return this.roadmap().goals;
   }
 
-  /** Drops a Goal that will not be done, with the reason; releases this Session's Claim on it. */
-  dropGoal(goalId: string, reason: string): Goal {
+  /** Drops a Goal that will not be done, with the reason; releases this Session's Claim on it. `stopRepeating` also stops the routine that made it. */
+  dropGoal(goalId: string, reason: string, options: { stopRepeating?: boolean } = {}): Goal {
     const roadmap = this.roadmap();
     const goal = roadmap.goal(goalId);
     if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
@@ -1085,8 +1087,95 @@ export class Project {
     roadmap.setClaim(goalId, undefined);
     roadmap.setGoalStatus(goalId, "dropped");
     roadmap.setGoalReason(goalId, reason);
+    if (options.stopRepeating && goal.fromRoutine && roadmap.routine(goal.fromRoutine)) roadmap.removeRoutine(goal.fromRoutine);
     this.saveRoadmap(roadmap);
     return roadmap.goal(goalId)!;
+  }
+
+  // --- Routines (routines.ts) ---------------------------------------------
+
+  /** The routines that bring goals back. */
+  routines(): Routine[] {
+    return this.roadmap().routines;
+  }
+
+  /**
+   * Makes a Goal come back on a pace (1d, 1w, 2w, 1mo, monday): a routine with the Goal's title,
+   * Outcome and steps, next due one turn from now. The Goal is the routine's first.
+   */
+  repeatGoal(goalId: string, every: string): Routine {
+    const pace = parseEvery(every);
+    if (!pace) throw new Error(`Say how often it comes back: 1d, 1w, 2w, 1mo or a weekday such as monday (not "${every}").`);
+    const roadmap = this.roadmap();
+    const goal = roadmap.goal(goalId);
+    if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
+    if (goal.fromRoutine && roadmap.routine(goal.fromRoutine)) throw new Error(`Goal ${goalId} already comes back with routine ${goal.fromRoutine}.`);
+    let steps: string[] = [];
+    try {
+      steps = this.plan(goalId)
+        .tasks.filter((t) => t.status !== "dropped")
+        .map((t) => (t.estimate !== undefined ? `${t.title} (${formatDuration(t.estimate)})` : t.title));
+    } catch {
+      // a Goal whose Plan File cannot be read still repeats, without steps
+    }
+    const routine = roadmap.addRoutine({
+      title: goal.title,
+      every: formatEvery(pace),
+      next: nextDue(pace, this.now()).toISOString(),
+      outcome: goal.outcome,
+      steps,
+      lastGoal: goalId,
+    });
+    roadmap.setGoalDetail(goalId, GOAL_FROM_ROUTINE, routine.id);
+    this.saveRoadmap(roadmap);
+    return this.roadmap().routine(routine.id)!;
+  }
+
+  /**
+   * Adds a goal for each routine that is due (routines.ts dueRoutines), each as one change in the
+   * plan's history. Whether it is still due is checked again holding the plan's lock, and its next
+   * time moves on in the same write, so two processes never add two goals for one turn.
+   */
+  runRoutines(): Goal[] {
+    const made: Goal[] = [];
+    for (const due of dueRoutines(this.roadmap(), this.now())) {
+      const goal = this.transaction(`Routine: ${due.title}`, () => {
+        const roadmap = this.roadmap();
+        const r = dueRoutines(roadmap, this.now()).find((d) => d.id === due.id);
+        if (!r) return undefined;
+        const tasks = r.steps.map((step) => {
+          const { title, estimate } = splitStep(step);
+          const minutes = estimate !== undefined ? parseDuration(estimate) : undefined;
+          return minutes !== undefined ? { title, estimate: minutes } : { title: step };
+        });
+        const g = this.addGoal(r.title, tasks, { outcome: r.outcome, allowDuplicate: true });
+        const after = this.roadmap();
+        after.setGoalDetail(g.id, GOAL_FROM_ROUTINE, r.id);
+        after.updateRoutine(r.id, { lastGoal: g.id, next: nextAfter(parseEvery(r.every)!, new Date(r.next!), this.now()).toISOString() });
+        this.saveRoadmap(after);
+        return after.goal(g.id)!;
+      });
+      if (goal) made.push(goal);
+    }
+    return made;
+  }
+
+  /** Pauses a routine (it adds no goals) or lets it carry on. */
+  pauseRoutine(id: string, paused: boolean): Routine {
+    const roadmap = this.roadmap();
+    const r = roadmap.updateRoutine(id, { paused });
+    this.saveRoadmap(roadmap);
+    return r;
+  }
+
+  /** Stops a routine for good; the goals it made stay. */
+  stopRoutine(id: string): Routine {
+    const roadmap = this.roadmap();
+    const r = roadmap.routine(id);
+    if (!r) throw new Error(`No routine ${id} on the Roadmap.`);
+    roadmap.removeRoutine(id);
+    this.saveRoadmap(roadmap);
+    return r;
   }
 
   /** Appends Tasks to the end of a claimed Goal's Task list. */

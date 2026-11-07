@@ -525,6 +525,33 @@ export async function runCheckup(projectId: string): Promise<CheckupView> {
   return answer.last;
 }
 
+/** A routine that brings a goal back (routines.ts), with its pace in words. */
+export type RoutineView = { id: string; title: string; every: string; words: string; next?: string; outcome?: string; steps: string[]; lastGoal?: string; paused: boolean };
+/** A project's routines, fetched again whenever `version` changes; undefined while loading or when the server is too old. */
+export function useRoutines(projectId: string, version: unknown): [RoutineView[] | undefined, () => void] {
+  const [list, setList] = useState<RoutineView[]>();
+  const [asked, setAsked] = useState(0);
+  useEffect(() => {
+    let live = true;
+    getJson<{ routines: RoutineView[] }>(`/api/projects/${encodeURIComponent(projectId)}/routines`)
+      .then((r) => live && setList(r?.routines))
+      .catch(() => live && setList(undefined));
+    return () => {
+      live = false;
+    };
+  }, [projectId, version, asked]);
+  return [list, () => setAsked((n) => n + 1)];
+}
+/** Pauses, resumes or stops a routine; says what went wrong in words when refused. */
+export async function changeRoutine(projectId: string, id: string, action: "pause" | "resume" | "stop"): Promise<void> {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/routines/${encodeURIComponent(id)}/${action}`, {
+    method: "POST",
+    headers: { "x-progressor": "routines", "content-type": "application/json" },
+    body: "{}",
+  });
+  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
+}
+
 /** What one change did, file by file. */
 export const historyChanges = (projectId: string, id: string) =>
   getJson<{ item: HistoryItem; files: FileChange[] }>(`/api/projects/${encodeURIComponent(projectId)}/history/${encodeURIComponent(id)}`);
