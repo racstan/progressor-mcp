@@ -59,7 +59,7 @@ It works with any app that supports [MCP](https://modelcontextprotocol.io) (the 
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/statistics.png" alt="The Dashboard page: steps done, time worked, goals finished, side trips, and a bar chart of steps finished each day">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/dashboard.png" alt="The Dashboard page: steps done, time worked, goals finished, side trips, and a bar chart of steps finished each day">
       <h3>A Dashboard of the numbers</h3>
       How long steps take against their estimates (and how the estimates are getting better), how often the work drifts, and what got done each day, for each project and for all of them on Home.
     </td>
@@ -79,6 +79,18 @@ It works with any app that supports [MCP](https://modelcontextprotocol.io) (the 
       <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/vibrant.png" alt="The dashboard in the colourful Vibrant theme">
       <h3>Light, dark or colourful</h3>
       <b>Vibrant</b> by default, with black text, or a calm black-and-white look in light or dark. <a href="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/dark.png">See dark</a>.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/calendar.png" alt="The Calendar: steps finished and goals added on each day of the month, and what comes next">
+      <h3>A calendar of the work</h3>
+      What your AI finished each day, releases and handoffs, and ahead of today, the steps planned next and when each goal should be done.
+    </td>
+    <td width="50%" valign="top">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/settings.png" alt="The Settings page: a menu of sections on the left, and the theme, pop-ups and phone notifications">
+      <h3>Settings, all optional</h3>
+      The look, pop-ups and phone notifications, and how your AI works, grouped on one page. Your AI runs the plan the same whether you ever open it or not.
     </td>
   </tr>
 </table>

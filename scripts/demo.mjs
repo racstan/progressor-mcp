@@ -9,7 +9,10 @@
 // It writes to the output folder (default docs/media): progressor-showcase.mp4 (1080p, for YouTube),
 // youtube-thumbnail.png, demo.gif (a short loop for the README) and the README's screenshots.
 // Needs playwright-core and Chrome (set PLAYWRIGHT_CORE to playwright-core's index.mjs if it is not
-// installed here, and CHROME to the browser; default /usr/bin/google-chrome) and ffmpeg.
+// installed here, and CHROME to the browser; default /usr/bin/google-chrome) and ffmpeg. Works on
+// Windows too, e.g. CHROME="C:/Program Files/Google/Chrome/Application/chrome.exe". The sample
+// folders show in the pictures, so on Windows set TEMP and TMP to a plain folder such as C:/progressor-demo
+// (the usual one has your user name in it).
 // MUSIC=<an audio file> also writes progressor-showcase-with-music.mp4: the track quietly underneath,
 // repeated with a short blend if the video is longer, faded in and out.
 import { execFileSync } from "node:child_process";
@@ -182,6 +185,11 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME ?? "/
 // 1440 × 810 CSS pixels drawn at 4/3: a 1920 × 1080 picture with text large enough for a phone.
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 810 }, deviceScaleFactor: 4 / 3 });
 await ctx.addInitScript(overlay);
+// The first-run tour and What's new would cover the pictures, so this browser has seen both.
+await ctx.addInitScript(() => {
+  localStorage.setItem("progressor.tour", "done");
+  localStorage.setItem("progressor.whats-new-auto", "off");
+});
 const page = await ctx.newPage();
 
 // Every frame Chrome paints, with its time, written to disk as it comes.
@@ -416,17 +424,25 @@ next.replyToProjectMessage("m1", "Noted: the app must keep working offline, and 
 await pause(2000);
 await shot("notes");
 
-// 7. Statistics and Home.
+// 8. The project's Dashboard, Calendar and Settings, then Home.
 await card("See how it's going.", "", "8", 2200);
 await demo("hideCard");
-await click(page.getByRole("button", { name: /^Statistics$/ }).first());
-await caption("How long steps take against their estimates, and what got done each day.", "Statistics");
+await click(page.getByRole("button", { name: /^Dashboard$/ }).first());
+await caption("Each project's Dashboard: how long steps take against their estimates, and what got done each day.", "Dashboard");
 await pause(4000);
-await shot("statistics");
+await shot("dashboard");
 await page.mouse.wheel(0, 500);
-await caption("How often the work stepped off the plan, and the longest steps.", "Statistics");
+await caption("How often the work stepped off the plan, and every goal, sorted the way you like.", "Dashboard");
 await pause(3500);
-await click(page.getByRole("button", { name: "Home" }));
+await click(page.getByRole("button", { name: /^Calendar$/ }).first());
+await caption("The Calendar: what your AI did each day, and what comes next.", "Calendar");
+await pause(4000);
+await shot("calendar");
+await click(page.getByRole("button", { name: "Settings", exact: true }).first());
+await caption("Settings has its own page. Everything there is optional: your AI runs the plan either way.", "Settings");
+await pause(4000);
+await shot("settings");
+await click(page.locator("[data-tour=home]"));
 await caption("Home: what needs you and what's being worked on, across all your projects.", "Every project on one page");
 await pause(4500);
 await shot("home");
@@ -437,13 +453,13 @@ await pause(5500);
 await click(page.locator(".project-card", { hasText: "portfolio-site" }).first());
 await caption("Each project keeps its own plan. Switch between them with a click.", "Every project on one page");
 await pause(5000);
-await click(page.getByRole("button", { name: "Home" }));
+await click(page.locator("[data-tour=home]"));
 await pause(800);
 await page.mouse.wheel(0, 700);
-await caption("…with statistics for all of them.", "Every project on one page");
+await caption("…with the numbers for all of them.", "Every project on one page");
 await pause(3500);
 
-// 8. Themes.
+// 9. Themes.
 await card("Your look.", "", "9", 2000);
 for (const [theme, words] of [
   ["dark", "Dark…"],
@@ -481,9 +497,9 @@ await dashboard.close();
 const ff = (args) => execFileSync("ffmpeg", ["-y", "-loglevel", "error", ...args], { stdio: "inherit" });
 const entries = frames.map((f, i) => {
   const d = i + 1 < frames.length ? Math.max(0.001, frames[i + 1].t - f.t) : 1;
-  return `file '${f.file}'\nduration ${d.toFixed(4)}`;
+  return `file '${f.file.replace(/\\/g, "/")}'\nduration ${d.toFixed(4)}`;
 });
-writeFileSync(join(framesDir, "frames.txt"), `ffconcat version 1.0\n${entries.join("\n")}\nfile '${frames.at(-1).file}'\n`);
+writeFileSync(join(framesDir, "frames.txt"), `ffconcat version 1.0\n${entries.join("\n")}\nfile '${frames.at(-1).file.replace(/\\/g, "/")}'\n`);
 const video = join(out, "progressor-showcase.mp4");
 ff(["-f", "concat", "-safe", "0", "-i", join(framesDir, "frames.txt"), "-vf", "fps=30,scale=1920:1080:flags=lanczos,format=yuv420p",
   "-c:v", "libx264", "-preset", "slow", "-crf", "18", "-movflags", "+faststart", video]);
