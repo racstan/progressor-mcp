@@ -17,7 +17,7 @@ import { type ResourceLock, holderText, resourceLine } from "./resources.js";
 import { type Goal, type StandingInstruction, hardFirst, helperLimit, hotfixLine, ruleText } from "./roadmap.js";
 import type { GoalSchedule, Schedule } from "./schedule.js";
 import type { Wish } from "./wishlist.js";
-import { settingsFileFor } from "./settings.js";
+import { readSettings, settingsFileFor } from "./settings.js";
 import { registerFeatureTools } from "./tools/index.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -268,7 +268,7 @@ export function scheduleLines(schedule: Schedule, held: string[]): string[] {
   if (!schedule.estimated) return lines;
   const next = schedule.next[0];
   const goals = schedule.goals.filter((g) => held.includes(g.id));
-  const all = { ...schedule, id: "", title: "", left: schedule.goals.reduce((n, g) => n + g.left, 0), estimate: undefined, estimateSet: false };
+  const all = { ...schedule, id: "", title: "", left: schedule.goals.reduce((n, g) => n + g.left, 0), estimate: undefined, estimateSet: false, adjusted: false };
   const parts = [
     ...(next ? [`next ${next.goal}${next.id ? `/${next.id} ${next.title}` : ""}`] : []),
     ...goals.map((g) => finishText(g, g.id)),
@@ -305,6 +305,13 @@ function wishlistLines(wishes: Wish[]): string[] {
     ]),
     ...(granted > 0 ? [`Granted: ${granted} ${granted === 1 ? "wish" : "wishes"} (not listed).`] : []),
   ];
+}
+
+/** One short line when estimates have run more than 20% off, for the AI to allow for; undefined otherwise. */
+export function estimateLine(c: { factor: number | undefined; samples: number } | undefined): string | undefined {
+  if (!c || c.factor === undefined || Math.abs(c.factor - 1) <= 0.2) return undefined;
+  const long = c.factor > 1;
+  return `Your estimates here have run ${c.factor.toFixed(1)}× ${long ? "long" : "short"} (last ${c.samples} steps); allow for it.`;
 }
 
 export function formatStatus(session: SessionStatus, schedule?: Schedule, warnings: string[] = []): string {
@@ -681,7 +688,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       ...news,
       ...(elsewhereNews ? [elsewhereNews] : []),
       ...(toProject ? [toProject] : []),
-      formatStatus(session, project.schedule(), [...project.helperWarnings(), ...resourceLines(project.resources().list(), project.now())]),
+      formatStatus(session, project.schedule(estimatesOf(project)), [...[calibrationLine(project)].filter((l): l is string => !!l), ...project.helperWarnings(), ...resourceLines(project.resources().list(), project.now())]),
     ].join("\n");
     // The Developer's new hand-test marks are now shown, so the next status calls only later ones new.
     for (const s of session.held) if (s.handTests.some((h) => h.result !== "pending" && !h.seen)) project.acknowledgeHandTests(s.goal!.id);
@@ -689,6 +696,9 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   };
   // Apps without Claude Code's hooks never hand the Agent the plan between calls, so results that
   // don't show the whole status end with where the work stands.
+  const settingsFile = options.settingsFile ?? settingsFileFor(options.registryFile ?? defaultRegistryFile());
+  const estimatesOf = (p: Project) => readSettings(settingsFile, p.root).estimates;
+  const calibrationLine = (p: Project) => estimateLine(p.calibration(estimatesOf(p)));
   const withNow = (text: string) => `${text}\n${nowLine(project.sessionStatus())}`;
   const { dashboard, registryFile } = options;
   // Told once per Session: each get_status after that would only repeat it.
@@ -758,7 +768,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       inputSchema: { ref: z.string().describe("A ref such as progressor://login/t2 or progressor://roadmap/i1.") },
       annotations: { readOnlyHint: true },
     },
-    ({ ref }) => respondIn(undefined, () => formatItem(project.getItem(ref), project.schedule())),
+    ({ ref }) => respondIn(undefined, () => formatItem(project.getItem(ref), project.schedule(estimatesOf(project)))),
   );
 
   server.registerTool(
@@ -805,11 +815,12 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         if (p !== project)
           return doneIn(p, done ? `Recorded finished Goal ${goal.id} (${goal.ref}) with ${n} done Tasks.` : `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks.`);
         if (done) return `Recorded finished Goal ${goal.id} (${goal.ref}) with ${n} done Tasks.`;
+        const learned = calibrationLine(p);
         if (claim) {
           project.claimGoal(goal.id);
-          return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks, claimed by this Session.\n\n${status()}`;
+          return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks, claimed by this Session.${learned ? `\n${learned}` : ""}\n\n${status()}`;
         }
-        return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks. Claim it with claim_goal to work on it.`;
+        return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks. Claim it with claim_goal to work on it.${learned ? `\n${learned}` : ""}`;
       }),
   );
 
@@ -858,7 +869,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     ({ goal, title, outcome, estimate, project: wanted }) =>
       respondIn(wanted, (p) => {
         const g = p.updateGoal(goal, { title, outcome, estimate: readEstimate(estimate) });
-        const item = formatItem(p.getItem(g.ref), p.schedule());
+        const item = formatItem(p.getItem(g.ref), p.schedule(estimatesOf(p)));
         return p === project ? item : doneIn(p, item);
       }),
   );
@@ -1030,7 +1041,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       respondIn(wanted, (p) => {
         const added = p.addTasks(newTasks(tasks.map(({ hand_test, ...t }) => t)), goal);
         const tests = tasks.flatMap((t, i) => (t.hand_test?.trim() ? [p.addHandTest(t.hand_test, goal, added[i]!.id)] : []));
-        return doneIn(p, [`Added: ${added.map(taskLine).join("; ")}`, ...tests.map((h) => `Saved hand test ${h.id} about ${h.task}: ${h.text}`)].join("\n"));
+        return doneIn(p, [`Added: ${added.map(taskLine).join("; ")}`, ...[calibrationLine(p)].filter((l): l is string => !!l), ...tests.map((h) => `Saved hand test ${h.id} about ${h.task}: ${h.text}`)].join("\n"));
       }),
   );
 

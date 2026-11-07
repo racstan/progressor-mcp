@@ -34,7 +34,16 @@ import { unsafeRoot } from "./root.js";
 import { type Claim, type Goal, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
 import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule } from "./schedule.js";
+import { type Calibration, calibration } from "./stats.js";
 import { WISHLIST_FILE, type Attachment, type Wish,formatWishlist, nextWishId, parseWishlist, wishText } from "./wishlist.js";
+
+/** The estimates settings the schedule needs (settings.ts); without them estimates are taken as written. */
+export interface EstimateSettings {
+  learn: boolean;
+  window: number;
+}
+/** Finished steps with an estimate and a time needed before estimates are adjusted. */
+export const MIN_SAMPLES = 5;
 
 export interface SessionIdentity {
   id: string;
@@ -1479,9 +1488,23 @@ export class Project {
   }
 
   /** The schedule of the open work, from the estimates, the Roadmap's order and the helper limit (see schedule.ts). */
-  schedule(): Schedule {
+  schedule(estimates?: EstimateSettings): Schedule {
     const roadmap = this.roadmap();
-    return computeSchedule(this.plannedGoals(roadmap), helperLimit(roadmap.standingInstructions)?.limit, this.now());
+    return computeSchedule(this.plannedGoals(roadmap), helperLimit(roadmap.standingInstructions)?.limit, this.now(), this.calibration(estimates)?.factor);
+  }
+
+  /** How far finished steps ran from their estimates (see calibration in stats.ts); undefined when learning is off. */
+  calibration(estimates?: EstimateSettings): Calibration | undefined {
+    if (!estimates?.learn) return undefined;
+    const goals = this.roadmap().goals.map((g) => {
+      try {
+        const plan = this.plan(g.id);
+        return { id: g.id, title: g.title, status: g.status, tasks: plan.tasks, detours: plan.detours };
+      } catch {
+        return { id: g.id, title: g.title, status: g.status, tasks: [], detours: [] };
+      }
+    });
+    return calibration(goals, this.now(), { window: estimates.window, min: MIN_SAMPLES });
   }
 
   // --- Important context -----------------------------------------------------

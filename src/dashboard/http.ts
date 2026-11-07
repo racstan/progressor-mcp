@@ -11,7 +11,7 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { type Origin, latestOrigin } from "../origin.js";
 import type { Decision, HandResult, HandTest, Message, Note, Question, TaskStatus } from "../planFile.js";
 import { withLock } from "../lock.js";
-import { MAX_ATTACHMENT_BYTES, PROGRESSOR_DIR, PROJECT_TALK, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
+import { type EstimateSettings, MAX_ATTACHMENT_BYTES, MIN_SAMPLES, PROGRESSOR_DIR, PROJECT_TALK, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
 import { defaultServersDir, listServers, requestStop, sessionOfProcess } from "../servers.js";
@@ -33,7 +33,7 @@ import { type Look, eventsBetween } from "../events.js";
 import { readSettings, settingsFileFor } from "../settings.js";
 import { watchProgress } from "./watch.js";
 import { allProjects, findProjects } from "./workspace.js";
-import { combineStats, projectStats } from "../stats.js";
+import { calibration, combineStats, projectStats } from "../stats.js";
 import { type RevealRunner, insideProject, revealCommand, runReveal } from "./reveal.js";
 
 export const DEFAULT_PORT = 4747;
@@ -99,7 +99,7 @@ export const VERSION: string = JSON.parse(readFileSync(new URL("../../package.js
  * The JSON views of one project. Each call re-reads the markdown, which is the source of truth.
  * `sessionOf` names the Session a running process has announced, to spot a Claim whose pid was reused.
  */
-export function dashboardApi(project: Project, sessionOf?: (pid: number) => string | undefined) {
+export function dashboardApi(project: Project, sessionOf?: (pid: number) => string | undefined, estimates: () => EstimateSettings = () => ({ learn: false, window: 20 })) {
   const roadmapFile = `${PROGRESSOR_DIR}/${ROADMAP_FILE}`;
   const goalSummary = (goalId: string) => {
     const goal = project.roadmap().goal(goalId);
@@ -174,7 +174,7 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
         // The Developer's wishlist (wishlist.ts), which they edit on the Wishlist page.
         wishes: project.wishes(),
         // What runs now, what comes next and when each open Goal should be done (schedule.ts).
-        schedule: project.schedule(),
+        schedule: project.schedule(estimates()),
         // Shared resources in use right now (resources.ts); runtime state, not part of the plan.
         resources: project.resources(sessionOf).list(),
         // The Developer's messages to the whole project and the AI's replies (talk/_project.md).
@@ -201,18 +201,20 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
     },
     item: (ref: string) => project.getItem(ref),
     /** Statistics over every goal's steps and side trips (stats.ts); a goal whose plan cannot be read counts as empty. */
-    stats: () =>
-      projectStats(
-        project.roadmap().goals.map((g) => {
-          try {
-            const plan = project.plan(g.id);
-            return { id: g.id, title: g.title, status: g.status, tasks: plan.tasks, detours: plan.detours };
-          } catch {
-            return { id: g.id, title: g.title, status: g.status, tasks: [], detours: [] };
-          }
-        }),
-        new Date(),
-      ),
+    stats: () => {
+      const goals = project.roadmap().goals.map((g) => {
+        try {
+          const plan = project.plan(g.id);
+          return { id: g.id, title: g.title, status: g.status, tasks: plan.tasks, detours: plan.detours };
+        } catch {
+          return { id: g.id, title: g.title, status: g.status, tasks: [], detours: [] };
+        }
+      });
+      const { learn, window } = estimates();
+      // How far the estimates have run off, with or without the setting that adjusts the schedule by it.
+      const looked = calibration(goals, new Date(), { window, min: MIN_SAMPLES });
+      return { ...projectStats(goals, new Date()), estimates: { learn, window, factor: looked.factor, samples: looked.samples } };
+    },
   };
 }
 
@@ -387,7 +389,7 @@ class Hub {
           this.send("change", { project: entry.id, files });
           this.pushSoon();
         });
-        this.projects.set(entry.id, { api: dashboardApi(project, (pid) => sessionOfProcess(this.serversDir, pid)), project, stop });
+        this.projects.set(entry.id, { api: dashboardApi(project, (pid) => sessionOfProcess(this.serversDir, pid), () => readSettings(this.settingsFile, project.root).estimates), project, stop });
         changed = true;
       }
     // a project that moved into or out of a Workspace changes the list too

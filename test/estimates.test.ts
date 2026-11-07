@@ -143,8 +143,10 @@ describe("time spent on a Task", () => {
 
 describe("estimates through the tools", () => {
   let client: Client;
+  let settings: string;
   beforeEach(async () => {
-    const server = createServer(agent());
+    settings = join(root, "settings.json");
+    const server = createServer(agent(), { settingsFile: settings });
     const [c, s] = InMemoryTransport.createLinkedPair();
     client = new Client({ name: "test", version: "0" });
     await Promise.all([server.connect(s), client.connect(c)]);
@@ -228,5 +230,64 @@ describe("the status line", () => {
 
   it("rules without a limit say nothing about one", () => {
     expect(formatRules([{ id: "s1", ref: undefined, text: "Be brief", line: 1, hard: false }])).not.toContain("Parallel");
+  });
+});
+
+describe("learning from how long steps took", () => {
+  let client: Client;
+  let settings: string;
+  beforeEach(async () => {
+    settings = join(root, "settings.json");
+    const server = createServer(agent(), { settingsFile: settings });
+    const [c, s] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: "test", version: "0" });
+    await Promise.all([server.connect(s), client.connect(c)]);
+  });
+  async function call(name: string, args: Record<string, unknown> = {}) {
+    const r = (await client.callTool({ name, arguments: args })) as { content: { text: string }[]; isError?: boolean };
+    return { text: r.content.map((c) => c.text).join("\n"), isError: r.isError ?? false };
+  }
+  const LONG = "Your estimates here have run 2.0× long (last 5 steps); allow for it.";
+  /** Finishes five steps, each estimated 30 minutes, that take `minutes` each. */
+  async function finishFive(minutes: number) {
+    await call("add_goal", { title: "Past", claim: true, tasks: [1, 2, 3, 4, 5].map((n) => ({ title: `Step ${n}`, estimate: "30m" })) });
+    for (let n = 1; n <= 5; n++) {
+      await call("start_task", { task: `t${n}` });
+      at(new Date(clock.getTime() + minutes * 60_000).toISOString());
+      await call("complete_task", { task: `t${n}`, code: ["a.ts"] });
+    }
+  }
+
+  it("says nothing with too few finished steps", async () => {
+    await call("add_goal", { title: "Past", claim: true, tasks: [{ title: "One", estimate: "30m" }] });
+    await call("start_task", { task: "t1" });
+    at("2026-10-26T12:00:00.000Z");
+    await call("complete_task", { task: "t1", code: ["a.ts"] });
+    expect((await call("add_tasks", { tasks: [{ title: "Two", estimate: "30m" }] })).text).not.toContain("allow for it");
+    expect((await call("get_status")).text).not.toContain("allow for it");
+  });
+
+  it("tells the AI once when estimates run long, in add_tasks, add_goal and get_status", async () => {
+    await finishFive(60);
+    expect((await call("add_tasks", { tasks: [{ title: "Next", estimate: "30m" }] })).text).toContain(LONG);
+    expect((await call("add_goal", { title: "Later", tasks: [{ title: "x", estimate: "1h" }] })).text).toContain(LONG);
+    const status = (await call("get_status")).text;
+    expect(status.split(LONG).length).toBe(2);
+  });
+
+  it("says run short when estimates are too big", async () => {
+    await finishFive(15);
+    expect((await call("get_status")).text).toContain("Your estimates here have run 0.5× short (last 5 steps); allow for it.");
+  });
+
+  it("says nothing when estimates are within 20%", async () => {
+    await finishFive(33);
+    expect((await call("get_status")).text).not.toContain("allow for it");
+  });
+
+  it("is off when the learn setting is off", async () => {
+    writeFileSync(settings, JSON.stringify({ estimates: { learn: false } }));
+    await finishFive(60);
+    expect((await call("get_status")).text).not.toContain("allow for it");
   });
 });

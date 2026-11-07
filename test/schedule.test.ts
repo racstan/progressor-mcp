@@ -111,4 +111,16 @@ describe("the schedule", () => {
     expect(s.goals.map((g) => [g.id, g.finish, g.unknown])).toEqual([["a", 0, 0]]);
     expect(s.running).toEqual([]);
   });
+  it("multiplies estimates by the learned factor, and says so", () => {
+    const plan = [goal("a", [task("t1", "pending", 60), task("t2", "pending", 30, { spent: 10 })])];
+    const s = computeSchedule(plan, undefined, NOW, 1.5);
+    expect(s.factor).toBe(1.5);
+    expect(s.goals[0]!.finish).toBe(90 + 35);
+    expect(s.goals[0]!.estimate).toBe(90);
+    expect(s.goals[0]!.adjusted).toBe(true);
+    const plain = computeSchedule(plan, undefined, NOW);
+    expect(plain.factor).toBeUndefined();
+    expect(plain.goals[0]!.finish).toBe(80);
+    expect(plain.goals[0]!.adjusted).toBe(false);
+  });
 });

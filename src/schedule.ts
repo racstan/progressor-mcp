@@ -43,6 +43,8 @@ export interface GoalSchedule {
   estimate: number | undefined;
   /** Whether `estimate` was set on the Goal itself. */
   estimateSet: boolean;
+  /** The finish was adjusted by the learned factor (see Schedule.factor). */
+  adjusted: boolean;
 }
 
 export interface Schedule {
@@ -63,6 +65,8 @@ export interface Schedule {
   unknown: number;
   /** Whether any open Task or Goal has an estimate: without one there is no schedule to speak of. */
   estimated: boolean;
+  /** What estimates were multiplied by (how long steps really take, see calibration in stats.ts); undefined when none was. */
+  factor: number | undefined;
 }
 
 /** One Goal of the Roadmap with its Tasks, as the schedule needs it. */
@@ -76,7 +80,8 @@ const WAITING: readonly TaskStatus[] = ["waiting on you", "checked"];
 const OPEN_TASK = (s: TaskStatus) => s !== "done" && s !== "released" && s !== "dropped";
 const OPEN_GOAL = (s: string) => s === "planned" || s === "active" || s === "paused";
 
-export function computeSchedule(roadmap: PlannedGoal[], limit: number | undefined, now: Date): Schedule {
+export function computeSchedule(roadmap: PlannedGoal[], limit: number | undefined, now: Date, factor?: number): Schedule {
+  const scale = factor ?? 1;
   const goals: GoalSchedule[] = [];
   const running: ScheduledTask[] = [];
   const queue: ScheduledTask[] = [];
@@ -99,14 +104,14 @@ export function computeSchedule(roadmap: PlannedGoal[], limit: number | undefine
         id: t.id!,
         title: t.title,
         status: t.status,
-        left: WAITING.includes(t.status) ? 0 : estimate === undefined ? undefined : Math.max(0, estimate - spent),
+        left: WAITING.includes(t.status) ? 0 : estimate === undefined ? undefined : Math.max(0, estimate * scale - spent),
         start: 0,
         end: 0,
         over: t.estimate !== undefined && spent > t.estimate,
       };
     });
     if (open.length === 0 && goal.estimate !== undefined)
-      items.push({ goal: goal.id, id: "", title: goal.title, status: "pending", left: goal.estimate, start: 0, end: 0, over: false });
+      items.push({ goal: goal.id, id: "", title: goal.title, status: "pending", left: goal.estimate * scale, start: 0, end: 0, over: false });
     for (const item of items) (RUNNING.includes(item.status) ? running : WAITING.includes(item.status) ? waiting : queue).push(item);
     goals.push({
       id: goal.id,
@@ -116,6 +121,7 @@ export function computeSchedule(roadmap: PlannedGoal[], limit: number | undefine
       left: 0,
       estimate: goal.estimate ?? (known.length > 0 ? knownSum : undefined),
       estimateSet: goal.estimate !== undefined,
+      adjusted: scale !== 1,
     });
   }
 
@@ -151,5 +157,6 @@ export function computeSchedule(roadmap: PlannedGoal[], limit: number | undefine
     finish: Math.max(0, ...all.map((i) => i.end)),
     unknown: goals.reduce((sum, g) => sum + g.unknown, 0),
     estimated,
+    factor,
   };
 }
