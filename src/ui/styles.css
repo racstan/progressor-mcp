@@ -1188,3 +1188,8 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .tour-notice { margin: 0 0 var(--s3); padding: var(--s2) var(--s3); border: 2px solid var(--ink); border-radius: var(--r-s); background: var(--panel2); color: var(--ink); font-size: var(--t-s); line-height: 1.45; overflow-wrap: anywhere; }
 .tour-notice strong { font-weight: 800; }
 [data-theme="vibrant"] .tour-notice { border-color: var(--accent); background: var(--accent-soft); }
+
+/* What's new: Don't show again and Close at the bottom */
+.changes-foot { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); border-top: 1px solid var(--line); flex-wrap: wrap; }
+.changes-foot .option { flex: 1 1 260px; margin: 0; }
+.changes-foot .sp { flex: 0 1 0; }

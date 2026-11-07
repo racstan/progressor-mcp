@@ -8,8 +8,18 @@ const DOCS_BASE = "https://github.com/racstan/progressor-mcp/blob/main/";
 
 export const changelog = parseChangelog(changelogText);
 
-/** What changed in each release, newest first: the newest open, the rest folded. Escape or a click outside closes it. */
-export function WhatsNew({ version, onClose }: { version?: string; onClose: () => void }) {
+/**
+ * What changed in each release, newest first: the newest open, the rest folded. Escape or a click
+ * outside closes it. It opens by itself the first time after the version changes (firstLook.ts),
+ * unless Don't show again is ticked.
+ */
+export function WhatsNew({ version, onClose, autoOpen, onAutoOpen }: {
+  version?: string;
+  onClose: () => void;
+  /** Whether it opens by itself on new versions. */
+  autoOpen: boolean;
+  onAutoOpen: (on: boolean) => void;
+}) {
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     addEventListener("keydown", key);
@@ -39,6 +49,14 @@ export function WhatsNew({ version, onClose }: { version?: string; onClose: () =
             </details>
           ))}
         </div>
+        <footer className="changes-foot">
+          <label className="option">
+            <input type="checkbox" checked={!autoOpen} onChange={(e) => onAutoOpen(!e.target.checked)} />
+            <span><b>Don't show again</b><small>Don't open this by itself when Progressor is updated. It's always in ❓ Help › What's new, and a dot on Help says when there's something new.</small></span>
+          </label>
+          <span className="sp" />
+          <button className="btn small" onClick={onClose}>Close</button>
+        </footer>
       </div>
     </div>
   );

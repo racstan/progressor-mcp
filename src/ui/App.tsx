@@ -31,7 +31,7 @@ import { canPopUp, editorName } from "./settings/Look.js";
 import type { SettingsContext, Theme } from "./settings/index.js";
 import { StepKey } from "./StepKey.js";
 import { Tour } from "./Tour.js";
-import { markTourSeen, tourSeen } from "./tourSteps.js";
+import { onOpen, setWhatsNewAuto, whatsNewAuto } from "./firstLook.js";
 import type { FileLink } from "./Steps.js";
 import { goalState, resourceWords } from "./words.js";
 
@@ -130,8 +130,17 @@ export function App() {
     try {
       return localStorage;
     } catch {
-      return { getItem: () => { throw new Error("no storage"); }, setItem: () => undefined };
+      const none = () => {
+        throw new Error("no storage");
+      };
+      return { getItem: none, setItem: none, removeItem: none };
     }
+  };
+  // Whether What's new opens by itself on new versions (Don't show again turns it off).
+  const [autoNew, setAutoNewState] = useState(() => whatsNewAuto(browserStore()));
+  const setAutoNew = (on: boolean) => {
+    setAutoNewState(on);
+    setWhatsNewAuto(browserStore(), on);
   };
 
   // Without a project in the address, the page is Home: every project, or one Workspace's.
@@ -384,14 +393,16 @@ export function App() {
   };
   const closeChanges = useCallback(() => setShowChanges(false), []);
   const closeTour = useCallback(() => setTouring(false), []);
-  // Shown once the page has something on it, the first time this browser opens the dashboard.
+  // Once the page has something on it: the tour on a first visit (What's new then counts as seen), or
+  // What's new the first time after the version changes (firstLook.ts).
   const loaded = projects !== undefined;
   useEffect(() => {
     if (!loaded) return;
-    const store = browserStore();
-    if (tourSeen(store)) return;
-    markTourSeen(store);
-    setTouring(true);
+    const opens = onOpen(browserStore(), latest?.title);
+    if (opens.tour) {
+      setTouring(true);
+      if (latest) setSeenChanges(latest.title);
+    } else if (opens.whatsNew) openChanges();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
   const openPanel = (which: "help") => setPanel(panel === which ? undefined : which);
@@ -588,7 +599,7 @@ export function App() {
       )}
 
       {touring && <Tour onClose={closeTour} />}
-      {showChanges && <WhatsNew version={info?.version} onClose={closeChanges} />}
+      {showChanges && <WhatsNew version={info?.version} onClose={closeChanges} autoOpen={autoNew} onAutoOpen={setAutoNew} />}
 
       <div className={`shell ${drawer ? "side-open" : ""} ${collapsed ? "collapsed" : ""}`}>
         <aside className="sidebar" aria-label={onHome ? "Projects" : "Your goals"}>
