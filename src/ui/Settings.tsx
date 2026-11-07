@@ -1,7 +1,7 @@
 // The Settings page: every section in the registry (settings/index.ts), grouped (settings/groups.ts)
 // with a menu of the groups on the left on a wide window, each section with "Reset this section";
 // then Support, "Reset all settings to defaults", where settings are kept, and the free notice.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FreeNotice } from "./FreeNotice.js";
 import { resetAll } from "./settings/reset.js";
 import { groupSections } from "./settings/groups.js";
@@ -52,20 +52,25 @@ export function Settings({ ctx }: { ctx: SettingsContext }) {
   const [resetting, setResetting] = useState(false);
   const groups = groupSections(SETTINGS_SECTIONS);
   const [current, setCurrent] = useState(groups[0]?.id ?? ABOUT.id);
-  // The menu marks the group being read as the page scrolls.
+  // The menu marks the group being read as the page scrolls: the last one whose heading has passed the
+  // top, or the last one of all at the bottom of the page. Just after a click, the clicked one stays marked.
+  const clickedAt = useRef(0);
   useEffect(() => {
     const main = document.getElementById("main");
-    const seen = new IntersectionObserver(
-      (entries) => {
-        const top = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (top) setCurrent(top.target.id.replace(/^settings-/, ""));
-      },
-      { root: main, rootMargin: "0px 0px -60% 0px" },
-    );
-    document.querySelectorAll(".settings-group").forEach((g) => seen.observe(g));
-    return () => seen.disconnect();
+    if (!main) return;
+    const onScroll = () => {
+      if (Date.now() - clickedAt.current < 900) return;
+      const groups = [...document.querySelectorAll<HTMLElement>(".settings-group")];
+      const atBottom = main.scrollTop + main.clientHeight >= main.scrollHeight - 4;
+      const top = main.getBoundingClientRect().top + 120;
+      const passed = atBottom ? groups.at(-1) : groups.filter((g) => g.getBoundingClientRect().top <= top).at(-1);
+      setCurrent((passed ?? groups[0])?.id.replace(/^settings-/, "") ?? ABOUT.id);
+    };
+    main.addEventListener("scroll", onScroll, { passive: true });
+    return () => main.removeEventListener("scroll", onScroll);
   }, []);
   const go = (id: string) => {
+    clickedAt.current = Date.now();
     setCurrent(id);
     document.getElementById(`settings-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
