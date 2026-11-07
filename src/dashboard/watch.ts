@@ -11,7 +11,12 @@ import { PROGRESSOR_DIR } from "../project.js";
  * watcher loses a file once it is replaced by a rename, and every save is a write-then-rename, so
  * only the first save of a Plan File was ever reported. A folder's own watcher sees every rename.
  */
-export function watchProgress(root: string, onChange: (files: string[]) => void, debounceMs = 80): () => void {
+export function watchProgress(
+  root: string,
+  onChange: (files: string[]) => void,
+  debounceMs = 80,
+  fsWatch: typeof watch = watch,
+): () => void {
   const dir = join(root, PROGRESSOR_DIR);
   const watchers = new Map<string, FSWatcher>();
   let poll: NodeJS.Timeout | undefined;
@@ -42,12 +47,18 @@ export function watchProgress(root: string, onChange: (files: string[]) => void,
   const add = (sub: string) => {
     const path = sub ? join(dir, sub) : dir;
     if (watchers.has(sub) || !isDir(path)) return;
-    const w = watch(path, (_event, name) => {
+    const w = fsWatch(path, (_event, name) => {
       if (!existsSync(dir)) return restart(); // .progressor/ itself was removed
       const file = name ? String(name) : "";
       const rel = sub && file ? `${sub}/${file}` : sub || file;
-      // a folder made inside, such as goals/ in a new project, is watched too
-      if (file && !file.endsWith(".tmp") && isDir(join(path, file))) add(rel);
+      // A folder made inside, such as goals/ in a new project, is watched too. It can be gone again
+      // before it is watched (a wish's attachments folder made and removed); an error thrown here
+      // would end the whole process, so start over instead.
+      try {
+        if (file && !file.endsWith(".tmp") && isDir(join(path, file))) add(rel);
+      } catch {
+        return restart();
+      }
       notify(rel);
     });
     w.on("error", restart);

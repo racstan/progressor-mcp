@@ -69,3 +69,25 @@ describe("watching .progressor/", () => {
     expect(seen.filter((f) => f === "goals/g.md").length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe("a folder that vanishes while it is being watched", () => {
+  it("does not throw out of the watcher (which would stop the whole server), and starts over", () => {
+    const root = tempDir("progressor-watch-");
+    mkdirSync(join(root, ".progressor/attachments"), { recursive: true });
+    const listeners = new Map<string, (event: string, name: string) => void>();
+    const closed: string[] = [];
+    let failNext = false;
+    const fakeWatch = (path: string, listener: (event: string, name: string) => void) => {
+      if (failNext) throw Object.assign(new Error(`ENOENT: no such file or directory, watch '${path}'`), { code: "ENOENT" });
+      listeners.set(path, listener);
+      return { on: () => undefined, close: () => closed.push(path) } as never;
+    };
+    stop = watchProgress(root, () => undefined, 20, fakeWatch as never);
+    const attachments = [...listeners.entries()].find(([p]) => p.endsWith("attachments"))![1];
+    // a wish's folder is made, and is gone again before it can be watched
+    mkdirSync(join(root, ".progressor/attachments/w2"));
+    failNext = true;
+    expect(() => attachments("rename", "w2")).not.toThrow();
+    expect(closed.length).toBeGreaterThan(0); // it starts over instead
+  });
+});
