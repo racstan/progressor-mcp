@@ -7,6 +7,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Project } from "../project.js";
 import { isFromDashboardPage, json, readJsonBody } from "./respond.js";
+import { ntfyRoutes } from "./routes/ntfy.js";
 import { settingsRoutes } from "./routes/settings.js";
 
 /** What the hub gives every feature route. */
@@ -19,6 +20,8 @@ export interface HubContext {
   registryFile: string;
   /** Tells every open dashboard page something changed (a server-sent event). */
   send(event: string, data: unknown): void;
+  /** How web requests are made, so a test can stand in for the network (ntfy). Undefined means the real one. */
+  fetch?: unknown;
 }
 
 export interface RouteContext extends HubContext {
@@ -43,6 +46,7 @@ export interface FeatureRoute {
 /** Every feature's routes. A feature adds one line: `...myFeatureRoutes,`. */
 export const featureRoutes: FeatureRoute[] = [
   ...settingsRoutes,
+  ...ntfyRoutes,
 ];
 
 /** A body bigger than this is refused unread, unless the route asks for more. */

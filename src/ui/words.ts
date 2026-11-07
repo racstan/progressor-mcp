@@ -548,9 +548,19 @@ export const RESET_ALL_DONE = "Every setting is back to its default.";
 
 // --- ntfy ---
 // Phone notifications.
-//
-//
-//
+export const PHONE_EVENTS: [key: string, label: string, hint: string][] = [
+  ["question", "When the AI asks me a question", "It is waiting for your answer."],
+  ["handTest", "When something is ready to try", "A thing to try by hand is waiting."],
+  ["goalFinished", "When a goal is finished", "One of your goals is done."],
+  ["hotfix", "When a hotfix arrives", "A bug report to fix before other work."],
+  ["alternatives", "When there are choices to look at", "The AI offered ways to go and wants your pick."],
+];
+export const PHONE_HOW = "On your phone, install the ntfy app (free), tap +, and subscribe to this topic. Pick the same server if it is not ntfy.sh.";
+export const PHONE_WARNING =
+  "Anyone who knows the topic name can read these messages. Keep it to yourself. For more privacy, use your own ntfy server, or set a token so only people with it can read.";
+export const PHONE_TITLES_HINT = "Off: messages only say that something needs you, never which goal or project.";
+export const PHONE_OFF_NOTE = "Off. Nothing is sent from this computer.";
+export const phoneAddress = (server: string, topic: string) => `${server.replace(/\/+$/, "")}/${topic}`;
 
 // --- alternatives ---
 // Alternatives to choose from.

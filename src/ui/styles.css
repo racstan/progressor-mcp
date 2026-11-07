@@ -790,6 +790,11 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 
 
 /* ---------- ntfy: phone notifications ---------- */
+.phone-address code { word-break: break-all; font-weight: 600; }
+.phone-warning { border: var(--heavy); border-radius: var(--r-s); padding: var(--s2) var(--s3); font-size: var(--t-s); }
+.phone-field { display: grid; gap: var(--s1); margin: var(--s2) 0; font-size: var(--t-s); }
+.phone-field input { width: 100%; box-sizing: border-box; }
+.phone-actions { display: flex; gap: var(--s2); margin: var(--s2) 0; }
 
 
 /* ---------- alternatives: alternatives to choose from ---------- */

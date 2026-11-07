@@ -2,24 +2,26 @@
 // project to the next, and what the pop-up says. The page shows them (App.tsx) while the Settings
 // switch is on.
 
+import { type Look, eventsBetween } from "../events.js";
+
 type ProjectLike = { id: string; name: string; goals: GoalLike[] };
 type GoalLike = { id: string; title: string; status: string };
 
-/** Each goal's status by "project/goal", from one look at every project. */
-export type Snapshot = Record<string, string>;
+/** What was seen at one look at every project (the shared diff is in events.ts). */
+export type Snapshot = Look;
 
 export function snapshot(projects: ProjectLike[]): Snapshot {
-  return Object.fromEntries(projects.flatMap((p) => p.goals.map((g) => [`${p.id}/${g.id}`, g.status])));
+  return projects.map((p) => ({ id: p.id, name: p.name, goals: p.goals.map((g) => ({ id: g.id, title: g.title, status: g.status })) }));
 }
 
 /** Goals that were open at the last look and are finished now; nothing before the first look. */
 export function newlyFinished<P extends ProjectLike>(before: Snapshot | undefined, projects: P[]): { project: P; goal: P["goals"][number] }[] {
-  if (!before) return [];
-  return projects.flatMap((project) =>
-    project.goals
-      .filter((g) => g.status === "done" && before[`${project.id}/${g.id}`] !== undefined && before[`${project.id}/${g.id}`] !== "done")
-      .map((goal) => ({ project, goal })),
-  );
+  return eventsBetween(before, snapshot(projects)).flatMap((e) => {
+    if (e.kind !== "goalFinished") return [];
+    const project = projects.find((p) => p.id === e.project.id);
+    const goal = project?.goals.find((g) => g.id === e.goal.id);
+    return project && goal ? [{ project, goal }] : [];
+  });
 }
 
 /** What the pop-up says; the tag makes several open dashboard tabs show it once. */
