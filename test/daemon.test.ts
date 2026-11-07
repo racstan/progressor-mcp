@@ -8,6 +8,7 @@ import {
   loginItem,
   nodeArgs,
   parseDaemonArgs,
+  privateFromSmaps,
   vbsQuote,
 } from "../src/daemon.js";
 
@@ -47,33 +48,33 @@ describe("the background dashboard's files", () => {
 
 describe("starting at login on Windows", () => {
   const plan = loginItem(win);
+  const startup = "C:\\Users\\Ada\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\progressor-dashboard.vbs";
 
-  it("writes a script that runs node with no window", () => {
-    const vbs = plan.files.find((f) => f.path.endsWith(".vbs"))!;
-    expect(vbs.path).toBe("C:\\Users\\Ada\\.progressor\\progressor-dashboard.vbs");
-    expect(vbs.content).toContain('CreateObject("WScript.Shell").Run');
-    expect(vbs.content).toContain('""C:\\Program Files\\nodejs\\node.exe""');
-    expect(vbs.content).toContain(`--max-old-space-size=${MAX_OLD_SPACE_MB}`);
-    expect(vbs.content).toMatch(/, 0, False\r?\n/);
+  it("puts a script in the Startup folder that runs node with no window, needing no admin rights", () => {
+    expect(plan.kind).toBe("startup");
+    expect(plan.files.map((f) => f.path)).toEqual([startup]);
+    const vbs = plan.files[0]!.content;
+    expect(vbs).toContain('CreateObject("WScript.Shell").Run');
+    expect(vbs).toContain('""C:\\Program Files\\nodejs\\node.exe""');
+    expect(vbs).toContain(`--max-old-space-size=${MAX_OLD_SPACE_MB}`);
+    expect(vbs).toMatch(/, 0, False\r?\n/);
   });
 
-  it("registers a Task Scheduler task at logon for this user, without admin rights", () => {
-    expect(plan.run).toEqual([
-      { command: "schtasks", args: ["/Create", "/TN", "progressor-dashboard", "/SC", "ONLOGON", "/RL", "LIMITED", "/TR", 'wscript.exe "C:\\Users\\Ada\\.progressor\\progressor-dashboard.vbs"', "/F"] },
-    ]);
+  it("runs nothing else: Task Scheduler refuses logon tasks to people who aren't admins", () => {
+    expect(plan.run).toEqual([]);
+    expect(plan.fallback).toBeUndefined();
     expect(plan.startsItself).toBe(false);
+    expect(JSON.stringify(plan.run)).not.toContain("schtasks");
   });
 
-  it("falls back to the Startup folder when the task can't be made", () => {
-    const fb = plan.fallback!;
-    expect(fb.run).toEqual([]);
-    expect(fb.files.some((f) => f.path === "C:\\Users\\Ada\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\progressor-dashboard.vbs")).toBe(true);
-  });
-
-  it("removes the task, the Startup script and its own script", () => {
+  it("removes the Startup script, and a task by that name left from an earlier build, if any", () => {
+    expect(plan.remove.files).toEqual([startup]);
     expect(plan.remove.run).toEqual([{ command: "schtasks", args: ["/Delete", "/TN", "progressor-dashboard", "/F"] }]);
-    expect(plan.remove.files).toContain("C:\\Users\\Ada\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\progressor-dashboard.vbs");
-    expect(plan.remove.files).toContain("C:\\Users\\Ada\\.progressor\\progressor-dashboard.vbs");
+  });
+
+  it("finds the Startup folder under the home folder when APPDATA isn't set", () => {
+    const { appData: _none, ...rest } = win;
+    expect(loginItem(rest).files[0]!.path).toBe(startup);
   });
 
   it("quotes for VBScript by doubling quotes", () => {
@@ -155,7 +156,7 @@ describe("starting at login on Linux", () => {
     const t = loginItem({ ...linux, name: "progressor-dashboard-test" });
     expect(t.files[0]!.path).toContain("progressor-dashboard-test.service");
     expect(loginItem({ ...mac, name: "progressor-dashboard-test" }).files[0]!.path).toContain("com.progressor.dashboard-test.plist");
-    expect(loginItem({ ...win, name: "progressor-dashboard-test" }).run[0]!.args).toContain("progressor-dashboard-test");
+    expect(loginItem({ ...win, name: "progressor-dashboard-test" }).files[0]!.path).toMatch(/\\progressor-dashboard-test\.vbs$/);
   });
 });
 
@@ -172,9 +173,21 @@ describe("the daemon command's words", () => {
     expect(describeStatus(undefined)).toBe("The background dashboard is not running.");
     expect(
       describeStatus({ pid: 42, port: 4747, version: "1.3.0", memory: 69 * 1_048_576, serving: true, startedAt: "2026-11-07T10:00:00.000Z" }),
-    ).toBe("The background dashboard is running: http://localhost:4747/, version 1.3.0, process 42, 69 MB of memory.");
-    expect(describeStatus({ pid: 42, port: 4747, version: "1.2.0", memory: 60 * 1_048_576, serving: false, startedAt: "x" })).toBe(
-      "The background dashboard is running (version 1.2.0, process 42, 60 MB of memory). Another Progressor process serves http://localhost:4747/ right now; this one takes over when it closes.",
+    ).toBe("The background dashboard is running: http://localhost:4747/, version 1.3.0, process 42, about 69 MB of memory.");
+    expect(describeStatus({ pid: 42, port: 4747, version: "1.2.0", memory: 31.2 * 1_048_576, serving: false, startedAt: "x" })).toBe(
+      "The background dashboard is running (version 1.2.0, process 42, about 31 MB of memory). Another Progressor process serves http://localhost:4747/ right now; this one takes over when it closes.",
     );
+  });
+});
+
+describe("the process's own memory", () => {
+  it("adds up its private pages on Linux, from /proc/<pid>/smaps_rollup", () => {
+    const rollup = "55d0-7ffd ---p 00000000 00:00 0 [rollup]\nRss:               69000 kB\nShared_Clean:      30000 kB\nPrivate_Clean:      1200 kB\nPrivate_Dirty:     30744 kB\nSwap:                  0 kB\n";
+    expect(privateFromSmaps(rollup)).toBe((1200 + 30744) * 1024);
+  });
+
+  it("says nothing when the file has no private lines", () => {
+    expect(privateFromSmaps("Rss: 100 kB\n")).toBeUndefined();
+    expect(privateFromSmaps("")).toBeUndefined();
   });
 });

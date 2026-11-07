@@ -6,7 +6,7 @@
 // Progressor serves, it shares that one and takes over again when it closes. When a newer Progressor
 // asks it to step down, it moves to that version: daemon.json then names the newer CLI, and it starts
 // again from there.
-import { spawn, spawnSync } from "node:child_process";
+import { execFile, spawn, spawnSync } from "node:child_process";
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname } from "node:path";
@@ -22,6 +22,7 @@ import {
   loginItem,
   nodeArgs,
   parseDaemonArgs,
+  privateFromSmaps,
 } from "./daemon.js";
 import { DEFAULT_PORT, VERSION, hubInfo, startDashboard } from "./dashboard/http.js";
 import { defaultRegistryFile } from "./dashboard/registry.js";
@@ -97,6 +98,35 @@ function spawnDetached(registryFile: string): void {
 /** The background process's record, if one runs. */
 const record = (registryFile: string) => listServers(defaultServersDir(registryFile)).find((s) => s.kind === "background");
 
+/**
+ * A process's own memory, as Task Manager and the system monitors count it: private bytes on
+ * Windows, private pages on Linux, else (macOS) the resident memory its record has. Looked up at
+ * most once a minute per process, since the Settings page asks every few seconds.
+ */
+const memoryCache = new Map<number, { at: number; bytes: number }>();
+async function ownMemory(pid: number, resident: number): Promise<number> {
+  const cached = memoryCache.get(pid);
+  if (cached && Date.now() - cached.at < 60_000) return cached.bytes;
+  let bytes: number | undefined;
+  try {
+    if (process.platform === "linux") bytes = privateFromSmaps(readFileSync(`/proc/${pid}/smaps_rollup`, "utf8"));
+    else if (process.platform === "win32")
+      bytes = await new Promise<number | undefined>((done) =>
+        execFile(
+          "powershell.exe",
+          ["-NoProfile", "-NonInteractive", "-Command", `(Get-Process -Id ${pid}).PrivateMemorySize64`],
+          { windowsHide: true, timeout: 5000 },
+          (error, out) => done(error ? undefined : Number(out.trim()) || undefined),
+        ),
+      );
+  } catch {
+    // the resident memory below
+  }
+  const result = bytes ?? resident;
+  memoryCache.set(pid, { at: Date.now(), bytes: result });
+  return result;
+}
+
 /** The running background dashboard, or undefined. */
 export async function daemonStatus(registryFile = defaultRegistryFile()): Promise<DaemonStatus | undefined> {
   const r = record(registryFile);
@@ -104,7 +134,7 @@ export async function daemonStatus(registryFile = defaultRegistryFile()): Promis
   const state = readState(daemonFiles(registryFile).state);
   const port = state?.port ?? DEFAULT_PORT;
   const info = await hubInfo(port);
-  return { pid: r.pid, port, version: r.version, memory: r.memory, serving: info?.pid === r.pid, startedAt: r.startedAt };
+  return { pid: r.pid, port, version: r.version, memory: await ownMemory(r.pid, r.memory), serving: info?.pid === r.pid, startedAt: r.startedAt };
 }
 
 /** Whether `install` set it up to start at login. */

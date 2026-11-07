@@ -261,11 +261,11 @@ Usually the dashboard runs inside your AI's app (each chat runs a small Progress
 progressor-mcp daemon install
 ```
 
-A small background process then starts every time you log in and serves every project and Workspace, with no AI app open. It is the same dashboard: your AI's sessions share it, and when you update Progressor the newer version takes the page over and the background process moves to it by itself. It uses about 31 MB of private memory (about 68 MB working set) on Windows with two dozen projects, and its heap is capped at 96 MB. It starts without admin rights: a Task Scheduler task on Windows (or a script in your Startup folder if that isn't allowed), a LaunchAgent on macOS, and a systemd user service on Linux (or an autostart entry where there's no systemd). Its output goes to `~/.progressor/daemon.log`.
+A small background process then starts every time you log in and serves every project and Workspace, with no AI app open. It is the same dashboard: your AI's sessions share it, and when you update Progressor the newer version takes the page over and the background process moves to it by itself. It uses about 30 MB of memory on Windows with two dozen projects, as Task Manager counts it (its own, private memory; a little more for a moment while you use the page), and its heap is capped at 96 MB. It starts without admin rights: from a script in your Startup folder on Windows, a LaunchAgent on macOS, and a systemd user service on Linux (or an autostart entry where there's no systemd). Its output goes to `~/.progressor/daemon.log`.
 
 | Command | What it does |
 | --- | --- |
-| `progressor-mcp daemon status` | Says whether it runs, its address, version and memory. |
+| `progressor-mcp daemon status` | Says whether it runs, its address, version and memory (its own memory, as Task Manager or your system monitor counts it). |
 | `progressor-mcp daemon start` / `stop` | Starts it now (until you log out), or stops it. |
 | `progressor-mcp daemon install` | Starts it at every login, and now. |
 | `progressor-mcp daemon uninstall` | Stops starting it at login, and stops it. |

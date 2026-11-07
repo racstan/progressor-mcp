@@ -8,7 +8,7 @@
 // the background process points `daemon.json` at the newer one and starts again from it.
 import { dirname, join, posix, win32 } from "node:path";
 
-/** The name of the login entry (a Task Scheduler task, a LaunchAgent, a systemd unit). */
+/** The name of the login entry (a Startup-folder script, a LaunchAgent, a systemd unit). */
 export const DAEMON_NAME = "progressor-dashboard";
 
 /**
@@ -41,7 +41,7 @@ export interface DaemonState {
   fallback?: string[];
   /** The port asked for (PROGRESSOR_PORT when it was set up), else 4747. */
   port?: number;
-  /** The login entry made by `install`: "task", "startup", "launchagent", "systemd" or "autostart". */
+  /** The login entry made by `install`: "startup", "launchagent", "systemd" or "autostart". */
   loginItem?: string;
   /** The login entry's name, when it is not the usual one (tests). */
   name?: string;
@@ -124,25 +124,22 @@ export function loginItem(env: LoginItemEnv): LoginItemPlan {
   const log = path.join(env.dir, "daemon.log");
 
   if (env.platform === "win32") {
-    // wscript runs the script with no window; node itself is a console program and would show one.
-    const script = path.join(env.dir, `${env.name}.vbs`);
-    const line = command.map((c) => `"${c}"`).join(" ");
-    const vbs = {
-      path: script,
-      content:
-        `' Starts Progressor's background dashboard with no window (progressor-mcp daemon install).\r\n` +
-        `CreateObject("WScript.Shell").Run ${vbsQuote(line)}, 0, False\r\n`,
-    };
+    // A script in the Startup folder: Task Scheduler refuses logon tasks to anyone who isn't an
+    // admin. Windows runs it with wscript, which shows no window; node itself is a console program
+    // and would show one.
     const startup = path.join(env.appData ?? path.join(env.home, "AppData", "Roaming"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup", `${env.name}.vbs`);
-    const remove = { run: [{ command: "schtasks", args: ["/Delete", "/TN", env.name, "/F"] }], files: [startup, script] };
+    const line = command.map((c) => `"${c}"`).join(" ");
+    const content =
+      `' Starts Progressor's background dashboard with no window (progressor-mcp daemon install).\r\n` +
+      `CreateObject("WScript.Shell").Run ${vbsQuote(line)}, 0, False\r\n`;
     return {
-      kind: "task",
-      describe: `a Task Scheduler task "${env.name}" that runs when you log in`,
-      files: [vbs],
-      run: [{ command: "schtasks", args: ["/Create", "/TN", env.name, "/SC", "ONLOGON", "/RL", "LIMITED", "/TR", `wscript.exe "${script}"`, "/F"] }],
+      kind: "startup",
+      describe: "a script in your Startup folder",
+      files: [{ path: startup, content }],
+      run: [],
       startsItself: false,
-      fallback: { kind: "startup", describe: "a script in your Startup folder", files: [vbs, { path: startup, content: vbs.content }], run: [], startsItself: false, remove },
-      remove,
+      // and a task by this name, made by an earlier build that tried Task Scheduler first
+      remove: { run: [{ command: "schtasks", args: ["/Delete", "/TN", env.name, "/F"] }], files: [startup] },
     };
   }
 
@@ -264,14 +261,25 @@ export interface DaemonStatus {
   pid: number;
   port: number;
   version: string;
-  /** Resident memory (the working set on Windows), in bytes. */
+  /** The process's own memory, in bytes: private bytes on Windows, private pages on Linux, else resident memory. */
   memory: number;
   /** Whether it serves the dashboard itself, rather than sharing a newer Progressor's. */
   serving: boolean;
   startedAt: string;
 }
 
-const mb = (bytes: number) => `${Math.round(bytes / 1_048_576)} MB`;
+const mb = (bytes: number) => `about ${Math.round(bytes / 1_048_576)} MB`;
+
+/** The private pages (clean and dirty) in Linux's /proc/<pid>/smaps_rollup, in bytes. */
+export function privateFromSmaps(text: string): number | undefined {
+  let kb = 0;
+  let found = false;
+  for (const m of text.matchAll(/^Private_(?:Clean|Dirty):\s+(\d+) kB$/gm)) {
+    kb += Number(m[1]);
+    found = true;
+  }
+  return found ? kb * 1024 : undefined;
+}
 
 export function describeStatus(s: DaemonStatus | undefined): string {
   if (!s) return "The background dashboard is not running.";
