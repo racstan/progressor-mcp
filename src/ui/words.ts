@@ -641,9 +641,25 @@ export function waitsChip(waiting: { raw: string; title?: string; state: string 
 
 // --- checkup ---
 // The plan check-up.
-//
-//
-//
+/** What each kind of check-up finding is called on the dashboard. */
+export const CHECKUP_KIND: Record<string, string> = {
+  "line endings": "Line endings",
+  "leftover file": "Leftover file",
+  "stale claim": "Goal freed",
+  "no evidence": "No commits or tests",
+  "missing goal": "Missing goal",
+  "missing picture": "Missing picture",
+  damaged: "Can't be read",
+};
+/** One line on the last check-up: when, what was fixed and what is left. */
+export function checkupSummary(last: { at: string; findings: { fixed: boolean }[] } | undefined): string {
+  if (!last) return "Not checked yet. Your AI checks the plan at the start of each chat.";
+  const fixed = last.findings.filter((f) => f.fixed).length;
+  const left = last.findings.length - fixed;
+  const when = `Last checked ${whenWords(last.at)}`;
+  if (last.findings.length === 0) return `${when}: nothing wrong.`;
+  return `${when}: ${[fixed > 0 ? `${fixed} fixed` : "", left > 0 ? `${left} to look at` : ""].filter(Boolean).join(", ")}.`;
+}
 
 // --- release ---
 // The changelog from finished goals.

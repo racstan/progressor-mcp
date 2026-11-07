@@ -817,6 +817,14 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 
 
 /* ---------- checkup: the plan check-up ---------- */
+.checkup-card { margin-top: var(--s5); }
+.checkup-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.checkup-list { list-style: none; margin: var(--s2) 0 0; padding: 0; display: grid; gap: var(--s1); }
+.checkup-list li { font-size: var(--t-s); padding: var(--s1) var(--s2); border-left: 3px solid var(--line-strong); }
+.checkup-list li.left { border-left: var(--heavy); border-left-width: 3px; font-weight: 600; }
+.checkup-list li b { margin-right: var(--s1); }
+[data-theme="vibrant"] .checkup-list li.fixed { border-left-color: var(--done); }
+[data-theme="vibrant"] .checkup-list li.left { border-left-color: var(--you); }
 
 
 /* ---------- release: the changelog from finished goals ---------- */

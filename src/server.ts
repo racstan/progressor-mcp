@@ -7,6 +7,7 @@ import type { Dashboard } from "./dashboard/http.js";
 import { defaultRegistryFile, projectEntry } from "./dashboard/registry.js";
 import { resolveProject, sameFolder, seenFile, takeElsewhereLine } from "./elsewhere.js";
 import { type GoalLookup, waitsText } from "./dependencies.js";
+import { checkUp, checkupLine } from "./checkup.js";
 import { hooksAdvice, launchFor, startedViaNpx } from "./init.js";
 import { parseDuration, roughDuration, sayDuration, timeText } from "./estimate.js";
 import { type Decision, type Detour, type HelperInfo, type NewTask, type Note, type Task, type TaskStatus, TIMED, timeSpent } from "./planFile.js";
@@ -756,6 +757,8 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   project.history = (root) => readSettings(settingsFile, root).history;
   // Told once per Session: each get_status after that would only repeat it.
   let hooksChecked = false;
+  // The plan check-up runs by itself once per Session (see get_status).
+  let checkedUp = false;
   const hooksLine = (): string | undefined => {
     if (hooksChecked || !isClaudeCode(server)) return undefined;
     hooksChecked = true;
@@ -790,18 +793,37 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       title: "Get status",
       description:
         "Compact summary of every Goal this Session holds (current Task, open Detour, Tasks with a helper or waiting on the Developer, next Task, decisions and open notes) and the Developer's Standing Instructions. Call it at the start of every conversation and after context compression. With project, another project's Goals and Tasks instead, to change them from here.",
-      inputSchema: { project: otherProject },
+      inputSchema: { project: otherProject, check: z.boolean().optional().describe("Also run the plan check-up and list everything it found.") },
       annotations: { readOnlyHint: true },
     },
-    async ({ project: wanted }) => {
+    async ({ project: wanted, check }) => {
       // The Session serving the dashboard may have ended; if so, this one takes over.
       await dashboard?.refresh().catch(() => undefined);
       return respondIn(wanted, (p) => {
         if (p !== project) return formatOtherProject(p, nameOf(p));
+        // The plan check-up (checkup.ts): once per Session by itself, or every finding when asked.
+        const settings = readSettings(settingsFile, project.root).checkup;
+        let checked: string[] = [];
+        if (check) {
+          const r = checkUp(project, { repair: settings.autoRepair });
+          checked = r.findings.length === 0 ? ["Plan check-up: nothing wrong."] : ["Plan check-up:", ...r.findings.map((f) => `- ${f.fixed ? "Fixed: " : ""}${f.text}`)];
+        } else if (settings.onStatus && !checkedUp) {
+          checkedUp = true;
+          const line = checkupLine(checkUp(project, { repair: settings.autoRepair }));
+          if (line) checked = [line];
+        }
+        let now: string;
+        try {
+          now = status();
+        } catch (e) {
+          // A plan that can't be read still gets what the check-up found, which says why.
+          throw checked.length > 0 ? new Error(`${(e as Error).message}\n${checked.join("\n")}`) : e;
+        }
         const elsewhere = takeElsewhereLine(project, seenFile(registryFile));
         const hooks = hooksLine();
         return [
-          status(),
+          now,
+          ...checked,
           ...(elsewhere ? [elsewhere] : []),
           ...(hooks ? [hooks] : []),
           `Project folder: ${project.root}`,

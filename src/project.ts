@@ -549,7 +549,7 @@ export class Project {
    * Clears the Claims of Sessions that have ended, also for a reader that is not a Session (the
    * dashboard), which then counts no Claim as its own, so it never clears a live Session's Claim.
    */
-  private clearEndedClaims(): void {
+  clearEndedClaims(): string[] {
     const roadmap = this.roadmap();
     const self = this.tidy ? this.session : undefined;
     const ended = roadmap.goals.filter(
@@ -558,9 +558,29 @@ export class Project {
         g.claim.session !== this.session.id &&
         !claimMayBeLive(g.claim, { isAlive: this.isAlive, sessionOf: this.sessionOf, ...(self ? { self } : {}) }),
     );
-    if (ended.length === 0) return;
+    if (ended.length === 0) return [];
     for (const g of ended) roadmap.setClaim(g.id, undefined);
     this.saveRoadmap(roadmap);
+    return ended.map((g) => g.id);
+  }
+
+  // --- check-up ------------------------------------------------------------
+
+  /** The last plan check-up (checkup.ts), kept on this computer for the dashboard. */
+  get checkupFile(): string {
+    return this.path("checkup", "last.json");
+  }
+
+  /** Keeps the last check-up's result (git-ignored). */
+  saveCheckup(text: string): void {
+    this.ignoreLocal("checkup", "The last plan check-up stays on this computer");
+    mkdirSync(this.path("checkup"), { recursive: true });
+    this.writeText(this.checkupFile, text);
+  }
+
+  /** Puts a plan file's text back as given (a check-up repair); noted in the history like any write. */
+  rewritePlanFile(rel: string, text: string): void {
+    this.writeText(this.path(...rel.split("/")), text);
   }
 
   private writeText(path: string, text: string): void {
