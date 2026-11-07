@@ -10,7 +10,6 @@ import { type IncomingMessage, type Server, type ServerResponse, createServer } 
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { type Origin, latestOrigin } from "../origin.js";
 import type { Decision, HandResult, HandTest, Message, Note, Question, TaskStatus } from "../planFile.js";
-import { withLock } from "../lock.js";
 import { type EstimateSettings, MAX_ATTACHMENT_BYTES, MIN_SAMPLES, PROGRESSOR_DIR, PROJECT_TALK, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
@@ -240,6 +239,19 @@ const MAX_WISH_BODY = 8 * 1024 * 1024;
 /** How much of a long wish is quoted to the AI in the message that tells it of the wish. */
 const WISH_QUOTE = 200;
 
+/** What a change to the project notes is called in the plan's history. */
+function notesLabel(action: string): string {
+  if (action === "context") return "Changed the Important context";
+  if (action === "rules") return "Added a rule";
+  if (action === "hotfixes") return "Reported a bug";
+  if (action === "wishes") return "Added a wish";
+  if (/^rules\/[^/]+\/delete$/.test(action)) return "Removed a rule";
+  if (action.startsWith("rules/")) return "Changed a rule";
+  if (/^wishes\/[^/]+\/attachments\//.test(action)) return "Took a file off a wish";
+  if (/^wishes\/[^/]+\/delete$/.test(action)) return "Removed a wish";
+  return "Changed a wish";
+}
+
 /** Only answer requests addressed to the loopback host, so other web pages cannot read the record through DNS rebinding. */
 function isLocalHost(req: IncomingMessage): boolean {
   const host = (req.headers.host ?? "").replace(/:\d+$/, "").toLowerCase();
@@ -395,7 +407,12 @@ class Hub {
     for (const entry of entries)
       if (!this.projects.has(entry.id)) {
         // The dashboard is not a Session: it never changes the plan, not even to clear stale Claims.
-        const project = new Project({ root: entry.root, session: { id: "dashboard", pid: process.pid }, clearStaleClaims: false });
+        const project = new Project({
+          root: entry.root,
+          session: { id: "dashboard", pid: process.pid },
+          clearStaleClaims: false,
+          history: (root) => readSettings(this.settingsFile, root).history,
+        });
         const stop = watchProgress(entry.root, (files) => {
           this.send("change", { project: entry.id, files });
           this.pushSoon();
@@ -557,7 +574,7 @@ class Hub {
     if (!result) return json(res, 400, { error: `The mark must be one of: ${Object.keys(MARKS).join(", ")}.` });
     if (body.note !== undefined && typeof body.note !== "string") return json(res, 400, { error: "The note must be text." });
     try {
-      const test = withLock(project.root, () => project.markHandTest(goalId, itemId, result, body.note as string | undefined));
+      const test = project.transaction("Marked something to try", () => project.markHandTest(goalId, itemId, result, body.note as string | undefined));
       return json(res, 200, test);
     } catch (e) {
       const message = (e as Error).message;
@@ -603,7 +620,7 @@ class Hub {
       return v;
     };
     try {
-      const answer = withLock(project.root, () => {
+      const answer = project.transaction(action === "messages" ? "Sent a message" : action.startsWith("questions") ? "Answered a question" : "Took back a message", () => {
         if (action === "messages") return { status: 201, body: project.sendMessage(goalId, words("text")) };
         const del = /^messages\/([^/]+)\/delete$/.exec(action);
         if (del) {
@@ -636,7 +653,7 @@ class Hub {
     if (text !== undefined && typeof text !== "string") return json(res, 400, { error: "The text must be text." });
     const rule = (s: { id: string | undefined; text: string; hard: boolean }) => `${s.hard ? "a rule that must never be broken, " : ""}${s.id}: "${s.text}"`;
     try {
-      const answer = withLock(project.root, () => {
+      const answer = project.transaction(notesLabel(action), () => {
         if (action === "context") {
           if (text === undefined) throw new Error("Write the project notes first.");
           const context = project.setContext(text);
@@ -751,7 +768,7 @@ class Hub {
       // keep the plain name
     }
     try {
-      const attached = withLock(project.root, () => {
+      const attached = project.transaction("Attached a file to a wish", () => {
         const a = project.attachToWish(wishId, name, data);
         project.sendMessage(
           PROJECT_TALK,

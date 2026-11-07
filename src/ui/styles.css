@@ -769,6 +769,40 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .free-notice { margin: var(--s4) 0 0; padding: var(--s2) var(--s3); border: 1px solid var(--line-strong); border-radius: var(--r-s); font-size: var(--t-s); font-weight: 600; color: var(--ink); }
 
 /* ---------- history: plan history and undo ---------- */
+.history-off { margin: var(--s4) 0 0; padding: var(--s2) var(--s3); border: 2px solid var(--line-strong); border-radius: var(--r-s); font-weight: 600; }
+.timeline { list-style: none; margin: var(--s6) 0 0; padding: 0 0 0 var(--s4); border-left: 2px solid var(--line); }
+.timeline .entry { position: relative; margin: 0 0 var(--s3); padding: var(--s3) var(--s4); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+.timeline .entry::before { content: ""; position: absolute; left: calc(-1 * var(--s4) - 7px); top: 18px; width: 10px; height: 10px; border-radius: 50%; background: var(--bg); border: 2px solid var(--line-strong); }
+.timeline .entry.by-you { border-width: 2px; border-color: var(--line-strong); }
+.timeline .entry.by-you::before { background: var(--ink); border-color: var(--ink); }
+.timeline .entry.newest { border-color: var(--ink); }
+.timeline .entry.went-back .entry-what { font-style: italic; }
+.entry-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s2) var(--s3); }
+.entry-what { font-weight: 600; }
+.entry-who { font-size: var(--t-s); font-weight: 600; padding: 0 var(--s2); border: 1px solid var(--line-strong); border-radius: var(--r-s); }
+.entry.by-you .entry-who { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.entry-when { margin-left: auto; color: var(--muted); font-size: var(--t-s); }
+.entry-files { margin-top: var(--s1); color: var(--muted); font-size: var(--t-s); overflow-wrap: anywhere; }
+.entry-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2); margin-top: var(--s2); }
+.entry-actions .linkbtn { display: inline-flex; align-items: center; gap: var(--s1); }
+.entry-diff { margin-top: var(--s3); }
+.diff { margin: 0 0 var(--s3); }
+.diff figcaption { font-size: var(--t-s); font-weight: 600; margin-bottom: var(--s1); }
+.diff pre { margin: 0; padding: var(--s2) 0; max-height: 420px; overflow: auto; background: var(--panel2); border: 1px solid var(--line); border-radius: var(--r-s); font-size: 12px; line-height: 1.5; }
+.diff-line { padding: 0 var(--s3) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; border-left: 3px solid transparent; }
+.diff-mark { display: inline-block; width: 2ch; text-align: center; user-select: none; }
+.diff-line.same { color: var(--muted); }
+.diff-line.add { font-weight: 700; border-left-color: var(--ink); background: var(--hover); }
+.diff-line.del { text-decoration: line-through; color: var(--muted); border-left-color: var(--line-strong); }
+[data-theme="vibrant"] .diff-line.add { border-left-color: var(--done); color: var(--done); }
+[data-theme="vibrant"] .timeline .entry.newest { border-color: var(--accent); }
+.menu-panel .limits { display: grid; gap: var(--s2); padding: var(--s2) var(--s3); }
+.menu-panel .limit { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.menu-panel .limit input { width: 6em; height: 28px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: var(--r-s); padding: 0 var(--s2); }
+@media (prefers-reduced-motion: no-preference) {
+  .timeline .entry.newest::before { animation: history-newest 2.4s ease-in-out infinite; }
+  @keyframes history-newest { 50% { transform: scale(1.3); } }
+}
 
 
 /* ---------- evidence: steps linked to commits and test runs ---------- */

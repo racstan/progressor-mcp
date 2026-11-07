@@ -8,6 +8,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Project } from "../project.js";
 import { isFromDashboardPage, json, readJsonBody } from "./respond.js";
 import { ntfyRoutes } from "./routes/ntfy.js";
+import { historyRoutes } from "./routes/history.js";
 import { settingsRoutes } from "./routes/settings.js";
 
 /** What the hub gives every feature route. */
@@ -47,6 +48,7 @@ export interface FeatureRoute {
 export const featureRoutes: FeatureRoute[] = [
   ...settingsRoutes,
   ...ntfyRoutes,
+  ...historyRoutes,
 ];
 
 /** A body bigger than this is refused unread, unless the route asks for more. */

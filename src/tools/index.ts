@@ -4,6 +4,7 @@
 // every tool's description costs the AI tokens on every call (see test/lighter.test.ts).
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Project } from "../project.js";
+import { registerHistoryTools } from "./history.js";
 
 /** What server.ts gives every feature's tools. */
 export interface FeatureToolContext {
@@ -23,6 +24,5 @@ export interface FeatureToolContext {
 
 /** Registers every feature's tools. A feature adds one line: `registerMyFeatureTools(server, ctx);`. */
 export function registerFeatureTools(server: McpServer, ctx: FeatureToolContext): void {
-  void server;
-  void ctx;
+  registerHistoryTools(server, ctx);
 }

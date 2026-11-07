@@ -668,3 +668,46 @@ describe("settings", () => {
     expect(existsSync(settingsFile())).toBe(false);
   });
 });
+
+describe("plan history on the dashboard", () => {
+  const post = (d: Dashboard, path: string, header: string, body: unknown = {}) =>
+    fetch(new URL(path, d.url), {
+      method: "POST",
+      headers: { origin: new URL(d.url).origin, "x-progressor": header, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+  it("records the Developer's changes, shows each one and goes back to before it", async () => {
+    const d = await start(undefined);
+    registerProject(agent.root, registry);
+    const id = entry(agent).id;
+    const handTest = agent.transaction("add_hand_test", () => agent.addHandTest("Log in with Google"));
+    expect((await post(d, `/api/projects/${id}/goals/ship-oauth-login/hand-tests/${handTest.id}`, "mark", { mark: "works" })).status).toBe(200);
+    expect((await post(d, `/api/projects/${id}/context`, "notes", { text: "Shop app" })).status).toBe(200);
+    const list = (await get(d, `/api/projects/${id}/history`)).body;
+    expect(list.enabled).toBe(true);
+    expect(list.entries.map((e: any) => [e.actor, e.label])).toEqual([
+      ["Developer", "Changed the Important context"],
+      ["Developer", "Marked something to try"],
+      ["AI", "add_hand_test"],
+    ]);
+    const marked = list.entries[1].id;
+    const shown = (await get(d, `/api/projects/${id}/history/${marked}`)).body;
+    expect(shown.files[0].file).toBe("goals/ship-oauth-login.md");
+    expect(shown.files[0].lines.some((l: any) => l.kind === "add" && l.text.includes("[x] Log in with Google"))).toBe(true);
+    expect((await get(d, `/api/projects/${id}/history/20990101T000000000Z-1`)).status).toBe(404);
+
+    expect((await post(d, `/api/projects/${id}/history/${marked}/restore`, "notes")).status).toBe(403);
+    const back = await post(d, `/api/projects/${id}/history/${marked}/restore`, "history");
+    expect(back.status).toBe(200);
+    const restored = (await back.json()) as any;
+    expect(restored.files.sort()).toEqual(["context.md", "goals/ship-oauth-login.md"]);
+    expect(agent.plan("ship-oauth-login").handTest(handTest.id!)?.result).toBe("pending");
+    expect(existsSync(join(agent.root, ".progressor/context.md"))).toBe(false);
+    // the AI hears of it at its next call
+    expect(agent.projectMessages().at(-1)?.text).toMatch(/^On the dashboard I went back to before change .* \(Marked something to try\), undoing 2 changes/);
+    const after = (await get(d, `/api/projects/${id}/history`)).body.entries[0];
+    expect(after).toMatchObject({ actor: "Developer", label: "Went back to before: Marked something to try", restores: marked });
+    expect((await post(d, `/api/projects/${id}/history/nope/restore`, "history")).status).toBe(404);
+  });
+});

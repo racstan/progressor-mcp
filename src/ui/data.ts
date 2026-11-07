@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AllStatsView, GoalView, InfoView, OverviewView, RoadmapView, SearchView, ServersView, StatsView } from "../dashboard/http.js";
 import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
 import type { SettingsView } from "../dashboard/routes/settings.js";
+import type { DiffLine, FileChange, HistoryItem } from "../history.js";
 import { newestOnly, sharedEvents } from "./liveEvents.js";
 import { type Staleness, pageStaleness } from "./stale.js";
 
@@ -473,4 +474,50 @@ export function useSettings(projectId: string | undefined): [SettingsView | null
     };
   }, [projectId]);
   return [view, setView];
+}
+
+// --- history ---
+
+/** The plan's history as GET /api/projects/:id/history answers it: newest first. */
+export interface HistoryView {
+  enabled: boolean;
+  entries: HistoryItem[];
+}
+export type { DiffLine, FileChange, HistoryItem };
+
+/**
+ * A project's history, fetched again whenever `version` changes (the page passes the roadmap it
+ * shows, loaded again on every change) or a setting changes; undefined while loading, null when it failed.
+ */
+export function useHistory(projectId: string, version: unknown): [HistoryView | null | undefined, () => void] {
+  const path = `/api/projects/${encodeURIComponent(projectId)}/history`;
+  const [view, setView] = useState<{ path: string; view: HistoryView | null }>();
+  const [asked, setAsked] = useState(0);
+  useEffect(() => live.on({ settings: () => setAsked((n) => n + 1) }), []);
+  useEffect(() => {
+    let alive = true;
+    getJson<HistoryView>(path)
+      .then((v) => alive && setView({ path, view: v ?? null }))
+      .catch(() => alive && setView({ path, view: null }));
+    return () => {
+      alive = false;
+    };
+  }, [path, version, asked]);
+  return [view?.path === path ? view.view : undefined, () => setAsked((n) => n + 1)];
+}
+
+/** What one change did, file by file. */
+export const historyChanges = (projectId: string, id: string) =>
+  getJson<{ item: HistoryItem; files: FileChange[] }>(`/api/projects/${encodeURIComponent(projectId)}/history/${encodeURIComponent(id)}`);
+
+/** Goes back to before a change; says what went wrong in words when refused. */
+export async function goBackInHistory(projectId: string, id: string): Promise<{ files: string[] }> {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/history/${encodeURIComponent(id)}/restore`, {
+    method: "POST",
+    headers: { "x-progressor": "history", "content-type": "application/json" },
+    body: "{}",
+  });
+  const answer = (await res.json().catch(() => ({}))) as { files?: string[]; error?: string };
+  if (!res.ok) throw new Error(answer.error ?? `The server answered ${res.status}.`);
+  return { files: answer.files ?? [] };
 }
