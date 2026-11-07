@@ -39,7 +39,18 @@ import { calibration, combineStats, projectStats } from "../stats.js";
 import { type RevealRunner, insideProject, revealCommand, runReveal } from "./reveal.js";
 
 export const DEFAULT_PORT = 4747;
+/** The loopback address this process uses to reach a dashboard (its own or another Progressor's). */
 const HOST = "127.0.0.1";
+
+/**
+ * The address the dashboard listens on: loopback, unless PROGRESSOR_HOST names another, such as
+ * 0.0.0.0 in the Docker image, where the page must be reachable from outside the container.
+ * Requests still have to be addressed to localhost (isLocalHost), so this does not open it to
+ * other web pages.
+ */
+export function dashboardHost(env: Record<string, string | undefined> = process.env): string {
+  return env.PROGRESSOR_HOST?.trim() || HOST;
+}
 /** Bumped when the hub's API changes, so a hub from an older version is not shared. */
 const HUB_VERSION = 9;
 
@@ -58,6 +69,8 @@ export interface DashboardOptions {
   editor?: string;
   /** How many ports to try before giving up. */
   attempts?: number;
+  /** The address to listen on; dashboardHost() (PROGRESSOR_HOST, else loopback) unless set. */
+  host?: string;
   /** How often the hub re-reads the registry, for projects it was not told about. */
   rescanMs?: number;
   /** How long a Workspace's scan for projects is reused before the folder is scanned again. */
@@ -1050,6 +1063,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
   const registryFile = options.registryFile ?? defaultRegistryFile();
   const serversDir = defaultServersDir(registryFile);
   const firstPort = options.port ?? DEFAULT_PORT;
+  const host = options.host ?? dashboardHost();
   const entry = project && registerProject(project.root, registryFile);
   const workspace: WorkspaceEntry | undefined = options.workspace ? addWorkspace(options.workspace, registryFile) : undefined;
   // The hub listens on IPv4 loopback, and on IPv6 loopback too where there is one: browsers try
@@ -1082,7 +1096,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
   /** Serves the dashboard on a port, moving there from the port it was served on before, if any. */
   const serveOn = async (p: number): Promise<"ok" | "in use" | "unavailable"> => {
     const http = createServer();
-    const result = await listen(http, p);
+    const result = await listen(http, p, host);
     if (result !== "ok") return result;
     hub ??= new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs, serversDir, (toBackground) => {
       // the background dashboard takes the port a moment after this lets it go: don't take it back meanwhile

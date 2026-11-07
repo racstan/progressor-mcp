@@ -203,6 +203,9 @@ function apply(plan: LoginItemPlan): void {
 
 /** Starts the background dashboard at every login, and now. */
 export async function installDaemon(registryFile = defaultRegistryFile(), name = DAEMON_NAME): Promise<string> {
+  // The Docker image sets PROGRESSOR_CONTAINER: a container has no login to start at, and keeps the dashboard up by running.
+  if (process.env.PROGRESSOR_CONTAINER)
+    throw new Error("Inside Docker there is nothing to start at login. Keep the dashboard up by running the container itself: docker run -d ... ghcr.io/racstan/progressor-mcp daemon run");
   const state = prepare(registryFile);
   const plan = loginPlan(registryFile, name);
   let used = plan;
