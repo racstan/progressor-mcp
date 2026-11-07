@@ -1,6 +1,6 @@
 <h1 align="center">Progressor</h1>
 
-<p align="center"><b>Your AI's plan, saved in your project and shown live, so neither you nor your AI ever loses track of the work.</b></p>
+<p align="center"><b>Your AI forgets. Your plan doesn't.</b></p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/progressor-mcp"><img src="https://img.shields.io/npm/v/progressor-mcp" alt="npm"></a>
@@ -8,9 +8,7 @@
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue" alt="License: PolyForm Noncommercial 1.0.0"></a>
 </p>
 
-**The problem:** AI chats forget. When a long chat gets its memory compressed, or you start a new chat, the AI no longer knows what was planned, what's done or what's left, and you end up explaining it all again.
-
-**What Progressor does:** your AI writes its plan, a **goal** with **steps**, into your project folder and keeps it up to date as it works. After a chat is compressed, or in a new chat, even in a different AI app, say *"use Progressor"* and your AI reads that plan and carries on where the work stopped. And you see the same plan on a page in your browser that updates by itself: what the AI is doing right now, what's done, and what it needs from you.
+Progressor is a free add-on for your AI coding app: your AI writes its plan into your project folder and keeps it up to date as it works, and you watch that plan live on a page in your browser.
 
 <p align="center">
   <a href="https://youtu.be/7jDyJZvDMag"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail.png" alt="Watch the 4-minute video on YouTube" width="640"></a>
@@ -23,6 +21,47 @@
 </p>
 
 It works with any app that supports [MCP](https://modelcontextprotocol.io) (the standard way AI apps add tools): Claude Code, Claude Desktop, VS Code with Copilot, Cursor, Windsurf, Codex and others.
+
+## Sound familiar?
+
+### Your AI lost the thread
+
+- **Vibe coding a project and can't keep track of what's going on anymore?**<br>
+  Your AI writes its plan, a **goal** made of **steps**, into your project and ticks each step off as it works. You see it live: what it's doing right now, what's done and what's left.
+- **Your AI's memory got compressed, and your plan went with it?**<br>
+  Almost every AI app compresses long chats, and an AI that forgets the plan writes sloppy code and leaves bugs behind. Progressor keeps the plan in your project, not in the chat: say *"use Progressor"* and your AI carries on from the exact step it was on. Claude Code does it by itself.
+- **Switched from Claude Code to Cursor or Codex and lost everything?**<br>
+  The plan belongs to the project, not the app. Whichever AI app opens the project next reads the same plan and picks up where the last one stopped.
+- **Your AI wandered off the plan and didn't tell you?**<br>
+  It can't drift quietly. Every **side trip** is recorded with its reason and drawn as a branch off the plan's map, so you see where the work left the route, and why.
+- **Your AI says "done", but is it?**<br>
+  Each finished step is linked to its commits and the test run behind it. Anything only a person can check, like how it feels on your phone, waits for you with **Works** and **Doesn't work** buttons.
+
+### You're juggling too much
+
+- **Working on several projects at once and drowning in the micromanagement?**<br>
+  **Home** shows every project on one page: what needs you, what's being worked on and how far along it is, whichever AI app is doing the work.
+- **Walked away and missed the moment your AI needed you?**<br>
+  Questions, things to try and steps to check all wait in **Needs you**, and a free [ntfy](https://ntfy.sh) push can reach your phone the moment one arrives.
+- **A customer bug lands in the middle of a feature?**<br>
+  Paste it in as a **Hotfix** and it jumps the queue. Your AI finishes the step it's on, writes a test that shows the bug, then fixes it.
+- **A big decision, and you want a say?**<br>
+  Your AI lays out 2 to 4 **ways to go** as cards, with its pick marked. Choose one, or don't: it goes ahead with its pick, and you can still change course later.
+- **Your AI changed the plan and you want the old one back?**<br>
+  **History** keeps every change to the plan, by your AI or by you. **Go back to before this** undoes it, and the undo can be undone too.
+- **The dashboard dies the moment you close the chat?**<br>
+  Turn on the background dashboard and it stays up from the moment you log in, with no AI app open, in about 30 MB of memory.
+
+### Your project is in it for the long run
+
+- **Working on a project with long-term goals?**<br>
+  Goals can wait on other goals, even in another project. Every step gets an estimate, every goal a rough finish, and the **Calendar** shows what comes next and when. The estimates learn from how long steps really took, so they get better as you go.
+- **Release notes and weekly chores eating your evenings?**<br>
+  Your AI writes the changelog and the next version number from the goals it finished, and asks you before publishing anything. Chores like a weekly dependency check become **goals that come back** by themselves.
+- **Handing the project to someone else, or to yourself next week?**<br>
+  Your AI writes a **handoff**, a plain write-up of what was done and what's next, after each release or whenever you ask.
+- **Want a beautiful place to look up anything about your project?**<br>
+  Every step as a list or a map, a Dashboard of the numbers, a Calendar, search across all your projects, and four themes, from calm black and white to colourful.
 
 <p align="center">
   <a href="https://youtu.be/7jDyJZvDMag"><img src="https://img.shields.io/badge/video-watch_on_YouTube-111111?style=for-the-badge" alt="Watch the video"></a>
@@ -97,11 +136,9 @@ It works with any app that supports [MCP](https://modelcontextprotocol.io) (the 
 
 ## Your progress is never lost
 
-AI chats forget. A long chat gets its memory compressed, a new chat starts from nothing, and switching to another app or AI tool usually means explaining your project all over again. With Progressor, none of that costs you your progress:
+A compressed chat, a new chat or a different AI app never costs you your progress:
 
 - **Everything is saved in your project.** The goals, every step and where each one stands, the side trips and why they happened, the decisions made along the way, notes, your rules and the project's background are kept in plain files in your project folder, not in the chat.
-- **New chats pick up where the last one stopped.** After a chat's memory is compressed, or in a new chat, say *"use Progressor"* (or *"carry on"*) and your AI reads the plan. Claude Code does this by itself.
-- **Switch apps or AI tools freely.** The plan belongs to the project, not to the app. Start in Claude Code, carry on in Cursor or VS Code, and the next AI sees exactly where things stand.
 - **Private, and yours.** The plan is plain markdown files on your computer: nothing is sent anywhere, and it's kept out of git unless you ask your AI to share it ([how](docs/faq.md#is-my-plan-private-should-i-commit-the-progressor-folder)). You can read every file, and delete them whenever you like.
 - **The same plan for you and the AI.** What you see on the dashboard is what the AI reads, so you always know what's done, what's under way and what's waiting on you.
 
