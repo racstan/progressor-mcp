@@ -3,7 +3,7 @@
 // and focus goes back where it was when it ends.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "./Icon.js";
-import { TOUR_STEPS, firstTarget, tourMove } from "./tourSteps.js";
+import { TOUR_STEPS, type TourShow, firstTarget, tourMove } from "./tourSteps.js";
 
 type Box = { top: number; left: number; width: number; height: number };
 
@@ -13,7 +13,7 @@ const isPhone = () => matchMedia("(max-width: 640px)").matches;
 /** How the tour ended: finished, Skip, × (or Escape), or with Don't show again ticked. */
 export type TourEnd = "finish" | "skip" | "close" | "never";
 
-export function Tour({ onClose }: { onClose: (how: TourEnd) => void }) {
+export function Tour({ onClose, onShow }: { onClose: (how: TourEnd) => void; /** Shows the sample's page for a step. */ onShow: (show: TourShow) => void }) {
   const [never, setNever] = useState(false);
   const neverRef = useRef(false);
   neverRef.current = never;
@@ -23,6 +23,8 @@ export function Tour({ onClose }: { onClose: (how: TourEnd) => void }) {
   const card = useRef<HTMLDivElement>(null);
   const before = useRef<Element | null>(null);
   const step = TOUR_STEPS[at]!;
+  // the sample's page for this step, before the step measures where to point
+  useLayoutEffect(() => onShow(step.show), [step, onShow]);
   // The highlight glides from one step's place to the next, but jumps while a step's place settles.
   const [glide, setGlide] = useState(false);
   const opened = useRef(false);

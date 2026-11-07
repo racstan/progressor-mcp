@@ -31,6 +31,8 @@ import { canPopUp, editorName } from "./settings/Look.js";
 import type { SettingsContext, Theme } from "./settings/index.js";
 import { StepKey } from "./StepKey.js";
 import { Tour, type TourEnd } from "./Tour.js";
+import { SAMPLE_GOALS, SAMPLE_ID, setSample, useSample } from "./sample.js";
+import type { TourShow } from "./tourSteps.js";
 import { onOpen, setTourOnOpen, setWhatsNewAuto, tourClosed, tourOnOpen, whatsNewAuto } from "./firstLook.js";
 import type { FileLink } from "./Steps.js";
 import { goalState, resourceWords } from "./words.js";
@@ -163,6 +165,8 @@ export function App() {
   const { info, projects, workspaces, roadmap, goal: shownView, connection, error, refresh } = useDashboard(pickedProject, goalId);
   const stale = usePageStaleness(info, connection);
   const project = projects?.find((p) => p.id === pickedProject);
+  // While the tour runs, the page shows the sample project instead of the person's (sample.ts).
+  const sample = useSample();
   const overview = useOverview(true);
   const [popUps, setPopUps] = useStored<"on">("progressor.pop-ups", undefined);
   const lastLook = useRef<Snapshot | undefined>(undefined);
@@ -170,10 +174,12 @@ export function App() {
   const goals = roadmap?.goals ?? [];
   // Hidden and seen Goals are this browser's view of one project.
   const projectId = pickedProject;
-  const [hidden, setHidden] = useStoredJson<string[]>(projectId && `progressor.hidden.${projectId}`, []);
-  const [seen, setSeen, visited] = useStoredJson<Seen>(projectId && `progressor.seen.${projectId}`, {});
+  // the sample keeps nothing in this browser
+  const kept = projectId !== SAMPLE_ID ? projectId : undefined;
+  const [hidden, setHidden] = useStoredJson<string[]>(kept && `progressor.hidden.${kept}`, []);
+  const [seen, setSeen, visited] = useStoredJson<Seen>(kept && `progressor.seen.${kept}`, {});
   // When this browser last read the AI's replies to messages about the whole project (talkView.ts).
-  const [readReplies, setReadReplies, readBefore] = useStoredJson<string>(projectId && `progressor.read-replies.${projectId}`, "");
+  const [readReplies, setReadReplies, readBefore] = useStoredJson<string>(kept && `progressor.read-replies.${kept}`, "");
   const roadmapIsProjects = !!roadmap && roadmap.root === project?.root;
   useEffect(() => {
     if (roadmapIsProjects && !visited) setSeen(seenOnFirstVisit(goals));
@@ -181,13 +187,13 @@ export function App() {
   const grouped = groupGoals(goals, { finished: finished ?? "auto", seen: visited ? seen : seenOnFirstVisit(goals), hidden });
   // Without a pick, the Goal on screen stays on screen as the plan changes; the default is chosen once per project.
   const shownBefore = useRef<{ project: string | undefined; goal: string | undefined }>({ project: undefined, goal: undefined });
-  const kept = shownBefore.current.project === projectId ? shownBefore.current.goal : undefined;
+  const keptGoal = shownBefore.current.project === projectId ? shownBefore.current.goal : undefined;
   const effectiveGoal = page !== "goal"
     ? undefined
     : picked && goals.some((g) => g.id === picked)
       ? picked
-      : kept && goals.some((g) => g.id === kept)
-        ? kept
+      : keptGoal && goals.some((g) => g.id === keptGoal)
+        ? keptGoal
         : defaultGoal([...grouped.open, ...grouped.done]) ?? goals[0]?.id;
   if (roadmapIsProjects && effectiveGoal) shownBefore.current = { project: projectId, goal: effectiveGoal };
   useEffect(() => setGoalId(effectiveGoal), [effectiveGoal]);
@@ -254,7 +260,8 @@ export function App() {
   };
   // A desktop pop-up for each goal that finished since the last look at every project (notify.ts).
   useEffect(() => {
-    if (!overview) return;
+    // the sample's finished goals are not news, and the last look at the real ones stays as it was
+    if (!overview || sample) return;
     const finished = newlyFinished(lastLook.current, overview);
     lastLook.current = snapshot(overview);
     if (popUps !== "on" || canPopUp() !== "granted") return;
@@ -283,7 +290,7 @@ export function App() {
     theme, setTheme, popUps, switchPopUps, setPopUps, finished, setFinished,
     editor, info, setEditorChoice, putOff, setPutOff,
     servers, reloadServers: reloadServers, toast,
-    tourOnOpen: tourAuto, setTourOnOpen: setTourAuto, takeTour: () => setTouring(true),
+    tourOnOpen: tourAuto, setTourOnOpen: setTourAuto, takeTour: () => startTour(),
     computer, projectId,
     save: async (section, values, forProject) => setComputer(await saveSettings(section, values, forProject ? projectId : undefined)),
     resetComputer: async (section) => setComputer(await resetComputerSettings(section)),
@@ -407,9 +414,35 @@ export function App() {
     if (latest) setSeenChanges(latest.title);
   };
   const closeChanges = useCallback(() => setShowChanges(false), []);
+  // The tour shows the sample project, and the page goes back to exactly where it was when it ends.
+  const beforeTour = useRef<string | undefined>(undefined);
+  const startTour = () => {
+    beforeTour.current ??= `${location.pathname}${location.search}${location.hash}`;
+    setPanel(undefined);
+    setSample(true);
+    setTouring(true);
+  };
+  /** Goes to an address without a history entry, as the page would on opening it. */
+  const goTo = (url: string) => {
+    history.replaceState(null, "", url);
+    setPickedProject(projectFromUrl());
+    setPickedWorkspace(workspaceFromUrl());
+    setRoute(routeFromHash(location.hash));
+  };
+  const showSample = useCallback((show: TourShow) => {
+    const at = `${location.pathname}?project=${SAMPLE_ID}`;
+    if (show === "home") goTo(location.pathname);
+    else if (show === "goal" || show === "needs") goTo(`${at}#/goal/${encodeURIComponent(SAMPLE_GOALS[show === "goal" ? "active" : "needs"])}`);
+    else goTo(`${at}${PAGE_HASH[show]}`);
+    closeAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Finishing it or Don't show again stops it for good; Skip and × let it come back once (firstLook.ts).
   const closeTour = useCallback((how: TourEnd) => {
     setTouring(false);
+    setSample(false);
+    if (beforeTour.current !== undefined) goTo(beforeTour.current);
+    beforeTour.current = undefined;
     tourClosed(browserStore(), how);
     setTourAutoState(tourOnOpen(browserStore()));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -422,7 +455,7 @@ export function App() {
     const opens = onOpen(browserStore(), latest?.title, KEYS_AT_LOAD);
     setTourAutoState(tourOnOpen(browserStore()));
     if (opens.tour) {
-      setTouring(true);
+      startTour();
       if (latest) setSeenChanges(latest.title);
     } else if (opens.whatsNew) openChanges();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -554,6 +587,9 @@ export function App() {
             </button>
           </span>
         )}
+        {sample && (
+          <span className="sample-tag" title="The tour shows a sample project. Your own projects come back when it ends.">Sample</span>
+        )}
         <span className="sp" />
         <SearchBox query={query} hits={hits} onChange={setQuery} onOpen={openHit} />
         <span className={`live ${connection === "live" ? "" : "off"}`} role="status"
@@ -592,7 +628,7 @@ export function App() {
           </section>
           <section>
             <h3>New here?</h3>
-            <button className="card" onClick={() => { setPanel(undefined); setTouring(true); }}>
+            <button className="card" onClick={startTour}>
               Take the tour again
               <small>A short walk past the main parts of the dashboard. Skip it at any time.</small>
             </button>
@@ -620,7 +656,7 @@ export function App() {
         </MenuPanel>
       )}
 
-      {touring && <Tour onClose={closeTour} />}
+      {touring && <Tour onClose={closeTour} onShow={showSample} />}
       {showChanges && <WhatsNew version={info?.version} onClose={closeChanges} autoOpen={autoNew} onAutoOpen={setAutoNew} />}
 
       <div className={`shell ${drawer ? "side-open" : ""} ${collapsed ? "collapsed" : ""}`}>

@@ -6,6 +6,7 @@ import type { SettingsView } from "../dashboard/routes/settings.js";
 import type { DiffLine, FileChange, HistoryItem } from "../history.js";
 import { newestOnly, sharedEvents } from "./liveEvents.js";
 import { type Staleness, pageStaleness } from "./stale.js";
+import { PASS, onSampleSwitch, sampleAnswer, sampleOn } from "./sample.js";
 
 export type { SettingsView };
 export type { AllStatsView, GoalView, InfoView, OverviewView, ProjectEntry, RoadmapView, SearchView, ServersView, StatsView, WorkspaceEntry };
@@ -23,6 +24,11 @@ const POLL_MS = 15_000;
 const INFO_MS = 60_000;
 
 async function getJson<T>(path: string): Promise<T | undefined> {
+  // While the tour's sample shows, it answers the reads about projects itself (sample.ts).
+  if (sampleOn()) {
+    const answer = sampleAnswer(path);
+    if (answer !== PASS) return answer as T | undefined;
+  }
   const res = await fetch(path, { cache: "no-store" });
   if (res.status === 404) return undefined;
   if (!res.ok) throw new Error(`${path}: ${res.status}`);
@@ -91,6 +97,18 @@ export function useDashboard(projectId: string | undefined, goalId: string | und
     void loadProjects();
   }, [loadProjects]);
 
+  // The tour's sample shown or put away: everything comes from somewhere else now.
+  useEffect(
+    () =>
+      onSampleSwitch(() => {
+        setRoadmap(undefined);
+        setGoal(undefined);
+        void loadProjects();
+        void loadProject();
+      }),
+    [loadProjects, loadProject],
+  );
+
   useEffect(() => {
     setRoadmap(undefined);
     setGoal(undefined);
@@ -157,15 +175,20 @@ export function useOverview(enabled: boolean): OverviewView | undefined {
   useEffect(() => {
     if (!enabled) return;
     let alive = true;
-    const load = () =>
-      getJson<OverviewView>("/api/overview")
-        .then((o) => alive && setOverview(o ?? []))
+    const load = () => {
+      const sample = sampleOn();
+      // an answer from before the sample was shown or put away is dropped
+      return getJson<OverviewView>("/api/overview")
+        .then((o) => alive && sample === sampleOn() && setOverview(o ?? []))
         .catch(() => undefined);
+    };
     void load();
     const stop = live.on({ projects: () => void load(), change: () => void load() });
+    const unSample = onSampleSwitch(() => void load());
     return () => {
       alive = false;
       stop();
+      unSample();
     };
   }, [enabled]);
   return overview;

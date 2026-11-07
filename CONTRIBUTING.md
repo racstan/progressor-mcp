@@ -30,6 +30,8 @@ The README's video, GIF and screenshots come from two sample projects, "Recipe b
 npm run build && node scripts/demo.mjs docs/media
 ```
 
+The tour's sample project (`src/ui/sampleData.ts`) is made the same way: `npm run build && node scripts/make-sample.mjs` builds "Recipe box" in a throwaway folder and saves what the dashboard's API answers for it. Run it again when those answers change shape.
+
 `npm run dev:ui` rebuilds the page on every change; reload the browser to see it. The server side of the dashboard is in `src/dashboard/`: the HTTP server and API (`http.ts`), the project list (`registry.ts`), the file watcher (`watch.ts`), and the pure logic shared with the page: the metro map layout (`graph.ts`), the Copy-as-prompt text (`prompt.ts`) and the editor links (`editor.ts`).
 
 ## Releasing
