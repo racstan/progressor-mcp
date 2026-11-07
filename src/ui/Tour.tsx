@@ -119,6 +119,11 @@ export function Tour({ onClose }: { onClose: () => void }) {
         }}>
         <p className="tour-count">Step {at + 1} of {TOUR_STEPS.length}</p>
         <h2 id="tour-title">{step.title}</h2>
+        {step.notice && (
+          <p className="tour-notice" role="note">
+            <strong>{step.notice}</strong>
+          </p>
+        )}
         <p id="tour-body">{step.body}</p>
         <div className="tour-actions">
           <button className="linkbtn" onClick={() => move("skip")}>Skip the tour</button>

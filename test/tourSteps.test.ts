@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TOUR_STEPS, firstTarget, markTourSeen, tourMove, tourSeen } from "../src/ui/tourSteps.js";
+import { FREE_NOTICE } from "../src/ui/words.js";
 
 const store = (items: Record<string, string> = {}) => {
   const map = new Map(Object.entries(items));
@@ -8,17 +9,35 @@ const store = (items: Record<string, string> = {}) => {
 const broken = { getItem: () => { throw new Error("no storage"); }, setItem: () => { throw new Error("no storage"); } };
 
 describe("the tour's steps", () => {
-  it("has 4 to 6 short steps, each with a title, words and somewhere to point", () => {
-    expect(TOUR_STEPS.length).toBeGreaterThanOrEqual(4);
-    expect(TOUR_STEPS.length).toBeLessThanOrEqual(6);
+  it("opens with a welcome that points at nothing and says, first of all, that Progressor is free", () => {
+    const [welcome] = TOUR_STEPS;
+    expect(welcome!.title).toBe("Welcome to Progressor");
+    expect(welcome!.targets).toEqual([]);
+    expect(welcome!.notice).toBe(FREE_NOTICE);
+    expect(TOUR_STEPS.slice(1).every((s) => s.notice === undefined)).toBe(true);
+  });
+
+  it("then has 4 to 6 short steps, each with a title, words and somewhere to point", () => {
+    const rest = TOUR_STEPS.slice(1);
+    expect(rest.length).toBeGreaterThanOrEqual(4);
+    expect(rest.length).toBeLessThanOrEqual(6);
     for (const s of TOUR_STEPS) {
       expect(s.title).toMatch(/^[A-Z]/);
       expect(s.body.length).toBeGreaterThan(20);
-      expect(s.targets.length).toBeGreaterThan(0);
     }
+    for (const s of rest) expect(s.targets.length).toBeGreaterThan(0);
   });
 
-  it("covers Home, a goal, Needs you, Message your AI, the Dashboard and Calendar, and Settings", () => {
+  it("covers Home, a goal, Needs you, Message your AI, the Dashboard and Calendar, and Settings, in that order", () => {
+    expect(TOUR_STEPS.map((s) => s.title)).toEqual([
+      "Welcome to Progressor",
+      "Home and your projects",
+      "A goal and its steps",
+      "Needs you",
+      "Message your AI",
+      "Dashboard and Calendar",
+      "Settings, if you want them",
+    ]);
     const words = TOUR_STEPS.map((s) => `${s.title} ${s.body}`).join(" ");
     for (const w of ["Home", "goal", "Needs you", "Message your AI", "Dashboard", "Calendar", "Settings"]) expect(words).toContain(w);
   });

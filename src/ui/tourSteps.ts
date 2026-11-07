@@ -1,4 +1,6 @@
-// The first-run tour: a few short steps that point at the real dashboard, shown once per browser and
+import { FREE_NOTICE } from "./words.js";
+
+// The first-run tour: a welcome, then a few short steps that point at the real dashboard, shown once per browser and
 // skippable at any time (Tour.tsx draws it). Nothing here is ever required.
 
 export interface TourStep {
@@ -6,9 +8,18 @@ export interface TourStep {
   body: string;
   /** Where to point, best first; the first one on the page is used, else the step shows on its own. */
   targets: string[];
+  /** A sentence shown in bold in a note on the card: the free notice, on the welcome. */
+  notice?: string;
 }
 
 export const TOUR_STEPS: TourStep[] = [
+  {
+    title: "Welcome to Progressor",
+    body: "Your AI keeps its plan here, and this page follows along by itself. Here is a quick look around; skip it whenever you like.",
+    targets: [],
+    // Someone has copied Progressor and sells it, so this comes before anything else.
+    notice: FREE_NOTICE,
+  },
   {
     title: "Home and your projects",
     body: "Home shows every project at once: what needs you and what your AI is working on. Pick a project in the sidebar to see its goals.",

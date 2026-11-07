@@ -1183,3 +1183,8 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .tour-actions .sp { flex: 1; }
 @media (max-width: 640px) { .tour-card.docked { bottom: var(--s3); } }
 @media (prefers-reduced-motion: reduce) { .tour-spot, .tour-card { transition: none; animation: none; } }
+
+/* the free notice on the tour's welcome: a calm bordered note, grey in Light, Dark and System, the accent in Vibrant */
+.tour-notice { margin: 0 0 var(--s3); padding: var(--s2) var(--s3); border: 2px solid var(--ink); border-radius: var(--r-s); background: var(--panel2); color: var(--ink); font-size: var(--t-s); line-height: 1.45; overflow-wrap: anywhere; }
+.tour-notice strong { font-weight: 800; }
+[data-theme="vibrant"] .tour-notice { border-color: var(--accent); background: var(--accent-soft); }

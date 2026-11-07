@@ -6,7 +6,7 @@ The dashboard shows the plan. The one thing you do on it yourself is mark the th
 
 ## Finding your way
 
-**The tour.** The first time you open the dashboard in a browser, a short tour of six steps points at the main parts of the page: Home and your projects, a goal and its steps, Needs you, Message your AI, the project's Dashboard and Calendar, and Settings. **Next** and **Back** move through it and **Skip the tour** (or Escape) ends it. It never stops you using the page, and it shows only once; **Take the tour again** in ❓ Help brings it back.
+**The tour.** The first time you open the dashboard in a browser, a short tour opens with a welcome that says, in bold, that Progressor is free (there is no paid version or subscription, so anyone selling one is not us), then six steps point at the main parts of the page: Home and your projects, a goal and its steps, Needs you, Message your AI, the project's Dashboard and Calendar, and Settings. **Next** and **Back** move through it and **Skip the tour** (or Escape) ends it. It never stops you using the page, and it shows only once; **Take the tour again** in ❓ Help brings it back.
 
 **Breadcrumbs** at the top of every page say where you are: *Home* on Home, *Home › Settings*, *Home › Bindery › Calendar*, or *Home › Bindery › Ship OAuth login* on a goal. Click **Home** to see every project, or the project's name to go back to its goals. On a phone the middle of the trail shortens, with *…*, instead of running off the screen.
 
