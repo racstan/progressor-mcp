@@ -5,11 +5,12 @@ import * as z from "zod";
 import type { Dashboard } from "./dashboard/http.js";
 import { defaultRegistryFile, projectEntry } from "./dashboard/registry.js";
 import { resolveProject, sameFolder, seenFile, takeElsewhereLine } from "./elsewhere.js";
+import { type GoalLookup, waitsText } from "./dependencies.js";
 import { hooksAdvice, launchFor, startedViaNpx } from "./init.js";
 import { withLock } from "./lock.js";
 import { parseDuration, roughDuration, sayDuration, timeText } from "./estimate.js";
 import { type Decision, type Detour, type HelperInfo, type NewTask, type Note, type Task, type TaskStatus, TIMED, timeSpent } from "./planFile.js";
-import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, PROJECT_TALK, type Project, type SessionStatus, type Status, type TaskOperation } from "./project.js";
+import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, PROJECT_TALK, Project, type SessionStatus, type Status, type TaskOperation } from "./project.js";
 import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
 import { handTestLines, handTestWord } from "./handTestText.js";
 import { elsewhereNewsLine, newsLines, projectTalkLine, talkLines } from "./talkText.js";
@@ -138,8 +139,8 @@ export function resourceLines(locks: ResourceLock[], now: Date): string[] {
 /** A Goal's status as the Agent reads it in a list. */
 const statusText = (g: Goal) => (g.status === "testing" ? "built, waiting on the Developer's hand tests" : g.status);
 
-function goalLine(g: Goal): string {
-  return `- ${g.id}: ${g.hotfix ? "HOTFIX " : ""}${g.title} (${statusText(g)})`;
+function goalLine(g: Goal, waits?: string): string {
+  return `- ${g.id}: ${g.hotfix ? "HOTFIX " : ""}${g.title} (${statusText(g)}${waits ? `; ${waits}` : ""})`;
 }
 
 /** A held hotfix's bug report, quoted, so the Agent fixes what was reported. */
@@ -279,14 +280,14 @@ export function scheduleLines(schedule: Schedule, held: string[]): string[] {
 }
 
 /** The Goals to pick from, with the finished and cancelled ones only counted. */
-function goalListLines(goals: Goal[]): string[] {
+function goalListLines(goals: Goal[], waits?: Map<string, string>): string[] {
   if (goals.length === 0) return ["The Roadmap has no Goals yet."];
   const open = goals.filter((g) => g.status !== "done" && g.status !== "dropped");
   const finished = goals.filter((g) => g.status === "done").length;
   const cancelled = goals.filter((g) => g.status === "dropped").length;
   const noun = (n: number) => (n === 1 ? "goal" : "goals");
   return [
-    ...(open.length > 0 ? ["Goals:", ...open.map(goalLine)] : []),
+    ...(open.length > 0 ? ["Goals:", ...open.map((g) => goalLine(g, waits?.get(g.id)))] : []),
     ...(finished > 0 ? [`Finished: ${finished} ${noun(finished)} (not listed; get_item progressor://<goal> to look one up).`] : []),
     ...(cancelled > 0 ? [`Cancelled: ${cancelled} ${noun(cancelled)} (not listed).`] : []),
   ];
@@ -314,7 +315,7 @@ export function estimateLine(c: { factor: number | undefined; samples: number } 
   return `Your estimates here have run ${c.factor.toFixed(1)}× ${long ? "long" : "short"} (last ${c.samples} steps); allow for it.`;
 }
 
-export function formatStatus(session: SessionStatus, schedule?: Schedule, warnings: string[] = []): string {
+export function formatStatus(session: SessionStatus, schedule?: Schedule, warnings: string[] = [], waits?: Map<string, string>): string {
   const rules = hardFirst(session.standingInstructions);
   const instructions =
     rules.length > 0
@@ -340,7 +341,7 @@ export function formatStatus(session: SessionStatus, schedule?: Schedule, warnin
       paused.length === 1
         ? `No Goal is claimed by this Session. Goal ${paused[0]!.id} ("${paused[0]!.title}") is paused: claim it with claim_goal and carry on.`
         : "No Goal is claimed by this Session. Claim one with claim_goal, or plan one and add it with add_goal (claim: true).",
-      ...goalListLines(session.goals),
+      ...goalListLines(session.goals, waits),
       ...timing,
       ...instructions,
     ].join("\n");
@@ -688,7 +689,12 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       ...news,
       ...(elsewhereNews ? [elsewhereNews] : []),
       ...(toProject ? [toProject] : []),
-      formatStatus(session, project.schedule(estimatesOf(project)), [...[calibrationLine(project)].filter((l): l is string => !!l), ...project.helperWarnings(), ...resourceLines(project.resources().list(), project.now())]),
+      formatStatus(
+        session,
+        project.schedule(estimatesOf(project)),
+        [...[calibrationLine(project)].filter((l): l is string => !!l), ...project.helperWarnings(), ...resourceLines(project.resources().list(), project.now())],
+        goalWaits(session.goals),
+      ),
     ].join("\n");
     // The Developer's new hand-test marks are now shown, so the next status calls only later ones new.
     for (const s of session.held) if (s.handTests.some((h) => h.result !== "pending" && !h.seen)) project.acknowledgeHandTests(s.goal!.id);
@@ -710,6 +716,33 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       return s.warnUncommitted && t.uncommitted ? [`Warning: ${t.id} is done but its files have changes not saved in git.`] : [];
     });
   };
+  // Goals that wait on other goals (dependencies.ts): another project's goals are read, never changed.
+  const goalLookup: GoalLookup = (wantedProject, goalId) => {
+    try {
+      const target = resolveProject(wantedProject, { registryFile });
+      const other = new Project({ root: target.root, session: { id: "lookup", pid: process.pid }, clearStaleClaims: false });
+      const g = other.roadmap().goal(goalId);
+      return g ? { title: g.title, status: g.status } : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  const unknownWaits = (p: Project, goalId: string) =>
+    p
+      .waitingOn(goalId, goalLookup)
+      .filter((w) => w.state === "unknown")
+      .map((w) => `Note: found no goal ${w.ref.raw}; it won't hold ${goalId} up.`);
+  /** "waits on X (not finished)" for each open goal that still waits on another. */
+  const goalWaits = (goals: Goal[]) =>
+    new Map(
+      goals
+        .filter((g) => g.waitsOn?.length && g.status !== "done" && g.status !== "dropped")
+        .flatMap((g) => {
+          const text = waitsText(project.waitingOn(g.id, goalLookup));
+          return text ? [[g.id, text] as const] : [];
+        }),
+    );
+  const waitsOnInput = z.array(z.string()).optional().describe("Goals it waits on: IDs here, or <project>/<goal-id>.");
   const commitsInput = z.array(z.string()).optional().describe("Short hashes of its commits; found from git when left out.");
   const testsInput = z.string().optional().describe("The test run behind it, in a few words ('715 passed').");
   const withNow = (text: string) => `${text}\n${nowLine(project.sessionStatus())}`;
@@ -816,15 +849,19 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         allow_duplicate: z.boolean().optional().describe("Add the Goal even though another Goal has the same title."),
         done: z.boolean().optional().describe("Record a Goal that is already finished. Every Task must then have done: true."),
         claim: z.boolean().optional().describe("Claim the new Goal straight away, to start working on it."),
+        waits_on: waitsOnInput,
         project: otherProject,
       },
     },
-    ({ title, id, outcome, estimate, tasks, allow_duplicate, done, claim, project: wanted }) =>
+    ({ title, id, outcome, estimate, tasks, allow_duplicate, done, claim, waits_on, project: wanted }) =>
       respondIn(wanted, (p) => {
         if (p !== project && claim)
           throw new Error("A Goal added to another project's plan cannot be claimed from here; leave out claim (or record finished work with done).");
         const goal = p.addGoal(title, newTasks(tasks), { id, outcome, estimate: readEstimate(estimate) ?? undefined, allowDuplicate: allow_duplicate, done });
+        if (waits_on?.length) p.setWaitsOn(goal.id, waits_on);
+        const unknown = waits_on?.length ? unknownWaits(p, goal.id) : [];
         const n = tasks?.length ?? 0;
+        if (unknown.length > 0) return [`Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks.`, ...unknown].join("\n");
         if (p !== project)
           return doneIn(p, done ? `Recorded finished Goal ${goal.id} (${goal.ref}) with ${n} done Tasks.` : `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks.`);
         if (done) return `Recorded finished Goal ${goal.id} (${goal.ref}) with ${n} done Tasks.`;
@@ -876,13 +913,15 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         estimate: estimateText
           .optional()
           .describe("How long the whole Goal should take, such as '6h'; it covers the open Tasks that have no estimate of their own. An empty string removes it, so the Goal's estimate is the sum of its Tasks'."),
+        waits_on: waitsOnInput.describe("The goals it waits on, replacing any it had (empty: none): IDs here, or <project>/<goal-id>."),
         project: otherProject,
       },
     },
-    ({ goal, title, outcome, estimate, project: wanted }) =>
+    ({ goal, title, outcome, estimate, waits_on, project: wanted }) =>
       respondIn(wanted, (p) => {
         const g = p.updateGoal(goal, { title, outcome, estimate: readEstimate(estimate) });
-        const item = formatItem(p.getItem(g.ref), p.schedule(estimatesOf(p)));
+        if (waits_on) p.setWaitsOn(goal, waits_on);
+        const item = [formatItem(p.getItem(g.ref), p.schedule(estimatesOf(p))), ...(waits_on?.length ? unknownWaits(p, goal) : [])].join("\n");
         return p === project ? item : doneIn(p, item);
       }),
   );
@@ -902,7 +941,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     },
     ({ goal, before, after, project: wanted }) =>
       respondIn(wanted, (p) => {
-        const order = ["Goals in order:", ...p.moveGoal(goal, { before, after }).map(goalLine)].join("\n");
+        const order = ["Goals in order:", ...p.moveGoal(goal, { before, after }).map((g) => goalLine(g))].join("\n");
         return p === project ? order : doneIn(p, order);
       }),
   );
@@ -939,7 +978,9 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     ({ goal, takeover }) =>
       respondIn(undefined, () => {
         project.claimGoal(goal, { takeover });
-        return status();
+        // Waiting never stops the work (nothing waits for the Developer); the AI is only told.
+        const waits = readSettings(settingsFile, project.root).dependencies.warnOnClaim ? waitsText(project.waitingOn(goal, goalLookup)) : undefined;
+        return waits ? `Note: Goal ${goal} ${waits}; carry on only where that work isn't needed first.\n\n${status()}` : status();
       }),
   );
 

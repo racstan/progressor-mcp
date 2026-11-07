@@ -31,6 +31,7 @@ import { type HubContext, featureRoutes, runFeatureRoute } from "./routes.js";
 import { type FetchFn, lookAtProject, sendNew } from "../ntfy.js";
 import { type Look, eventsBetween } from "../events.js";
 import { readSettings, settingsFileFor } from "../settings.js";
+import type { GoalLookup } from "../dependencies.js";
 import { watchProgress } from "./watch.js";
 import { allProjects, findProjects } from "./workspace.js";
 import { calibration, combineStats, projectStats } from "../stats.js";
@@ -99,7 +100,12 @@ export const VERSION: string = JSON.parse(readFileSync(new URL("../../package.js
  * The JSON views of one project. Each call re-reads the markdown, which is the source of truth.
  * `sessionOf` names the Session a running process has announced, to spot a Claim whose pid was reused.
  */
-export function dashboardApi(project: Project, sessionOf?: (pid: number) => string | undefined, estimates: () => EstimateSettings = () => ({ learn: false, window: 20 })) {
+export function dashboardApi(
+  project: Project,
+  sessionOf?: (pid: number) => string | undefined,
+  estimates: () => EstimateSettings = () => ({ learn: false, window: 20 }),
+  lookup?: GoalLookup,
+) {
   const roadmapFile = `${PROGRESSOR_DIR}/${ROADMAP_FILE}`;
   const goalSummary = (goalId: string) => {
     const goal = project.roadmap().goal(goalId);
@@ -144,7 +150,10 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
     // A Goal with a Task waiting on the Developer, a question for them or something to try by hand waits on them.
     const waitingSteps = counts["waiting on you"];
     const waitingOnYou = waitingSteps > 0 || openQuestions > 0 || untriedTests > 0;
-    return { ...goal, planFile, done, total, counts, waitingOnYou, openQuestions, untriedTests, waitingSteps, updatedAt: changed(planFile) ?? changed(roadmapFile), fromElsewhere };
+    // The goals it waits on (dependencies.ts): blocked while one of them is not finished.
+    const waiting = goal.waitsOn?.length ? project.waitingOn(goalId, lookup).map((w) => ({ raw: w.ref.raw, state: w.state, ...(w.title ? { title: w.title } : {}), ...(w.ref.project ? {} : { here: w.ref.goal }) })) : [];
+    const blocked = waiting.some((w) => w.state === "open");
+    return { ...goal, planFile, done, total, counts, waitingOnYou, openQuestions, untriedTests, waitingSteps, updatedAt: changed(planFile) ?? changed(roadmapFile), fromElsewhere, waiting, blocked };
   };
   return {
     roadmap: () => {
@@ -391,7 +400,11 @@ class Hub {
           this.send("change", { project: entry.id, files });
           this.pushSoon();
         });
-        this.projects.set(entry.id, { api: dashboardApi(project, (pid) => sessionOfProcess(this.serversDir, pid), () => readSettings(this.settingsFile, project.root).estimates), project, stop });
+        this.projects.set(entry.id, {
+          api: dashboardApi(project, (pid) => sessionOfProcess(this.serversDir, pid), () => readSettings(this.settingsFile, project.root).estimates, this.goalLookup),
+          project,
+          stop,
+        });
         changed = true;
       }
     // a project that moved into or out of a Workspace changes the list too
@@ -767,6 +780,18 @@ class Hub {
     res.once("finish", () => this.onStepDown());
     return json(res, 202, { steppingDown: process.pid });
   }
+
+  /** A goal in another project on this dashboard, by the project's ID or name, for goals that wait on it. */
+  private readonly goalLookup: GoalLookup = (wanted, goalId) => {
+    const key = wanted.toLowerCase();
+    const entry = this.entries.find((e) => e.id.toLowerCase() === key) ?? this.entries.find((e) => e.name.toLowerCase() === key);
+    try {
+      const g = entry ? this.projects.get(entry.id)?.project.roadmap().goal(goalId) : undefined;
+      return g ? { title: g.title, status: g.status } : undefined;
+    } catch {
+      return undefined;
+    }
+  };
 
   /** What the feature routes (routes.ts) get from the hub. */
   private hubContext(): HubContext {

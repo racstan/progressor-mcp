@@ -376,7 +376,7 @@ export function App() {
 
   // The chat working on a Goal, if one holds it: whether it is still open says if the AI stopped.
   const sessionChips = roadmap?.sessions ?? [];
-  const stateOf = (g: Pick<Goal, "id" | "status" | "updatedAt" | "waitingOnYou" | "counts" | "fromElsewhere">) => {
+  const stateOf = (g: Pick<Goal, "id" | "status" | "updatedAt" | "waitingOnYou" | "counts" | "fromElsewhere"> & { blocked?: boolean }) => {
     const s = sessionChips.find((x) => x.goal === g.id);
     return {
       status: g.status,
@@ -385,6 +385,7 @@ export function App() {
       waitingOnYou: g.waitingOnYou,
       helpers: g.counts["with a helper"],
       fromElsewhere: g.fromElsewhere,
+      blocked: g.blocked,
     };
   };
   // "updated 2 min ago" moves on by itself.

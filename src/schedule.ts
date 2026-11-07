@@ -71,7 +71,7 @@ export interface Schedule {
 
 /** One Goal of the Roadmap with its Tasks, as the schedule needs it. */
 export interface PlannedGoal {
-  goal: Pick<Goal, "id" | "title" | "status" | "estimate">;
+  goal: Pick<Goal, "id" | "title" | "status" | "estimate"> & { waitsOn?: string[] };
   tasks: Pick<Task, "id" | "title" | "status" | "estimate" | "spent" | "timingSince">[];
 }
 
@@ -125,12 +125,27 @@ export function computeSchedule(roadmap: PlannedGoal[], limit: number | undefine
     });
   }
 
+  // Goals that wait on other goals here (dependencies.ts) go after them, and start once they finish.
+  const waitsOf = new Map(roadmap.map((p) => [p.goal.id, (p.goal.waitsOn ?? []).filter((w) => !w.includes("/"))]));
+  const order = new Map<string, number>();
+  const visit = (id: string, path: Set<string>) => {
+    if (order.has(id) || path.has(id)) return;
+    path.add(id);
+    for (const w of waitsOf.get(id) ?? []) visit(w, path);
+    order.set(id, order.size);
+  };
+  for (const p of roadmap) visit(p.goal.id, new Set());
+  queue.sort((a, b) => (order.get(a.goal) ?? 0) - (order.get(b.goal) ?? 0));
+  const ends = new Map<string, number>();
+  const waitedEnd = (goal: string) => Math.max(0, ...(waitsOf.get(goal) ?? []).map((w) => ends.get(w) ?? 0));
+
   const capacity = Math.max(1, limit ?? running.length);
   // The end times of the Tasks holding a slot, earliest first.
   const busy: number[] = [];
   const take = (item: ScheduledTask, at: number) => {
     item.start = at;
     item.end = at + (item.left ?? 0);
+    ends.set(item.goal, Math.max(ends.get(item.goal) ?? 0, item.end));
     busy.push(item.end);
     busy.sort((a, b) => a - b);
   };
@@ -138,7 +153,7 @@ export function computeSchedule(roadmap: PlannedGoal[], limit: number | undefine
   let t = 0;
   for (const item of queue) {
     while (busy.length >= capacity) t = Math.max(t, busy.shift()!);
-    take(item, t);
+    take(item, Math.max(t, waitedEnd(item.goal)));
   }
 
   const all = [...running, ...waiting, ...queue];

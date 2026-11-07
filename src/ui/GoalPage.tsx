@@ -16,7 +16,7 @@ import { StepKey } from "./StepKey.js";
 import { type FileLink, Steps, StepIcon } from "./Steps.js";
 import { Conversation, OpenQuestions } from "./Talk.js";
 import { plainText } from "./text.js";
-import { SIDE_TRIP_HINT, ago, datesLine, datesTitle, elsewhereTag, exactDate, finishWords, goalState, whenWords } from "./words.js";
+import { SIDE_TRIP_HINT, ago, datesLine, datesTitle, elsewhereTag, exactDate, finishWords, goalState, waitsChip, whenWords, WAITING_ON_GOAL_HINT } from "./words.js";
 
 type Goal = RoadmapView["goals"][number];
 type Tab = "steps" | "map" | "talk" | "notes";
@@ -81,6 +81,14 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
             state.updatedAt !== undefined && <span className="state" title={`${exactDate(new Date(state.updatedAt).toISOString())} (${ago(state.updatedAt)})`}>· updated {whenWords(new Date(state.updatedAt).toISOString())}</span>
           )}
           {elsewhere && <span className="state" title={elsewhere.hint}>· {elsewhere.label}</span>}
+          {waitsChip(goal.waiting) && (
+            <span className="waits-chip" title={WAITING_ON_GOAL_HINT}>
+              {waitsChip(goal.waiting)}
+              {goal.waiting?.filter((w) => w.state === "open" && w.here).map((w) => (
+                <a key={w.raw} href={`#/goal/${encodeURIComponent(w.here!)}`} title={`Open ${w.title ?? w.raw}`}> ›</a>
+              ))}
+            </span>
+          )}
           <span className="sp" />
           <button className="btn ghost small" title="Copies a description of this goal to paste into your AI chat"
             onClick={() => onCopy(copyAsPrompt({ kind: "goal", goal, graph }))}>

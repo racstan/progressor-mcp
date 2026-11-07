@@ -789,6 +789,9 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 
 
 /* ---------- dependencies: goals that wait on other goals ---------- */
+.waits-chip { display: inline-flex; align-items: center; gap: var(--s1); font-size: var(--t-s); font-weight: 600; padding: 0 var(--s2); border: 1px dashed var(--line-strong); border-radius: var(--r-s); color: var(--muted); }
+.waits-chip a { color: var(--ink); text-decoration: none; font-weight: 700; }
+[data-theme="vibrant"] .waits-chip { border-color: var(--accent); color: var(--accent); }
 
 
 /* ---------- routines: recurring goals ---------- */
