@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -6,7 +7,6 @@ import type { Dashboard } from "./dashboard/http.js";
 import { defaultRegistryFile, projectEntry } from "./dashboard/registry.js";
 import { resolveProject, sameFolder, seenFile, takeElsewhereLine } from "./elsewhere.js";
 import { hooksAdvice, launchFor, startedViaNpx } from "./init.js";
-import { withLock } from "./lock.js";
 import { parseDuration, roughDuration, sayDuration, timeText } from "./estimate.js";
 import { type Decision, type Detour, type HelperInfo, type NewTask, type Note, type Task, type TaskStatus, TIMED, timeSpent } from "./planFile.js";
 import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, PROJECT_TALK, type Project, type SessionStatus, type Status, type TaskOperation } from "./project.js";
@@ -17,7 +17,7 @@ import { type ResourceLock, holderText, resourceLine } from "./resources.js";
 import { type Goal, type StandingInstruction, hardFirst, helperLimit, hotfixLine, ruleText } from "./roadmap.js";
 import type { GoalSchedule, Schedule } from "./schedule.js";
 import type { Wish } from "./wishlist.js";
-import { settingsFileFor } from "./settings.js";
+import { readSettings, settingsFileFor } from "./settings.js";
 import { registerFeatureTools } from "./tools/index.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -562,6 +562,7 @@ export const TOOL_EXAMPLES: Record<string, string> = {
   add_standing_instruction: 'add_standing_instruction({ text: "Ask me before changing the plan" })',
   update_standing_instruction: 'update_standing_instruction({ id: "s2", hard: true })',
   update_context: 'update_context({ text: "What the project is, in a few lines" })',
+  plan_history: 'plan_history({ restore: "20261107T101500123Z-1" })',
 };
 
 /**
@@ -650,6 +651,11 @@ export async function appRoots(server: McpServer, timeoutMs: number): Promise<st
 export function createServer(project: Project, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: "progressor", version: VERSION }, { instructions: INSTRUCTIONS });
   withExamples(server);
+  // Each tool call is one change in the plan's history, named after the tool (history.ts).
+  const toolName = new AsyncLocalStorage<string>();
+  const register = server.registerTool.bind(server) as (name: string, config: unknown, cb: (...args: unknown[]) => unknown) => unknown;
+  (server as { registerTool: unknown }).registerTool = (name: string, config: unknown, cb: (...args: unknown[]) => unknown) =>
+    register(name, config, (...args: unknown[]) => toolName.run(name, () => cb(...args)));
   // What the Developer wrote on the dashboard to the whole project (shown to whichever Session calls
   // first, with or without a Goal) and to the Goals this Session holds, now marked as shown.
   const takeNews = () =>
@@ -691,6 +697,8 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   // don't show the whole status end with where the work stands.
   const withNow = (text: string) => `${text}\n${nowLine(project.sessionStatus())}`;
   const { dashboard, registryFile } = options;
+  const settingsFile = options.settingsFile ?? settingsFileFor(registryFile ?? defaultRegistryFile());
+  project.history = (root) => readSettings(settingsFile, root).history;
   // Told once per Session: each get_status after that would only repeat it.
   let hooksChecked = false;
   const hooksLine = (): string | undefined => {
@@ -704,12 +712,12 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     const target = resolveProject(wanted, { registryFile });
     return sameFolder(target.root, project.root) ? project : project.elsewhere(target.root, projectEntry(project.root).name);
   };
-  // Every tool holds the plan it acts on while it reads and rewrites it (lock.ts).
+  // Every tool holds the plan it acts on while it reads and rewrites it (lock.ts), as one change in its history.
   // Every reply on this project's plan ends with anything new from the Developer (get_status puts it first).
   const respondIn = (wanted: string | undefined, body: (p: Project) => string) =>
     respond(() => {
       const p = planOf(wanted);
-      return withLock(p.root, () => {
+      return p.transaction(toolName.getStore() ?? "tool", () => {
         const text = body(p);
         if (p !== project) return text;
         const news = takeNews();
@@ -1501,7 +1509,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   registerFeatureTools(server, {
     project,
     registryFile,
-    settingsFile: options.settingsFile ?? settingsFileFor(registryFile ?? defaultRegistryFile()),
+    settingsFile,
     respondIn,
     withNow,
     doneIn,

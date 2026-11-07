@@ -2,6 +2,7 @@
 // src/ui/settings/<Feature>.tsx and one line here; Settings.tsx shows it with "Reset this section",
 // and "Reset all settings to defaults" resets it too.
 import { advancedSection, finishedSection, popUpsSection, themeSection } from "./Look.js";
+import { historySection } from "./History.js";
 import type { SettingsSection } from "./types.js";
 
 export type { SettingsContext, SettingsSection, Theme } from "./types.js";
@@ -11,5 +12,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   popUpsSection,
   finishedSection,
   // Features' sections go here, one line each.
+  historySection,
   advancedSection,
 ];

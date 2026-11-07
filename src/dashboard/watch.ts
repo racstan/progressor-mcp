@@ -1,6 +1,13 @@
 import { type FSWatcher, existsSync, readdirSync, statSync, watch } from "node:fs";
 import { join } from "node:path";
+import { HISTORY_DIR } from "../history.js";
 import { PROGRESSOR_DIR } from "../project.js";
+
+/**
+ * What changes in .progressor/ without changing what the dashboard shows: the plan's history (each
+ * change adds an entry, and the change itself is reported anyway) and the last check-up's result.
+ */
+export const unwatched = (rel: string) => rel === HISTORY_DIR || rel.startsWith(`${HISTORY_DIR}/`) || rel === "checkup.json";
 
 /**
  * Calls `onChange` with the changed files (relative to .progressor/) shortly after anything under
@@ -26,7 +33,9 @@ export function watchProgress(
 
   const notify = (file: string) => {
     if (file.endsWith(".tmp")) return; // the write-then-rename of a save; the rename is reported too
-    pending.add(file.replace(/\\/g, "/"));
+    const rel = file.replace(/\\/g, "/");
+    if (unwatched(rel)) return;
+    pending.add(rel);
     clearTimeout(flush);
     flush = setTimeout(() => {
       const files = [...pending];
@@ -46,7 +55,7 @@ export function watchProgress(
   /** Watches a folder (`sub` is its path inside .progressor/, "" for .progressor/ itself) and every folder in it. */
   const add = (sub: string) => {
     const path = sub ? join(dir, sub) : dir;
-    if (watchers.has(sub) || !isDir(path)) return;
+    if (watchers.has(sub) || unwatched(sub) || !isDir(path)) return;
     const w = fsWatch(path, (_event, name) => {
       if (!existsSync(dir)) return restart(); // .progressor/ itself was removed
       const file = name ? String(name) : "";

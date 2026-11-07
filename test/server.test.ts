@@ -55,6 +55,7 @@ describe("the MCP server", () => {
         "list_resources",
         "move_goal",
         "move_task",
+        "plan_history",
         "release_goal",
         "release_resource",
         "reply_to_developer",

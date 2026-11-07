@@ -505,10 +505,85 @@ export const RESET_ALL_DONE = "Every setting is back to its default.";
 // Each feature below keeps its words in its own block, so features can be added side by side.
 
 // --- history ---
-// Plan history and undo.
-//
-//
-//
+// Plan history and undo: the History page (HistoryPage.tsx) and its Settings section (settings/History.tsx).
+
+/** What each tool's change is called on the History page; a tool not listed is named from its own name. */
+const HISTORY_TOOLS: Record<string, string> = {
+  add_goal: "Planned a goal",
+  claim_goal: "Took a goal to work on",
+  update_goal: "Changed a goal",
+  complete_goal: "Finished a goal",
+  release_goal: "Let go of a goal",
+  drop_goal: "Cancelled a goal",
+  move_goal: "Moved a goal",
+  add_tasks: "Added steps",
+  start_task: "Started a step",
+  complete_task: "Finished a step",
+  update_task: "Changed a step",
+  update_tasks: "Changed several steps",
+  drop_task: "Cancelled a step",
+  move_task: "Moved a step",
+  set_task_state: "Changed who has a step",
+  start_detour: "Started a side trip",
+  end_detour: "Ended a side trip",
+  add_decision: "Wrote down a decision",
+  update_decision: "Changed a decision",
+  add_note: "Added a note",
+  update_note: "Changed a note",
+  add_hand_test: "Asked you to try something",
+  update_hand_test: "Changed something to try",
+  add_hotfix: "Added a hotfix",
+  add_standing_instruction: "Added a rule",
+  update_standing_instruction: "Changed a rule",
+  update_context: "Changed the Important context",
+  ask_developer: "Asked you a question",
+  reply_to_developer: "Replied to you",
+  attach_picture: "Showed you a picture",
+  get_status: "Tidied the plan",
+  plan_history: "Went back in the history",
+};
+
+/** A change's label in words: the AI's tool names become what was done; the Developer's are words already. */
+export function historyLabel(label: string): string {
+  const back = /^Went back to before: (.*)$/s.exec(label);
+  if (back) return `Went back to before "${historyLabel(back[1]!)}"`;
+  if (HISTORY_TOOLS[label]) return HISTORY_TOOLS[label];
+  if (!/^[a-z]+(?:_[a-z]+)+$/.test(label)) return label;
+  const words = label.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** Who made a change. */
+export const historyWho = (actor: string) => (actor === "Developer" ? "You" : "Your AI");
+
+/** A plan file in words; `goalTitle` names a goal from its ID. */
+export function historyFile(file: string, goalTitle: (id: string) => string | undefined): string {
+  if (file === "roadmap.md") return "Goals and rules";
+  if (file === "context.md") return "Project notes";
+  if (file === "wishlist.md") return "Wishlist";
+  const goal = /^goals\/(.+)\.md$/.exec(file);
+  if (goal) return `Steps of "${goalTitle(goal[1]!) ?? goal[1]}"`;
+  if (file.startsWith("handoffs/")) return "A handoff";
+  return file;
+}
+
+export const HISTORY_INTRO =
+  "Every change to this project's plan, newest first: who made it and when. You can go back to before any change. Going back is a change too, so it can be undone the same way. Messages between you and your AI are never taken back.";
+export const HISTORY_OFF = "History is turned off in Settings, so new changes are not kept.";
+export const HISTORY_EMPTY = "No changes kept yet. Each change your AI or you make to the plan shows up here.";
+export const HISTORY_GO_BACK = "Go back to before this";
+
+/** The question before going back. */
+export function historyConfirm(label: string, later: number): string {
+  return `Go back to before "${historyLabel(label)}"?\n\nThis undoes it${later > 0 ? ` and the ${later} ${later === 1 ? "change" : "changes"} after it` : ""}. Your AI is told and carries on from there. You can undo this afterwards.`;
+}
+
+/** What the toast says once the plan has gone back. */
+export function historyDone(files: number): string {
+  return files === 0
+    ? "The plan was already like that."
+    : "Done: the plan is back as it was. Your AI is told at its next step. To undo this, go back to before the newest change.";
+}
 
 // --- evidence ---
 // Steps linked to commits and test runs.

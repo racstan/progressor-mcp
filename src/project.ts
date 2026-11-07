@@ -25,7 +25,9 @@ import {
   newPlanFile,
   parsePlanFile,
 } from "./planFile.js";
-import { pause } from "./lock.js";
+import { pause, withLock } from "./lock.js";
+import { HISTORY_DIR, type HistoryItem, type HistorySettings, entryChanges, recordEntry, restorePlan, tracked } from "./history.js";
+import { SETTINGS_DEFAULTS } from "./settings.js";
 import { type MarkdownDoc, findSection, parseMarkdown } from "./markdown.js";
 import { gitBranches, orphanWarnings } from "./helperWork.js";
 import { type Origin } from "./origin.js";
@@ -73,6 +75,20 @@ export interface ProjectOptions {
   from?: string;
   /** How a file is moved into place (the file system's rename unless set); tests swap it to see a save fail. */
   rename?: (from: string, to: string) => void;
+  /** The history settings for a project folder (settings.ts); the defaults unless set. */
+  history?: (root: string) => HistorySettings;
+}
+
+/** What going back in the plan's history did (Project.restoreHistory). */
+export interface Restored {
+  /** The change gone back to before. */
+  item: HistoryItem;
+  /** Every change undone: that one and all after it, oldest first. */
+  undone: HistoryItem[];
+  /** The plan files put back, relative to .progressor/. */
+  files: string[];
+  /** The new history entry for the going-back itself, which undoes it; undefined when history is off. */
+  entry: HistoryItem | undefined;
 }
 
 export type DetourEnding = "merge back" | "return" | "recalibrate";
@@ -337,6 +353,10 @@ export class Project {
   private readonly rename: (from: string, to: string) => void;
   /** The project the changes come from, when this is another project's plan (see ProjectOptions.from). */
   readonly from: string | undefined;
+  /** The history settings for this project (see ProjectOptions.history); read when a change is recorded. */
+  history: (root: string) => HistorySettings;
+  /** While a transaction runs: what it is, and each plan file's text before its first write in it. */
+  private journal: { label: string; files: Map<string, string | null> } | undefined;
 
   constructor(options: ProjectOptions) {
     this.folder = options.root;
@@ -350,6 +370,7 @@ export class Project {
       options.unsafe ?? ((root) => unsafeRoot(root, { home: homedir(), systemRoot: process.env.SystemRoot, platform: process.platform }));
     this.from = options.from?.trim() || undefined;
     this.rename = options.rename ?? renameSync;
+    this.history = options.history ?? (() => SETTINGS_DEFAULTS.history);
   }
 
   /**
@@ -366,6 +387,7 @@ export class Project {
       unsafe: this.unsafe,
       clearStaleClaims: false,
       from,
+      history: this.history,
     });
   }
 
@@ -399,6 +421,129 @@ export class Project {
     return existsSync(path) ? readFileSync(path, "utf8") : undefined;
   }
 
+  // --- history -------------------------------------------------------------
+
+  /** A plan file's path relative to .progressor/ when the history keeps it, else undefined. */
+  private trackedName(path: string): string | undefined {
+    const base = join(this.root, PROGRESSOR_DIR);
+    if (!path.startsWith(base)) return undefined;
+    const rel = path.slice(base.length + 1).replace(/\\/g, "/");
+    return tracked(rel) ? rel : undefined;
+  }
+
+  /** Notes a plan file's text before its first write in the open transaction. */
+  private journalBefore(path: string): void {
+    if (!this.journal) return;
+    const rel = this.trackedName(path);
+    if (rel !== undefined && !this.journal.files.has(rel)) this.journal.files.set(rel, this.readText(path) ?? null);
+  }
+
+  /**
+   * Runs `body` holding the plan's lock (lock.ts) as one change in the plan's history: every plan file
+   * it writes is noted before its first write, and when it ends the change is saved as one entry (if
+   * anything changed and history is on). A transaction inside another joins it, so a tool that calls
+   * another makes one entry. `label` says what the change is: a tool's name, or what the Developer did
+   * on the dashboard; who made it is this Project's actor. A body that throws still records what it
+   * wrote before it failed.
+   */
+  transaction<T>(label: string, body: () => T): T {
+    return withLock(this.root, () => {
+      if (this.journal) return body();
+      this.journal = { label, files: new Map() };
+      try {
+        return body();
+      } finally {
+        try {
+          this.commit();
+        } finally {
+          this.journal = undefined;
+        }
+      }
+    });
+  }
+
+  /** The history folder, `.progressor/history/`. */
+  get historyDir(): string {
+    return this.path(HISTORY_DIR);
+  }
+
+  /**
+   * Saves what the open transaction changed so far as one history entry and starts noting afresh.
+   * Files written back to what they were are left out; nothing is saved when nothing changed or
+   * history is off. Never fails the change itself.
+   */
+  private commit(restores?: string): HistoryItem | undefined {
+    const journal = this.journal;
+    if (!journal || journal.files.size === 0) return undefined;
+    const files: Record<string, string | null> = {};
+    for (const [rel, before] of journal.files) if ((this.readText(this.path(rel)) ?? null) !== before) files[rel] = before;
+    journal.files = new Map();
+    if (Object.keys(files).length === 0) return undefined;
+    try {
+      const settings = this.history(this.root);
+      if (!settings.enabled) return undefined;
+      this.ignoreLocal(HISTORY_DIR, "The plan's history, for undoing changes, stays on this computer");
+      return recordEntry(this.historyDir, { at: this.now(), actor: this.actor, label: journal.label, files, ...(restores ? { restores } : {}) }, settings);
+    } catch {
+      return undefined; // the change is made; only its undo is lost
+    }
+  }
+
+  /**
+   * Goes back to before a change in the plan's history: every plan file that change or a later one
+   * touched gets back the text it had before. Talk, pictures and attachments are not touched. The
+   * going-back is itself one history entry, so it is undone the same way. Claims of Sessions that have
+   * ended are cleared afterwards, as reading the status does.
+   */
+  restoreHistory(id: string): Restored {
+    return this.transaction("plan_history", () => {
+      const { item, undone, files } = restorePlan(this.historyDir, id);
+      this.commit(); // what the call changed before this is its own entry
+      const journal = this.journal!;
+      const outer = journal.label;
+      journal.label = `Went back to before: ${item.label}`;
+      try {
+        const changed: string[] = [];
+        for (const [rel, before] of files) {
+          const path = this.path(rel);
+          if ((this.readText(path) ?? null) === before) continue;
+          if (before === null) {
+            this.journalBefore(path);
+            rmSync(path, { force: true });
+          } else this.writeText(path, before);
+          changed.push(rel);
+        }
+        this.clearEndedClaims();
+        return { item, undone, files: changed, entry: this.commit(id) };
+      } finally {
+        journal.label = outer;
+      }
+    });
+  }
+
+  /** What one history entry changed, file by file; undefined when there is no such entry. */
+  historyChanges(id: string) {
+    return entryChanges(this.historyDir, id, (rel) => this.readText(this.path(rel)));
+  }
+
+  /**
+   * Clears the Claims of Sessions that have ended, also for a reader that is not a Session (the
+   * dashboard), which then counts no Claim as its own, so it never clears a live Session's Claim.
+   */
+  private clearEndedClaims(): void {
+    const roadmap = this.roadmap();
+    const self = this.tidy ? this.session : undefined;
+    const ended = roadmap.goals.filter(
+      (g) =>
+        g.claim &&
+        g.claim.session !== this.session.id &&
+        !claimMayBeLive(g.claim, { isAlive: this.isAlive, sessionOf: this.sessionOf, ...(self ? { self } : {}) }),
+    );
+    if (ended.length === 0) return;
+    for (const g of ended) roadmap.setClaim(g.id, undefined);
+    this.saveRoadmap(roadmap);
+  }
+
   private writeText(path: string, text: string): void {
     if (this.from && !existsSync(join(this.root, PROGRESSOR_DIR)))
       throw new Error(`${this.root} has no Progressor plan, and a plan is never started from another project.`);
@@ -411,6 +556,7 @@ export class Project {
             "Open the project's folder in the app, or set PROGRESSOR_ROOT to it in Progressor's MCP settings, then try again.",
         );
     }
+    this.journalBefore(path);
     mkdirSync(dirname(path), { recursive: true });
     if (starting) writeFileSync(join(this.root, PROGRESSOR_DIR, ".gitignore"), PRIVATE_GITIGNORE);
     const tmp = `${path}.${process.pid}.tmp`;

@@ -7,6 +7,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Project } from "../project.js";
 import { isFromDashboardPage, json, readJsonBody } from "./respond.js";
+import { historyRoutes } from "./routes/history.js";
 import { settingsRoutes } from "./routes/settings.js";
 
 /** What the hub gives every feature route. */
@@ -43,6 +44,7 @@ export interface FeatureRoute {
 /** Every feature's routes. A feature adds one line: `...myFeatureRoutes,`. */
 export const featureRoutes: FeatureRoute[] = [
   ...settingsRoutes,
+  ...historyRoutes,
 ];
 
 /** A body bigger than this is refused unread, unless the route asks for more. */

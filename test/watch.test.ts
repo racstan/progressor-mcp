@@ -90,4 +90,21 @@ describe("a folder that vanishes while it is being watched", () => {
     expect(() => attachments("rename", "w2")).not.toThrow();
     expect(closed.length).toBeGreaterThan(0); // it starts over instead
   });
+
+  it("leaves out the plan's history and the check-up's result", async () => {
+    const root = tempDir("progressor-watch-");
+    mkdirSync(join(root, ".progressor/history"), { recursive: true });
+    const seen: string[][] = [];
+    stop = watchProgress(root, (files) => seen.push(files), 20);
+    await wait(150);
+    seen.length = 0;
+    save(join(root, ".progressor/history/index.json"), "{}");
+    writeFileSync(join(root, ".progressor/history/20261107T101500123Z-1.json"), "{}");
+    save(join(root, ".progressor/checkup.json"), "{}");
+    await wait(150);
+    expect(seen.flat()).toEqual([]);
+    save(join(root, ".progressor/roadmap.md"), "r");
+    await wait(150);
+    expect(seen.flat()).toEqual(["roadmap.md"]);
+  });
 });
