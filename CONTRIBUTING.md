@@ -36,7 +36,7 @@ The tour's sample project (`src/ui/sampleData.ts`) is made the same way: `npm ru
 
 ## Releasing
 
-Releases publish themselves from GitHub Actions ([release.yml](.github/workflows/release.yml)). Bump the version (here `0.6.0`) in `package.json` and `server.json` (both `version` and `packages[0].version`), add a `CHANGELOG.md` entry, commit, then tag and push:
+Releases publish themselves from GitHub Actions ([release.yml](.github/workflows/release.yml)). Bump the version (here `0.6.0`) in `package.json` and `server.json` (its `version`, the npm package's `version` and the Docker image's tag in `identifier`), add a `CHANGELOG.md` entry, commit, then tag and push:
 
 ```bash
 git tag v0.6.0

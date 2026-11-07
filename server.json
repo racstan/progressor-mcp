@@ -17,6 +17,14 @@
       "transport": {
         "type": "stdio"
       }
+    },
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/racstan/progressor-mcp:1.3.0",
+      "runtimeHint": "docker",
+      "transport": {
+        "type": "stdio"
+      }
     }
   ]
 }

@@ -1,0 +1,19 @@
+# Only what the image build needs goes to Docker: the sources, the build scripts and package files.
+node_modules
+dist
+.git
+.github
+.progressor
+.claude
+.mcp.json
+docs
+test
+coverage
+*.log
+*.mp3
+*.mp4
+/*.png
+/*.gif
+AUDIT-*.md
+Dockerfile
+.dockerignore

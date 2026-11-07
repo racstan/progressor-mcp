@@ -1,6 +1,7 @@
 # Publishes a release when a version tag (v0.3.0) is pushed: to npm through npm's trusted publishing
-# (no token or one-time code; npm trusts this workflow file) and then to the official MCP Registry,
-# signed in through GitHub. Each step skips itself if that version is already published, so a run
+# (no token or one-time code; npm trusts this workflow file), the Docker image to GitHub's container
+# registry (ghcr.io/racstan/progressor-mcp), and then to the official MCP Registry, signed in through
+# GitHub. Each step skips itself if that version is already published, so a run
 # can be repeated safely. "Run workflow" on the Actions tab publishes the version in package.json.
 name: Release
 
@@ -16,6 +17,8 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,9 +34,13 @@ jobs:
         run: |
           version=$(node -p "require('./package.json').version")
           server=$(node -p "require('./server.json').version")
-          package=$(node -p "require('./server.json').packages[0].version")
+          package=$(node -p "require('./server.json').packages.find(p => p.registryType === 'npm').version")
+          image=$(node -p "require('./server.json').packages.find(p => p.registryType === 'oci').identifier")
           if [ "$server" != "$version" ] || [ "$package" != "$version" ]; then
             echo "::error::server.json says $server / $package but package.json says $version"; exit 1
+          fi
+          if [ "$image" != "ghcr.io/racstan/progressor-mcp:$version" ]; then
+            echo "::error::server.json's Docker image is $image, not ghcr.io/racstan/progressor-mcp:$version"; exit 1
           fi
           if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"; exit 1
@@ -59,6 +66,56 @@ jobs:
           done
           echo "::error::progressor-mcp ${{ steps.version.outputs.version }} did not show up on npm within 10 minutes"; exit 1
 
+  # The image for linux/amd64 and linux/arm64, tagged with the version and latest. It skips itself
+  # if that version's image is already on ghcr.io, like the steps above.
+  docker:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check whether the image is already published
+        id: exists
+        run: |
+          if docker manifest inspect "ghcr.io/racstan/progressor-mcp:${{ needs.release.outputs.version }}" >/dev/null 2>&1; then
+            echo "ghcr.io/racstan/progressor-mcp:${{ needs.release.outputs.version }} is already published."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - id: meta
+        if: steps.exists.outputs.skip != 'true'
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/racstan/progressor-mcp
+          tags: |
+            type=raw,value=${{ needs.release.outputs.version }}
+            type=raw,value=latest
+      - if: steps.exists.outputs.skip != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ needs.release.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # The MCP Registry checks that the npm package and the Docker image exist, so this runs after both.
+  registry:
+    needs: [release, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - name: Install mcp-publisher
         run: |
           curl -fsSL -o mcp-publisher.tar.gz https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz
@@ -69,9 +126,9 @@ jobs:
         run: |
           name=$(node -p "encodeURIComponent(require('./server.json').name)")
           # Ask for this exact version: the search listing is cached and can lag behind.
-          status=$(curl -s -o /dev/null -w "%{http_code}" "https://registry.modelcontextprotocol.io/v0/servers/$name/versions/${{ steps.version.outputs.version }}")
+          status=$(curl -s -o /dev/null -w "%{http_code}" "https://registry.modelcontextprotocol.io/v0/servers/$name/versions/${{ needs.release.outputs.version }}")
           if [ "$status" = "200" ]; then
-            echo "Version ${{ steps.version.outputs.version }} is already in the MCP Registry."
+            echo "Version ${{ needs.release.outputs.version }} is already in the MCP Registry."
           else
             ./mcp-publisher login github-oidc
             ./mcp-publisher publish

@@ -165,6 +165,16 @@ Set up Progressor (https://github.com/racstan/progressor-mcp) for this project:
 
 Your AI does the rest. For Claude Code and Claude Desktop that one `init` command is the whole setup: it adds the server, the hooks that hand your AI the plan at the start of every conversation, and a short note telling the AI to use Progressor. To have Progressor in every project without setting each one up, add it once to your app's settings for all projects ([how, for each app](docs/apps.md)). If you'd rather do it yourself, [Getting started](docs/getting-started.md) walks through it, and [Setup for your app](docs/apps.md) has the exact settings for each app.
 
+### Run it with Docker
+
+Would you rather not install Node? Progressor also comes as a Docker image, `ghcr.io/racstan/progressor-mcp`. Your project folder has to be mounted into the container, because that is where the plan is kept. On macOS or Linux, in your project's folder:
+
+```bash
+claude mcp add progressor -- docker run -i --rm -v "$PWD:$PWD" -w "$PWD" -v progressor-data:/data -p 127.0.0.1:4800:4800 ghcr.io/racstan/progressor-mcp
+```
+
+The dashboard is then at **http://localhost:4800**. The `progressor-data` volume keeps the project list and your settings between runs. On Windows, mount the folder under `/work` and say so: `-v "C:\Projects\shop:/work/shop" -w /work/shop -e PROGRESSOR_ROOT=/work/shop`. Using Docker for two projects at once? Give the second its own port: `-p 127.0.0.1:4801:4801 -e PROGRESSOR_PORT=4801`. Other apps take the same `docker run` line as their command.
+
 ## Then just talk to your AI
 
 Tell it what you want to build, as you would anyway: *"Add a login page with Google sign-in."* It plans the work as a goal, shows you the steps, and starts. You don't need to learn any commands. If you want to nudge it, these work in most apps' `/` menu:
