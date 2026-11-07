@@ -1202,3 +1202,14 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 
 /* the tour's sample project, marked in the top bar while it shows */
 .sample-tag { margin-left: var(--s2); padding: 2px 10px; border: 2px solid var(--text); border-radius: 999px; font-size: var(--t-s); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+
+/* Settings › Where the dashboard runs: a clear wait while it switches */
+.where-choice { border: 0; margin: 0; padding: 0; min-width: 0; }
+.where-choice:disabled .option { opacity: .55; cursor: wait; }
+.switch-note { display: flex; align-items: flex-start; gap: var(--s2); margin: var(--s3) 0 0; padding: var(--s3); border: 2px solid var(--line); border-radius: 8px; font-weight: 600; }
+.switch-note.waiting { border-color: var(--text); }
+.switch-note.done { border-color: var(--text); }
+.switch-note.failed { border-style: dashed; border-color: var(--text); }
+.spinner { flex: none; width: 16px; height: 16px; margin-top: 2px; border: 2px solid var(--line); border-top-color: var(--text); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
