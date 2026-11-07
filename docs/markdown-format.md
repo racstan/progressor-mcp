@@ -182,11 +182,19 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 | Task     | `from hand test` | The hand test whose failure added this Task (`^h2`).                   |
 | Task     | `dropped by`   | The Detour whose Recalibration dropped this Task (`^d1`).                |
 | Task     | `reason`       | Why the Task was dropped, when dropped directly.                         |
+| Task     | `commits`      | Short hashes of the commits made for it, newest first (at most 10). Written when it is finished; removed if it is reopened. |
+| Task     | `branch`       | The git branch it was finished on. Written with `commits`.               |
+| Task     | `tests`        | The test run behind it, in a few words (`715 passed`).                   |
+| Task     | `uncommitted`  | `yes` when its files still had changes not saved in git as it was finished. |
 | Goal     | `claimed by`   | The Claim: `<session> (pid <pid>) since <ISO time>`.                     |
 | Goal     | `outcome`      | The Outcome: what done looks like, on one line.                          |
 | Goal     | `reason`       | Why the Goal was dropped.                                                |
 | Goal     | `waiting on`   | `hand tests` on a started Goal nobody holds whose work is built but whose hand tests the Developer has not all marked; it reads as waiting on their tests instead of paused. |
 | Goal     | `estimate`     | How long the Goal should take; it covers its open Tasks that have no estimate. Without it, the Goal's estimate is the sum of its open Tasks'. |
+| Goal     | `waits on`     | A goal it waits on: its ID here, or `<project>/<goal>` in another project. Repeatable. |
+| Goal     | `release`      | On a release goal: the version it releases (`1.4.0`).                    |
+| Goal     | `bundles`      | On a release goal: a finished goal it bundles, by ID. Repeatable.        |
+| Goal     | `from routine` | The routine that made it (`r1`).                                         |
 | Standing Instruction | `hard`  | `yes` (or `true`) for a hard rule that must never be broken; absent for a preference. |
 | Standing Instruction | `helpers at once` | The project's helper limit, a whole number from 1: the most Tasks that may be with a helper at once. One rule holds it; the tools move it rather than add a second. Any other value is ignored. |
 | Idea     | `promoted to`  | The ref of the Task or Goal it was promoted to.                          |
@@ -280,6 +288,8 @@ A talk file starts with `# <Goal title>: talk with the Developer`. `## Messages`
   - seen: 2026-10-28T09:13:10.000Z
 ```
 
+A question can offer **alternatives** instead of plain choices. The `choice:` lines still hold their titles, so older readers keep working; numbered lines add the rest: `about 1:` (a line about the first), `picture 1:` (a picture ID such as `p3`), `recommended: 1`, `proceeds: <ISO time>` (when the AI goes ahead with its pick if nobody picks), `more: requested` (the Developer asked for other options) and `went ahead: <title>`. When the AI goes ahead, the answer is written `answer: <title> (chosen by AI)`; the Developer can still pick, which replaces it and is shown to the AI as news.
+
 The dashboard writes messages and answers; the Agent's tools write questions and replies, and the `seen` lines when the Agent is shown a message or an answer (once). An answer is also added to the Plan File's `## Decisions`, which is committed, as `<the question> The Developer answered: <answer>`: the choice belongs to the plan, the conversation does not. The Developer can take back a message while it is still `[ ]`, which deletes its line. A Goal without a talk file has said nothing yet.
 
 ## Hard rules
@@ -328,6 +338,30 @@ The tools are the way to change the plan, but a file edited by hand, or merged b
 - **Unknown sections** (any `##` heading other than the ones above; in a Plan File, `## Tasks`, `## Decisions`, `## Notes`, `## Hand tests` and `## Detour: ...` are known) and anything before the first `##` heading are kept as they are.
 - **Missing sections** are created at the end of the file when something needs to go in them.
 - Only top-level list lines (no indentation) are items. Indented lines belong to the item above them.
+
+## Routines
+
+Goals that come back are routines, in their own `## Routines` section of `roadmap.md`:
+
+```markdown
+## Routines
+
+- Weekly dependency audit ^r1
+  - every: 1w
+  - next: 2026-11-14T09:00:00.000Z
+  - outcome: No known vulnerable dependencies
+  - step: Run npm audit (30m)
+  - step: Update what it flags
+  - last goal: weekly-dependency-audit-2
+```
+
+`every` is `1d`, `3d`, `1w`, `2w`, `1mo` or a weekday (`monday`); `step` is repeatable, with an optional estimate in brackets; `paused: yes` stops it adding goals for now. Due times are worked out in local time, so a routine keeps its time of day across a clock change. A goal it makes has `from routine: r1` and the routine's title, Outcome and steps.
+
+## Other folders in `.progressor/`
+
+- `handoffs/`: the handoffs the AI wrote, one markdown file each (`2026-11-07-week-one.md`), starting with the title and `- range:`, `- commits:` and `- written: <ISO time> by AI` lines. They follow the plan's own git rule.
+- `history/`: the plan's history, for undoing changes. Kept on this computer (git-ignored).
+- `checkup/last.json`: the last plan check-up's result. Kept on this computer (git-ignored).
 
 ## What is not in the files
 

@@ -24,6 +24,14 @@ When the AI is on a side trip, the banner turns orange and says what it's doing 
 
 If the latest change to the goal came from an AI chat working in another project, the status line ends with *updated from* and that project's name. See *Updated from another project* below.
 
+Next to the status, a few small labels may show:
+
+- **Waits on …**: the goal waits on another goal that isn't finished yet; click **›** to open it. Its expected finish starts after that one's.
+- **Release 1.4.0**: a release goal. Under the title, **Bundles** lists the finished goals that go into it; your AI writes the changelog entry and the new version from them.
+- **Comes back every week**: a goal that comes back by itself (see [Goals that come back](#goals-that-come-back)).
+
+On a finished step, a line such as *2 commits on main · 715 passed* shows the work that went into it, with each commit linked when your project is on GitHub, GitLab or Gitea. *Not saved in git yet* means some of its files still had changes nobody had committed when it was finished.
+
 **Copy for your AI** copies a description of the goal that you can paste into any AI chat, to ask about it or change it.
 
 ## The map
@@ -59,6 +67,8 @@ When any step of a goal is waiting on you, the whole goal says so, so you can se
 - In **All projects**, the goal says **Waiting on you** and its project shows the same note and comes first in the list.
 
 A question from your AI makes the goal wait on you in the same way; answer it in the [talk box](#talk-with-your-ai).
+
+**Ways to go.** For a big choice your AI may offer 2 to 4 options as cards side by side, each with a picture and a line about it, and **Recommended** on its own pick. **Pick this** chooses one; **Show me other options** asks for new ones. You don't have to do anything: after the wait set in Settings it goes ahead with its pick and the card says *Your AI went ahead with …*. You can still pick another one, and it changes course.
 
 Once you've done what the step needed, tell your AI in the chat: it moves the step along, and the goal goes back to normal by itself.
 
@@ -157,7 +167,25 @@ Wherever the dashboard shows your AI's words, such as things to try by hand, ste
 
 **Home** has the same numbers added up across all your projects, with a line per project; its **Statistics** link opens that project's page.
 
+The **Plan check-up** card shows what your AI's last look over the plan fixed and what is left to look at, with **Check now** to run it again.
+
 Steps finished before Progressor kept finish times count on the day they last changed, and steps without a time or an estimate are left out of the comparison, never guessed.
+
+## History
+
+**History** in the sidebar lists every change to the plan, newest first: who made it (your AI or you), when, and what it changed. Open one to see the lines added and removed. **Go back to before this** undoes that change and every one after it, after you confirm; going back is itself a change you can undo the same way. Messages with your AI are never changed.
+
+## Handoffs
+
+**Handoffs** in the sidebar holds the write-ups your AI saved for whoever picks the work up next: what was done, the decisions, what is left open and what comes next. Your AI writes one after each release by itself. **Ask for a handoff** asks it for one between two dates or for the last few commits; it writes it at its next step and it shows up here.
+
+## Goals that come back
+
+On **Project notes**, **Goals that come back** lists the goals your AI set to repeat, such as a weekly dependency check: how often, when next, and a link to the latest one. A fresh goal is added by itself when one is due, never while the last one is still open. **Pause** stops it for now, **Let it carry on** starts it again, and **Stop** ends it for good (the goals it made stay).
+
+## Phone notifications
+
+In **Settings → Phone notifications**, turn it on, install the free ntfy app on your phone and subscribe to the topic shown. You get a push when your AI asks a question, has something for you to try, finishes a goal, offers ways to go, or a bug report comes in; untick the ones you don't want. **Send a test** checks it works. Keep the topic private: anyone who knows it can read the messages.
 
 ## Search
 
@@ -166,7 +194,7 @@ The search box at the top (press `/` to jump to it) finds projects, goals and st
 ## Help and Settings
 
 - **❓ Help**: **What's new**, what changed in each version, newest first, with yours marked (a dot on the Help button means there is a version you haven't looked at); then report a problem or suggest an idea. Both open a form on GitHub with your Progressor version and system already filled in.
-- **⚙️ Settings**: the view a goal opens in, light or dark, and whether finished goals wait for you to look. Under **Advanced**: the code editor files open in, showing hidden goals, and the Progressor servers running on your computer. How the page looks is kept in your browser; settings for how Progressor works are kept on your computer, for all your projects. Every section has **Reset this section**, and **Reset all settings to defaults** at the bottom puts everything back after you confirm. Nothing in Settings is ever required: Progressor works fully with the defaults.
+- **⚙️ Settings**: the view a goal opens in, light or dark, and whether finished goals wait for you to look. Under **Advanced**: the code editor files open in, showing hidden goals, and the Progressor servers running on your computer. How the page looks is kept in your browser; settings for how Progressor works are kept on your computer, for all your projects. There is a section for each thing your AI does by itself: phone notifications, estimates, commits and tests, goals that wait, the plan check-up, history, releases, handoffs, goals that come back, and ways to go. Every section has **Reset this section**, and **Reset all settings to defaults** at the bottom puts everything back after you confirm. Nothing in Settings is ever required: Progressor works fully with the defaults. At the bottom: Progressor is free; there is no paid version or subscription, and anyone selling one is not us.
 - **If the page is out of date**, a bar at the bottom says so, with a **Refresh** button: when Progressor was updated after you opened the page, or when the page has been out of touch with Progressor for a minute. It goes away by itself once things are back to normal.
 - **The green dot** at the top means the page is live. If it turns orange and says *Reconnecting…*, Progressor has closed (it runs while your AI's app is open); it comes back by itself when the app is open again.
 

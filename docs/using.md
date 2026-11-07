@@ -91,6 +91,23 @@ Some rules matter more than others. If you say a rule must never be broken (*"ne
 
 Each project has one **Important context** page. It holds your rules and the project's background: what the project is, key facts, where things live, and choices that hold for the whole project. Your AI writes it, keeps it short and reads all of it at the start of every conversation, so it doesn't have to work these things out again. You can read it on the dashboard. To change something, just tell your AI: *"Note that the dashboard always runs on port 4747."*
 
+## What your AI does by itself
+
+Your AI runs all of these on its own. You never have to do anything for them; each one has a section in **Settings** (the gear at the top right) if you want to change how it works, and every section has **Reset this section**, with **Reset all settings to defaults** at the bottom.
+
+- **Undo for the plan.** Every change to the plan, by your AI or by you on the dashboard, is kept on the **History** page, with who made it and when. **Go back to before this** undoes it and everything after it, and going back can itself be undone. Your AI can do the same if you ask: *"undo the last change to the plan"*.
+- **Steps linked to their commits and tests.** When a step is finished, Progressor notes the commits made for it, the branch and the test run behind it, and shows them on the step. If the step's files still have changes not saved in git, your AI is warned.
+- **Estimates that learn.** Progressor compares how long steps really took with what your AI guessed, and adjusts the finish times it shows you. Your AI sees one line saying how far off its guesses have been, so it guesses better.
+- **A check-up of the plan.** At the start of each conversation your AI looks the plan over once: mixed line endings, files left by a save that didn't finish, goals held by a conversation that has ended, steps finished without any record of their work, missing pictures. What is safe to repair is repaired (and can be undone from History); the rest is listed. The **Plan check-up** card on Statistics shows the last result, with **Check now**.
+- **Changelogs written from finished goals.** When it's time for a new version, your AI adds a **release goal**. It gathers the finished goals since the last release, their steps and decisions, and the commits since the last version, then writes the changelog entry and the new version number from them. It asks you before tagging or publishing anything.
+- **Goals that wait on other goals.** A goal can wait on another one, here or in another project. It shows *Waits on …* on the dashboard, its expected finish starts after the other one's, and your AI is reminded if it starts it early.
+- **Goals that come back.** Some work repeats: a weekly dependency check, a monthly clean-up. Your AI can make a goal come back every day, week, two weeks, month or on a weekday. When it's due, a fresh goal is added by itself, but never while the last one is still open. They're listed under **Goals that come back** on Project notes, where you can pause or stop one.
+- **Phone notifications.** Turn on **Phone notifications** in Settings and install the free [ntfy](https://ntfy.sh) app to get a push when your AI asks a question, has something for you to try, finishes a goal, offers ways to go, or a bug report comes in. Pick a long, private topic name: anyone who knows it can read the messages.
+- **Ways to go, to pick from.** For a big product or design choice, your AI offers 2 to 4 options on the goal page, with a line and a picture each and the one it recommends. You can pick one, ask for other options, or do nothing: after the wait in Settings it goes ahead with its own pick. If you pick another one later, it changes course.
+- **Handoffs.** A handoff is a write-up of a stretch of work for whoever picks it up next: another AI conversation, a teammate, or you after a break. Your AI writes one after each release, and whenever you ask (*"write a handoff of this week"*, or **Ask for a handoff** on the Handoffs page, by dates or by the last few commits). They're kept on the **Handoffs** page.
+
+Progressor is free. There is no paid version or subscription; anyone selling one is not us.
+
 ## The commands
 
 Most apps list Progressor's commands when you type `/` in the chat. In Claude Code they look like `/progressor:status (MCP)`; other apps name them a little differently. You never need them, since plain words work just as well, but they're handy shortcuts:

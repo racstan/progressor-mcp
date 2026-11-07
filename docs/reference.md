@@ -46,25 +46,25 @@ The AI calls these; the server's instructions tell it when.
 
 | Tool | What it does |
 | --- | --- |
-| `get_status` | Every Goal this Session holds, each with its current Task, open Detour, Tasks with a helper (with their branch, folder and label when recorded), waiting on the Developer or checked (with their evidence), next Task, decisions and open notes; the helper limit and the schedule, one short line each, when set; then the Standing Instructions, the project folder and the dashboard link. In Claude Code, the first `get_status` of a Session says when the project has no Progressor hooks (in `.claude/settings.json`, `.claude/settings.local.json` or `~/.claude/settings.json`), with the `progressor-mcp init` command that adds them. With no Goal claimed it lists only the Goals that are active, paused, waiting on the Developer's tests or planned, and counts the finished and cancelled ones (*Finished: 37 goals (not listed; get_item progressor://<goal> to look one up).*). |
+| `get_status` | Every Goal this Session holds, each with its current Task, open Detour, Tasks with a helper (with their branch, folder and label when recorded), waiting on the Developer or checked (with their evidence), next Task, decisions and open notes; the helper limit and the schedule, one short line each, when set; then the Standing Instructions, the project folder and the dashboard link. In Claude Code, the first `get_status` of a Session says when the project has no Progressor hooks (in `.claude/settings.json`, `.claude/settings.local.json` or `~/.claude/settings.json`), with the `progressor-mcp init` command that adds them. With no Goal claimed it lists only the Goals that are active, paused, waiting on the Developer's tests or planned, and counts the finished and cancelled ones (*Finished: 37 goals (not listed; get_item progressor://<goal> to look one up).*). It also runs the plan check-up once per Session (`check: true` runs it again and lists every finding), adds the goals of due routines, gives the release facts for a held release goal, lists alternatives waiting for a pick, and says how far off past estimates were. See [New in this version](#new-in-this-version). |
 | `get_item` | Looks up any item by its `progressor://` ref (the `progressor://` may be left off), with its file and line; a Task with its time against its estimate, a Goal with its estimate and expected finish. |
 | `get_rules` | The Standing Instructions as a block to paste into a helper agent's brief: hard rules first, then the others, the helper limit if one is set, and a line telling the helper not to edit `.progressor/`. |
-| `add_goal` | Adds a Goal with an optional Task list, Outcome, `estimate` and short ID; `claim: true` claims it at once; `done: true` records finished work. |
+| `add_goal` | Adds a Goal with an optional Task list, Outcome, `estimate` and short ID; `claim: true` claims it at once; `done: true` records finished work. `waits_on` lists goals it waits on; `release: true` (or `bundles`) makes it a release goal; `repeat` (`1d`, `1w`, `2w`, `1mo`, `monday`) makes it come back. |
 | `add_hotfix` | Adds a hotfix from a bug `report` (kept word for word; at most 8,000 characters) and an optional `title` (the report's first line otherwise): a Goal at the top of the Roadmap, after older hotfixes, with two Tasks, a test that shows the bug and the fix. `claim: true` claims it at once. See [Hotfixes](#hotfixes). |
-| `update_goal` | Renames a Goal or changes its Outcome or `estimate` (empty removes it). |
+| `update_goal` | Renames a Goal or changes its Outcome or `estimate` (empty removes it), or the goals it `waits_on` (empty: none). |
 | `move_goal` | Moves a Goal before or after another. |
-| `drop_goal` | Drops a Goal that is no longer wanted, with a reason. |
+| `drop_goal` | Drops a Goal that is no longer wanted, with a reason. `stop_repeating: true` also stops the routine that made it. |
 | `claim_goal` | Claims a Goal for this Session, which keeps any others it holds; a done Goal is reopened. |
 | `release_goal` | Releases the Claim; the Goal is paused. |
 | `claim_resource` | Claims a named shared resource (`resource`, such as `dev-window`) that only one session or helper can use at a time, with a `reason`; optional `label` (who it is for when not the Session itself, such as `helper: media run`), `task` (the Task ID) and `minutes` (how long it lasts, 30 by default, at most 240). Refused, naming the holder, since when and why, when someone else holds it. Claiming it again as the same holder refreshes it. |
 | `release_resource` | Releases a resource (`resource`, with the same `label` it was claimed with). Another holder's is refused unless `force: true`, which is for when the Developer says the holder is gone. |
 | `list_resources` | Who holds which resource, for how long and why. `get_status` shows the same. |
-| `complete_goal` | Marks the claimed Goal done, once every Task is done, released or dropped and no Detour is open. While the Developer still has hand tests to mark, it releases the Goal as built and waiting on their tests instead (see [Hand tests](#hand-tests)). `unmarked_hand_tests_ok: true` finishes it now, only when the Developer says so. |
+| `complete_goal` | Marks the claimed Goal done, once every Task is done, released or dropped and no Detour is open. While the Developer still has hand tests to mark, it releases the Goal as built and waiting on their tests instead (see [Hand tests](#hand-tests)). `unmarked_hand_tests_ok: true` finishes it now, only when the Developer says so. A finished release goal tells the AI to write a handoff, unless that setting is off. |
 | `add_tasks` | Appends Tasks (title, files, summary and `estimate`) to the claimed Goal. `done: true` records finished work, and `hand_test` adds the hand test about that Task in the same call, so a small change takes one call. |
 | `start_task` | Marks a Task in progress (one per Goal at a time). Answers with one confirming line and the `Now:` line, not the whole status. |
 | `set_task_state` | Sets a Task's state: with a helper, waiting on you, checked, released (or pending, in progress, done). Setting one Task too many with a helper still works, with a warning naming the helper limit. With `with a helper` it takes optional `helper_branch`, `helper_folder` (the worktree path) and `helper_label`; with `checked` an optional `evidence` (one short line, such as "715 passed, live send OK"). Giving either with any other state is refused. |
 | `update_task` | Changes a Task's title, summary, files or `estimate` (empty removes it). |
-| `complete_task` | Marks a Task done, with the files it touched and its final summary. Answers with a confirming line, how long it took against the estimate, and the `Now:` line. `drop_task` and `end_detour` answer the same short way; `get_status`, `claim_goal` and `add_goal` with `claim` give the whole status. |
+| `complete_task` | Marks a Task done, with the files it touched and its final summary, and optionally its `commits` (found from git when left out) and `tests` (the test run behind it, such as "715 passed"); `add_tasks` with `done` and `update_tasks` take the same. Answers with a confirming line, how long it took against the estimate, and the `Now:` line. `drop_task` and `end_detour` answer the same short way; `get_status`, `claim_goal` and `add_goal` with `claim` give the whole status. |
 | `update_tasks` | Changes several Tasks in one call: a list of `operations`, each `{task, action, goal?}` with `action` `start`, `complete` (with optional `code` and `summary`), `state` (with `state`, and the same `helper_branch`, `helper_folder`, `helper_label` or `evidence` as set_task_state), `drop` (with `reason`) or `estimate` (with `estimate`); `estimate` can also go with any other action. Applied in order, all or nothing, with one write per Goal, and answers with one line, plus the time taken by completed Tasks and the helper limit's warning when it applies. |
 | `move_task` | Moves a Task to another Goal (`to_goal`, optionally `before` or `after` one of its Tasks). It keeps its title, summary, files and state and gets a new ID there, with a `moved from` line; the old Task stays, dropped with the reason `Moved to the goal "<title>" (<ref>)`. |
 | `drop_task` | Drops a Task, with a reason. |
@@ -77,11 +77,50 @@ The AI calls these; the server's instructions tell it when.
 | `add_hand_test` | Adds something only the Developer can try by hand to the claimed Goal (`text`, optionally the `task` it is about). The Developer marks it on the dashboard. Takes no `project`. |
 | `update_hand_test` | Rewords a hand test, changes or removes its `task` link (empty string), or removes the test when the text is empty. The Developer's mark stays. |
 | `attach_picture` | Shows the Developer a screenshot or short screen recording on the dashboard: `path` (absolute, or from the project folder) and a `caption`, optionally the `task` or `hand_test` it is about; or `remove` a picture by its ID. The file is copied into `.progressor/pictures/`, which is kept out of git. Needs a claimed Goal; takes no `project`. |
-| `ask_developer` | Asks the Developer a `question` on the dashboard with 2 to 4 `choices` (optionally the `task` it is about); or `withdraw` an open question by its ID. The answer comes back at a later call and is kept as a decision. Takes no `project`. |
+| `ask_developer` | Asks the Developer a `question` on the dashboard with 2 to 4 `choices` (optionally the `task` it is about); or `withdraw` an open question by its ID. The answer comes back at a later call and is kept as a decision. Instead of `choices`, `alternatives` (2 to 4, each a `title`, an `about` line and a `picture` ID) with `recommended` (1-based) and `wait` (such as `10m`; the setting otherwise) offer ways to go: nothing waits on the Developer, the AI goes ahead with its pick when the wait is over, and a later pick comes as news. Takes no `project`. |
 | `reply_to_developer` | Answers one of the Developer's dashboard messages (`message` ID, `reply`); `whole_project: true` for a message to the whole project, which needs no Goal. Takes no `project`. |
 | `add_standing_instruction` | Saves a lasting rule from the Developer; `hard: true` marks one that must never be broken; `helpers_at_once: 2` makes it the rule that holds the helper limit. |
 | `update_standing_instruction` | Changes a rule's text, its `hard` flag and/or the helper limit it holds (`helpers_at_once`, 0 removes it), or removes the rule when the text is empty. |
 | `update_context` | Replaces the project's Important context (at most 4000 characters), or clears it with an empty text. |
+| `plan_history` | The plan's last changes, newest first (`list`, 10 unless set), or `restore` a change's ID to go back to before it. Going back is itself a change that can be undone. |
+| `handoff` | Without `text`: the facts for a handoff of a range (`since` a date or commit, `until` a date, or exactly `commits`; since the last handoff by default). With `text` and `title`: saves the handoff the AI wrote in `.progressor/handoffs/`. |
+
+### New in this version
+
+**Settings.** Every feature has a section in `~/.progressor/settings.json` (or the file `PROGRESSOR_SETTINGS` names), beside the project list; a project can override a section. The dashboard's Settings shows them all, each with **Reset this section**, and **Reset all settings to defaults**. `GET /api/settings?project=<id>`, `POST /api/settings` (`{section, values, project?}`) and `POST /api/settings/reset` (`{section?, project?}`), with the `settings` header.
+
+| Section | Values (defaults) |
+| --- | --- |
+| `history` | `enabled` (true), `keepDays` (30), `maxEntries` (500), `maxMB` (20) |
+| `evidence` | `record` (true), `warnUncommitted` (true) |
+| `estimates` | `learn` (true), `window` (20 finished steps) |
+| `checkup` | `onStatus` (true), `autoRepair` (true) |
+| `release` | `files` (`package.json`, `server.json`), `changelog` (`CHANGELOG.md`) |
+| `dependencies` | `warnOnClaim` (true) |
+| `routines` | `enabled` (true), `createFromDashboard` (true) |
+| `ntfy` | `enabled` (false), `server` (`https://ntfy.sh`), `topic`, `token` (never shown back), `events` (`question`, `handTest`, `goalFinished`, `hotfix`, `alternatives`, all true), `includeTitles` (true) |
+| `alternatives` | `wait` (`0m`), `offer` (`big choices`; or `off`, `always`) |
+| `handoffs` | `afterRelease` (true), `keep` (50) |
+
+**History.** Each tool call that changes the plan, and each change on the dashboard, is one entry in `.progressor/history/` (kept on this computer), with what each file was before. `plan_history` and the History page list them; going back restores the files as they were before that entry. `GET /api/projects/<id>/history`, `GET …/history/<entry>`, `POST …/history/<entry>/restore` (`history` header).
+
+**Step evidence.** When a step is finished, Progressor asks git (read only, with short timeouts) for the commits since the step started that touch its files, the branch, and whether its files have changes not committed, and writes them on the Task (`commits`, `branch`, `tests`, `uncommitted`). Reopening the step clears them. Without git nothing is written and nothing fails.
+
+**Estimates that learn.** Over the last `window` finished steps with an estimate and a time, Progressor works out how far off the estimates were (from 5 such steps on), scales the schedule's finish times by it, and tells the AI in one line.
+
+**Plan check-up.** Finds mixed line endings, temp files left by a save that did not finish, Claims of Sessions that have ended, finished steps of open goals with no record of their work, goals and Plan Files that don't match, missing pictures and files that can't be read. Safe repairs are made when `autoRepair` is on, each undoable. The last result is kept in `.progressor/checkup/last.json` (on this computer). `GET`/`POST /api/projects/<id>/checkup` (`checkup` header).
+
+**Release goals.** `add_goal` with `release: true` writes `release: <version>` and one `bundles: <goal>` line per finished goal no earlier release goal bundles (or the `bundles` given). The version is the next minor one from `package.json`, or the next patch when only hotfixes are bundled. The answer, and `get_status` while the goal is held, give the release facts: each bundled goal with its Outcome, steps and decisions, the commits since the tag `v<version>`, the latest changelog entry as a style sample, and what to write where.
+
+**Goals that wait.** `waits_on` takes goal IDs here or `<project>/<goal>` in another project. A loop is refused. The schedule starts a waiting goal after the ones it waits on; `claim_goal` reminds the AI when one is not finished (`dependencies.warnOnClaim`).
+
+**Routines.** A `## Routines` section in `roadmap.md` holds each routine (see [the format](markdown-format.md#routines)). When one is due and the goal it made last is finished or dropped, `get_status` (and the dashboard's timer, about once a minute, when `createFromDashboard` is on) adds a fresh goal from it, each in its own undoable change under the plan's lock, and moves its next time on in the same write. Missed turns are skipped. `GET /api/projects/<id>/routines`, `POST …/routines/<routine>/pause|resume|stop` (`routines` header).
+
+**Phone notifications.** With `ntfy.enabled` and a topic, the dashboard sends a push to `<server>/<topic>` for each new event of the kinds turned on, shortly after the plan changes; `includeTitles: false` leaves goal titles out. `POST /api/settings/ntfy/test` sends a test message.
+
+**Alternatives.** See `ask_developer` above. The dashboard shows them as cards on the goal page; `POST /api/projects/<id>/goals/<goal>/questions/<q>/more` asks the AI for other options (`talk` header).
+
+**Handoffs.** Saved as `.progressor/handoffs/<date>-<title>.md`, which follows the plan's own git rule; only the newest `keep` are kept. `GET /api/projects/<id>/handoffs`, `GET …/handoffs/<file>`, and `POST …/handoffs/request` (`{since?, until?}` as dates, or `{last}` commits; `handoffs` header) asks the AI for one with a message to the whole project.
 
 ### Locks on shared resources
 
