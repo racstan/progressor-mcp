@@ -12,6 +12,7 @@ import { releaseSection } from "./Release.js";
 import { handoffsSection } from "./Handoffs.js";
 import { alternativesSection } from "./Alternatives.js";
 import { routinesSection } from "./Routines.js";
+import { backgroundSection } from "./Background.js";
 import type { SettingsSection } from "./types.js";
 
 export type { SettingsContext, SettingsSection, Theme } from "./types.js";
@@ -32,5 +33,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   handoffsSection,
   routinesSection,
   alternativesSection,
+  backgroundSection,
   advancedSection,
 ];

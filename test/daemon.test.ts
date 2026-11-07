@@ -174,7 +174,7 @@ describe("the daemon command's words", () => {
       describeStatus({ pid: 42, port: 4747, version: "1.3.0", memory: 69 * 1_048_576, serving: true, startedAt: "2026-11-07T10:00:00.000Z" }),
     ).toBe("The background dashboard is running: http://localhost:4747/, version 1.3.0, process 42, 69 MB of memory.");
     expect(describeStatus({ pid: 42, port: 4747, version: "1.2.0", memory: 60 * 1_048_576, serving: false, startedAt: "x" })).toBe(
-      "The background dashboard is running (version 1.2.0, process 42, 60 MB of memory). A newer Progressor serves http://localhost:4747/ right now; it takes over again when that one closes.",
+      "The background dashboard is running (version 1.2.0, process 42, 60 MB of memory). Another Progressor process serves http://localhost:4747/ right now; this one takes over when it closes.",
     );
   });
 });

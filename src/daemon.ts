@@ -277,5 +277,5 @@ export function describeStatus(s: DaemonStatus | undefined): string {
   if (!s) return "The background dashboard is not running.";
   const url = `http://localhost:${s.port}/`;
   if (s.serving) return `The background dashboard is running: ${url}, version ${s.version}, process ${s.pid}, ${mb(s.memory)} of memory.`;
-  return `The background dashboard is running (version ${s.version}, process ${s.pid}, ${mb(s.memory)} of memory). A newer Progressor serves ${url} right now; it takes over again when that one closes.`;
+  return `The background dashboard is running (version ${s.version}, process ${s.pid}, ${mb(s.memory)} of memory). Another Progressor process serves ${url} right now; this one takes over when it closes.`;
 }

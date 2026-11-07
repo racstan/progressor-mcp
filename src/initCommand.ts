@@ -188,6 +188,9 @@ export async function runInitCommand(args: string[]): Promise<number> {
         : "Restart Claude Code in this folder to load Progressor, then ask the Agent to plan a Goal.",
     );
   console.log("See every project's progress with: progressor-mcp dashboard");
+  console.log(
+    "The dashboard runs while your AI's app is open. To keep it up all the time, in a small background process (about 30 MB) that starts when you log in: progressor-mcp daemon install (optional; Settings › Advanced has the same choice).",
+  );
   if (viaNpx)
     console.log(
       "\nThis ran through npx, so the hooks do too, and npx adds about 1.5 seconds to every message. For a faster setup, run\n" +
