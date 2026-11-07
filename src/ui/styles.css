@@ -765,7 +765,8 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .reset-section:hover { color: var(--ink); }
 :is(.menu-panel, .settings-page) .settings-foot { margin-top: var(--s3); }
 :is(.menu-panel, .settings-page) .reset-all { border-top: 1px solid var(--line); padding-top: var(--s4); }
-.free-notice { margin: var(--s4) 0 0; padding: var(--s2) var(--s3); border: 1px solid var(--line-strong); border-radius: var(--r-s); font-size: var(--t-s); font-weight: 600; color: var(--ink); }
+.free-notice { margin: var(--s4) 0 0; padding: var(--s2) var(--s3); border: 1px solid var(--line-strong); border-radius: var(--r-s); font-size: var(--t-s); font-weight: 700; color: var(--ink); }
+.free-notice strong { font-weight: 800; }
 /* the Settings page: a menu of its groups on the left on a wide window, everything stacked on a phone */
 .settings-layout { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: var(--s6); margin-top: var(--s5); align-items: start; transition: grid-template-columns .2s var(--ease); }
 .settings-layout.folded { grid-template-columns: 40px minmax(0, 1fr); gap: var(--s4); }

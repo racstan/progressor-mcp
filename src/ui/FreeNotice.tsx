@@ -4,7 +4,7 @@ import { FREE_NOTICE } from "./words.js";
 export function FreeNotice() {
   return (
     <p className="free-notice" role="note">
-      {FREE_NOTICE}
+      <strong>{FREE_NOTICE}</strong>
     </p>
   );
 }
