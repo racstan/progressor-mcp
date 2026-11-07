@@ -67,3 +67,36 @@ export function search(projects: SearchableProject[], query: string, limit = 30)
     .slice(0, limit)
     .map((s) => s.hit);
 }
+
+/**
+ * Each project's searchable text, read once and kept until the file watcher reports a change to
+ * that project's plan, so typing in the search box does not re-read every plan file. Kept no longer
+ * than `maxAgeMs` either, in case a change was missed.
+ */
+export class SearchIndex {
+  private readonly kept = new Map<string, { at: number; project: SearchableProject }>();
+
+  constructor(
+    private readonly maxAgeMs = 30_000,
+    private readonly now: () => number = Date.now,
+  ) {}
+
+  get(id: string, build: () => SearchableProject): SearchableProject {
+    const hit = this.kept.get(id);
+    if (hit && this.now() - hit.at < this.maxAgeMs) return hit.project;
+    const project = build();
+    this.kept.set(id, { at: this.now(), project });
+    return project;
+  }
+
+  /** Forget a project, so the next search reads it again. */
+  drop(id: string): void {
+    this.kept.delete(id);
+  }
+
+  /** Forget every project not in `ids`. */
+  keepOnly(ids: string[]): void {
+    const keep = new Set(ids);
+    for (const id of this.kept.keys()) if (!keep.has(id)) this.kept.delete(id);
+  }
+}

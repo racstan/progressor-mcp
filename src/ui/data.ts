@@ -372,21 +372,25 @@ export const removeAttachment = async (projectId: string, wishId: string, file: 
 export const attachmentUrl = (projectId: string, wishId: string, file: string) =>
   `/api/projects/${encodeURIComponent(projectId)}/wishes/${encodeURIComponent(wishId)}/attachments/${encodeURIComponent(file)}`;
 
-/** Search results for what is typed, fetched a moment after typing stops; undefined while searching. */
+/**
+ * Search results for what is typed, fetched once typing pauses (150ms); a request for something no
+ * longer typed is cancelled. Undefined while searching.
+ */
 export function useSearch(query: string): SearchView | undefined {
   const [hits, setHits] = useState<{ query: string; hits: SearchView }>();
   const q = query.trim();
   useEffect(() => {
     if (!q) return;
-    let alive = true;
+    const stop = new AbortController();
     const timer = setTimeout(() => {
-      getJson<SearchView>(`/api/search?q=${encodeURIComponent(q)}`)
-        .then((h) => alive && setHits({ query: q, hits: h ?? [] }))
-        .catch(() => alive && setHits({ query: q, hits: [] }));
-    }, 120);
+      fetch(`/api/search?q=${encodeURIComponent(q)}`, { cache: "no-store", signal: stop.signal })
+        .then((res) => (res.ok ? (res.json() as Promise<SearchView>) : []))
+        .then((h) => setHits({ query: q, hits: h ?? [] }))
+        .catch(() => !stop.signal.aborted && setHits({ query: q, hits: [] }));
+    }, 150);
     return () => {
-      alive = false;
       clearTimeout(timer);
+      stop.abort();
     };
   }, [q]);
   return hits?.query === q ? hits.hits : undefined;

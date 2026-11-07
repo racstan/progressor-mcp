@@ -612,6 +612,20 @@ describe("searching", () => {
     expect((await get(d, "/api/search?q=remember")).body.map((h: any) => h.kind)).toEqual([]);
     expect((await get(d, "/api/search")).body).toEqual([]);
   });
+
+  it("finds a step added after an earlier search, once the plan file is saved", async () => {
+    const d = await start(agent);
+    expect((await get(d, "/api/search?q=refresh")).body).toEqual([]);
+    agent.addTasks([{ title: "Refresh the token early" }]);
+    const end = Date.now() + 3000;
+    let hits: any[] = [];
+    while (Date.now() < end) {
+      hits = (await get(d, "/api/search?q=refresh")).body;
+      if (hits.length) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(hits.map((h) => `${h.kind}:${h.title}`)).toEqual(["task:Refresh the token early"]);
+  });
 });
 
 describe("settings", () => {
