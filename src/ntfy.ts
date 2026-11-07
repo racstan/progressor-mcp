@@ -109,18 +109,23 @@ export async function sendNew(settingsFile: string, settings: NtfySettings, even
   return sent;
 }
 
-/** One project as seen now: its goals and the IDs of open questions and hand tests. A plan that cannot be read shows without them. */
+/** One project as seen now: its goals and the IDs of open questions, alternatives and hand tests. A plan that cannot be read shows without them. */
 export function lookAtProject(project: Project, id: string, name: string): LookProject {
   const goals = project.roadmap().goals.map((g) => {
     let questions: string[] = [];
     let tests: string[] = [];
+    let alternatives: string[] = [];
     try {
-      questions = project.talk(g.id).questions.filter((q) => q.state === "open").map((q) => q.id ?? q.ref ?? q.text);
+      const asked = project.talk(g.id).questions;
+      const key = (q: (typeof asked)[number]) => q.id ?? q.ref ?? q.text;
+      questions = asked.filter((q) => q.state === "open" && q.alternatives.length === 0).map(key);
+      // Alternatives offered and not picked by the Developer, even once the AI has gone ahead with its own.
+      alternatives = asked.filter((q) => q.alternatives.length > 0 && (q.state === "open" || q.chosenBy === "AI")).map(key);
       tests = project.plan(g.id).handTests.filter((h) => h.result === "pending").map((h) => h.id ?? h.ref ?? h.text);
     } catch {
       // keep the goal, without what waits on the Developer
     }
-    return { id: g.id, title: g.title, status: g.status, ...(g.hotfix ? { hotfix: true } : {}), questions, tests };
+    return { id: g.id, title: g.title, status: g.status, ...(g.hotfix ? { hotfix: true } : {}), questions, tests, alternatives };
   });
   return { id, name, goals };
 }

@@ -11,6 +11,7 @@ import {
   type HandTest,
   type Message,
   type Question,
+  type Alternative,
   type NewTask,
   type Note,
   type PlanFile,
@@ -1496,15 +1497,55 @@ export class Project {
     const talk = this.talkable(goalId);
     const question = talk.question(id);
     if (!question) throw new Error(`No question ${id} in Goal ${goalId}.`);
-    if (question.state === "answered") throw new Error(`Question ${id} is already answered.`);
+    // Alternatives the AI went ahead with can still be picked; the AI is told when the pick differs.
+    if (question.state === "answered" && question.chosenBy !== "AI") throw new Error(`Question ${id} is already answered.`);
     if (question.state === "withdrawn") throw new Error(`Question ${id} was withdrawn by your AI; it no longer needs an answer.`);
     // The choice itself belongs to the plan (committed); the talk stays in the talk file.
     const plan = this.plan(goalId);
-    const decision = plan.addDecision(`${question.text} The Developer answered: ${words}`);
+    const text = `${question.text} The Developer answered: ${words}`;
+    const decision = question.decision && plan.decision(question.decision) ? plan.setDecision(question.decision, text) : plan.addDecision(text);
     this.savePlan(plan);
-    const answered = talk.answerQuestion(id, words, this.now(), decision.id);
+    const same = question.chosenBy === "AI" && question.wentAhead === words;
+    const answered = talk.answerQuestion(id, words, this.now(), decision.id, same);
     this.saveTalk(talk);
     return answered;
+  }
+
+  /** The Developer asks for other options than the alternatives offered; the AI is told with a notice. */
+  requestMoreAlternatives(goalId: string, id: string): Question {
+    const talk = this.talkable(goalId);
+    const question = talk.question(id);
+    if (!question) throw new Error(`No question ${id} in Goal ${goalId}.`);
+    if (question.alternatives.length === 0) throw new Error(`Question ${id} has no alternatives to replace.`);
+    if (question.state === "withdrawn") throw new Error(`Question ${id} was withdrawn by your AI.`);
+    if (question.moreRequested) throw new Error(`You already asked for other options to ${id}.`);
+    const asked = talk.requestMore(id);
+    talk.addMessage(`On the dashboard I asked for other options to question ${id} "${question.text}". Offer new ones with ask_developer.`, this.now());
+    this.saveTalk(talk);
+    return asked;
+  }
+
+  /** Open alternatives whose wait is over: the AI goes ahead with its pick (closeOverdue). */
+  private overdue(talk: PlanFile): Question[] {
+    const now = this.now().getTime();
+    return talk.questions.filter((q) => q.state === "open" && q.recommended !== undefined && q.proceeds !== undefined && Date.parse(q.proceeds) <= now);
+  }
+
+  /**
+   * Closes alternatives nobody picked in time: answered by the AI with its recommended option and
+   * kept as a decision, not yet shown to it, so its next look tells it to go ahead.
+   */
+  private closeOverdue(goalId: string, talk: PlanFile, told = false): Question[] {
+    const due = this.overdue(talk);
+    if (due.length === 0) return [];
+    const plan = this.plan(goalId);
+    const closed = due.map((q) => {
+      const pick = q.alternatives[(q.recommended ?? 1) - 1]?.title ?? q.choices[0];
+      const decision = plan.addDecision(`${q.text} Your AI went ahead with its recommended option: ${pick}`);
+      return talk.goAhead(q.id!, this.now(), decision.id, told);
+    });
+    this.savePlan(plan);
+    return closed;
   }
 
   /**
@@ -1514,6 +1555,7 @@ export class Project {
   takeNewFromDeveloper(goalId: string): FromDeveloper {
     const talk = this.talk(goalId);
     const at = this.now();
+    if (goalId !== PROJECT_TALK) this.closeOverdue(goalId, talk);
     const news = { messages: talk.takeNewMessages(at), answers: talk.takeNewAnswers(at) };
     if (news.messages.length > 0 || news.answers.length > 0) this.saveTalk(talk);
     return news;
@@ -1538,7 +1580,7 @@ export class Project {
     try {
       if (!existsSync(this.path(TALK_DIR, `${goalId}.md`))) return false;
       const talk = this.talk(goalId);
-      return talk.messages.some((m) => m.state === "new") || talk.questions.some((q) => q.state === "answered" && !q.seen);
+      return talk.messages.some((m) => m.state === "new") || talk.questions.some((q) => q.state === "answered" && !q.seen) || this.overdue(talk).length > 0;
     } catch {
       return false;
     }
@@ -1585,6 +1627,30 @@ export class Project {
     return this.inClaimedTalk(options.goal, (talk, plan) => {
       if (options.task && !plan.task(options.task)) throw new Error(`No Task ${options.task} in Goal ${plan.goalId}.`);
       return talk.addQuestion(words, picks, options.task || undefined, this.now());
+    });
+  }
+
+  /**
+   * Offers the Developer 2 to 4 alternatives, on a claimed Goal. Nothing waits on them: after
+   * `waitMinutes` (at once when 0) the AI goes ahead with its recommended one, and a later pick of
+   * another comes to it as news.
+   */
+  askAlternatives(text: string, alternatives: Alternative[], options: { recommended?: number; waitMinutes: number; goal?: string; task?: string }): Question {
+    const words = cutText(text, 500);
+    if (!words) throw new Error("Write the question.");
+    const alts = alternatives.map((a) => ({ title: cutText(a.title, 200), about: cutText(a.about ?? "", 300) || undefined, picture: a.picture?.trim() || undefined }));
+    if (alts.length < 2 || alts.length > 4 || alts.some((a) => !a.title)) throw new Error("Give 2 to 4 alternatives, each with a short title.");
+    if (new Set(alts.map((a) => a.title.toLowerCase())).size !== alts.length) throw new Error("Give alternatives with different titles.");
+    const recommended = options.recommended ?? 1;
+    if (!Number.isInteger(recommended) || recommended < 1 || recommended > alts.length) throw new Error(`recommended must be 1 to ${alts.length}: the alternative you would pick.`);
+    return this.inClaimedTalk(options.goal, (talk, plan) => {
+      if (options.task && !plan.task(options.task)) throw new Error(`No Task ${options.task} in Goal ${plan.goalId}.`);
+      const pictures = this.pictures(plan.goalId).map((p) => p.id);
+      for (const a of alts) if (a.picture && !pictures.includes(a.picture)) throw new Error(`No picture ${a.picture} in Goal ${plan.goalId}; attach it with attach_picture first.`);
+      const at = this.now();
+      const q = talk.addAlternatives(words, alts, recommended, new Date(at.getTime() + Math.max(0, options.waitMinutes) * 60_000), options.task || undefined, at);
+      if (options.waitMinutes > 0) return q;
+      return this.closeOverdue(plan.goalId, talk, true).find((c) => c.id === q.id) ?? q;
     });
   }
 

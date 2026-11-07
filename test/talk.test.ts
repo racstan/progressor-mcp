@@ -8,6 +8,8 @@ import { projectEntry } from "../src/dashboard/registry.js";
 import { promptReminder } from "../src/hooks.js";
 import { createServer } from "../src/server.js";
 import { parsePlanFile } from "../src/planFile.js";
+import { writeSettings } from "../src/settings.js";
+import { lookAtProject } from "../src/ntfy.js";
 import { PROJECT_TALK, Project } from "../src/project.js";
 import { tempDir } from "./tmp.js";
 
@@ -407,5 +409,226 @@ describe("what the dashboard says a goal needs", () => {
     agent.markHandTest("dark-mode", "h1", "works");
     agent.setTaskState("t2", "waiting on you");
     expect(summary()).toMatchObject({ waitingOnYou: true, untriedTests: 0, waitingSteps: 1 });
+  });
+});
+
+describe("alternatives to choose from", () => {
+  const layouts = [
+    { title: "Cards", about: "Big tiles with a picture each" },
+    { title: "List", about: "Compact rows, more on screen" },
+  ];
+
+  it("are kept as a question: the choices old readers see, plus about, picture, recommended and proceeds lines", () => {
+    agent.askAlternatives("Which layout for the home page?", layouts, { recommended: 2, waitMinutes: 10 });
+    expect(talkText()).toContain(
+      [
+        "- [ ] Which layout for the home page? ^q1",
+        "  - choice: Cards",
+        "  - choice: List",
+        "  - about 1: Big tiles with a picture each",
+        "  - about 2: Compact rows, more on screen",
+        "  - recommended: 2",
+        "  - proceeds: 2026-10-28T10:10:00.000Z",
+        "  - asked: 2026-10-28T10:00:00.000Z",
+      ].join("\n"),
+    );
+    const q = talk().question("q1")!;
+    expect(q).toMatchObject({ state: "open", choices: ["Cards", "List"], recommended: 2, proceeds: "2026-10-28T10:10:00.000Z", moreRequested: false, chosenBy: undefined });
+    expect(q.alternatives).toEqual([
+      { title: "Cards", about: "Big tiles with a picture each", picture: undefined },
+      { title: "List", about: "Compact rows, more on screen", picture: undefined },
+    ]);
+  });
+
+  it("a plain question has no alternatives", () => {
+    agent.askDeveloper("A or B?", ["A", "B"]);
+    expect(talk().question("q1")).toMatchObject({ alternatives: [], recommended: undefined, chosenBy: undefined });
+  });
+
+  it("refuses too few or too many, a recommended one out of range and a picture the goal does not have", () => {
+    expect(() => agent.askAlternatives("Which?", [layouts[0]!], { recommended: 1, waitMinutes: 0 })).toThrow(/2 to 4/);
+    expect(() => agent.askAlternatives("Which?", layouts, { recommended: 3, waitMinutes: 0 })).toThrow(/recommended/);
+    expect(() => agent.askAlternatives("Which?", [{ title: "A", picture: "p9" }, { title: "B" }], { recommended: 1, waitMinutes: 0 })).toThrow(/No picture p9/);
+  });
+
+  it("keeps a picture the goal has", () => {
+    const shot = join(root, "shot.png");
+    writeFileSync(shot, "png");
+    agent.attachPicture(shot, "The cards layout");
+    agent.askAlternatives("Which?", [{ title: "Cards", picture: "p1" }, { title: "List" }], { recommended: 1, waitMinutes: 10 });
+    expect(talkText()).toContain("  - picture 1: p1");
+    expect(talk().question("q1")!.alternatives[0]).toMatchObject({ title: "Cards", picture: "p1" });
+  });
+
+  it("with no wait, the AI goes ahead at once: answered by the AI, kept as a decision, and already known to it", () => {
+    const q = agent.askAlternatives("Which layout?", layouts, { recommended: 1, waitMinutes: 0 });
+    expect(q).toMatchObject({ state: "answered", answer: "Cards", chosenBy: "AI", decision: "c1", seen: true });
+    expect(talkText()).toContain("  - answer: Cards (chosen by AI)");
+    expect(plan().decision("c1")!.text).toBe("Which layout? Your AI went ahead with its recommended option: Cards");
+    expect(agent.hasNewFromDeveloper("dark-mode")).toBe(false);
+  });
+
+  it("with a wait, nothing happens before it is over; after it, the AI's next look closes it and tells it to go ahead", () => {
+    agent.askAlternatives("Which layout?", layouts, { recommended: 2, waitMinutes: 10 });
+    later(5);
+    expect(agent.hasNewFromDeveloper("dark-mode")).toBe(false);
+    later(10);
+    expect(agent.hasNewFromDeveloper("dark-mode")).toBe(true);
+    const news = agent.takeNewFromDeveloper("dark-mode");
+    expect(news.answers).toEqual([expect.objectContaining({ id: "q1", answer: "List", chosenBy: "AI", decision: "c1" })]);
+    expect(talk().question("q1")!.state).toBe("answered");
+    expect(agent.takeNewFromDeveloper("dark-mode").answers).toEqual([]);
+  });
+
+  it("the Developer can still pick another after the AI went ahead; it comes to the AI as news and changes the decision", () => {
+    agent.askAlternatives("Which layout?", layouts, { recommended: 1, waitMinutes: 0 });
+    later(30);
+    const picked = page.answerQuestion("dark-mode", "q1", "List");
+    expect(picked).toMatchObject({ state: "answered", answer: "List", chosenBy: "Developer", wentAhead: "Cards", seen: false });
+    expect(plan().decision("c1")!.text).toBe("Which layout? The Developer answered: List");
+    expect(plan().decisions).toHaveLength(1);
+    expect(agent.takeNewFromDeveloper("dark-mode").answers).toEqual([expect.objectContaining({ id: "q1", answer: "List" })]);
+    expect(() => page.answerQuestion("dark-mode", "q1", "Cards")).toThrow(/already answered/);
+  });
+
+  it("picking the option the AI already went ahead with only confirms it, with no news", () => {
+    agent.askAlternatives("Which layout?", layouts, { recommended: 1, waitMinutes: 0 });
+    expect(page.answerQuestion("dark-mode", "q1", "Cards")).toMatchObject({ chosenBy: "Developer", seen: true });
+    expect(agent.hasNewFromDeveloper("dark-mode")).toBe(false);
+  });
+
+  it("the Developer picking before the wait is over is an ordinary answer", () => {
+    agent.askAlternatives("Which layout?", layouts, { recommended: 1, waitMinutes: 60 });
+    expect(page.answerQuestion("dark-mode", "q1", "List")).toMatchObject({ chosenBy: "Developer", wentAhead: undefined });
+    later(120);
+    expect(agent.takeNewFromDeveloper("dark-mode").answers).toEqual([expect.objectContaining({ answer: "List", chosenBy: "Developer" })]);
+  });
+
+  it("asking for other options marks the question and tells the AI as a notice", () => {
+    agent.askAlternatives("Which layout?", layouts, { recommended: 1, waitMinutes: 0 });
+    page.requestMoreAlternatives("dark-mode", "q1");
+    expect(talkText()).toContain("  - more: requested");
+    expect(talk().question("q1")!.moreRequested).toBe(true);
+    const news = agent.takeNewFromDeveloper("dark-mode");
+    expect(news.messages[0]!.text).toBe('On the dashboard I asked for other options to question q1 "Which layout?". Offer new ones with ask_developer.');
+    expect(() => page.requestMoreAlternatives("dark-mode", "q1")).toThrow(/already/);
+    agent.askDeveloper("A or B?", ["A", "B"]);
+    expect(() => page.requestMoreAlternatives("dark-mode", "q2")).toThrow(/no alternatives/);
+  });
+
+  it("reads the lines back as they were", () => {
+    const source = "# G\n\n## Questions\n\n- [x] Which? ^q1\n  - choice: a\n  - choice: b\n  - about 2: the b one\n  - recommended: 1\n  - answer: a (chosen by AI)\n";
+    const p = parsePlanFile(source, "g");
+    expect(p.question("q1")).toMatchObject({ answer: "a", chosenBy: "AI", recommended: 1 });
+    expect(p.question("q1")!.alternatives[1]).toMatchObject({ title: "b", about: "the b one" });
+    expect(p.toString()).toBe(source);
+  });
+});
+
+describe("alternatives through the AI's tools", () => {
+  let client: Client;
+  let settingsFile: string;
+  beforeEach(async () => {
+    settingsFile = join(tempDir("progressor-settings-"), "settings.json");
+    const server = createServer(agent, { settingsFile });
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: "test", version: "0" });
+    await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
+  });
+  const call = async (name: string, args: Record<string, unknown> = {}) => {
+    const r = (await client.callTool({ name, arguments: args })) as { content: { text: string }[]; isError?: boolean };
+    return { text: r.content.map((c) => c.text).join("\n"), isError: r.isError ?? false };
+  };
+  const alternatives = [
+    { title: "Cards", about: "Big tiles" },
+    { title: "List", about: "Compact rows" },
+  ];
+
+  it("offers alternatives and tells the AI to go ahead now with its pick (the default wait is none)", async () => {
+    const { text, isError } = await call("ask_developer", { question: "Which layout?", alternatives, recommended: 2 });
+    expect(isError).toBe(false);
+    expect(text).toContain("Offered q1: Which layout? (1 Cards / 2 List, recommended 2)");
+    expect(text).toContain('Go ahead now with 2 "List" (kept as decision c1).');
+    expect(text).toContain("a later pick comes as news");
+    expect((await call("get_status")).text).not.toContain("q1");
+  });
+
+  it("with a wait, get_status lists it with its pick until the wait is over, then tells the AI once to go ahead", async () => {
+    await call("ask_developer", { question: "Which layout?", alternatives, wait: "10m" });
+    let { text } = await call("get_status");
+    expect(text).toContain('Alternatives waiting for a pick: q1 Which layout? (yours: 1 "Cards"; if nobody picks, go ahead at 2026-10-28T10:10:00.000Z)');
+    later(11);
+    ({ text } = await call("get_status"));
+    expect(text).toContain('- q1 on goal dark-mode "Which layout?": nobody picked in time, so go ahead now with your recommended option: Cards (kept as decision c1). A later pick comes as news.');
+    expect(text).not.toContain("Alternatives waiting");
+    expect((await call("get_status")).text).not.toContain("nobody picked");
+  });
+
+  it("the default wait comes from the settings", async () => {
+    writeSettings(settingsFile, "alternatives", { wait: "1h" });
+    const { text } = await call("ask_developer", { question: "Which layout?", alternatives });
+    expect(text).toContain("If nobody picks by 2026-10-28T11:00:00.000Z, go ahead with 1");
+    expect(talk().question("q1")!.state).toBe("open");
+  });
+
+  it("a later different pick tells the AI to change course", async () => {
+    await call("ask_developer", { question: "Which layout?", alternatives });
+    page.answerQuestion("dark-mode", "q1", "List");
+    const { text } = await call("get_status");
+    expect(text).toContain('- The Developer picked another option for q1 on goal dark-mode "Which layout?": List, not Cards that you went ahead with; change course (kept as decision c1)');
+  });
+
+  it("refuses alternatives with a bad wait", async () => {
+    expect((await call("ask_developer", { question: "Which?", alternatives, wait: "soon" })).isError).toBe(true);
+  });
+
+  it("gives one short hint about when to offer alternatives, following the setting", async () => {
+    expect((await call("get_status")).text).toContain("For a big product or design choice, offer 2 to 4 alternatives with ask_developer");
+    writeSettings(settingsFile, "alternatives", { offer: "always" });
+    expect((await call("get_status")).text).toContain("For any choice with more than one good way, offer 2 to 4 alternatives with ask_developer");
+    writeSettings(settingsFile, "alternatives", { offer: "off" });
+    expect((await call("get_status")).text).not.toContain("alternatives with ask_developer");
+  });
+});
+
+describe("alternatives on the dashboard", () => {
+  let d: Dashboard;
+  let id: string;
+  const post = (path: string, body: unknown) =>
+    fetch(new URL(`/api/projects/${id}/goals/dark-mode/${path}`, d.url), {
+      method: "POST",
+      headers: { origin: new URL(d.url).origin, "x-progressor": "talk", "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  beforeEach(async () => {
+    const registry = join(tempDir("progressor-registry-"), "projects.json");
+    d = await startDashboard({ project: agent, registryFile: registry, port: 20000 + Math.floor(Math.random() * 20000) });
+    id = projectEntry(root).id;
+  });
+  afterEach(async () => {
+    await d.close();
+  });
+
+  it("are picked through the answer route and can ask for other options", async () => {
+    agent.askAlternatives("Which layout?", [{ title: "Cards" }, { title: "List" }], { recommended: 1, waitMinutes: 0 });
+    const view = (await (await fetch(new URL(`/api/projects/${id}/goals/dark-mode`, d.url))).json()) as { questions: unknown[] };
+    expect(view.questions).toMatchObject([{ id: "q1", chosenBy: "AI", recommended: 1, alternatives: [{ title: "Cards" }, { title: "List" }] }]);
+    expect((await post("questions/q1/more", {})).status).toBe(200);
+    expect(talk().question("q1")!.moreRequested).toBe(true);
+    const picked = await post("questions/q1/answer", { answer: "List" });
+    expect(picked.status).toBe(200);
+    expect(await picked.json()).toMatchObject({ answer: "List", chosenBy: "Developer" });
+    expect((await post("questions/q9/more", {})).status).toBe(404);
+  });
+});
+
+describe("alternatives for phone notifications", () => {
+  it("are looked at apart from plain questions, until the Developer picks", () => {
+    const look = () => lookAtProject(page, "p", "P").goals.find((g) => g.id === "dark-mode")!;
+    agent.askDeveloper("A or B?", ["A", "B"]);
+    agent.askAlternatives("Which layout?", [{ title: "Cards" }, { title: "List" }], { recommended: 1, waitMinutes: 0 });
+    expect(look()).toMatchObject({ questions: ["q1"], alternatives: ["q2"] });
+    page.answerQuestion("dark-mode", "q2", "List");
+    expect(look()).toMatchObject({ alternatives: [] });
   });
 });

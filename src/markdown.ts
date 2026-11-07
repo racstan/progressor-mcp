@@ -50,7 +50,8 @@ export interface MarkdownDoc {
 const HEADING = /^(#{1,6})\s+(.*?)\s*$/;
 const ITEM = /^[-*+]\s+(?:\[([ xX/-])\]\s+)?(.*)$/;
 const ID_SUFFIX = /\s+\^([A-Za-z0-9][\w-]*)\s*$/;
-const DETAIL = /^\s+[-*+]\s+([a-z][a-z ]*?):\s*(.*?)\s*$/;
+// A key may end in a number ("about 2"), for details that belong to one of a list (alternatives).
+const DETAIL = /^\s+[-*+]\s+([a-z][a-z ]*?(?: \d{1,2})?):\s*(.*?)\s*$/;
 const FENCE = /^\s*(```|~~~)/;
 
 function splitId(text: string): { text: string; id: string | undefined } {

@@ -620,7 +620,7 @@ class Hub {
       return v;
     };
     try {
-      const answer = project.transaction(action === "messages" ? "Sent a message" : action.startsWith("questions") ? "Answered a question" : "Took back a message", () => {
+      const answer = project.transaction(action === "messages" ? "Sent a message" : action.endsWith("/more") ? "Asked for other options" : action.startsWith("questions") ? "Answered a question" : "Took back a message", () => {
         if (action === "messages") return { status: 201, body: project.sendMessage(goalId, words("text")) };
         const del = /^messages\/([^/]+)\/delete$/.exec(action);
         if (del) {
@@ -629,6 +629,8 @@ class Hub {
         }
         const ans = /^questions\/([^/]+)\/answer$/.exec(action);
         if (ans) return { status: 200, body: project.answerQuestion(goalId, ans[1]!, words("answer")) };
+        const more = /^questions\/([^/]+)\/more$/.exec(action);
+        if (more) return { status: 200, body: project.requestMoreAlternatives(goalId, more[1]!) };
         return { status: 404, body: { error: "Nothing to do here." } };
       });
       return json(res, answer.status, answer.body);
@@ -838,7 +840,7 @@ class Hub {
     if (req.method === "POST" && upload) return void this.attach(req, res, decodeURIComponent(upload[1]!), decodeURIComponent(upload[2]!));
     const notes = /^\/api\/projects\/([^/]+)\/(context|hotfixes|(?:rules|wishes)(?:\/[^/]+(?:\/attachments\/[^/]+)?(?:\/delete)?)?)$/.exec(path);
     if (req.method === "POST" && notes) return void this.notes(req, res, decodeURIComponent(notes[1]!), notes[2]!);
-    const talk = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/((?:messages|questions)(?:\/[^/]+\/(?:delete|answer))?)$/.exec(path);
+    const talk = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/((?:messages|questions)(?:\/[^/]+\/(?:delete|answer|more))?)$/.exec(path);
     if (req.method === "POST" && talk) return void this.talk(req, res, decodeURIComponent(talk[1]!), decodeURIComponent(talk[2]!), talk[3]!);
     const mark = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/hand-tests\/([^/]+)$/.exec(path);
     if (req.method === "POST" && mark)

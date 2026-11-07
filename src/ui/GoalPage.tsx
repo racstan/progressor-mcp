@@ -14,7 +14,7 @@ import { Popover } from "./Popover.js";
 import { RichText } from "./RichText.js";
 import { StepKey } from "./StepKey.js";
 import { type FileLink, Steps, StepIcon } from "./Steps.js";
-import { Conversation, OpenQuestions } from "./Talk.js";
+import { Conversation, OpenQuestions, questionsAtTop } from "./Talk.js";
 import { plainText } from "./text.js";
 import { SIDE_TRIP_HINT, ago, datesLine, datesTitle, elsewhereTag, exactDate, finishWords, goalState, releaseChip, RELEASE_HINT, waitsChip, whenWords, WAITING_ON_GOAL_HINT } from "./words.js";
 
@@ -56,7 +56,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
   const live = tasks.filter((t) => t.status !== "dropped");
   const done = live.filter((t) => t.status === "done" || t.status === "released").length;
   const waiting = tasks.filter((t) => t.status === "waiting on you");
-  const questions = view.questions.filter((q) => q.state === "open");
+  const questions = questionsAtTop(view.questions, goal.status === "done");
   const untried = view.handTests.filter((t) => t.result === "pending");
   const detour = openDetourOf(graph);
   const from = detour?.branchedFrom ? tasks.find((t) => t.id === detour.branchedFrom) : undefined;
@@ -143,7 +143,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
         <section className="needs-panel" aria-label="Needs you">
           <h2>Needs you</h2>
           <ul className="hand-list">
-            <OpenQuestions {...props} />
+            <OpenQuestions {...props} finished={goal.status === "done"} />
             {waiting.map((t) => (
               <li key={t.id} className="needs-item">
                 <div className="kind">A step waits on you</div>

@@ -21,6 +21,7 @@ import type { GoalSchedule, Schedule } from "./schedule.js";
 import type { Wish } from "./wishlist.js";
 import { readSettings, settingsFileFor } from "./settings.js";
 import { releaseFacts } from "./facts.js";
+import { offerHint, parseWait } from "./alternatives.js";
 import { registerFeatureTools } from "./tools/index.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -700,7 +701,11 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       formatStatus(
         session,
         project.schedule(estimatesOf(project)),
-        [...[calibrationLine(project)].filter((l): l is string => !!l), ...project.helperWarnings(), ...resourceLines(project.resources().list(), project.now())],
+        [
+          ...[calibrationLine(project), session.held.length > 0 ? offerHint(readSettings(settingsFile, project.root).alternatives.offer) : undefined].filter((l): l is string => !!l),
+          ...project.helperWarnings(),
+          ...resourceLines(project.resources().list(), project.now()),
+        ],
         goalWaits(session.goals),
       ),
       ...session.held.filter((h) => h.goal!.release !== undefined && h.goal!.status !== "done").map((h) => `\n${releaseFor(project, h.goal!).text}`),
@@ -1467,19 +1472,43 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Ask the Developer",
       description:
-        "Ask the Developer a question on the dashboard, with 2 to 4 short choices they can click (they can also answer in their own words), instead of stopping in the chat. Use it for product and UX choices only they can make; carry on with other work meanwhile. Their answer reaches you at your next Progressor call, under 'New from the Developer', and is kept as a decision on the Goal. While a question is open the dashboard shows the Goal as waiting on them. To take back a question that no longer needs an answer, pass withdraw with its ID instead.",
+        "Ask the Developer a question on the dashboard, with 2 to 4 short choices they can click (they can also answer in their own words), instead of stopping in the chat. Use it for product and UX choices only they can make; carry on with other work meanwhile. Their answer reaches you at your next Progressor call, under 'New from the Developer', and is kept as a decision on the Goal. While a question is open the dashboard shows the Goal as waiting on them. To offer ways to go instead, give alternatives and recommended: nobody has to pick, you go ahead with yours. To take back a question that no longer needs an answer, pass withdraw with its ID instead.",
       inputSchema: {
         goal: heldGoal,
         question: z.string().max(500).optional().describe("The question, in one plain sentence a non-programmer understands."),
         choices: z.array(z.string().max(200)).max(4).optional().describe("2 to 4 short answers to pick from, such as ['On by default', 'Follow the computer']."),
+        alternatives: z
+          .array(z.object({ title: z.string().max(200), about: z.string().max(300).optional(), picture: z.string().optional() }))
+          .max(4)
+          .optional()
+          .describe("2 to 4 ways to go, instead of choices: a title, a line about it, a picture ID from attach_picture."),
+        recommended: z.number().int().optional().describe("The alternative you would pick (1-based; default 1)."),
+        wait: z.string().optional().describe('How long to wait for a pick before going ahead with yours, such as "10m"; default from the settings ("0m": at once).'),
         task: z.string().optional().describe("The ID of the Task it is about, such as 't3'."),
         withdraw: z.string().optional().describe("The ID of an open question to withdraw (such as 'q2'), instead of asking a new one."),
       },
     },
-    ({ goal, question, choices, task, withdraw }) =>
+    ({ goal, question, choices, alternatives, recommended, wait, task, withdraw }) =>
       respondIn(undefined, () => {
         if (withdraw) return withNow(`Withdrew question ${project.withdrawQuestion(withdraw, goal).id}.`);
         if (!question) throw new Error("Give the question and its choices, or withdraw with a question ID.");
+        if (alternatives) {
+          const waitText = wait ?? readSettings(settingsFile, project.root).alternatives.wait;
+          const waitMinutes = parseWait(waitText);
+          if (waitMinutes === undefined) throw new Error(`wait must be a time such as "0m", "10m", "1h" or "1d", not "${waitText}".`);
+          const q = project.askAlternatives(question, alternatives, { recommended, waitMinutes, goal, task });
+          const n = q.recommended ?? 1;
+          const pick = `${n} "${q.alternatives[n - 1]!.title}"`;
+          const where = `on the dashboard${dashboard?.url ? ` (${dashboard.url})` : ""}`;
+          return withNow(
+            [
+              `Offered ${q.id}: ${q.text} (${q.alternatives.map((a, i) => `${i + 1} ${a.title}`).join(" / ")}, recommended ${n})`,
+              q.state === "answered"
+                ? `Go ahead now with ${pick} (kept as decision ${q.decision}). The Developer may pick another ${where}; a later pick comes as news under 'New from the Developer', and then you change course.`
+                : `Carry on with other work. If nobody picks by ${q.proceeds}, go ahead with ${pick}: your next Progressor call after that says so. The Developer picks ${where}; a later pick comes as news.`,
+            ].join("\n"),
+          );
+        }
         const q = project.askDeveloper(question, choices ?? [], { goal, task });
         return withNow(
           `Asked ${q.id}: ${q.text} (${q.choices.join(" / ")})\nThe Developer answers on the dashboard${dashboard?.url ? ` (${dashboard.url})` : ""}; tell them in one plain sentence that a question is waiting there. Carry on with other work meanwhile.`,
