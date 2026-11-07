@@ -52,6 +52,7 @@ describe("the MCP server", () => {
         "get_item",
         "get_rules",
         "get_status",
+        "handoff",
         "list_resources",
         "move_goal",
         "move_task",

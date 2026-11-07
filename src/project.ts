@@ -35,7 +35,7 @@ import { HISTORY_DIR, type HistoryItem, type HistorySettings, entryChanges, reco
 import { SETTINGS_DEFAULTS } from "./settings.js";
 import { type MarkdownDoc, findSection, parseMarkdown } from "./markdown.js";
 import { gitBranches, orphanWarnings } from "./helperWork.js";
-import { type GitFacts, realGit } from "./gitFacts.js";
+import { type GitFacts, type GitRange, realGit } from "./gitFacts.js";
 import { type GoalLookup, type Waiting, finishedState, parseWaitRef, waitCycle } from "./dependencies.js";
 import { type Origin } from "./origin.js";
 import { ResourceLocks } from "./resources.js";
@@ -577,6 +577,34 @@ export class Project {
     this.ignoreLocal("checkup", "The last plan check-up stays on this computer");
     mkdirSync(this.path("checkup"), { recursive: true });
     this.writeText(this.checkupFile, text);
+  }
+
+  // --- handoffs -------------------------------------------------------------
+
+  /** The handoffs folder, `.progressor/handoffs/` (handoff.ts); it follows the plan's own git rule. */
+  get handoffsDir(): string {
+    return this.path("handoffs");
+  }
+
+  /** Saves one handoff file; noted in the history like any plan write. */
+  saveHandoffFile(file: string, text: string): void {
+    mkdirSync(this.handoffsDir, { recursive: true });
+    this.writeText(this.path("handoffs", file), text);
+  }
+
+  /** Removes an old handoff the settings no longer keep. */
+  removeHandoffFile(file: string): void {
+    rmSync(this.path("handoffs", file), { force: true });
+  }
+
+  /** The commits in a range, for a handoff (gitFacts.ts); undefined without git. */
+  gitRange(range: GitRange, max: number): { total: number; lines: string[]; files: string[] } | undefined {
+    return this.git.range?.(this.root, range, max);
+  }
+
+  /** When a commit was made; undefined when git doesn't know it. */
+  gitTimeOf(ref: string): string | undefined {
+    return this.git.timeOf?.(this.root, ref);
   }
 
   /** Puts a plan file's text back as given (a check-up repair); noted in the history like any write. */

@@ -10,6 +10,7 @@ import { isFromDashboardPage, json, readJsonBody } from "./respond.js";
 import { ntfyRoutes } from "./routes/ntfy.js";
 import { historyRoutes } from "./routes/history.js";
 import { checkupRoutes } from "./routes/checkup.js";
+import { handoffRoutes } from "./routes/handoffs.js";
 import { settingsRoutes } from "./routes/settings.js";
 
 /** What the hub gives every feature route. */
@@ -51,6 +52,7 @@ export const featureRoutes: FeatureRoute[] = [
   ...ntfyRoutes,
   ...historyRoutes,
   ...checkupRoutes,
+  ...handoffRoutes,
 ];
 
 /** A body bigger than this is refused unread, unless the route asks for more. */

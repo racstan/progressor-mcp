@@ -118,3 +118,23 @@ describe("release goals through the tools", () => {
     expect(readFileSync(join(root, ".progressor", "roadmap.md"), "utf8")).toContain(`  - bundles: ${a}\n`);
   });
 });
+
+describe("a finished release asks for its handoff", () => {
+  it("tells the AI to write one, unless the setting is off", async () => {
+    const { writeSettings } = await import("../src/settings.js");
+    finished(agent(), "Plan history");
+    const settings = join(tempDir("progressor-set-"), "settings.json");
+    const server = createServer(agent(), { settingsFile: settings });
+    const [x, y] = InMemoryTransport.createLinkedPair();
+    await server.connect(x);
+    const client = new Client({ name: "t", version: "1" });
+    await client.connect(y);
+    const call = async (name: string, args: Record<string, unknown> = {}) =>
+      ((await client.callTool({ name, arguments: args })) as { content: { text: string }[] }).content.map((c) => c.text).join("\n");
+    await call("add_goal", { title: "Release 1.4.0", release: true, tasks: [{ title: "Changelog", done: true }], claim: true });
+    expect(await call("complete_goal")).toContain("write a handoff for this release");
+    writeSettings(settings, "handoffs", { afterRelease: false });
+    await call("add_goal", { title: "Release 1.5.0", release: true, tasks: [{ title: "x", done: true }], claim: true });
+    expect(await call("complete_goal")).not.toContain("handoff");
+  });
+});

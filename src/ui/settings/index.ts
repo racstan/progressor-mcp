@@ -9,6 +9,7 @@ import { dependenciesSection } from "./Dependencies.js";
 import { checkupSection } from "./Checkup.js";
 import { historySection } from "./History.js";
 import { releaseSection } from "./Release.js";
+import { handoffsSection } from "./Handoffs.js";
 import { alternativesSection } from "./Alternatives.js";
 import type { SettingsSection } from "./types.js";
 
@@ -26,6 +27,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   checkupSection,
   historySection,
   releaseSection,
+  handoffsSection,
   alternativesSection,
   advancedSection,
 ];

@@ -540,3 +540,45 @@ export async function goBackInHistory(projectId: string, id: string): Promise<{ 
   if (!res.ok) throw new Error(answer.error ?? `The server answered ${res.status}.`);
   return { files: answer.files ?? [] };
 }
+
+// --- handoffs ---
+// Handoffs (handoff.ts): write-ups your AI saves for whoever picks the work up next.
+
+/** One saved handoff as GET /api/projects/:id/handoffs lists it. */
+export interface HandoffSummary {
+  file: string;
+  title: string;
+  range?: string;
+  commits?: number;
+  written?: string;
+}
+
+/** A project's handoffs, newest first, fetched again whenever `version` changes. */
+export function useHandoffs(projectId: string, version: unknown): HandoffSummary[] | null | undefined {
+  const path = `/api/projects/${encodeURIComponent(projectId)}/handoffs`;
+  const [view, setView] = useState<{ path: string; list: HandoffSummary[] | null }>();
+  useEffect(() => {
+    let alive = true;
+    getJson<HandoffSummary[]>(path)
+      .then((list) => alive && setView({ path, list: list ?? null }))
+      .catch(() => alive && setView({ path, list: null }));
+    return () => {
+      alive = false;
+    };
+  }, [path, version]);
+  return view?.path === path ? view.list : undefined;
+}
+
+/** One handoff's markdown. */
+export const getHandoff = async (projectId: string, file: string) =>
+  (await getJson<{ text: string }>(`/api/projects/${encodeURIComponent(projectId)}/handoffs/${encodeURIComponent(file)}`))?.text;
+
+/** Asks your AI for a handoff of some dates or the last commits; says what went wrong in words when refused. */
+export async function askForHandoff(projectId: string, range: { since?: string; until?: string; last?: number }): Promise<void> {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/handoffs/request`, {
+    method: "POST",
+    headers: { "x-progressor": "handoffs", "content-type": "application/json" },
+    body: JSON.stringify(range),
+  });
+  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
+}

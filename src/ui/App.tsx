@@ -9,6 +9,7 @@ import { ContextPage } from "./ContextPage.js";
 import { WishlistPage } from "./WishlistPage.js";
 import { StatsPage } from "./StatsPage.js";
 import { HISTORY_HASH, HistoryPage } from "./HistoryPage.js";
+import { HANDOFFS_HASH, HandoffsPage } from "./HandoffsPage.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
 import { type Finished, type Seen, doneMark, groupGoals, groupOpen, hideAll, seenOnFirstVisit } from "./goalList.js";
@@ -96,6 +97,7 @@ export function App() {
   const [onStats, setOnStats] = useState(() => location.hash === STATS_HASH);
   const [onWishes, setOnWishes] = useState(() => location.hash === WISHLIST_HASH);
   const [onHistory, setOnHistory] = useState(() => location.hash === HISTORY_HASH);
+  const [onHandoffs, setOnHandoffs] = useState(() => location.hash === HANDOFFS_HASH);
   const [onHotfix, setOnHotfix] = useState(() => location.hash === HOTFIX_HASH);
   const [theme, setTheme] = useStored<Theme>("progressor.theme", undefined);
   const [finished, setFinished] = useStored<Finished>("progressor.finished", undefined);
@@ -144,7 +146,7 @@ export function App() {
   // Without a pick, the Goal on screen stays on screen as the plan changes; the default is chosen once per project.
   const shownBefore = useRef<{ project: string | undefined; goal: string | undefined }>({ project: undefined, goal: undefined });
   const kept = shownBefore.current.project === projectId ? shownBefore.current.goal : undefined;
-  const effectiveGoal = onContext || onTalk || onStats || onWishes || onHotfix || onHistory
+  const effectiveGoal = onContext || onTalk || onStats || onWishes || onHotfix || onHistory || onHandoffs
     ? undefined
     : picked && goals.some((g) => g.id === picked)
       ? picked
@@ -190,6 +192,7 @@ export function App() {
       setOnWishes(location.hash === WISHLIST_HASH);
       setOnHotfix(location.hash === HOTFIX_HASH);
       setOnHistory(location.hash === HISTORY_HASH);
+      setOnHandoffs(location.hash === HANDOFFS_HASH);
     };
     addEventListener("hashchange", onNavigate);
     addEventListener("popstate", onNavigate);
@@ -210,6 +213,7 @@ export function App() {
     setOnTalk(false);
     setOnStats(false);
     setOnHistory(false);
+    setOnHandoffs(false);
     setOnWishes(false);
     setOnHotfix(false);
     closeAll();
@@ -220,6 +224,7 @@ export function App() {
     setOnTalk(false);
     setOnStats(false);
     setOnHistory(false);
+    setOnHandoffs(false);
     setOnWishes(false);
     setOnHotfix(false);
     closeAll();
@@ -230,6 +235,7 @@ export function App() {
     setOnContext(false);
     setOnStats(false);
     setOnHistory(false);
+    setOnHandoffs(false);
     setOnWishes(false);
     setOnHotfix(false);
     closeAll();
@@ -238,6 +244,7 @@ export function App() {
     history.replaceState(null, "", `${location.search}${STATS_HASH}`);
     setOnStats(true);
     setOnHistory(false);
+    setOnHandoffs(false);
     setOnContext(false);
     setOnTalk(false);
     setOnWishes(false);
@@ -252,11 +259,24 @@ export function App() {
     setOnTalk(false);
     setOnStats(false);
     setOnHistory(false);
+    setOnHandoffs(false);
     closeAll();
   };
   const openHistory = () => {
     history.replaceState(null, "", `${location.search}${HISTORY_HASH}`);
     setOnHistory(true);
+    setOnHandoffs(false);
+    setOnContext(false);
+    setOnTalk(false);
+    setOnStats(false);
+    setOnWishes(false);
+    setOnHotfix(false);
+    closeAll();
+  };
+  const openHandoffs = () => {
+    history.replaceState(null, "", `${location.search}${HANDOFFS_HASH}`);
+    setOnHandoffs(true);
+    setOnHistory(false);
     setOnContext(false);
     setOnTalk(false);
     setOnStats(false);
@@ -271,6 +291,7 @@ export function App() {
     setOnTalk(false);
     setOnStats(false);
     setOnHistory(false);
+    setOnHandoffs(false);
     closeAll();
   };
   const pickProject = (id: string, goalId?: string) => {
@@ -282,6 +303,7 @@ export function App() {
     setOnTalk(false);
     setOnStats(false);
     setOnHistory(false);
+    setOnHandoffs(false);
     setOnWishes(false);
     setOnHotfix(false);
     closeAll();
@@ -331,6 +353,7 @@ export function App() {
     setOnTalk(false);
     setOnStats(false);
     setOnHistory(false);
+    setOnHandoffs(false);
     setOnWishes(false);
     setOnHotfix(false);
     closeAll();
@@ -358,8 +381,8 @@ export function App() {
 
   useEffect(() => {
     const where = onHome ? (workspaces?.find((w) => w.id === pickedWorkspace)?.name ?? "Home") : undefined;
-    document.title = [onContext ? "Project notes" : onTalk ? "Message your AI" : onStats ? "Statistics" : onWishes ? "Wishlist" : onHotfix ? "Report a bug" : onHistory ? "History" : shownGoal?.goal.title, project?.name, where, "Progressor"].filter(Boolean).join(" · ");
-  }, [shownGoal, project, onHome, onContext, onTalk, onStats, onWishes, onHotfix, onHistory, workspaces, pickedWorkspace]);
+    document.title = [onContext ? "Project notes" : onTalk ? "Message your AI" : onStats ? "Statistics" : onWishes ? "Wishlist" : onHotfix ? "Report a bug" : onHistory ? "History" : onHandoffs ? "Handoffs" : shownGoal?.goal.title, project?.name, where, "Progressor"].filter(Boolean).join(" · ");
+  }, [shownGoal, project, onHome, onContext, onTalk, onStats, onWishes, onHotfix, onHistory, onHandoffs, workspaces, pickedWorkspace]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -492,6 +515,8 @@ export function App() {
     <StatsPage projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} />
   ) : onHistory && projectId ? (
     <HistoryPage projectId={projectId} roadmap={roadmap} toast={toast} />
+  ) : onHandoffs && projectId ? (
+    <HandoffsPage projectId={projectId} roadmap={roadmap} toast={toast} />
   ) : onHotfix && projectId ? (
     <HotfixPage projectId={projectId} onAdded={(id) => { refresh(); pickGoal(id); toast("Hotfix added. Your AI takes it as soon as it finishes the step it is on."); }} />
   ) : onWishes && projectId ? (
@@ -651,6 +676,9 @@ export function App() {
               </button>
               <button className="side-link" aria-current={onHistory} onClick={openHistory} title="Every change to the plan, by you or your AI, and going back to before any of them">
                 <Icon name="history" /> History
+              </button>
+              <button className="side-link" aria-current={onHandoffs} onClick={openHandoffs} title="Write-ups of the work your AI did, for whoever picks it up next">
+                <Icon name="note" /> Handoffs
               </button>
               {roadmap && goals.length === 0 && <p className="empty">No goals yet. Tell your AI what you want to build.</p>}
               {sidebarSections(grouped.open.filter((g) => !grouped.fresh.has(g.id)), putOffHere).map((s) => (

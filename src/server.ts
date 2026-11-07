@@ -574,6 +574,7 @@ export const TOOL_EXAMPLES: Record<string, string> = {
   update_standing_instruction: 'update_standing_instruction({ id: "s2", hard: true })',
   update_context: 'update_context({ text: "What the project is, in a few lines" })',
   plan_history: 'plan_history({ restore: "20261107T101500123Z-1" })',
+  handoff: 'handoff({ since: "2026-11-01", title: "Week of 2 November", text: "# Week of 2 November ..." })',
 };
 
 /**
@@ -1137,8 +1138,10 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
             ? `${said} Tell the Developer in one plain sentence that "${goal.title}" is built and ${left === 1 ? "one thing is" : `${left} things are`} waiting for them to try${dashboard?.url ? ` at ${dashboard.url}` : " on the dashboard"}.`
             : doneIn(p, said);
         }
-        if (p !== project) return doneIn(p, `Goal ${goal.id} is done.`);
-        return `Goal ${goal.id} is done. Tell the Developer in one plain sentence that "${goal.title}" is finished${dashboard?.url ? `, and that they can see it at ${dashboard.url}` : ""}.`;
+        // A finished release gets its handoff, written by the AI from the facts (handoff.ts).
+        const handoff = goal.release !== undefined && readSettings(settingsFile, p.root).handoffs.afterRelease ? " Then write a handoff for this release with the handoff tool." : "";
+        if (p !== project) return doneIn(p, `Goal ${goal.id} is done.${handoff}`);
+        return `Goal ${goal.id} is done. Tell the Developer in one plain sentence that "${goal.title}" is finished${dashboard?.url ? `, and that they can see it at ${dashboard.url}` : ""}.${handoff}`;
       }),
   );
 

@@ -869,3 +869,18 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 
 /* ---------- handoffs ---------- */
 
+/* Handoffs (handoff.ts): the list on the left, the open one and asking for a new one on the right. */
+.handoffs-layout { margin-top: var(--s4); display: grid; grid-template-columns: minmax(180px, 240px) 1fr; gap: var(--s4); align-items: start; }
+.handoff-list { display: flex; flex-direction: column; gap: var(--s1); }
+.handoff-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: var(--r-s); background: none; color: var(--ink); cursor: pointer; }
+.handoff-row small { color: var(--muted); }
+.handoff-row[aria-current="true"] { border: 2px solid var(--ink); font-weight: 600; }
+[data-theme="vibrant"] .handoff-row[aria-current="true"] { border-color: var(--accent); }
+.handoff-view { display: flex; flex-direction: column; gap: var(--s4); min-width: 0; }
+.handoff-meta { margin-top: 0; font-size: var(--t-s); }
+.handoff-text h3 { margin: var(--s4) 0 var(--s2); }
+.handoff-text ul { padding-left: var(--s5, 20px); }
+.handoff-ask h2 { margin-top: 0; }
+.handoff-how, .handoff-fields { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center; margin-bottom: var(--s3); }
+.handoff-fields input[type="number"] { width: 5em; }
+@media (max-width: 700px) { .handoffs-layout { grid-template-columns: 1fr; } }

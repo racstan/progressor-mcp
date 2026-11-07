@@ -19,7 +19,24 @@ export interface GitFacts {
   commitLink(root: string): string | undefined;
   /** The commits after `ref` (a tag such as `v1.3.0`): how many, and the newest `max` as "hash subject"; undefined when `ref` is unknown. */
   commitsAfter?(root: string, ref: string, max: number): { total: number; lines: string[] } | undefined;
+  /** The commits in a range (handoff.ts): how many, the newest `max` as "hash subject", and the files they touched. */
+  range?(root: string, range: GitRange, max: number): { total: number; lines: string[]; files: string[] } | undefined;
+  /** When a commit was made (ISO); undefined when git doesn't know `ref`. */
+  timeOf?(root: string, ref: string): string | undefined;
 }
+
+/** Which commits: those named, or those after `from` (a commit or tag) and between `since` and `until` (ISO times). */
+export interface GitRange {
+  commits?: string[];
+  from?: string;
+  since?: string;
+  until?: string;
+}
+
+/** A ref or hash safe to hand git as an argument. */
+const safeRef = (ref: string) => /^[\w./~^-]+$/.test(ref) && !ref.startsWith("-");
+/** At most this many files are listed for a range. */
+const MAX_FILES = 40;
 
 function run(root: string, args: string[]): string | undefined {
   try {
@@ -99,5 +116,27 @@ export const realGit: GitFacts = {
     if (total === undefined || !/^\d+$/.test(total)) return undefined;
     const out = run(root, ["log", `--max-count=${max}`, "--format=%h %s", "--abbrev=7", `${ref}..HEAD`]);
     return { total: Number(total), lines: (out ?? "").split(/\r?\n/).filter(Boolean) };
+  },
+  range(root, r, max) {
+    const lines = (out: string | undefined) => (out ?? "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    let which: string[];
+    if (r.commits?.length) {
+      const commits = r.commits.filter(safeRef);
+      if (commits.length === 0) return undefined;
+      which = ["--no-walk=unsorted", ...commits];
+    } else {
+      if (r.from && !safeRef(r.from)) return undefined;
+      which = [...(r.since ? [`--since=${r.since}`] : []), ...(r.until ? [`--until=${r.until}`] : []), r.from ? `${r.from}..HEAD` : "HEAD"];
+    }
+    const all = run(root, ["log", "--format=%h %s", "--abbrev=7", ...which]);
+    if (all === undefined) return undefined;
+    const commits = lines(all);
+    const files = [...new Set(lines(run(root, ["log", "--name-only", "--format=", ...which])))].filter((f) => !/^\.progressor\//.test(f));
+    return { total: commits.length, lines: commits.slice(0, max), files: files.slice(0, MAX_FILES) };
+  },
+  timeOf(root, ref) {
+    if (!safeRef(ref)) return undefined;
+    const out = run(root, ["log", "-1", "--format=%cI", ref, "--"])?.trim();
+    return out ? new Date(out).toISOString() : undefined;
   },
 };
