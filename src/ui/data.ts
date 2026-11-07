@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AllStatsView, GoalView, InfoView, OverviewView, RoadmapView, SearchView, ServersView, StatsView } from "../dashboard/http.js";
+import type { CalendarEvent } from "../calendar.js";
 import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
 import type { SettingsView } from "../dashboard/routes/settings.js";
 import type { DiffLine, FileChange, HistoryItem } from "../history.js";
@@ -608,4 +609,20 @@ export async function askForHandoff(projectId: string, range: { since?: string; 
     body: JSON.stringify(range),
   });
   if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
+}
+
+/** The project's calendar (calendar.ts): every dated thing in its plan. Reloads when `version` changes. */
+export function useCalendar(projectId: string, version: unknown): { now: string; events: CalendarEvent[] } | null | undefined {
+  const path = `/api/projects/${encodeURIComponent(projectId)}/calendar`;
+  const [view, setView] = useState<{ path: string; data: { now: string; events: CalendarEvent[] } | null }>();
+  useEffect(() => {
+    let alive = true;
+    getJson<{ now: string; events: CalendarEvent[] }>(path)
+      .then((data) => alive && setView({ path, data: data ?? null }))
+      .catch(() => alive && setView({ path, data: null }));
+    return () => {
+      alive = false;
+    };
+  }, [path, version]);
+  return view?.path === path ? view.data : undefined;
 }

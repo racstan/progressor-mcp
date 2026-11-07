@@ -105,4 +105,4 @@ Another Progressor was changing the same plan for more than a few seconds. Ask y
 
 ## Still stuck?
 
-[Report a problem](https://github.com/racstan/progressor-mcp/issues/new?template=bug_report.yml), or use **❓ Help → Report a problem** on the dashboard, which fills in your version and system. Include what you did, what you expected and what happened.
+[Report a problem](https://github.com/racstan/progressor-mcp/issues/new?template=bug_report.yml), or use **❓ Help → Report a problem with Progressor** on the dashboard, which fills in your version and system. Include what you did, what you expected and what happened.

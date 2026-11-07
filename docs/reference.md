@@ -120,6 +120,8 @@ The AI calls these; the server's instructions tell it when.
 
 **Alternatives.** See `ask_developer` above. The dashboard shows them as cards on the goal page; `POST /api/projects/<id>/goals/<goal>/questions/<q>/more` asks the AI for other options (`talk` header).
 
+**Calendar.** `GET /api/projects/<id>/calendar` gives `{now, events}`: every dated thing in the plan (steps finished, goals added and finished, releases, hotfixes, hand tests marked, handoffs) and, ahead of now, the schedule's next steps, each open goal's expected finish and the next turns of each routine (up to 120 days). Each event has `id`, `kind`, `title`, `start`, an optional `end`, and the `goal` it belongs to.
+
 **Handoffs.** Saved as `.progressor/handoffs/<date>-<title>.md`, which follows the plan's own git rule; only the newest `keep` are kept. `GET /api/projects/<id>/handoffs`, `GET …/handoffs/<file>`, and `POST …/handoffs/request` (`{since?, until?}` as dates, or `{last}` commits; `handoffs` header) asks the AI for one with a message to the whole project.
 
 ### Locks on shared resources

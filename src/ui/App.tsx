@@ -10,6 +10,7 @@ import { WishlistPage } from "./WishlistPage.js";
 import { StatsPage } from "./StatsPage.js";
 import { HISTORY_HASH, HistoryPage } from "./HistoryPage.js";
 import { HANDOFFS_HASH, HandoffsPage } from "./HandoffsPage.js";
+import { CALENDAR_HASH, CalendarPage } from "./CalendarPage.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
 import { type Finished, type Seen, doneMark, groupGoals, groupOpen, hideAll, seenOnFirstVisit } from "./goalList.js";
@@ -98,6 +99,7 @@ export function App() {
   const [onWishes, setOnWishes] = useState(() => location.hash === WISHLIST_HASH);
   const [onHistory, setOnHistory] = useState(() => location.hash === HISTORY_HASH);
   const [onHandoffs, setOnHandoffs] = useState(() => location.hash === HANDOFFS_HASH);
+  const [onCalendar, setOnCalendar] = useState(() => location.hash === CALENDAR_HASH);
   const [onHotfix, setOnHotfix] = useState(() => location.hash === HOTFIX_HASH);
   const [theme, setTheme] = useStored<Theme>("progressor.theme", undefined);
   const [finished, setFinished] = useStored<Finished>("progressor.finished", undefined);
@@ -146,7 +148,7 @@ export function App() {
   // Without a pick, the Goal on screen stays on screen as the plan changes; the default is chosen once per project.
   const shownBefore = useRef<{ project: string | undefined; goal: string | undefined }>({ project: undefined, goal: undefined });
   const kept = shownBefore.current.project === projectId ? shownBefore.current.goal : undefined;
-  const effectiveGoal = onContext || onTalk || onStats || onWishes || onHotfix || onHistory || onHandoffs
+  const effectiveGoal = onContext || onTalk || onStats || onWishes || onHotfix || onHistory || onHandoffs || onCalendar
     ? undefined
     : picked && goals.some((g) => g.id === picked)
       ? picked
@@ -193,6 +195,7 @@ export function App() {
       setOnHotfix(location.hash === HOTFIX_HASH);
       setOnHistory(location.hash === HISTORY_HASH);
       setOnHandoffs(location.hash === HANDOFFS_HASH);
+      setOnCalendar(location.hash === CALENDAR_HASH);
     };
     addEventListener("hashchange", onNavigate);
     addEventListener("popstate", onNavigate);
@@ -214,6 +217,7 @@ export function App() {
     setOnStats(false);
     setOnHistory(false);
     setOnHandoffs(false);
+    setOnCalendar(false);
     setOnWishes(false);
     setOnHotfix(false);
     closeAll();
@@ -225,6 +229,7 @@ export function App() {
     setOnStats(false);
     setOnHistory(false);
     setOnHandoffs(false);
+    setOnCalendar(false);
     setOnWishes(false);
     setOnHotfix(false);
     closeAll();
@@ -236,6 +241,7 @@ export function App() {
     setOnStats(false);
     setOnHistory(false);
     setOnHandoffs(false);
+    setOnCalendar(false);
     setOnWishes(false);
     setOnHotfix(false);
     closeAll();
@@ -245,6 +251,7 @@ export function App() {
     setOnStats(true);
     setOnHistory(false);
     setOnHandoffs(false);
+    setOnCalendar(false);
     setOnContext(false);
     setOnTalk(false);
     setOnWishes(false);
@@ -260,12 +267,14 @@ export function App() {
     setOnStats(false);
     setOnHistory(false);
     setOnHandoffs(false);
+    setOnCalendar(false);
     closeAll();
   };
   const openHistory = () => {
     history.replaceState(null, "", `${location.search}${HISTORY_HASH}`);
     setOnHistory(true);
     setOnHandoffs(false);
+    setOnCalendar(false);
     setOnContext(false);
     setOnTalk(false);
     setOnStats(false);
@@ -276,6 +285,19 @@ export function App() {
   const openHandoffs = () => {
     history.replaceState(null, "", `${location.search}${HANDOFFS_HASH}`);
     setOnHandoffs(true);
+    setOnCalendar(false);
+    setOnHistory(false);
+    setOnContext(false);
+    setOnTalk(false);
+    setOnStats(false);
+    setOnWishes(false);
+    setOnHotfix(false);
+    closeAll();
+  };
+  const openCalendar = () => {
+    history.replaceState(null, "", `${location.search}${CALENDAR_HASH}`);
+    setOnCalendar(true);
+    setOnHandoffs(false);
     setOnHistory(false);
     setOnContext(false);
     setOnTalk(false);
@@ -292,6 +314,7 @@ export function App() {
     setOnStats(false);
     setOnHistory(false);
     setOnHandoffs(false);
+    setOnCalendar(false);
     closeAll();
   };
   const pickProject = (id: string, goalId?: string) => {
@@ -304,6 +327,7 @@ export function App() {
     setOnStats(false);
     setOnHistory(false);
     setOnHandoffs(false);
+    setOnCalendar(false);
     setOnWishes(false);
     setOnHotfix(false);
     closeAll();
@@ -354,6 +378,7 @@ export function App() {
     setOnStats(false);
     setOnHistory(false);
     setOnHandoffs(false);
+    setOnCalendar(false);
     setOnWishes(false);
     setOnHotfix(false);
     closeAll();
@@ -368,7 +393,8 @@ export function App() {
 
   useLayoutEffect(() => {
     const apply = () => {
-      if (theme === "vibrant") document.documentElement.dataset.theme = "vibrant";
+      // Vibrant is the default: no choice stored means Vibrant
+      if (theme === undefined || theme === "vibrant") document.documentElement.dataset.theme = "vibrant";
       else if (isDark(theme)) document.documentElement.dataset.theme = "dark";
       else delete document.documentElement.dataset.theme;
     };
@@ -381,8 +407,8 @@ export function App() {
 
   useEffect(() => {
     const where = onHome ? (workspaces?.find((w) => w.id === pickedWorkspace)?.name ?? "Home") : undefined;
-    document.title = [onContext ? "Project notes" : onTalk ? "Message your AI" : onStats ? "Statistics" : onWishes ? "Wishlist" : onHotfix ? "Report a bug" : onHistory ? "History" : onHandoffs ? "Handoffs" : shownGoal?.goal.title, project?.name, where, "Progressor"].filter(Boolean).join(" · ");
-  }, [shownGoal, project, onHome, onContext, onTalk, onStats, onWishes, onHotfix, onHistory, onHandoffs, workspaces, pickedWorkspace]);
+    document.title = [onContext ? "Project notes" : onTalk ? "Message your AI" : onStats ? "Statistics" : onWishes ? "Wishlist" : onHotfix ? "Hotfixes" : onHistory ? "History" : onHandoffs ? "Handoffs" : onCalendar ? "Calendar" : shownGoal?.goal.title, project?.name, where, "Progressor"].filter(Boolean).join(" · ");
+  }, [shownGoal, project, onHome, onContext, onTalk, onStats, onWishes, onHotfix, onHistory, onHandoffs, onCalendar, workspaces, pickedWorkspace]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -517,8 +543,10 @@ export function App() {
     <HistoryPage projectId={projectId} roadmap={roadmap} toast={toast} />
   ) : onHandoffs && projectId ? (
     <HandoffsPage projectId={projectId} roadmap={roadmap} toast={toast} />
+  ) : onCalendar && projectId ? (
+    <CalendarPage projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} />
   ) : onHotfix && projectId ? (
-    <HotfixPage projectId={projectId} onAdded={(id) => { refresh(); pickGoal(id); toast("Hotfix added. Your AI takes it as soon as it finishes the step it is on."); }} />
+    <HotfixPage projectId={projectId} goals={roadmap.goals} onOpen={pickGoal} onAdded={(id) => { refresh(); pickGoal(id); toast("Hotfix added. Your AI takes it as soon as it finishes the step it is on."); }} />
   ) : onWishes && projectId ? (
     <WishlistPage projectId={projectId} wishes={roadmap.wishes} onChanged={refresh} />
   ) : onContext && projectId ? (
@@ -566,7 +594,7 @@ export function App() {
           <Icon name="menu" size={18} />
         </button>
         <button className="brand" onClick={goHome} title="Home: what needs you across every project">
-          <span className="mark" aria-hidden="true" />
+          <img className="mark" src="/logo.png" alt="" aria-hidden="true" />
           <span className="word">Progressor</span>
         </button>
         {project && (
@@ -624,8 +652,8 @@ export function App() {
           <section>
             <h3>Facing a problem?</h3>
             <a className="card" href={issueUrl("bug", { version: info?.version, system: describeSystem(navigator.userAgent) })} target="_blank" rel="noopener noreferrer">
-              Report a problem
-              <small>Opens a GitHub issue with your Progressor version and system already filled in.</small>
+              Report a problem with Progressor
+              <small>A problem with Progressor itself, not your project: opens a GitHub issue with your Progressor version and system filled in. For a bug in your own project, use Hotfixes.</small>
             </a>
             <a className="card" href={issueUrl("idea", { version: info?.version })} target="_blank" rel="noopener noreferrer">
               Suggest an idea or share feedback
@@ -658,8 +686,8 @@ export function App() {
             </div>
           ) : (
             <>
-              <button className="side-link" aria-current={onHotfix} onClick={openHotfix} title="A bug to fix before anything else: your AI finishes the step it is on, then fixes it, test first">
-                <Icon name="flag" /> Report a bug
+              <button className="side-link" aria-current={onHotfix} onClick={openHotfix} title="Urgent bugs in this project, fixed before anything else: your AI finishes the step it is on, then fixes it, test first">
+                <Icon name="flag" /> Hotfixes
               </button>
               <button className="side-link" aria-current={onTalk} onClick={openTalk} title="Write to your AI about the whole project, not one goal">
                 <Icon name="send" /> Message your AI
@@ -673,6 +701,9 @@ export function App() {
               </button>
               <button className="side-link" aria-current={onStats} onClick={openStats} title="How long steps take, how often work drifts, and what was finished each day">
                 <Icon name="chart" /> Statistics
+              </button>
+              <button className="side-link" aria-current={onCalendar} onClick={openCalendar} title="What your AI did and what comes next, by month, week or day">
+                <Icon name="calendar" /> Calendar
               </button>
               <button className="side-link" aria-current={onHistory} onClick={openHistory} title="Every change to the plan, by you or your AI, and going back to before any of them">
                 <Icon name="history" /> History

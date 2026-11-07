@@ -145,11 +145,11 @@ Turn on **Pop up when a goal is finished** in Settings and the dashboard shows a
 
 ## Highlights
 
-Wherever the dashboard shows your AI's words, such as things to try by hand, steps, notes and messages, it picks out what to look at: things to click or type in "quotes" (a chip, like a button), menu paths such as Settings › Notifications (underlined), file names such as start.ps1 (in a typewriter font) and code in `backticks`. It finds them by itself, so nothing changes in how your AI writes. In the Vibrant theme each kind has its own colour; Light, Dark and System keep to black and grey. Hover one to see what kind it is.
+Wherever the dashboard shows your AI's words, such as things to try by hand, steps, notes and messages, it picks out what to look at: things to click or type in "quotes" (a chip, like a button), menu paths such as Settings › Notifications (underlined), file names such as start.ps1 (in a typewriter font) and code in `backticks`. It finds them by itself, so nothing changes in how your AI writes. In the Vibrant theme (the one the dashboard starts in) each kind has its own colour; Light, Dark and System keep to black and grey. Hover one to see what kind it is.
 
-## Report a bug
+## Hotfixes
 
-**Report a bug** in the sidebar is for a bug to fix before anything else. Paste the report as it was written, give it a short name if you like (the report's first line otherwise), and press **Add hotfix**. It goes to the top of your goals with a **Hotfix** tag, and its page shows the report. Your AI is told at once; see [Hotfixes](using.md#hotfixes).
+**Hotfixes** in the sidebar lists this project's urgent bugs, open ones first, and adds a new one: a bug in your project to fix before anything else, such as one your own customers ran into. Paste the report as it was written, give it a short name if you like (the report's first line otherwise), and press **Add hotfix**. It goes to the top of your goals with a **Hotfix** tag, and its page shows the report. Your AI is told at once; see [Hotfixes](using.md#hotfixes).
 
 ## Wishlist
 
@@ -171,13 +171,17 @@ The **Plan check-up** card shows what your AI's last look over the plan fixed an
 
 Steps finished before Progressor kept finish times count on the day they last changed, and steps without a time or an estimate are left out of the comparison, never guessed.
 
+## Calendar
+
+**Calendar** in the sidebar shows the project by date, by **Month**, **Week**, **Day** or as a **List**, with **Today** and the arrows to move about (or the keys T, M, W, D, L and the arrow keys). It fills itself as your AI works: steps finished, goals added and finished, releases, hotfixes, your hand tests and handoffs. Ahead of today it shows the steps planned next, when each open goal should be done (from the estimates), and when goals that come back are due. Click an event to see it, with **Open the goal**; click a date, or **+3 more**, to see that whole day. The coloured labels above it show or hide each kind.
+
 ## History
 
 **History** in the sidebar lists every change to the plan, newest first: who made it (your AI or you), when, and what it changed. Open one to see the lines added and removed. **Go back to before this** undoes that change and every one after it, after you confirm; going back is itself a change you can undo the same way. Messages with your AI are never changed.
 
 ## Handoffs
 
-**Handoffs** in the sidebar holds the write-ups your AI saved for whoever picks the work up next: what was done, the decisions, what is left open and what comes next. Your AI writes one after each release by itself. **Ask for a handoff** asks it for one between two dates or for the last few commits; it writes it at its next step and it shows up here.
+**Handoffs** in the sidebar holds the write-ups your AI saved for whoever picks the work up next: what was done, the decisions, what is left open and what comes next. Pick one on the left to read it; **Copy** copies it to paste anywhere. Your AI writes one after each release by itself. **Ask for a handoff**, at the top, asks it for one between two dates or for the last few commits; it writes it at its next step and it shows up here.
 
 ## Goals that come back
 

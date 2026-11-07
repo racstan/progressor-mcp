@@ -43,7 +43,7 @@ Every change made that way is marked with the project it came from, and the dash
 
 ## Hotfixes
 
-A bug that has to be fixed before anything else, such as one a customer reported, is a **hotfix**. Paste the report on the dashboard's **Report a bug** page, or tell your AI: *"Hotfix: checkout fails when the cart has a coupon."* The report is kept word for word.
+A bug that has to be fixed before anything else, such as one a customer reported, is a **hotfix**. Paste the report on the dashboard's **Hotfixes** page, or tell your AI: *"Hotfix: checkout fails when the cart has a coupon."* The report is kept word for word.
 
 A hotfix goes to the top of your goals, after any older hotfix, so the oldest bug is fixed first. It starts with two steps: a test that shows the bug, then the fix. Every AI chat working in the project is told it is waiting, at each step, until one takes it. That chat finishes the step it is on first, so no work is left half done.
 

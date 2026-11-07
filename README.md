@@ -78,7 +78,7 @@ It works with any app that supports [MCP](https://modelcontextprotocol.io) (the 
     <td width="50%" valign="top">
       <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/vibrant.png" alt="The dashboard in the colourful Vibrant theme">
       <h3>Light, dark or colourful</h3>
-      A calm black-and-white look in light or dark, or <b>Vibrant</b> if you like colour. <a href="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/dark.png">See dark</a>.
+      <b>Vibrant</b> by default, with black text, or a calm black-and-white look in light or dark. <a href="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/dark.png">See dark</a>.
     </td>
   </tr>
 </table>
@@ -132,7 +132,7 @@ Open **http://localhost:4747** while your AI's app is open (your AI gives you th
 - **What the AI is doing:** *AI working*, *Waiting on you*, or *AI stopped* when its chat has closed, with how far along each goal is.
 - **When things happen:** every goal, step, decision and note says when it was added, by whom, and when it changed. Steps say when they started and finished.
 - **How long it will take:** your AI estimates each step, and each goal shows a rough finish: *done in about 2 h*. Tell it *"at most 2 helpers at a time"* and it keeps to that.
-- **Report a bug:** paste a bug report, such as one from a customer, and it goes to the top of your goals as a **hotfix**. Every AI chat in the project is told; the one that takes it finishes the step it is on, writes a test that shows the bug, then fixes it. You can also just tell your AI: *"Hotfix: checkout fails when the cart has a coupon."*
+- **Hotfixes:** paste a bug report, such as one from a customer, and it goes to the top of your goals as a **hotfix**. Every AI chat in the project is told; the one that takes it finishes the step it is on, writes a test that shows the bug, then fixes it. You can also just tell your AI: *"Hotfix: checkout fails when the cart has a coupon."*
 - **A wishlist:** what you want from the project as a whole, in your own words, with files or pictures attached if you like. Your AI reads it and may suggest goals from it, but only you change it.
 - **A pop-up when a goal is finished,** from any of your projects, if you turn it on in Settings.
 - **Pictures:** your AI can attach a screenshot or screen recording to a goal or step, so you see the change instead of reading about it.

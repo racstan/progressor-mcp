@@ -23,7 +23,7 @@ const EDITOR_NAMES: Record<string, string> = {
   clion: "CLion",
   rustrover: "RustRover",
 };
-/** The editor's name in words, for "Opening … in Cursor". */
+/** The editor's name in words, for "Opening â€¦ in Cursor". */
 export const editorName = (e: string) => EDITOR_NAMES[e] ?? (e.includes("{") ? "your editor" : e);
 
 /** Whether this browser can show desktop pop-ups for the page, and whether it may. */
@@ -31,12 +31,12 @@ export const canPopUp = (): NotificationPermission | "unsupported" => ("Notifica
 
 function Theme({ ctx }: { ctx: SettingsContext }) {
   return (
-    <Choice value={ctx.theme ?? "light"} onChange={(t) => ctx.setTheme(t === "light" ? undefined : t)}
+    <Choice value={ctx.theme ?? "vibrant"} onChange={(t) => ctx.setTheme(t === "vibrant" ? undefined : t)}
       options={[
-        { value: "light", label: "Light", hint: "Always light" },
+        { value: "vibrant", label: "Vibrant", hint: "Colourful, with black text: an indigo accent, green for done and amber for what needs you. The usual choice" },
+        { value: "light", label: "Light", hint: "Black, white and greys only" },
         { value: "dark", label: "Dark", hint: "Always dark" },
         { value: "system", label: "System", hint: "Light or dark, following your computer's setting" },
-        { value: "vibrant", label: "Vibrant", hint: "Colourful: an indigo accent, green for done and amber for what needs you" },
       ]} />
   );
 }

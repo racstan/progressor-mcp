@@ -5,7 +5,7 @@ import * as esbuild from "esbuild";
 
 const watch = process.argv.includes("--watch");
 mkdirSync("dist/ui", { recursive: true });
-for (const f of ["index.html", "styles.css", "favicon.svg"]) copyFileSync(`src/ui/${f}`, `dist/ui/${f}`);
+for (const f of ["index.html", "styles.css", "favicon.png", "logo.png"]) copyFileSync(`src/ui/${f}`, `dist/ui/${f}`);
 
 const options = {
   entryPoints: ["src/ui/main.tsx"],

@@ -645,7 +645,7 @@ export function releaseChip(version: string): string {
 // Handoffs (handoff.ts): write-ups your AI saves for whoever picks the work up next.
 export const HANDOFFS_INTRO =
   "Write-ups of the work, for whoever picks it up next: another AI chat, a teammate, or you after a break. Your AI writes one after each release, and whenever you ask.";
-export const HANDOFFS_EMPTY = "No handoffs yet. Your AI writes one after each release, or ask for one below.";
+export const HANDOFFS_EMPTY = "No handoffs yet. Your AI writes one after each release, or ask for one above.";
 export const HANDOFFS_ASKED = "Asked your AI for a handoff. It writes it at its next step and it shows up here.";
 /** The line above a handoff: what it covers and when it was written. */
 export function handoffMeta(h: { range?: string; commits?: number; written?: string }): string {
