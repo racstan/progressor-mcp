@@ -1,9 +1,10 @@
-// The Settings panel: every section in the registry (settings/index.ts), each with "Reset this
-// section", then Support, "Reset all settings to defaults", where settings are kept, and the free notice.
-import { useState } from "react";
+// The Settings page: every section in the registry (settings/index.ts), grouped (settings/groups.ts)
+// with a menu of the groups on the left on a wide window, each section with "Reset this section";
+// then Support, "Reset all settings to defaults", where settings are kept, and the free notice.
+import { useEffect, useState } from "react";
 import { FreeNotice } from "./FreeNotice.js";
-import { MenuPanel } from "./Menus.js";
 import { resetAll } from "./settings/reset.js";
+import { groupSections } from "./settings/groups.js";
 import { SETTINGS_SECTIONS, type SettingsContext, type SettingsSection } from "./settings/index.js";
 import { RESET_ALL, RESET_ALL_CONFIRM, RESET_ALL_DONE, RESET_SECTION, SETTINGS_WHERE } from "./words.js";
 
@@ -45,10 +46,29 @@ function Section({ section, ctx }: { section: SettingsSection; ctx: SettingsCont
   );
 }
 
-export function Settings({ ctx, onClose }: { ctx: SettingsContext; onClose: () => void }) {
+const ABOUT = { id: "about", title: "About" };
+
+export function Settings({ ctx }: { ctx: SettingsContext }) {
   const [resetting, setResetting] = useState(false);
-  const shown = SETTINGS_SECTIONS.filter((s) => !s.advanced);
-  const advanced = SETTINGS_SECTIONS.filter((s) => s.advanced);
+  const groups = groupSections(SETTINGS_SECTIONS);
+  const [current, setCurrent] = useState(groups[0]?.id ?? ABOUT.id);
+  // The menu marks the group being read as the page scrolls.
+  useEffect(() => {
+    const main = document.getElementById("main");
+    const seen = new IntersectionObserver(
+      (entries) => {
+        const top = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (top) setCurrent(top.target.id.replace(/^settings-/, ""));
+      },
+      { root: main, rootMargin: "0px 0px -60% 0px" },
+    );
+    document.querySelectorAll(".settings-group").forEach((g) => seen.observe(g));
+    return () => seen.disconnect();
+  }, []);
+  const go = (id: string) => {
+    setCurrent(id);
+    document.getElementById(`settings-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   const resetEverything = async () => {
     if (!confirm(RESET_ALL_CONFIRM)) return;
     setResetting(true);
@@ -67,37 +87,45 @@ export function Settings({ ctx, onClose }: { ctx: SettingsContext; onClose: () =
     }
   };
   return (
-    <MenuPanel label="Settings" onClose={onClose}>
-      {shown.map((s) => (
-        <Section key={s.id} section={s} ctx={ctx} />
-      ))}
-      {advanced.length > 0 && (
-        <details className="advanced">
-          <summary title="Options for people who look at the code">Advanced</summary>
-          {advanced.map((s) => (
-            <div key={s.id} className="settings-section" data-section={s.id}>
-              <s.Component ctx={ctx} />
-              <div className="settings-foot">
-                <ResetSection section={s} ctx={ctx} />
-              </div>
-            </div>
+    <div className="page wide settings-page">
+      <h1 className="page-title">Settings</h1>
+      <p className="page-sub">Everything here is optional: Progressor and your AI work the same if you never open this page.</p>
+      <div className="settings-layout">
+        <nav className="settings-nav" aria-label="Settings sections">
+          {[...groups, ABOUT].map((g) => (
+            <button key={g.id} aria-current={current === g.id} onClick={() => go(g.id)}>{g.title}</button>
           ))}
-        </details>
-      )}
-      <section>
-        <h3>Support Progressor</h3>
-        <a className="card" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
-          Buy me a coffee
-          <small>Progressor is free for personal and noncommercial use. If it keeps you on track, a coffee keeps it going.</small>
-        </a>
-      </section>
-      <section className="reset-all">
-        <button className="btn ghost small" disabled={resetting} onClick={() => void resetEverything()}>
-          {RESET_ALL}
-        </button>
-      </section>
-      <p className="hint">{SETTINGS_WHERE}</p>
-      <FreeNotice />
-    </MenuPanel>
+        </nav>
+        <div className="settings-body">
+          {groups.map((g) => (
+            <section key={g.id} id={`settings-${g.id}`} className="settings-group" aria-labelledby={`settings-${g.id}-title`}>
+              <h2 id={`settings-${g.id}-title`}>{g.title}</h2>
+              <p className="settings-blurb">{g.blurb}</p>
+              {g.sections.map((s) => (
+                <Section key={s.id} section={s} ctx={ctx} />
+              ))}
+            </section>
+          ))}
+          <section id="settings-about" className="settings-group" aria-labelledby="settings-about-title">
+            <h2 id="settings-about-title">{ABOUT.title}</h2>
+            <section className="settings-section">
+              <h3>Support Progressor</h3>
+              <a className="card" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
+                Buy me a coffee
+                <small>Progressor is free for personal and noncommercial use. If it keeps you on track, a coffee keeps it going.</small>
+              </a>
+            </section>
+            <section className="settings-section reset-all">
+              <h3>Start over</h3>
+              <button className="btn ghost small" disabled={resetting} onClick={() => void resetEverything()}>
+                {RESET_ALL}
+              </button>
+              <p className="hint">{SETTINGS_WHERE}</p>
+            </section>
+            <FreeNotice />
+          </section>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { InfoView, ServersView, SettingsView } from "../data.js";
 import type { Finished } from "../goalList.js";
 import type { PutOff } from "../home.js";
+import type { SettingsGroupId } from "./groups.js";
 
 export type Theme = "light" | "dark" | "system" | "vibrant";
 
@@ -43,6 +44,6 @@ export interface SettingsSection {
   Component: (props: { ctx: SettingsContext }) => ReactNode;
   /** Puts this section back to its defaults. */
   reset(ctx: SettingsContext): void | Promise<void>;
-  /** Shown under Advanced, for people who look at the code. */
-  advanced?: boolean;
+  /** The group of the Settings page it is shown in (groups.ts). */
+  group: SettingsGroupId;
 }

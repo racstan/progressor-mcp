@@ -30,6 +30,7 @@ function Handoffs({ ctx }: { ctx: SettingsContext }) {
 
 export const handoffsSection: SettingsSection = {
   id: "handoffs",
+  group: "plan",
   title: "Handoffs",
   Component: Handoffs,
   reset: (ctx) => ctx.resetComputer("handoffs"),

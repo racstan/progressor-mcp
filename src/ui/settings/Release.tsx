@@ -38,6 +38,7 @@ function Release({ ctx }: { ctx: SettingsContext }) {
 
 export const releaseSection: SettingsSection = {
   id: "release",
+  group: "records",
   title: "Releases",
   Component: Release,
   reset: (ctx) => ctx.resetComputer("release"),

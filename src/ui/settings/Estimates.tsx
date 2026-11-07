@@ -30,6 +30,7 @@ function Estimates({ ctx }: { ctx: SettingsContext }) {
 
 export const estimatesSection: SettingsSection = {
   id: "estimates",
+  group: "plan",
   title: "Estimates",
   Component: Estimates,
   reset: (ctx) => ctx.resetComputer("estimates"),

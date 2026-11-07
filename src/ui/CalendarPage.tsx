@@ -8,8 +8,6 @@ import { type CalendarView, KINDS, byHour, clock, monthGrid, onDay, sameDay, sho
 import { type RoadmapView, useCalendar } from "./data.js";
 import { Icon } from "./Icon.js";
 
-/** The address of the Calendar page, after the project. */
-export const CALENDAR_HASH = "#/calendar";
 
 const WEEKDAYS = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(new Date(2026, 10, 2 + i)));
 const VIEWS: { view: CalendarView; label: string; key: string }[] = [

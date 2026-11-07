@@ -78,6 +78,7 @@ function Phone({ ctx }: { ctx: SettingsContext }) {
 
 export const phoneSection: SettingsSection = {
   id: "phone",
+  group: "notifications",
   title: "Phone notifications",
   Component: Phone,
   reset: (ctx) => (ctx.computer === null ? undefined : ctx.resetComputer("ntfy")),

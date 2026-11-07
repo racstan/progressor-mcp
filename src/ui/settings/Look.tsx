@@ -94,14 +94,14 @@ function Advanced({ ctx }: { ctx: SettingsContext }) {
   );
 }
 
-export const themeSection: SettingsSection = { id: "theme", title: "Theme", Component: Theme, reset: (ctx) => ctx.setTheme(undefined) };
-export const popUpsSection: SettingsSection = { id: "pop-ups", title: "Pop-ups", Component: PopUps, reset: (ctx) => ctx.setPopUps(undefined) };
-export const finishedSection: SettingsSection = { id: "finished", title: "Finished goals", Component: FinishedGoals, reset: (ctx) => ctx.setFinished(undefined) };
+export const themeSection: SettingsSection = { id: "theme", group: "look", title: "Theme", Component: Theme, reset: (ctx) => ctx.setTheme(undefined) };
+export const popUpsSection: SettingsSection = { id: "pop-ups", group: "notifications", title: "Pop-ups", Component: PopUps, reset: (ctx) => ctx.setPopUps(undefined) };
+export const finishedSection: SettingsSection = { id: "finished", group: "look", title: "Finished goals", Component: FinishedGoals, reset: (ctx) => ctx.setFinished(undefined) };
 export const advancedSection: SettingsSection = {
   id: "advanced",
-  title: "Advanced",
+  title: "Editor, servers and things put off",
   Component: Advanced,
-  advanced: true,
+  group: "advanced",
   reset: (ctx) => {
     ctx.setEditorChoice(undefined);
     ctx.setPutOff({});

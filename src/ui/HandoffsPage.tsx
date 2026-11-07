@@ -7,8 +7,6 @@ import { type HandoffSummary, type RoadmapView, askForHandoff, getHandoff, useHa
 import { Icon } from "./Icon.js";
 import { HANDOFFS_ASKED, HANDOFFS_EMPTY, HANDOFFS_INTRO, ago, exactDate } from "./words.js";
 
-/** The address of the Handoffs page, after the project. */
-export const HANDOFFS_HASH = "#/handoffs";
 
 const DAY = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" });
 

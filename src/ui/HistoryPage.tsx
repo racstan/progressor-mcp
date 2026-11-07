@@ -17,8 +17,6 @@ import {
   historyWho,
 } from "./words.js";
 
-/** The address of the History page, after the project. */
-export const HISTORY_HASH = "#/history";
 
 export function HistoryPage({ projectId, roadmap, toast }: { projectId: string; roadmap: RoadmapView; toast: (text: string) => void }) {
   const [view, reload] = useHistory(projectId, roadmap);

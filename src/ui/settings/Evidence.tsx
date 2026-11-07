@@ -21,6 +21,7 @@ function Evidence({ ctx }: { ctx: SettingsContext }) {
 
 export const evidenceSection: SettingsSection = {
   id: "evidence",
+  group: "plan",
   title: "Commits and tests",
   Component: Evidence,
   reset: (ctx) => ctx.resetComputer("evidence"),
