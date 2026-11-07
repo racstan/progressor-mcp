@@ -41,7 +41,8 @@ Plans made with earlier versions keep working as they are. Everything new runs b
 - **Vibrant is the default theme**, with a new logo. Light, Dark and System are still there, in black, white and greys.
 - **Search is much faster.** Results now come back in a few hundredths of a second instead of about two seconds with many projects.
 - **A note that Progressor is free**, in bold at the bottom of Settings and Help: there is no paid version or subscription, and anyone selling one is not us.
-- **A short tour for first-timers.** The first time you open the dashboard, a welcome says in bold that Progressor is free and anyone selling it is not us, then six quick steps point at Home, a goal, Needs you, Message your AI, the Dashboard and Calendar, and Settings. Skip it at any time; **Take the tour again** is in Help.
+- **A short tour for first-timers.** The first time you open the dashboard, a welcome says in bold that Progressor is free and anyone selling it is not us, then six quick steps point at Home, a goal, Needs you, Message your AI, the Dashboard and Calendar, and Settings. Close it with **Skip** or **×** and it comes back once next time; finish it, or tick **Don't show again**, and it's gone for good. **Take the tour again** is in Help.
+- **What's new opens by itself after an update**, the first time you open the dashboard on a new version, with that version's changes. Tick **Don't show again** to stop it; it's still in Help › What's new, and the dot on Help still says when there's something new.
 - **Sort the goals on the Dashboard page**: newest or oldest first, longest time spent, most over its estimate, most side trips, or A to Z. The list scrolls in its own box, so a long one doesn't stretch the page.
 
 ### Setup

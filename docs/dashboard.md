@@ -6,7 +6,7 @@ The dashboard shows the plan. The one thing you do on it yourself is mark the th
 
 ## Finding your way
 
-**The tour.** The first time you open the dashboard in a browser, a short tour opens with a welcome that says, in bold, that Progressor is free (there is no paid version or subscription, so anyone selling one is not us), then six steps point at the main parts of the page: Home and your projects, a goal and its steps, Needs you, Message your AI, the project's Dashboard and Calendar, and Settings. **Next** and **Back** move through it and **Skip the tour** (or Escape) ends it. It never stops you using the page, and it shows only once; **Take the tour again** in ❓ Help brings it back.
+**The tour.** The first time you open the dashboard in a browser, a short tour opens with a welcome that says, in bold, that Progressor is free (there is no paid version or subscription, so anyone selling one is not us), then six steps point at the main parts of the page: Home and your projects, a goal and its steps, Needs you, Message your AI, the project's Dashboard and Calendar, and Settings. **Next** and **Back** move through it. **Skip the tour**, the **×** in its corner or Escape close it for now, and it comes back once the next time you open the dashboard; finishing it, or closing it with **Don't show again** ticked, puts it away for good. It never stops you using the page; **Take the tour again** in ❓ Help always brings it back.
 
 **Breadcrumbs** at the top of every page say where you are: *Home* on Home, *Home › Settings*, *Home › Bindery › Calendar*, or *Home › Bindery › Ship OAuth login* on a goal. Click **Home** to see every project, or the project's name to go back to its goals. On a phone the middle of the trail shortens, with *…*, instead of running off the screen.
 
@@ -225,7 +225,7 @@ Every section has **Reset this section**. How the page looks is kept in your bro
 
 ## Help
 
-- **❓ Help**: **What's new**, what changed in each version, newest first, with yours marked (a dot on the Help button means there is a version you haven't looked at); **Take the tour again**; then report a problem or suggest an idea. Both open a form on GitHub with your Progressor version and system already filled in.
+- **❓ Help**: **What's new**, what changed in each version, newest first, with yours marked (a dot on the Help button means there is a version you haven't looked at). It also opens by itself the first time you open the dashboard after an update (not on your very first visit, when the tour comes first); tick **Don't show again** in it to stop that; **Take the tour again**; then report a problem or suggest an idea. Both open a form on GitHub with your Progressor version and system already filled in.
 - **If the page is out of date**, a bar at the bottom says so, with a **Refresh** button: when Progressor was updated after you opened the page, or when the page has been out of touch with Progressor for a minute. It goes away by itself once things are back to normal.
 - **The green dot** at the top means the page is live. If it turns orange and says *Reconnecting…*, Progressor has closed (it runs while your AI's app is open); it comes back by itself when the app is open again.
 

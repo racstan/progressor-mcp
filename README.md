@@ -147,7 +147,7 @@ Open **http://localhost:4747** while your AI's app is open (your AI gives you th
 - **Breadcrumbs** at the top of every page say where you are, such as *Home › Bindery › Dashboard*; click Home or the project to go back.
 - **Search** in the top bar (press `/`) finds projects, goals and steps across all your projects as you type.
 - **Settings** has its own page, from the gear at the top or the sidebar, grouped into Look, Notifications, AI & plan, History & releases and Advanced, with a menu that folds away. Nothing there is required: Progressor works fully with the defaults.
-- **A short tour** the first time you open the dashboard points at the main parts of the page. Skip it whenever you like, or take it again from ❓ Help.
+- **A short tour** the first time you open the dashboard: a welcome that says Progressor is free (anyone selling it is not us), then the main parts of the page. Close it with Skip or ×, tick Don't show again, or take it again from ❓ Help.
 - **Light, Dark, System or Vibrant.** Vibrant, the colourful one with black text, is the default; Light, Dark and System keep to black, white and greys.
 
 **Each goal**
@@ -176,7 +176,7 @@ Open **http://localhost:4747** while your AI's app is open (your AI gives you th
 
 - **Phone notifications** through the free [ntfy](https://ntfy.sh) app: a push when your AI asks a question, has something for you to try, finishes a goal, offers ways to go, or a bug report comes in. Turn it on in Settings, then copy the private address Progressor made into the app with one click, or use your own ntfy server.
 - **A desktop pop-up when a goal is finished,** from any of your projects, if you turn it on in Settings.
-- **Never out of date:** if Progressor was updated, or the page lost touch with it, a bar says so with a **Refresh** button. **What's new** in ❓ Help lists what changed in each version.
+- **Never out of date:** if Progressor was updated, or the page lost touch with it, a bar says so with a **Refresh** button. **What's new** opens by itself the first time after Progressor is updated, with what changed (tick Don't show again to stop that), and is always in ❓ Help.
 
 More in the [dashboard guide](docs/dashboard.md).
 
