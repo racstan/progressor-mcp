@@ -407,7 +407,8 @@ export function stepTime(t: { status: string; estimate?: number; spent?: number;
 /** A goal's estimate and expected finish, for its banner: "Estimated 6 h · done in about 3 h (2 steps not estimated)". */
 export function goalTime(g: GoalSchedule | undefined): string | undefined {
   if (!g) return undefined;
-  const parts = [g.estimate !== undefined ? `Estimated ${sayDuration(g.estimate)}` : undefined, finishWords(g)].filter(Boolean) as string[];
+  const finish = finishWords(g);
+  const parts = [g.estimate !== undefined ? `Estimated ${sayDuration(g.estimate)}` : undefined, finish && g.adjusted ? `${finish} (adjusted for how long steps really take)` : finish].filter(Boolean) as string[];
   if (parts.length === 0) return undefined;
   const text = parts.join(" · ");
   return text[0]!.toUpperCase() + text.slice(1);
@@ -478,6 +479,28 @@ export function estimateWords(c: { steps: number; estimated: number; spent: numb
   const within = c.withinEstimate === 1 ? "was" : "were";
   const its = c.steps === 1 ? "its" : c.withinEstimate === 1 ? "its" : "their";
   return `Steps took ${how}. ${c.withinEstimate} of ${c.steps} ${within} done within ${its} estimate.`;
+}
+
+/**
+ * How good the estimates have been, for the card on the Statistics page, in plain words: how far off
+ * they run, and whether Progressor allows for it. `factor` is undefined until enough steps are finished.
+ */
+export function estimateQuality(e: { learn: boolean; window: number; factor: number | undefined; samples: number }): string[] {
+  if (e.factor === undefined) return [`Too early to say: ${e.samples} of the 5 finished steps needed have both an estimate and a time.`];
+  const f = e.factor;
+  const how =
+    Math.abs(f - 1) <= 0.2
+      ? "Estimates have been about right."
+      : f > 1
+        ? `Steps have taken about ${f.toFixed(1)}× as long as estimated.`
+        : `Steps have taken about ${f.toFixed(1)}× the time estimated: estimates have been too big.`;
+  const basis = `This looks at the last ${e.samples} finished ${e.samples === 1 ? "step" : "steps"}.`;
+  const allow = e.learn
+    ? f === 1
+      ? "Goal times are taken as estimated."
+      : "Goal times are adjusted for it, and your AI is told when estimates are well off."
+    : "Learning from this is switched off in Settings, so goal times are taken as estimated.";
+  return [how, `${basis} ${allow}`];
 }
 
 /** How often work stepped off the plan, for the Statistics page. */

@@ -1,6 +1,6 @@
 import { sayDuration } from "../estimate.js";
 import { type RoadmapView, type StatsView, useStats } from "./data.js";
-import { SIDE_TRIP_HINT, driftWords, estimateWords } from "./words.js";
+import { SIDE_TRIP_HINT, driftWords, estimateQuality, estimateWords } from "./words.js";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** "28 Oct" from "2026-10-28". */
@@ -53,7 +53,10 @@ function Stats({ stats: s, onOpenGoal }: { stats: StatsView; onOpenGoal: (id: st
       </section>
 
       <section className="section">
-        <h2>Estimates</h2>
+        <h2>How good the estimates are</h2>
+        {estimateQuality(s.estimates).map((line, i) => (
+          <p key={line} className={i === 0 ? "stat-lead" : "quiet"}>{line}</p>
+        ))}
         <p className="stat-lead">{estimateWords(s.time.compared)}</p>
         {s.time.compared.steps > 0 && (
           <p className="quiet">Those {plural(s.time.compared.steps, "step")} were estimated at {time(s.time.compared.estimated)} and took {time(s.time.compared.spent)}.</p>

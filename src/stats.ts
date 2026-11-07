@@ -130,6 +130,35 @@ export function projectStats(goals: StatsGoal[], now: Date): ProjectStats {
   };
 }
 
+/** How far the estimates have been off, as a factor to multiply an estimate by; see calibration(). */
+export interface Calibration {
+  /** Median of time spent over the estimate, kept between 0.5 and 3; undefined with too few steps to say. */
+  factor: number | undefined;
+  /** How many finished steps with both an estimate and a time were looked at (at most the window). */
+  samples: number;
+}
+
+/**
+ * How long steps really take against their estimates: the median of time spent over estimate across
+ * the most recent `window` finished steps that have both. Without `min` such steps there is no factor.
+ */
+export function calibration(goals: StatsGoal[], now: Date, { window, min }: { window: number; min: number }): Calibration {
+  const stamp = (t: StatsTask) => {
+    const at = Date.parse(t.finishedAt ?? t.updated?.at ?? "");
+    return Number.isNaN(at) ? -Infinity : at;
+  };
+  const recent = goals
+    .flatMap((g) => g.tasks)
+    .filter((t) => FINISHED.includes(t.status) && t.estimate !== undefined && t.estimate > 0 && worked(t, now) > 0)
+    .sort((a, b) => stamp(b) - stamp(a))
+    .slice(0, window);
+  if (recent.length < min || recent.length === 0) return { factor: undefined, samples: recent.length };
+  const ratios = recent.map((t) => worked(t, now) / t.estimate!).sort((a, b) => a - b);
+  const mid = Math.floor(ratios.length / 2);
+  const median = ratios.length % 2 === 1 ? ratios[mid]! : (ratios[mid - 1]! + ratios[mid]!) / 2;
+  return { factor: Math.min(3, Math.max(0.5, median)), samples: recent.length };
+}
+
 /** Every project's statistics added up, for Home. */
 export interface AllStats extends Omit<ProjectStats, "longest" | "perGoal"> {
   longest: (ProjectStats["longest"][number] & { project: string; projectId: string })[];

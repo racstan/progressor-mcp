@@ -17,6 +17,7 @@ import {
   finishWords,
   goalState,
   goalTime,
+  estimateQuality,
   handTestsLine,
   handTestsOpen,
   isBadge,
@@ -225,6 +226,19 @@ describe("the schedule in plain words", () => {
     expect(goalTime(s.goals[1])).toBe("1 step not estimated");
     expect(finishWords({ finish: 0, left: 0, unknown: 0 })).toBeUndefined();
     expect(goalTime(undefined)).toBeUndefined();
+  });
+
+  it("says when a goal's time is adjusted for how long steps really take", () => {
+    const g = { goal: { id: "g", title: "G", status: "active" as const }, tasks: [task("t1", "pending", 120)] };
+    expect(goalTime(computeSchedule([g], undefined, at, 1.5).goals[0])).toBe("Estimated 2 h · done in about 3 h (adjusted for how long steps really take)");
+    expect(goalTime(computeSchedule([g], undefined, at).goals[0])).toBe("Estimated 2 h · done in about 2 h");
+  });
+
+  it("tells in plain words how good the estimates are", () => {
+    expect(estimateQuality({ learn: true, window: 20, factor: undefined, samples: 3 })).toEqual(["Too early to say: 3 of the 5 finished steps needed have both an estimate and a time."]);
+    expect(estimateQuality({ learn: true, window: 20, factor: 1.4, samples: 20 }).join(" ")).toContain("about 1.4× as long as estimated");
+    expect(estimateQuality({ learn: false, window: 20, factor: 1.4, samples: 20 }).join(" ")).toContain("switched off");
+    expect(estimateQuality({ learn: true, window: 20, factor: 1.1, samples: 8 })[0]).toBe("Estimates have been about right.");
   });
 
   it("compares a step's estimate with its time, counting a stretch still running", () => {
