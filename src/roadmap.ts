@@ -65,6 +65,10 @@ export interface Goal {
   hotfix?: true;
   /** The goals it waits on, as written: `login` here, or `api/ship-v2` in another project (dependencies.ts). */
   waitsOn?: string[];
+  /** A release goal: the version it releases (facts.ts). */
+  release?: string;
+  /** The finished goals a release goal bundles, by ID. */
+  bundles?: string[];
   /** Set when the Goal was last added or changed from another project. */
   updatedFrom?: Origin;
   /** When it was added and last changed, and by whom; unknown in plans from before dates. */
@@ -209,6 +213,8 @@ export class Roadmap {
         ...(estimate !== undefined ? { estimate } : {}),
         ...(isYes(getDetail(b, HOTFIX)) ? { hotfix: true as const } : {}),
         ...(getDetails(b, GOAL_WAITS_ON).length > 0 ? { waitsOn: getDetails(b, GOAL_WAITS_ON) } : {}),
+        ...(getDetail(b, GOAL_RELEASE) ? { release: getDetail(b, GOAL_RELEASE)! } : {}),
+        ...(getDetails(b, GOAL_BUNDLES).length > 0 ? { bundles: getDetails(b, GOAL_BUNDLES) } : {}),
         ...(origin ? { updatedFrom: origin } : {}),
         ...withDates(b),
       };

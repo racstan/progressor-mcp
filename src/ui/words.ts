@@ -633,6 +633,14 @@ export function waitsChip(waiting: { raw: string; title?: string; state: string 
   return open.length > 0 ? `Waits on ${open.map((w) => w.title ?? w.raw).join(", ")}` : undefined;
 }
 
+// --- releases ---
+// Changelog from finished goals (facts.ts).
+export const RELEASE_HINT = "A release goal: your AI writes the changelog entry and the new version from the finished goals it bundles.";
+/** The chip on a release goal: "Release 1.4.0", or "Next release" before a version is known. */
+export function releaseChip(version: string): string {
+  return version && version !== "next" ? `Release ${version}` : "Next release";
+}
+
 // --- estimates ---
 // Estimates that learn.
 //

@@ -834,6 +834,10 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .waits-chip { display: inline-flex; align-items: center; gap: var(--s1); font-size: var(--t-s); font-weight: 600; padding: 0 var(--s2); border: 1px dashed var(--line-strong); border-radius: var(--r-s); color: var(--muted); }
 .waits-chip a { color: var(--ink); text-decoration: none; font-weight: 700; }
 [data-theme="vibrant"] .waits-chip { border-color: var(--accent); color: var(--accent); }
+/* Releases: the chip on a release goal and the goals it bundles (facts.ts). */
+.release-chip { border-style: solid; }
+.release-bundles { margin: var(--s1) 0 0; font-size: var(--t-s); }
+.release-bundles a { color: var(--ink); font-weight: 600; }
 
 
 /* ---------- routines: recurring goals ---------- */

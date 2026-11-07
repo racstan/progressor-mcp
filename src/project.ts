@@ -39,7 +39,7 @@ import { type GoalLookup, type Waiting, finishedState, parseWaitRef, waitCycle }
 import { type Origin } from "./origin.js";
 import { ResourceLocks } from "./resources.js";
 import { unsafeRoot } from "./root.js";
-import { type Claim, type Goal, GOAL_WAITS_ON, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
+import { type Claim, type Goal, GOAL_BUNDLES, GOAL_RELEASE, GOAL_WAITS_ON, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
 import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule } from "./schedule.js";
 import { type Calibration, calibration } from "./stats.js";
@@ -1000,6 +1000,23 @@ export class Project {
     this.saveRoadmap(roadmap);
     this.savePlan(plan);
     return roadmap.goal(goal.id)!;
+  }
+
+  /** The commits after a git ref such as `v1.3.0` (gitFacts.ts); undefined without git or that ref. */
+  commitsAfter(ref: string, max = 40): { total: number; lines: string[] } | undefined {
+    return this.git.commitsAfter?.(this.root, ref, max);
+  }
+
+  /** Makes a Goal a release goal: the version it releases and the finished goals it bundles. */
+  setRelease(goalId: string, version: string, bundles: string[]): Goal {
+    const roadmap = this.roadmap();
+    if (!roadmap.goal(goalId)) throw new Error(`No Goal ${goalId} on the Roadmap.`);
+    for (const id of bundles) if (!roadmap.goal(id)) throw new Error(`No Goal ${id} on the Roadmap to bundle.`);
+    roadmap.setGoalDetail(goalId, GOAL_RELEASE, version);
+    roadmap.setGoalDetail(goalId, GOAL_BUNDLES, bundles);
+    this.markGoal(roadmap, goalId);
+    this.saveRoadmap(roadmap);
+    return this.roadmap().goal(goalId)!;
   }
 
   /** Renames a Goal or changes its Outcome or estimate; its ID, refs and Plan File stay the same. Needs no Claim. */

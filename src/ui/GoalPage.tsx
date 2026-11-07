@@ -16,7 +16,7 @@ import { StepKey } from "./StepKey.js";
 import { type FileLink, Steps, StepIcon } from "./Steps.js";
 import { Conversation, OpenQuestions } from "./Talk.js";
 import { plainText } from "./text.js";
-import { SIDE_TRIP_HINT, ago, datesLine, datesTitle, elsewhereTag, exactDate, finishWords, goalState, waitsChip, whenWords, WAITING_ON_GOAL_HINT } from "./words.js";
+import { SIDE_TRIP_HINT, ago, datesLine, datesTitle, elsewhereTag, exactDate, finishWords, goalState, releaseChip, RELEASE_HINT, waitsChip, whenWords, WAITING_ON_GOAL_HINT } from "./words.js";
 
 type Goal = RoadmapView["goals"][number];
 type Tab = "steps" | "map" | "talk" | "notes";
@@ -89,6 +89,9 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
               ))}
             </span>
           )}
+          {goal.release !== undefined && (
+            <span className="waits-chip release-chip" title={RELEASE_HINT}>{releaseChip(goal.release)}</span>
+          )}
           <span className="sp" />
           <button className="btn ghost small" title="Copies a description of this goal to paste into your AI chat"
             onClick={() => onCopy(copyAsPrompt({ kind: "goal", goal, graph }))}>
@@ -98,6 +101,17 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
             <Icon name="folder" size={14} /> Show in folder
           </button>
         </div>
+        {goal.bundles && goal.bundles.length > 0 && (
+          <p className="release-bundles quiet">
+            Bundles{" "}
+            {goal.bundles.map((id, i) => (
+              <span key={id}>
+                {i > 0 && ", "}
+                <a href={`#/goal/${encodeURIComponent(id)}`}>{goals.find((g) => g.id === id)?.title ?? id}</a>
+              </span>
+            ))}
+          </p>
+        )}
         <h1 className="page-title">{goal.hotfix && <span className="hotfix-tag big" title="A bug to fix before anything else">Hotfix</span>}{goal.title}</h1>
         {view.report && (
           <details className="hotfix-report" open={goal.status !== "done"}>

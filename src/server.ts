@@ -20,6 +20,7 @@ import { type Goal, type StandingInstruction, hardFirst, helperLimit, hotfixLine
 import type { GoalSchedule, Schedule } from "./schedule.js";
 import type { Wish } from "./wishlist.js";
 import { readSettings, settingsFileFor } from "./settings.js";
+import { releaseFacts } from "./facts.js";
 import { registerFeatureTools } from "./tools/index.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -702,6 +703,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         [...[calibrationLine(project)].filter((l): l is string => !!l), ...project.helperWarnings(), ...resourceLines(project.resources().list(), project.now())],
         goalWaits(session.goals),
       ),
+      ...session.held.filter((h) => h.goal!.release !== undefined && h.goal!.status !== "done").map((h) => `\n${releaseFor(project, h.goal!).text}`),
     ].join("\n");
     // The Developer's new hand-test marks are now shown, so the next status calls only later ones new.
     for (const s of session.held) if (s.handTests.some((h) => h.result !== "pending" && !h.seen)) project.acknowledgeHandTests(s.goal!.id);
@@ -711,6 +713,17 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   // don't show the whole status end with where the work stands.
   const settingsFile = options.settingsFile ?? settingsFileFor(options.registryFile ?? defaultRegistryFile());
   const estimatesOf = (p: Project) => readSettings(settingsFile, p.root).estimates;
+  // Release goals (facts.ts): the facts the AI writes the changelog entry and version bump from.
+  const releaseFor = (p: Project, g: Goal, bundles?: string[]) => {
+    const r = readSettings(settingsFile, p.root).release;
+    return releaseFacts(p, {
+      goalId: g.id,
+      bundles: bundles ?? (g.release !== undefined ? (g.bundles ?? []) : undefined),
+      version: g.release !== undefined && g.release !== "next" ? g.release : undefined,
+      files: r.files,
+      changelog: r.changelog,
+    });
+  };
   const calibrationLine = (p: Project) => estimateLine(p.calibration(estimatesOf(p)));
   // Steps linked to their commits and tests (gitFacts.ts): recorded as they finish, with one warning
   // line for a step whose files still have changes not saved in git.
@@ -879,27 +892,39 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         done: z.boolean().optional().describe("Record a Goal that is already finished. Every Task must then have done: true."),
         claim: z.boolean().optional().describe("Claim the new Goal straight away, to start working on it."),
         waits_on: waitsOnInput,
+        release: z
+          .boolean()
+          .optional()
+          .describe("Make it a release goal: it bundles the finished goals no earlier release took, and the reply gives the facts to write the changelog entry and version bump from."),
+        bundles: z.array(z.string()).optional().describe("For a release goal: the finished goals it bundles, by ID, instead of all the unreleased ones."),
         project: otherProject,
       },
     },
-    ({ title, id, outcome, estimate, tasks, allow_duplicate, done, claim, waits_on, project: wanted }) =>
+    ({ title, id, outcome, estimate, tasks, allow_duplicate, done, claim, waits_on, release, bundles, project: wanted }) =>
       respondIn(wanted, (p) => {
         if (p !== project && claim)
           throw new Error("A Goal added to another project's plan cannot be claimed from here; leave out claim (or record finished work with done).");
         const goal = p.addGoal(title, newTasks(tasks), { id, outcome, estimate: readEstimate(estimate) ?? undefined, allowDuplicate: allow_duplicate, done });
         if (waits_on?.length) p.setWaitsOn(goal.id, waits_on);
+        let facts = "";
+        if (release || bundles?.length) {
+          const f = releaseFor(p, goal, bundles);
+          p.setRelease(goal.id, f.version ?? "next", f.bundles);
+          // Held release goals show their facts in the status; otherwise the reply carries them.
+          if (!claim || p !== project) facts = `\n${f.text}`;
+        }
         const unknown = waits_on?.length ? unknownWaits(p, goal.id) : [];
         const n = tasks?.length ?? 0;
-        if (unknown.length > 0) return [`Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks.`, ...unknown].join("\n");
+        if (unknown.length > 0) return [`Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks.`, ...unknown].join("\n") + facts;
         if (p !== project)
-          return doneIn(p, done ? `Recorded finished Goal ${goal.id} (${goal.ref}) with ${n} done Tasks.` : `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks.`);
-        if (done) return `Recorded finished Goal ${goal.id} (${goal.ref}) with ${n} done Tasks.`;
+          return doneIn(p, (done ? `Recorded finished Goal ${goal.id} (${goal.ref}) with ${n} done Tasks.` : `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks.`) + facts);
+        if (done) return `Recorded finished Goal ${goal.id} (${goal.ref}) with ${n} done Tasks.${facts}`;
         const learned = calibrationLine(p);
         if (claim) {
           project.claimGoal(goal.id);
           return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks, claimed by this Session.${learned ? `\n${learned}` : ""}\n\n${status()}`;
         }
-        return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks. Claim it with claim_goal to work on it.${learned ? `\n${learned}` : ""}`;
+        return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks. Claim it with claim_goal to work on it.${learned ? `\n${learned}` : ""}${facts}`;
       }),
   );
 
