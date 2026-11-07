@@ -4,6 +4,7 @@
 2. **Your AI forgets the plan** the moment the chat's memory is compressed.
 3. **Your AI says "done" when it isn't,** or quietly drifts off the plan.
 4. **There's nowhere to see your whole project** at a glance, today or months from now.
+5. **A customer bug lands mid-feature,** and the work you were doing gets lost in the scramble.
 
 **Progressor fixes all of them, for free.** Your AI writes its plan into your project and keeps it up to date as it works, and you see every project on one beautiful page in your browser, instead of switching between projects in your IDE and sessions in Claude Code or opencode.
 
