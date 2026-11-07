@@ -234,6 +234,7 @@ Set these in the `env` of the `progressor` server in your app's MCP settings.
 | --- | --- |
 | `PROGRESSOR_ROOT` | The project folder. Without it: the folder the app reports as open (MCP roots), then `CLAUDE_PROJECT_DIR`, then the folder the server starts in. |
 | `PROGRESSOR_PORT` | The dashboard's port (default 4747; the next free one if taken). |
+| `PROGRESSOR_HOST` | The address the dashboard listens on (default `127.0.0.1`). The Docker image sets `0.0.0.0` so the page can be reached from outside the container; requests must still be addressed to `localhost`. |
 | `PROGRESSOR_DASHBOARD` | `off` runs without the dashboard. |
 | `PROGRESSOR_EDITOR` | The editor files open in from the dashboard; see [choosing the code editor](dashboard.md#choosing-the-code-editor). |
 | `PROGRESSOR_REGISTRY` | Where the list of projects for the dashboard is kept (default `~/.progressor/projects.json`). |
