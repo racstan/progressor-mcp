@@ -1,12 +1,11 @@
 <h1 align="center">Progressor</h1>
 
-1. **Your AI forgets the plan** the moment the chat's memory is compressed.
-2. **You lose track** of what's done, what's half-done and what's next.
+1. **You lose track** of what's done, what's half-done and what's next, hopping between projects in your IDE and sessions in Claude Code or opencode.
+2. **Your AI forgets the plan** the moment the chat's memory is compressed.
 3. **Your AI says "done" when it isn't,** or quietly drifts off the plan.
-4. **Juggling several projects and AI apps** turns into micromanagement.
-5. **There's nowhere to see your whole project** at a glance, today or months from now.
+4. **There's nowhere to see your whole project** at a glance, today or months from now.
 
-**Progressor fixes all five.** It's a free add-on for your AI coding app: your AI writes its plan into your project folder and keeps it up to date as it works, and you watch that plan live on a page in your browser.
+**Progressor fixes all of them, for free.** Your AI writes its plan into your project and keeps it up to date as it works, and you see every project on one beautiful page in your browser, instead of switching between projects in your IDE and sessions in Claude Code or opencode.
 
 <p align="center">
   <a href="https://www.npmjs.com/package/progressor-mcp"><img src="https://img.shields.io/npm/v/progressor-mcp" alt="npm"></a>
@@ -31,7 +30,7 @@ It works with any app that supports [MCP](https://modelcontextprotocol.io) (the 
 ### Your AI lost the thread
 
 - **Vibe coding a project and can't keep track of what's going on anymore?**<br>
-  Your AI writes its plan, a **goal** made of **steps**, into your project and ticks each step off as it works. You see it live: what it's doing right now, what's done and what's left.
+  Your AI writes its plan, a **goal** made of **steps**, into your project and ticks each step off as it works. You see it live on one page in your browser, instead of hopping between projects in your IDE and sessions in your AI app: what it's doing right now, what's done and what's left.
 - **Your AI's memory got compressed, and your plan went with it?**<br>
   Almost every AI app compresses long chats, and an AI that forgets the plan writes sloppy code and leaves bugs behind. Progressor keeps the plan in your project, not in the chat: say *"use Progressor"* and your AI carries on from the exact step it was on. Claude Code does it by itself.
 - **Switched from Claude Code to Cursor or Codex and lost everything?**<br>
