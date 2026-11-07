@@ -1140,3 +1140,11 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .side-group.project-links + .side-link { margin-top: var(--s2); }
 /* a page's heading names its project, so a long name wraps instead of running off a phone */
 .page-title { overflow-wrap: anywhere; }
+
+/* the Dashboard page's goal list: a sort picker beside the heading, and a box that scrolls on its own */
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
+.section-head h2 { margin: 0; font-size: var(--t-m); font-weight: 600; color: var(--muted); }
+.sort-pick { display: inline-flex; align-items: center; gap: var(--s2); font-size: var(--t-s); color: var(--muted); }
+.goal-scroll { max-height: 60vh; overflow-y: auto; margin-top: var(--s3); border: 1px solid var(--line); border-radius: var(--r-s); }
+.goal-scroll .stat-table thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+@media (max-width: 640px) { .goal-scroll { max-height: 45vh; } }

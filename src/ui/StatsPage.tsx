@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { sayDuration } from "../estimate.js";
 import { CheckupCard } from "./CheckupCard.js";
 import { type RoadmapView, type StatsView, useStats } from "./data.js";
+import { GOAL_SORTS, type GoalSort, readGoalSort, sortGoals } from "./goalSort.js";
 import { SIDE_TRIP_HINT, driftWords, estimateQuality, estimateWords } from "./words.js";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -96,30 +98,65 @@ function Stats({ stats: s, onOpenGoal }: { stats: StatsView; onOpenGoal: (id: st
         </section>
       )}
 
-      {s.perGoal.length > 0 && (
-        <section className="section">
-          <h2>Each goal <span className="quiet">· newest first</span></h2>
-          <div className="table-wrap">
-            <table className="stat-table">
-              <thead>
-                <tr><th>Goal</th><th>Steps</th><th>Time</th><th>Estimated</th><th>Side trips</th></tr>
-              </thead>
-              <tbody>
-                {[...s.perGoal].reverse().map((g) => (
-                  <tr key={g.id} className={g.status === "done" ? "finished" : undefined}>
-                    <td><button className="linkbtn" onClick={() => onOpenGoal(g.id)}>{g.title}</button></td>
-                    <td>{g.done}/{g.total}</td>
-                    <td>{time(g.spent)}</td>
-                    <td>{time(g.estimate)}</td>
-                    <td>{g.sideTrips || "–"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+      {s.perGoal.length > 0 && <EachGoal goals={s.perGoal} onOpenGoal={onOpenGoal} />}
     </>
+  );
+}
+
+const SORT_KEY = "progressor.goal-sort";
+
+function storedSort(): GoalSort {
+  try {
+    return readGoalSort(localStorage.getItem(SORT_KEY));
+  } catch {
+    return "newest";
+  }
+}
+
+/** A line per goal, in the order picked (kept in this browser), in a box that scrolls on its own. */
+function EachGoal({ goals, onOpenGoal }: { goals: StatsView["perGoal"]; onOpenGoal: (id: string) => void }) {
+  const [sort, setSortState] = useState<GoalSort>(storedSort);
+  const setSort = (v: GoalSort) => {
+    setSortState(v);
+    try {
+      localStorage.setItem(SORT_KEY, v);
+    } catch {
+      // not remembered, but the list still sorts
+    }
+  };
+  const chosen = GOAL_SORTS.find((x) => x.id === sort)!;
+  return (
+    <section className="section">
+      <div className="section-head">
+        <h2>Each goal <span className="quiet">· {chosen.heading}</span></h2>
+        <label className="sort-pick">
+          <span>Sort by</span>
+          <select className="picker" value={sort} onChange={(e) => setSort(readGoalSort(e.target.value))} aria-label="Sort the goals by">
+            {GOAL_SORTS.map((o) => (
+              <option key={o.id} value={o.id}>{o.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="table-wrap goal-scroll" tabIndex={0} aria-label="Each goal">
+        <table className="stat-table">
+          <thead>
+            <tr><th>Goal</th><th>Steps</th><th>Time</th><th>Estimated</th><th>Side trips</th></tr>
+          </thead>
+          <tbody>
+            {sortGoals(goals, sort).map((g) => (
+              <tr key={g.id} className={g.status === "done" ? "finished" : undefined}>
+                <td><button className="linkbtn" onClick={() => onOpenGoal(g.id)}>{g.title}</button></td>
+                <td>{g.done}/{g.total}</td>
+                <td>{time(g.spent)}</td>
+                <td>{time(g.estimate)}</td>
+                <td>{g.sideTrips || "–"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
