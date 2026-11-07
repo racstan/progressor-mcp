@@ -1,0 +1,180 @@
+import { describe, expect, it } from "vitest";
+import {
+  DAEMON_NAME,
+  MAX_OLD_SPACE_MB,
+  daemonFiles,
+  describeStatus,
+  launcherSource,
+  loginItem,
+  nodeArgs,
+  parseDaemonArgs,
+  vbsQuote,
+} from "../src/daemon.js";
+
+const win = {
+  platform: "win32" as const,
+  home: "C:\\Users\\Ada",
+  appData: "C:\\Users\\Ada\\AppData\\Roaming",
+  node: "C:\\Program Files\\nodejs\\node.exe",
+  dir: "C:\\Users\\Ada\\.progressor",
+  name: DAEMON_NAME,
+};
+const mac = { platform: "darwin" as const, home: "/Users/ada", uid: 501, node: "/usr/local/bin/node", dir: "/Users/ada/.progressor", name: DAEMON_NAME };
+const linux = { platform: "linux" as const, home: "/home/ada", node: "/usr/bin/node", dir: "/home/ada/.progressor", name: DAEMON_NAME };
+
+describe("the background dashboard's files", () => {
+  it("live beside the project list", () => {
+    const f = daemonFiles("/home/ada/.progressor/projects.json");
+    expect(f.dir).toMatch(/\.progressor$/);
+    expect(f.state).toMatch(/daemon\.json$/);
+    expect(f.log).toMatch(/daemon\.log$/);
+    expect(f.launcher).toMatch(/daemon-launch\.mjs$/);
+  });
+
+  it("start node with a small memory cap and the launcher", () => {
+    expect(MAX_OLD_SPACE_MB).toBeLessThanOrEqual(128);
+    expect(nodeArgs("/x/daemon-launch.mjs")).toEqual([`--max-old-space-size=${MAX_OLD_SPACE_MB}`, "/x/daemon-launch.mjs"]);
+  });
+
+  it("has a launcher that runs the Progressor daemon.json names, with the folder's project list", () => {
+    const src = launcherSource();
+    expect(src).toContain("daemon.json");
+    expect(src).toContain("PROGRESSOR_REGISTRY");
+    expect(src).toContain('"daemon", "run"');
+    expect(src).toContain("existsSync");
+  });
+});
+
+describe("starting at login on Windows", () => {
+  const plan = loginItem(win);
+
+  it("writes a script that runs node with no window", () => {
+    const vbs = plan.files.find((f) => f.path.endsWith(".vbs"))!;
+    expect(vbs.path).toBe("C:\\Users\\Ada\\.progressor\\progressor-dashboard.vbs");
+    expect(vbs.content).toContain('CreateObject("WScript.Shell").Run');
+    expect(vbs.content).toContain('""C:\\Program Files\\nodejs\\node.exe""');
+    expect(vbs.content).toContain(`--max-old-space-size=${MAX_OLD_SPACE_MB}`);
+    expect(vbs.content).toMatch(/, 0, False\r?\n/);
+  });
+
+  it("registers a Task Scheduler task at logon for this user, without admin rights", () => {
+    expect(plan.run).toEqual([
+      { command: "schtasks", args: ["/Create", "/TN", "progressor-dashboard", "/SC", "ONLOGON", "/RL", "LIMITED", "/TR", 'wscript.exe "C:\\Users\\Ada\\.progressor\\progressor-dashboard.vbs"', "/F"] },
+    ]);
+    expect(plan.startsItself).toBe(false);
+  });
+
+  it("falls back to the Startup folder when the task can't be made", () => {
+    const fb = plan.fallback!;
+    expect(fb.run).toEqual([]);
+    expect(fb.files.some((f) => f.path === "C:\\Users\\Ada\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\progressor-dashboard.vbs")).toBe(true);
+  });
+
+  it("removes the task, the Startup script and its own script", () => {
+    expect(plan.remove.run).toEqual([{ command: "schtasks", args: ["/Delete", "/TN", "progressor-dashboard", "/F"] }]);
+    expect(plan.remove.files).toContain("C:\\Users\\Ada\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\progressor-dashboard.vbs");
+    expect(plan.remove.files).toContain("C:\\Users\\Ada\\.progressor\\progressor-dashboard.vbs");
+  });
+
+  it("quotes for VBScript by doubling quotes", () => {
+    expect(vbsQuote('a "b" c')).toBe('"a ""b"" c"');
+  });
+});
+
+describe("starting at login on macOS", () => {
+  const plan = loginItem(mac);
+  const plist = plan.files[0]!;
+
+  it("writes a LaunchAgent for this user that starts at login", () => {
+    expect(plist.path).toBe("/Users/ada/Library/LaunchAgents/com.progressor.dashboard.plist");
+    expect(plist.content).toContain("<key>Label</key>\n  <string>com.progressor.dashboard</string>");
+    expect(plist.content).toContain("<string>/usr/local/bin/node</string>");
+    expect(plist.content).toContain(`<string>--max-old-space-size=${MAX_OLD_SPACE_MB}</string>`);
+    expect(plist.content).toContain("<string>/Users/ada/.progressor/daemon-launch.mjs</string>");
+    expect(plist.content).toContain("<key>RunAtLoad</key>\n  <true/>");
+    expect(plist.content).toContain("/Users/ada/.progressor/daemon.log");
+  });
+
+  it("loads it now, with the older launchctl as a fallback", () => {
+    expect(plan.run).toEqual([{ command: "launchctl", args: ["bootstrap", "gui/501", plist.path] }]);
+    expect(plan.startsItself).toBe(true);
+    expect(plan.fallback!.run).toEqual([{ command: "launchctl", args: ["load", "-w", plist.path] }]);
+  });
+
+  it("unloads and removes it", () => {
+    expect(plan.remove.run).toEqual([{ command: "launchctl", args: ["bootout", "gui/501/com.progressor.dashboard"] }]);
+    expect(plan.remove.files).toEqual([plist.path]);
+  });
+
+  it("escapes paths for XML", () => {
+    const odd = loginItem({ ...mac, node: "/opt/a&b/node" });
+    expect(odd.files[0]!.content).toContain("<string>/opt/a&amp;b/node</string>");
+  });
+});
+
+describe("starting at login on Linux", () => {
+  const plan = loginItem(linux);
+  const unit = plan.files[0]!;
+
+  it("writes a systemd user unit", () => {
+    expect(unit.path).toBe("/home/ada/.config/systemd/user/progressor-dashboard.service");
+    expect(unit.content).toContain(`ExecStart="/usr/bin/node" "--max-old-space-size=${MAX_OLD_SPACE_MB}" "/home/ada/.progressor/daemon-launch.mjs"`);
+    expect(unit.content).toContain("WantedBy=default.target");
+    expect(unit.content).toContain("Restart=on-failure");
+  });
+
+  it("enables and starts it for this user", () => {
+    expect(plan.run).toEqual([
+      { command: "systemctl", args: ["--user", "daemon-reload"] },
+      { command: "systemctl", args: ["--user", "enable", "--now", "progressor-dashboard.service"] },
+    ]);
+    expect(plan.startsItself).toBe(true);
+  });
+
+  it("falls back to an XDG autostart entry", () => {
+    const fb = plan.fallback!;
+    expect(fb.files[0]!.path).toBe("/home/ada/.config/autostart/progressor-dashboard.desktop");
+    expect(fb.files[0]!.content).toContain("[Desktop Entry]");
+    expect(fb.files[0]!.content).toContain(`Exec="/usr/bin/node" "--max-old-space-size=${MAX_OLD_SPACE_MB}" "/home/ada/.progressor/daemon-launch.mjs"`);
+    expect(fb.startsItself).toBe(false);
+  });
+
+  it("disables and removes both", () => {
+    expect(plan.remove.run).toEqual([
+      { command: "systemctl", args: ["--user", "disable", "--now", "progressor-dashboard.service"] },
+      { command: "systemctl", args: ["--user", "daemon-reload"] },
+    ]);
+    expect(plan.remove.files).toEqual([unit.path, "/home/ada/.config/autostart/progressor-dashboard.desktop"]);
+  });
+
+  it("follows XDG_CONFIG_HOME", () => {
+    expect(loginItem({ ...linux, configHome: "/cfg" }).files[0]!.path).toBe("/cfg/systemd/user/progressor-dashboard.service");
+  });
+
+  it("uses a test name everywhere it is given", () => {
+    const t = loginItem({ ...linux, name: "progressor-dashboard-test" });
+    expect(t.files[0]!.path).toContain("progressor-dashboard-test.service");
+    expect(loginItem({ ...mac, name: "progressor-dashboard-test" }).files[0]!.path).toContain("com.progressor.dashboard-test.plist");
+    expect(loginItem({ ...win, name: "progressor-dashboard-test" }).run[0]!.args).toContain("progressor-dashboard-test");
+  });
+});
+
+describe("the daemon command's words", () => {
+  it("reads the subcommand and options", () => {
+    expect(parseDaemonArgs(["start"])).toEqual({ action: "start" });
+    expect(parseDaemonArgs(["install", "--name", "progressor-dashboard-test"])).toEqual({ action: "install", name: "progressor-dashboard-test" });
+    expect(parseDaemonArgs([])).toEqual({ action: "help" });
+    expect(parseDaemonArgs(["--help"])).toEqual({ action: "help" });
+    expect(parseDaemonArgs(["frobnicate"])).toEqual({ action: "unknown", word: "frobnicate" });
+  });
+
+  it("says plainly whether it runs, and how big it is", () => {
+    expect(describeStatus(undefined)).toBe("The background dashboard is not running.");
+    expect(
+      describeStatus({ pid: 42, port: 4747, version: "1.3.0", memory: 69 * 1_048_576, serving: true, startedAt: "2026-11-07T10:00:00.000Z" }),
+    ).toBe("The background dashboard is running: http://localhost:4747/, version 1.3.0, process 42, 69 MB of memory.");
+    expect(describeStatus({ pid: 42, port: 4747, version: "1.2.0", memory: 60 * 1_048_576, serving: false, startedAt: "x" })).toBe(
+      "The background dashboard is running (version 1.2.0, process 42, 60 MB of memory). A newer Progressor serves http://localhost:4747/ right now; it takes over again when that one closes.",
+    );
+  });
+});

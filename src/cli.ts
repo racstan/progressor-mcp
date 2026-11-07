@@ -3,6 +3,7 @@
 // hook: it reads the hook's JSON on stdin, prints text for the Agent's context and exits.
 // `progressor-mcp dashboard [folder]` opens the dashboard on a Workspace with no Agent running.
 // `progressor-mcp init [folder]` sets a project up for Progressor and Claude Code.
+// `progressor-mcp daemon <start|stop|status|install|uninstall>` runs the dashboard in the background.
 // `progressor-mcp --version` prints the version, for bug reports.
 // Each part is loaded only when needed, so the hook (which runs on every prompt) starts fast.
 if (process.argv[2] === "--version" || process.argv[2] === "-v") {
@@ -20,6 +21,10 @@ if (process.argv[2] === "--version" || process.argv[2] === "-v") {
 } else if (process.argv[2] === "dashboard") {
   const { runDashboardCommand } = await import("./dashboardCommand.js");
   process.exit(await runDashboardCommand(process.argv.slice(3)));
+} else if (process.argv[2] === "daemon") {
+  const { runDaemonCommand } = await import("./daemonCommand.js");
+  // `daemon run` (the background process itself) returns only once it has been stopped
+  process.exit(await runDaemonCommand(process.argv.slice(3)));
 } else {
   await import("./serve.js");
 }

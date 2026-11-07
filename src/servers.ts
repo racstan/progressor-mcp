@@ -10,8 +10,8 @@ import { processIsAlive } from "./project.js";
 
 export interface ServerRecord {
   pid: number;
-  /** A Session's MCP server, or the `progressor-mcp dashboard` command. */
-  kind: "session" | "dashboard";
+  /** A Session's MCP server, the `progressor-mcp dashboard` command, or the background dashboard (daemon.ts). */
+  kind: "session" | "dashboard" | "background";
   /** The project folder, or the Workspace folder for the dashboard command. */
   root: string;
   /** The Session ID, for a Session's server. */

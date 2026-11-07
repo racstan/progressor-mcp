@@ -8,6 +8,7 @@
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { type Origin, latestOrigin } from "../origin.js";
 import type { Decision, HandResult, HandTest, Message, Note, Question, TaskStatus } from "../planFile.js";
 import { type EstimateSettings, MAX_ATTACHMENT_BYTES, MIN_SAMPLES, PROGRESSOR_DIR, PROJECT_TALK, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
@@ -69,6 +70,8 @@ export interface DashboardOptions {
   settingsFile?: string;
   /** Stands in for the network when the hub sends phone notifications (tests). */
   ntfyFetch?: FetchFn;
+  /** Called after this process stopped serving because a newer Progressor took the port over (daemon.ts). */
+  onStepDown?: () => void;
 }
 
 export interface Dashboard {
@@ -76,6 +79,8 @@ export interface Dashboard {
   readonly url: string;
   /** "serving" when this process is the hub, "shared" when another Progressor process is. */
   readonly role: "serving" | "shared";
+  /** The port the dashboard is on. */
+  readonly port: number;
   /** Why the dashboard is not on the port asked for, when an older Progressor still holds it. */
   readonly notice: string | undefined;
   readonly project: ProjectEntry | undefined;
@@ -95,6 +100,8 @@ const MIME: Record<string, string> = {
 };
 
 export const VERSION: string = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
+/** This Progressor's command line program, so an older background dashboard can move to it (daemon.ts). */
+const CLI = fileURLToPath(new URL("../cli.js", import.meta.url));
 
 /**
  * The JSON views of one project. Each call re-reads the markdown, which is the source of truth.
@@ -876,7 +883,7 @@ class Hub {
       if (path === "/api/servers") return json(res, 200, this.servers());
       if (path === "/api/search") return json(res, 200, this.search(url.searchParams.get("q") ?? ""));
       if (path === "/api/info")
-        return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, build: uiBuild(this.uiDir), editor: this.editor, pid: process.pid, stepDown: true });
+        return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, build: uiBuild(this.uiDir), editor: this.editor, pid: process.pid, stepDown: true, cli: CLI });
       if (path === "/api/projects") return json(res, 200, this.sync(url.searchParams.has("rescan")));
       if (path === "/api/workspaces") return json(res, 200, listWorkspaces(this.registryFile));
       if (path === "/api/overview") return json(res, 200, this.overview());
@@ -968,13 +975,15 @@ function listen(server: Server, port: number, host = HOST): Promise<"ok" | "in u
 }
 
 /** What /api/info says about the Progressor hub on a port. */
-interface HubInfo {
+export interface HubInfo {
   app?: string;
   hub?: number;
   version?: string;
   pid?: number;
   /** Whether the hub hands the port over when a newer Progressor asks (from hub version 3). */
   stepDown?: boolean;
+  /** Its command line program (from 1.3.0). */
+  cli?: string;
 }
 
 /**
@@ -982,7 +991,7 @@ interface HubInfo {
  * Progressor dashboard, or undefined when it did not answer. A hub that is busy (scanning a big
  * Workspace, say) gets a second, longer chance, so it is not mistaken for something else.
  */
-async function hubInfo(port: number): Promise<HubInfo | null | undefined> {
+export async function hubInfo(port: number): Promise<HubInfo | null | undefined> {
   for (const timeout of [1500, 5000]) {
     let res: Response;
     try {
@@ -1063,7 +1072,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
     const http = createServer();
     const result = await listen(http, p);
     if (result !== "ok") return result;
-    hub ??= new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs, serversDir, () => void stopServing(), reveal, options.settingsFile ?? settingsFileFor(registryFile), options.ntfyFetch);
+    hub ??= new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs, serversDir, () => void stopServing().then(() => options.onStepDown?.()), reveal, options.settingsFile ?? settingsFileFor(registryFile), options.ntfyFetch);
     hub.port = p;
     http.on("request", hub.handle);
     const previous = servers;
@@ -1163,6 +1172,9 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
     },
     get role() {
       return role;
+    },
+    get port() {
+      return port;
     },
     get notice() {
       return notice;

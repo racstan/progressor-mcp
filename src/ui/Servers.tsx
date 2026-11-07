@@ -1,5 +1,5 @@
 // The Servers panel: every running Progressor process (one per Agent conversation, plus any
-// `progressor-mcp dashboard` command), with a Stop button behind a confirm.
+// `progressor-mcp dashboard` command, plus the background dashboard), with a Stop button behind a confirm.
 import { useState } from "react";
 import { type InfoView, type ServersView, stopServer } from "./data.js";
 
@@ -17,7 +17,9 @@ function age(iso: string): string {
 
 function confirmText(s: Server, others: number): string {
   const what =
-    s.kind === "dashboard"
+    s.kind === "background"
+      ? "Stop the background dashboard? If it starts at login, it starts again next time you log in."
+      : s.kind === "dashboard"
       ? `Stop the dashboard command for ${s.root}?`
       : `Stop the Progressor server for ${s.name}? That AI chat loses Progressor until it starts again.`;
   if (!s.serving) return what;
@@ -66,7 +68,7 @@ export function ServersPanel({ servers, hub, reload, toast }: {
       {list.map((s) => (
         <div key={s.pid} className={`server ${stopping.has(s.pid) ? "stopping" : ""}`}>
           <div className="server-head">
-            <b>{s.name}</b>
+            <b>{s.kind === "background" ? "Background dashboard" : s.name}</b>
             {s.serving && <span className="badge" title="This process serves the page you are looking at">serves this dashboard</span>}
             <span className="sp" />
             <button className="stop" disabled={stopping.has(s.pid)} onClick={() => void stop(s)}
@@ -76,7 +78,7 @@ export function ServersPanel({ servers, hub, reload, toast }: {
           </div>
           <div className="server-path" title={s.root}>{s.root}</div>
           <div className="server-meta">
-            <span>{s.kind === "dashboard" ? "Dashboard command" : s.goals.length > 0 ? `Working on: ${s.goals.map((g) => g.title).join(", ")}` : "Not working on a goal"}</span>
+            <span>{s.kind === "background" ? "Runs on its own, for every project" : s.kind === "dashboard" ? "Dashboard command" : s.goals.length > 0 ? `Working on: ${s.goals.map((g) => g.title).join(", ")}` : "Not working on a goal"}</span>
             <span>{megabytes(s.memory)}</span>
             <span title={new Date(s.startedAt).toLocaleString()}>started {age(s.startedAt)}</span>
             <span>pid {s.pid}</span>
