@@ -1,7 +1,8 @@
 // The first-run tour (tourSteps.ts): a card that points at one part of the real page at a time, with
-// Back, Next and Skip. It never blocks the page: the dimming lets clicks through, Escape closes it,
+// Back, Next, Skip, a × and Don't show again (what each means for next time is in firstLook.ts). It never blocks the page: the dimming lets clicks through, Escape closes it,
 // and focus goes back where it was when it ends.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Icon } from "./Icon.js";
 import { TOUR_STEPS, firstTarget, tourMove } from "./tourSteps.js";
 
 type Box = { top: number; left: number; width: number; height: number };
@@ -9,7 +10,14 @@ type Box = { top: number; left: number; width: number; height: number };
 const PAD = 6;
 const isPhone = () => matchMedia("(max-width: 640px)").matches;
 
-export function Tour({ onClose }: { onClose: () => void }) {
+/** How the tour ended: finished, Skip, × (or Escape), or with Don't show again ticked. */
+export type TourEnd = "finish" | "skip" | "close" | "never";
+
+export function Tour({ onClose }: { onClose: (how: TourEnd) => void }) {
+  const [never, setNever] = useState(false);
+  const neverRef = useRef(false);
+  neverRef.current = never;
+  const end = (how: TourEnd) => onClose(neverRef.current ? "never" : how);
   const [at, setAt] = useState(0);
   const [box, setBox] = useState<Box>();
   const card = useRef<HTMLDivElement>(null);
@@ -86,12 +94,12 @@ export function Tour({ onClose }: { onClose: () => void }) {
 
   const move = (how: "next" | "back" | "skip") => {
     const to = tourMove(at, how, TOUR_STEPS.length);
-    if (to === undefined) onClose();
+    if (to === undefined) end(how === "skip" ? "skip" : "finish");
     else setAt(to);
   };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onClose(neverRef.current ? "never" : "close");
     };
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
@@ -117,6 +125,9 @@ export function Tour({ onClose }: { onClose: () => void }) {
           if (e.key === "ArrowRight") move("next");
           if (e.key === "ArrowLeft") move("back");
         }}>
+        <button className="iconbtn tour-x" title="Close the tour" aria-label="Close the tour" onClick={() => end("close")}>
+          <Icon name="close" size={16} />
+        </button>
         <p className="tour-count">Step {at + 1} of {TOUR_STEPS.length}</p>
         <h2 id="tour-title">{step.title}</h2>
         {step.notice && (
@@ -125,6 +136,10 @@ export function Tour({ onClose }: { onClose: () => void }) {
           </p>
         )}
         <p id="tour-body">{step.body}</p>
+        <label className="tour-never">
+          <input type="checkbox" checked={never} onChange={(e) => setNever(e.target.checked)} />
+          Don't show again
+        </label>
         <div className="tour-actions">
           <button className="linkbtn" onClick={() => move("skip")}>Skip the tour</button>
           <span className="sp" />

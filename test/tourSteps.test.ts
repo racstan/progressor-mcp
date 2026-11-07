@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { TOUR_STEPS, firstTarget, markTourSeen, tourMove, tourSeen } from "../src/ui/tourSteps.js";
+import { TOUR_STEPS, firstTarget, tourMove } from "../src/ui/tourSteps.js";
 import { FREE_NOTICE } from "../src/ui/words.js";
-
-const store = (items: Record<string, string> = {}) => {
-  const map = new Map(Object.entries(items));
-  return { map, getItem: (k: string) => map.get(k) ?? null, setItem: (k: string, v: string) => void map.set(k, v) };
-};
-const broken = { getItem: () => { throw new Error("no storage"); }, setItem: () => { throw new Error("no storage"); } };
 
 describe("the tour's steps", () => {
   it("opens with a welcome that points at nothing and says, first of all, that Progressor is free", () => {
@@ -61,19 +55,5 @@ describe("what the tour points at", () => {
     const on = new Set([".b", ".c"]);
     expect(firstTarget([".a", ".b", ".c"], (s) => on.has(s))).toBe(".b");
     expect(firstTarget([".a"], (s) => on.has(s))).toBeUndefined();
-  });
-});
-
-describe("showing the tour once", () => {
-  it("shows the first time, and not after it was seen", () => {
-    const s = store();
-    expect(tourSeen(s)).toBe(false);
-    markTourSeen(s);
-    expect(tourSeen(s)).toBe(true);
-  });
-
-  it("never shows by itself, and never fails, when the browser can't keep anything", () => {
-    expect(tourSeen(broken)).toBe(true);
-    expect(() => markTourSeen(broken)).not.toThrow();
   });
 });

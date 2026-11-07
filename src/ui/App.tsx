@@ -30,8 +30,8 @@ import { FreeNotice } from "./FreeNotice.js";
 import { canPopUp, editorName } from "./settings/Look.js";
 import type { SettingsContext, Theme } from "./settings/index.js";
 import { StepKey } from "./StepKey.js";
-import { Tour } from "./Tour.js";
-import { onOpen, setWhatsNewAuto, whatsNewAuto } from "./firstLook.js";
+import { Tour, type TourEnd } from "./Tour.js";
+import { onOpen, setWhatsNewAuto, tourClosed, whatsNewAuto } from "./firstLook.js";
 import type { FileLink } from "./Steps.js";
 import { goalState, resourceWords } from "./words.js";
 
@@ -392,7 +392,12 @@ export function App() {
     if (latest) setSeenChanges(latest.title);
   };
   const closeChanges = useCallback(() => setShowChanges(false), []);
-  const closeTour = useCallback(() => setTouring(false), []);
+  // Finishing it or Don't show again stops it for good; Skip and × let it come back once (firstLook.ts).
+  const closeTour = useCallback((how: TourEnd) => {
+    setTouring(false);
+    tourClosed(browserStore(), how);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Once the page has something on it: the tour on a first visit (What's new then counts as seen), or
   // What's new the first time after the version changes (firstLook.ts).
   const loaded = projects !== undefined;

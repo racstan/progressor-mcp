@@ -1,7 +1,7 @@
 import { FREE_NOTICE } from "./words.js";
 
-// The first-run tour: a welcome, then a few short steps that point at the real dashboard, shown once per browser and
-// skippable at any time (Tour.tsx draws it). Nothing here is ever required.
+// The first-run tour: a welcome, then a few short steps that point at the real dashboard. When it
+// opens is decided in firstLook.ts; Tour.tsx draws it, skippable at any time. Nothing here is required.
 
 export interface TourStep {
   title: string;
@@ -61,24 +61,3 @@ export function tourMove(at: number, how: "next" | "back" | "skip", count: numbe
 
 /** The first of `targets` that is on the page. */
 export const firstTarget = (targets: string[], onPage: (selector: string) => boolean): string | undefined => targets.find(onPage);
-
-const SEEN_KEY = "progressor.tour-seen";
-type Store = { getItem(k: string): string | null; setItem(k: string, v: string): void };
-
-/** Whether this browser has seen the tour; true when the browser can't say, so it never shows over and over. */
-export function tourSeen(store: Store): boolean {
-  try {
-    return store.getItem(SEEN_KEY) !== null;
-  } catch {
-    return true;
-  }
-}
-
-/** Remembers the tour was seen; does nothing when the browser can't keep it. */
-export function markTourSeen(store: Store): void {
-  try {
-    store.setItem(SEEN_KEY, new Date().toISOString());
-  } catch {
-    // nothing kept; the tour simply may show again
-  }
-}
