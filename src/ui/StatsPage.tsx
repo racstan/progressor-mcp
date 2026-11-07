@@ -23,12 +23,12 @@ export function StatsPage({ projectId, roadmap, onOpenGoal }: { projectId: strin
   const stats = useStats(projectId, roadmap);
   return (
     <div className="page stats">
-      <h1 className="page-title">Statistics</h1>
+      <h1 className="page-title">Dashboard</h1>
       <p className="page-sub">Worked out from this project's plan: how long steps take, how often the work stepped off the plan, and what was finished each day.</p>
       {stats === undefined ? (
         <p className="quiet">Working them out…</p>
       ) : stats === null ? (
-        <p className="quiet">The statistics could not be loaded. Try Refresh.</p>
+        <p className="quiet">The numbers could not be loaded. Try Refresh.</p>
       ) : (
         <Stats stats={stats} onOpenGoal={onOpenGoal} />
       )}

@@ -31,6 +31,7 @@ function Alternatives({ ctx }: { ctx: SettingsContext }) {
 
 export const alternativesSection: SettingsSection = {
   id: "alternatives",
+  group: "plan",
   title: "Alternatives",
   Component: Alternatives,
   reset: (ctx) => ctx.resetComputer("alternatives"),

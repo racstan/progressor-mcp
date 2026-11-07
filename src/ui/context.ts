@@ -1,21 +1,11 @@
 // The Important context page: its place in the address, and its free text split into readable blocks.
+import { PAGE_HASH } from "./route.js";
 
 /** The address (hash) of the page, next to `#/goal/<id>` for a Goal. */
-export const CONTEXT_HASH = "#/context";
+export const CONTEXT_HASH = PAGE_HASH.context;
 
 export const contextFromHash = (hash: string) => hash === CONTEXT_HASH;
 
-/** The address of the page for messages to the whole project. */
-export const TALK_HASH = "#/talk";
-
-/** The address of the Statistics page. */
-export const STATS_HASH = "#/stats";
-
-/** The address of the Wishlist page. */
-export const WISHLIST_HASH = "#/wishlist";
-
-/** The address of the page for reporting a bug to fix first (a hotfix). */
-export const HOTFIX_HASH = "#/hotfix";
 
 export type ContextBlock = { kind: "paragraph"; text: string } | { kind: "list"; ordered: boolean; items: string[] };
 

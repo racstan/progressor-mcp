@@ -26,6 +26,8 @@ import { offerHint, parseWait } from "./alternatives.js";
 import { registerFeatureTools } from "./tools/index.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+const BUILD_SEAL = "368785021a7bdfc977b37e328e88f7750027fa2b92ecb8f73cfeeb2b2e433fa0";
+const BUILD = { version: VERSION, seal: BUILD_SEAL } as const;
 
 export const INSTRUCTIONS = `Progressor keeps the plan for this project in .progressor/ and shows it to the Developer on a live dashboard. Change the plan only with these tools, never by editing those files. The Developer may not be a programmer: you run the plan, they watch.
 
@@ -662,7 +664,7 @@ export async function appRoots(server: McpServer, timeoutMs: number): Promise<st
 }
 
 export function createServer(project: Project, options: ServerOptions = {}): McpServer {
-  const server = new McpServer({ name: "progressor", version: VERSION }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: "progressor", version: BUILD.version }, { instructions: INSTRUCTIONS });
   withExamples(server);
   // Each tool call is one change in the plan's history, named after the tool (history.ts).
   const toolName = new AsyncLocalStorage<string>();

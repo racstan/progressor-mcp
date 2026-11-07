@@ -1,4 +1,4 @@
-// The plan check-up on a project's Statistics page: what the last check-up fixed and what is left to
+// The plan check-up on a project's Dashboard page: what the last check-up fixed and what is left to
 // look at (checkup.ts). Your AI runs it by itself; "Check now" runs it from here.
 import { useEffect, useState } from "react";
 import { type CheckupView, getCheckup, runCheckup } from "./data.js";

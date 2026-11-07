@@ -370,12 +370,12 @@ button.list-row:hover { background: var(--hover); }
 
 /* ---------- menus, popover, toast ---------- */
 .menu-panel { position: fixed; top: 60px; right: var(--s4); z-index: 40; width: 360px; max-width: calc(100vw - 24px); max-height: calc(100vh - 80px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding: var(--s4); }
-.menu-panel h3 { margin: 0 0 var(--s2); font-size: var(--t-s); font-weight: 600; color: var(--muted); }
-.menu-panel section + section, .menu-panel details + section, .menu-panel section + details { margin-top: var(--s5); }
-.menu-panel .hint { font-size: var(--t-s); color: var(--faint); margin: var(--s2) 0 0; }
-.menu-panel .card { display: block; text-decoration: none; color: var(--ink); padding: var(--s3); border-radius: var(--r-s); border: 1px solid var(--line); margin-bottom: var(--s2); }
-.menu-panel .card:hover { background: var(--hover); }
-.menu-panel .card small { display: block; color: var(--muted); font-size: var(--t-s); }
+:is(.menu-panel, .settings-page) h3 { margin: 0 0 var(--s2); font-size: var(--t-s); font-weight: 600; color: var(--muted); }
+:is(.menu-panel, .settings-page) section + section, :is(.menu-panel, .settings-page) details + section, :is(.menu-panel, .settings-page) section + details { margin-top: var(--s5); }
+:is(.menu-panel, .settings-page) .hint { font-size: var(--t-s); color: var(--faint); margin: var(--s2) 0 0; }
+:is(.menu-panel, .settings-page) .card { display: block; text-decoration: none; color: var(--ink); padding: var(--s3); border-radius: var(--r-s); border: 1px solid var(--line); margin-bottom: var(--s2); }
+:is(.menu-panel, .settings-page) .card:hover { background: var(--hover); }
+:is(.menu-panel, .settings-page) .card small { display: block; color: var(--muted); font-size: var(--t-s); }
 .menu-panel details.advanced { border-top: 1px solid var(--line); padding-top: var(--s4); }
 .menu-panel details.advanced > summary { cursor: pointer; font-size: var(--t-s); font-weight: 600; color: var(--muted); }
 .menu-panel details.advanced[open] > summary { margin-bottom: var(--s4); }
@@ -736,7 +736,7 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .hotfix-form .error { font-size: var(--t-s); color: var(--bad); margin-right: auto; }
 
 /* What's new: the changelog, from Help. */
-.menu-panel button.card { width: 100%; text-align: left; font: inherit; background: var(--panel); cursor: pointer; }
+:is(.menu-panel, .settings-page) button.card { width: 100%; text-align: left; font: inherit; background: var(--panel); cursor: pointer; }
 .menu-btn { position: relative; }
 .new-dot { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px var(--bg); }
 .release-tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--muted); vertical-align: 1px; }
@@ -759,13 +759,38 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .release-body code { font-size: .92em; background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 
 /* ---------- settings (Settings.tsx; each feature's section is in its own block below) ---------- */
-.menu-panel .settings-head { display: flex; align-items: baseline; gap: var(--s2); margin-bottom: var(--s2); }
-.menu-panel .settings-head h3 { margin: 0; flex: 1; }
+:is(.menu-panel, .settings-page) .settings-head { display: flex; align-items: baseline; gap: var(--s2); margin-bottom: var(--s2); }
+:is(.menu-panel, .settings-page) .settings-head h3 { margin: 0; flex: 1; }
 .reset-section { background: none; border: none; padding: 0; font-size: var(--t-s); color: var(--faint); text-decoration: underline; text-underline-offset: 2px; }
 .reset-section:hover { color: var(--ink); }
-.menu-panel .settings-foot { margin-top: var(--s3); }
-.menu-panel .reset-all { border-top: 1px solid var(--line); padding-top: var(--s4); }
+:is(.menu-panel, .settings-page) .settings-foot { margin-top: var(--s3); }
+:is(.menu-panel, .settings-page) .reset-all { border-top: 1px solid var(--line); padding-top: var(--s4); }
 .free-notice { margin: var(--s4) 0 0; padding: var(--s2) var(--s3); border: 1px solid var(--line-strong); border-radius: var(--r-s); font-size: var(--t-s); font-weight: 600; color: var(--ink); }
+/* the Settings page: a menu of its groups on the left on a wide window, everything stacked on a phone */
+.settings-layout { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: var(--s6); margin-top: var(--s5); align-items: start; }
+.settings-nav { position: sticky; top: var(--s4); display: grid; gap: 2px; }
+.settings-nav button { text-align: left; border: none; border-left: 3px solid transparent; background: none; padding: 7px var(--s3); color: var(--muted); border-radius: 0 var(--r-s) var(--r-s) 0; }
+.settings-nav button:hover { background: var(--hover); color: var(--ink); }
+.settings-nav button[aria-current="true"] { border-left-color: var(--ink); color: var(--ink); font-weight: 700; background: var(--hover); }
+[data-theme="vibrant"] .settings-nav button[aria-current="true"] { border-left-color: var(--accent); background: var(--accent-soft); }
+.settings-group { scroll-margin-top: var(--s4); }
+.settings-group + .settings-group { margin-top: var(--s7); }
+.settings-group > h2 { margin: 0; font-size: 18px; font-weight: 700; }
+.settings-blurb { margin: var(--s1) 0 var(--s4); color: var(--muted); }
+.settings-page .settings-section { border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); padding: var(--s4) var(--s5); }
+.settings-page .settings-section + .settings-section { margin-top: var(--s3); }
+.settings-page .settings-section > h3 { margin: 0 0 var(--s2); font-size: var(--t-l); font-weight: 600; color: var(--ink); }
+.settings-page .settings-head h3 { font-size: var(--t-l); color: var(--ink); }
+.settings-page .settings-section section h3 { font-size: var(--t-s); color: var(--muted); }
+.settings-page .reset-all { border-top: 1px solid var(--line); padding-top: var(--s4); }
+@media (max-width: 900px) {
+  .settings-layout { grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
+  .settings-nav { position: static; display: flex; flex-wrap: wrap; gap: var(--s1); }
+  .settings-nav button { border: 1px solid var(--line); border-radius: 999px; padding: 4px var(--s3); }
+  .settings-nav button[aria-current="true"] { border-color: var(--ink); }
+  [data-theme="vibrant"] .settings-nav button[aria-current="true"] { border-color: var(--accent); }
+  .settings-page .settings-section { padding: var(--s3) var(--s4); }
+}
 
 /* ---------- history: plan history and undo ---------- */
 .history-off { margin: var(--s4) 0 0; padding: var(--s2) var(--s3); border: 2px solid var(--line-strong); border-radius: var(--r-s); font-weight: 600; }
@@ -795,9 +820,9 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .diff-line.del { text-decoration: line-through; color: var(--muted); border-left-color: var(--line-strong); }
 [data-theme="vibrant"] .diff-line.add { border-left-color: var(--done); color: var(--done); }
 [data-theme="vibrant"] .timeline .entry.newest { border-color: var(--accent); }
-.menu-panel .limits { display: grid; gap: var(--s2); padding: var(--s2) var(--s3); }
-.menu-panel .limit { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
-.menu-panel .limit input { width: 6em; height: 28px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: var(--r-s); padding: 0 var(--s2); }
+:is(.menu-panel, .settings-page) .limits { display: grid; gap: var(--s2); padding: var(--s2) var(--s3); }
+:is(.menu-panel, .settings-page) .limit { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+:is(.menu-panel, .settings-page) .limit input { width: 6em; height: 28px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: var(--r-s); padding: 0 var(--s2); }
 @media (prefers-reduced-motion: no-preference) {
   .timeline .entry.newest::before { animation: history-newest 2.4s ease-in-out infinite; }
   @keyframes history-newest { 50% { transform: scale(1.3); } }
@@ -1090,4 +1115,22 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
   .cal-block-time { grid-row: auto; }
   .cal-head-day b { font-size: var(--t-l); }
   .cal-peek { right: var(--s4); bottom: var(--s4); }
+}
+
+/* ---------- breadcrumbs: Home › project › page, at the top of every page (Breadcrumbs.tsx) ---------- */
+.crumbs { padding: var(--s3) var(--s5) 0; font-size: var(--t-s); }
+.crumbs ol { display: flex; align-items: center; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.crumbs li { display: flex; align-items: center; min-width: 0; white-space: nowrap; }
+.crumbs li.first { flex: none; }
+.crumbs li.middle { flex: 0 1 auto; min-width: 3.5em; }
+.crumbs li.last { flex: 0 1 auto; min-width: 0; }
+.crumbs .sep { padding: 0 var(--s2); color: var(--faint); flex: none; }
+.crumbs .crumb-link, .crumbs .crumb-here { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.crumbs .crumb-link { border: none; background: none; padding: 2px var(--s1); margin: 0 calc(-1 * var(--s1)); border-radius: var(--r-s); color: var(--muted); font: inherit; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 2px; }
+.crumbs .crumb-link:hover { color: var(--ink); text-decoration-color: currentColor; }
+.crumbs .crumb-here { color: var(--ink); font-weight: 600; }
+[data-theme="vibrant"] .crumbs .crumb-link:hover { color: var(--accent); }
+@media (max-width: 640px) {
+  .crumbs { padding: var(--s2) var(--s4) 0; }
+  .crumbs li.middle { max-width: 30vw; }
 }

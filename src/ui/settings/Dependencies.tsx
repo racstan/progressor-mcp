@@ -15,6 +15,7 @@ function Dependencies({ ctx }: { ctx: SettingsContext }) {
 
 export const dependenciesSection: SettingsSection = {
   id: "dependencies",
+  group: "plan",
   title: "Goals that wait",
   Component: Dependencies,
   reset: (ctx) => ctx.resetComputer("dependencies"),

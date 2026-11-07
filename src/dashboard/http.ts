@@ -14,7 +14,7 @@ import { type EstimateSettings, MAX_ATTACHMENT_BYTES, MIN_SAMPLES, PROGRESSOR_DI
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
 import { defaultServersDir, listServers, requestStop, sessionOfProcess } from "../servers.js";
-import { type SearchableProject, search } from "./search.js";
+import { type SearchableProject, SearchIndex, search } from "./search.js";
 import {
   type ProjectEntry,
   type WorkspaceEntry,
@@ -429,6 +429,7 @@ class Hub {
           history: (root) => readSettings(this.settingsFile, root).history,
         });
         const stop = watchProgress(entry.root, (files) => {
+          this.searchIndex.drop(entry.id);
           this.send("change", { project: entry.id, files });
           this.pushSoon();
         });
@@ -496,28 +497,38 @@ class Hub {
     });
   }
 
-  /** Projects, Goals and Tasks matching a search, across every project, read afresh. */
+  /** Each project's searchable text, dropped when its plan files change (watchProgress). */
+  private readonly searchIndex = new SearchIndex();
+
+  /**
+   * Projects, Goals and Tasks matching a search, across every project. Reads only the Roadmap and
+   * the Plan Files' Tasks, once per project until its plan changes, not the full Goal views.
+   */
   search(query: string) {
-    const projects: SearchableProject[] = this.sync().map((entry) => {
-      const api = this.projects.get(entry.id)?.api;
-      const base = { id: entry.id, name: entry.name, root: entry.root };
-      try {
-        const roadmap = api!.roadmap();
-        const tasksOf = (goalId: string) => {
-          try {
-            return (api!.goal(goalId)?.graph.nodes ?? []).flatMap((n) => (n.kind === "task" ? [{ id: n.id, title: n.title, status: n.status, summary: n.summary }] : []));
-          } catch {
-            return []; // a Plan File that cannot be read still lets its Goal be found
-          }
-        };
-        return {
-          ...base,
-          goals: roadmap.goals.map((g) => ({ id: g.id, title: g.title, status: g.status, outcome: g.outcome, tasks: tasksOf(g.id) })),
-        };
-      } catch {
-        return { ...base, goals: [] };
-      }
-    });
+    if (!query.trim()) return [];
+    const entries = this.sync();
+    this.searchIndex.keepOnly(entries.map((e) => e.id));
+    const projects: SearchableProject[] = entries.map((entry) =>
+      this.searchIndex.get(entry.id, () => {
+        const project = this.projects.get(entry.id)?.project;
+        const base = { id: entry.id, name: entry.name, root: entry.root };
+        try {
+          const tasksOf = (goalId: string) => {
+            try {
+              return project!.plan(goalId).tasks.flatMap((t) => (t.id ? [{ id: t.id, title: t.title, status: t.status, summary: t.summary }] : []));
+            } catch {
+              return []; // a Plan File that cannot be read still lets its Goal be found
+            }
+          };
+          return {
+            ...base,
+            goals: project!.roadmap().goals.map((g) => ({ id: g.id, title: g.title, status: g.status, outcome: g.outcome, tasks: tasksOf(g.id) })),
+          };
+        } catch {
+          return { ...base, goals: [] };
+        }
+      }),
+    );
     return search(projects, query);
   }
 

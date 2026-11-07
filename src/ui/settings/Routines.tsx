@@ -21,6 +21,7 @@ function Routines({ ctx }: { ctx: SettingsContext }) {
 
 export const routinesSection: SettingsSection = {
   id: "routines",
+  group: "plan",
   title: "Goals that come back",
   Component: Routines,
   reset: (ctx) => ctx.resetComputer("routines"),

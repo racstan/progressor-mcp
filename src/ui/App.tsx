@@ -2,15 +2,16 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { DEFAULT_EDITOR, editorUrl } from "../dashboard/editor.js";
 import type { GoalSchedule } from "../schedule.js";
 import { type RoadmapView, showInFolder, useDashboard, useOverview, useSearch, useServers, usePageStaleness, useSettings, useStored, useStoredJson, resetComputerSettings, saveSettings } from "./data.js";
-import { CONTEXT_HASH, HOTFIX_HASH, STATS_HASH, TALK_HASH, WISHLIST_HASH, contextFromHash } from "./context.js";
 import { HotfixPage } from "./HotfixPage.js";
 import { WhatsNew, changelog } from "./WhatsNew.js";
 import { ContextPage } from "./ContextPage.js";
 import { WishlistPage } from "./WishlistPage.js";
 import { StatsPage } from "./StatsPage.js";
-import { HISTORY_HASH, HistoryPage } from "./HistoryPage.js";
-import { HANDOFFS_HASH, HandoffsPage } from "./HandoffsPage.js";
-import { CALENDAR_HASH, CalendarPage } from "./CalendarPage.js";
+import { HistoryPage } from "./HistoryPage.js";
+import { HandoffsPage } from "./HandoffsPage.js";
+import { CalendarPage } from "./CalendarPage.js";
+import { PAGE_HASH, PAGE_TITLE, type Page, type Route, breadcrumbs, newHash, routeFromHash } from "./route.js";
+import { Breadcrumbs } from "./Breadcrumbs.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
 import { type Finished, type Seen, doneMark, groupGoals, groupOpen, hideAll, seenOnFirstVisit } from "./goalList.js";
@@ -45,11 +46,6 @@ function defaultGoal(goals: Goal[]): string | undefined {
 
 /** The talk with the whole project, in the dashboard's API: the goal routes with this ID (project.ts). */
 const PROJECT_TALK = "_project";
-
-const goalFromHash = () => {
-  const m = /^#\/goal\/(.+)$/.exec(location.hash);
-  return m ? decodeURIComponent(m[1]!) : undefined;
-};
 
 function useToast() {
   const [message, setMessage] = useState<string>();
@@ -92,15 +88,19 @@ const isPhone = () => matchMedia("(max-width: 900px)").matches;
 export function App() {
   const [pickedProject, setPickedProject] = useState<string | undefined>(projectFromUrl);
   const [pickedWorkspace, setPickedWorkspace] = useState<string | undefined>(workspaceFromUrl);
-  const [picked, setPicked] = useState<string | undefined>(goalFromHash);
-  const [onContext, setOnContext] = useState(() => contextFromHash(location.hash));
-  const [onTalk, setOnTalk] = useState(() => location.hash === TALK_HASH);
-  const [onStats, setOnStats] = useState(() => location.hash === STATS_HASH);
-  const [onWishes, setOnWishes] = useState(() => location.hash === WISHLIST_HASH);
-  const [onHistory, setOnHistory] = useState(() => location.hash === HISTORY_HASH);
-  const [onHandoffs, setOnHandoffs] = useState(() => location.hash === HANDOFFS_HASH);
-  const [onCalendar, setOnCalendar] = useState(() => location.hash === CALENDAR_HASH);
-  const [onHotfix, setOnHotfix] = useState(() => location.hash === HOTFIX_HASH);
+  // The page shown, from the address's hash (route.ts): a goal's, or one of the other pages.
+  const [route, setRoute] = useState<Route>(() => routeFromHash(location.hash));
+  // An old address (#/stats) opens its page under the new one (#/dashboard).
+  useEffect(() => {
+    const moved = () => {
+      const to = newHash(location.hash);
+      if (to) history.replaceState(null, "", `${location.pathname}${location.search}${to}`);
+    };
+    moved();
+    addEventListener("hashchange", moved);
+    return () => removeEventListener("hashchange", moved);
+  }, []);
+  const { page, goal: picked } = route;
   const [theme, setTheme] = useStored<Theme>("progressor.theme", undefined);
   const [finished, setFinished] = useStored<Finished>("progressor.finished", undefined);
   const [showHidden, setShowHidden] = useStored<"1">("progressor.show-hidden", undefined);
@@ -109,7 +109,7 @@ export function App() {
   const [doneClosedFor, setDoneClosedFor] = useStored<string>("progressor.done-closed-for", undefined);
   const [putOff, setPutOff] = useStoredJson<PutOff>("progressor.put-off", {});
   const [editorChoice, setEditorChoice] = useStored<string>("progressor.editor", undefined);
-  const [panel, setPanel] = useState<"help" | "settings">();
+  const [panel, setPanel] = useState<"help">();
   const [showChanges, setShowChanges] = useState(false);
   const [seenChanges, setSeenChanges] = useStored<string>("progressor.seenChanges", undefined);
   const [drawer, setDrawer] = useState(false);
@@ -148,7 +148,7 @@ export function App() {
   // Without a pick, the Goal on screen stays on screen as the plan changes; the default is chosen once per project.
   const shownBefore = useRef<{ project: string | undefined; goal: string | undefined }>({ project: undefined, goal: undefined });
   const kept = shownBefore.current.project === projectId ? shownBefore.current.goal : undefined;
-  const effectiveGoal = onContext || onTalk || onStats || onWishes || onHotfix || onHistory || onHandoffs || onCalendar
+  const effectiveGoal = page !== "goal"
     ? undefined
     : picked && goals.some((g) => g.id === picked)
       ? picked
@@ -187,15 +187,7 @@ export function App() {
     const onNavigate = () => {
       setPickedProject(projectFromUrl());
       setPickedWorkspace(workspaceFromUrl());
-      setPicked(goalFromHash());
-      setOnContext(contextFromHash(location.hash));
-      setOnTalk(location.hash === TALK_HASH);
-      setOnStats(location.hash === STATS_HASH);
-      setOnWishes(location.hash === WISHLIST_HASH);
-      setOnHotfix(location.hash === HOTFIX_HASH);
-      setOnHistory(location.hash === HISTORY_HASH);
-      setOnHandoffs(location.hash === HANDOFFS_HASH);
-      setOnCalendar(location.hash === CALENDAR_HASH);
+      setRoute(routeFromHash(location.hash));
     };
     addEventListener("hashchange", onNavigate);
     addEventListener("popstate", onNavigate);
@@ -209,127 +201,20 @@ export function App() {
     setPanel(undefined);
     if (isPhone()) setDrawer(false);
   };
-  const pickGoal = (id: string) => {
-    history.replaceState(null, "", `${location.search}#/goal/${encodeURIComponent(id)}`);
-    setPicked(id);
-    setOnContext(false);
-    setOnTalk(false);
-    setOnStats(false);
-    setOnHistory(false);
-    setOnHandoffs(false);
-    setOnCalendar(false);
-    setOnWishes(false);
-    setOnHotfix(false);
+  /** Shows a page of the project (or Home, for Settings), keeping the project in the address. */
+  const show = (r: Route) => {
+    const hash = r.page === "goal" ? (r.goal ? `#/goal/${encodeURIComponent(r.goal)}` : "") : PAGE_HASH[r.page];
+    history.replaceState(null, "", `${location.pathname}${location.search}${hash}`);
+    setRoute(r);
     closeAll();
   };
-  const openContext = () => {
-    history.replaceState(null, "", `${location.search}${CONTEXT_HASH}`);
-    setOnContext(true);
-    setOnTalk(false);
-    setOnStats(false);
-    setOnHistory(false);
-    setOnHandoffs(false);
-    setOnCalendar(false);
-    setOnWishes(false);
-    setOnHotfix(false);
-    closeAll();
-  };
-  const openTalk = () => {
-    history.replaceState(null, "", `${location.search}${TALK_HASH}`);
-    setOnTalk(true);
-    setOnContext(false);
-    setOnStats(false);
-    setOnHistory(false);
-    setOnHandoffs(false);
-    setOnCalendar(false);
-    setOnWishes(false);
-    setOnHotfix(false);
-    closeAll();
-  };
-  const openStats = () => {
-    history.replaceState(null, "", `${location.search}${STATS_HASH}`);
-    setOnStats(true);
-    setOnHistory(false);
-    setOnHandoffs(false);
-    setOnCalendar(false);
-    setOnContext(false);
-    setOnTalk(false);
-    setOnWishes(false);
-    setOnHotfix(false);
-    closeAll();
-  };
-  const openHotfix = () => {
-    history.replaceState(null, "", `${location.search}${HOTFIX_HASH}`);
-    setOnHotfix(true);
-    setOnWishes(false);
-    setOnContext(false);
-    setOnTalk(false);
-    setOnStats(false);
-    setOnHistory(false);
-    setOnHandoffs(false);
-    setOnCalendar(false);
-    closeAll();
-  };
-  const openHistory = () => {
-    history.replaceState(null, "", `${location.search}${HISTORY_HASH}`);
-    setOnHistory(true);
-    setOnHandoffs(false);
-    setOnCalendar(false);
-    setOnContext(false);
-    setOnTalk(false);
-    setOnStats(false);
-    setOnWishes(false);
-    setOnHotfix(false);
-    closeAll();
-  };
-  const openHandoffs = () => {
-    history.replaceState(null, "", `${location.search}${HANDOFFS_HASH}`);
-    setOnHandoffs(true);
-    setOnCalendar(false);
-    setOnHistory(false);
-    setOnContext(false);
-    setOnTalk(false);
-    setOnStats(false);
-    setOnWishes(false);
-    setOnHotfix(false);
-    closeAll();
-  };
-  const openCalendar = () => {
-    history.replaceState(null, "", `${location.search}${CALENDAR_HASH}`);
-    setOnCalendar(true);
-    setOnHandoffs(false);
-    setOnHistory(false);
-    setOnContext(false);
-    setOnTalk(false);
-    setOnStats(false);
-    setOnWishes(false);
-    setOnHotfix(false);
-    closeAll();
-  };
-  const openWishes = () => {
-    history.replaceState(null, "", `${location.search}${WISHLIST_HASH}`);
-    setOnWishes(true);
-    setOnContext(false);
-    setOnTalk(false);
-    setOnStats(false);
-    setOnHistory(false);
-    setOnHandoffs(false);
-    setOnCalendar(false);
-    closeAll();
-  };
+  const pickGoal = (id: string) => show({ page: "goal", goal: id });
+  const openPage = (p: Exclude<Page, "goal">) => show({ page: p });
   const pickProject = (id: string, goalId?: string) => {
     setParams({ project: id, workspace: undefined }, "push");
     if (goalId) history.replaceState(null, "", `${location.search}#/goal/${encodeURIComponent(goalId)}`);
     setPickedProject(id);
-    setPicked(goalId);
-    setOnContext(false);
-    setOnTalk(false);
-    setOnStats(false);
-    setOnHistory(false);
-    setOnHandoffs(false);
-    setOnCalendar(false);
-    setOnWishes(false);
-    setOnHotfix(false);
+    setRoute({ page: "goal", ...(goalId ? { goal: goalId } : {}) });
     closeAll();
     scrollMainToTop();
   };
@@ -372,15 +257,7 @@ export function App() {
     setParams({ project: undefined, workspace: undefined }, "push");
     setPickedProject(undefined);
     setPickedWorkspace(undefined);
-    setPicked(undefined);
-    setOnContext(false);
-    setOnTalk(false);
-    setOnStats(false);
-    setOnHistory(false);
-    setOnHandoffs(false);
-    setOnCalendar(false);
-    setOnWishes(false);
-    setOnHotfix(false);
+    setRoute({ page: "goal" });
     closeAll();
   };
 
@@ -407,8 +284,8 @@ export function App() {
 
   useEffect(() => {
     const where = onHome ? (workspaces?.find((w) => w.id === pickedWorkspace)?.name ?? "Home") : undefined;
-    document.title = [onContext ? "Project notes" : onTalk ? "Message your AI" : onStats ? "Statistics" : onWishes ? "Wishlist" : onHotfix ? "Hotfixes" : onHistory ? "History" : onHandoffs ? "Handoffs" : onCalendar ? "Calendar" : shownGoal?.goal.title, project?.name, where, "Progressor"].filter(Boolean).join(" · ");
-  }, [shownGoal, project, onHome, onContext, onTalk, onStats, onWishes, onHotfix, onHistory, onHandoffs, onCalendar, workspaces, pickedWorkspace]);
+    document.title = [page === "goal" ? shownGoal?.goal.title : PAGE_TITLE[page], project?.name, where, "Progressor"].filter(Boolean).join(" · ");
+  }, [shownGoal, project, onHome, page, workspaces, pickedWorkspace]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -470,7 +347,7 @@ export function App() {
     const fresh = grouped.fresh.has(g.id);
     const working = !why && goalState(stateOf(g)).state === "working";
     return (
-      <button key={g.id} className={`goal-row ${g.status} ${why ? "you" : ""} ${working ? "working" : ""}`} aria-current={!onContext && g.id === effectiveGoal}
+      <button key={g.id} className={`goal-row ${g.status} ${why ? "you" : ""} ${working ? "working" : ""}`} aria-current={page === "goal" && g.id === effectiveGoal}
         title={[g.title, why, "Right-click to hide it from this list."].filter(Boolean).join("\n")}
         onClick={() => pickGoal(g.id)}
         onContextMenu={(e) => {
@@ -494,18 +371,20 @@ export function App() {
     if (latest) setSeenChanges(latest.title);
   };
   const closeChanges = useCallback(() => setShowChanges(false), []);
-  const openPanel = (which: "help" | "settings") => {
-    setPanel(panel === which ? undefined : which);
-    if (which === "settings") reloadServers();
-  };
+  const openPanel = (which: "help") => setPanel(panel === which ? undefined : which);
+  // The Settings page lists the running servers; look again each time it opens.
+  useEffect(() => {
+    if (page === "settings") reloadServers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
   const projectMessages = roadmapIsProjects ? (roadmap?.projectTalk?.messages ?? []) : [];
   const newestReply = latestReply(projectMessages);
   // Reading the page reads every reply; a browser opening the project for the first time starts with none unread.
   useEffect(() => {
     if (!roadmapIsProjects) return;
-    if ((onTalk || !readBefore) && (newestReply ?? "1970-01-01T00:00:00.000Z") > readReplies) setReadReplies(newestReply ?? "1970-01-01T00:00:00.000Z");
-  }, [roadmapIsProjects, onTalk, readBefore, newestReply, readReplies, setReadReplies]);
-  const unread = onTalk ? 0 : unreadReplies(projectMessages, readReplies || undefined);
+    if ((page === "talk" || !readBefore) && (newestReply ?? "1970-01-01T00:00:00.000Z") > readReplies) setReadReplies(newestReply ?? "1970-01-01T00:00:00.000Z");
+  }, [roadmapIsProjects, page, readBefore, newestReply, readReplies, setReadReplies]);
+  const unread = page === "talk" ? 0 : unreadReplies(projectMessages, readReplies || undefined);
   const clearFinished = (list: Goal[]) => {
     setHidden(hideAll(hidden, list.map((g) => g.id)));
     toast(`Cleared ${list.length} finished ${list.length === 1 ? "goal" : "goals"}. The plan keeps them; find them under Hidden.`);
@@ -513,7 +392,9 @@ export function App() {
   const freshGoals = grouped.open.filter((g) => grouped.fresh.has(g.id));
   const doneShown = groupOpen({ pinned: !!doneOpen, closedFor: doneClosedFor, holdsShown: grouped.done.some((g) => g.id === effectiveGoal), shown: effectiveGoal });
 
-  const main = error && !projects ? (
+  const main = page === "settings" ? (
+    <Settings ctx={settingsContext} />
+  ) : error && !projects ? (
     <div className="placeholder">
       <h2>Can't reach Progressor</h2>
       Progressor runs while your AI chat is open, so it has most likely closed. Open your AI chat again and this page comes back by itself.
@@ -528,7 +409,7 @@ export function App() {
     </div>
   ) : onHome ? (
     <Home overview={overview} workspaces={workspaces ?? []} only={pickedWorkspace} query={query} hits={hits}
-      putOff={putOff} onPutOff={onPutOff} onOpen={pickProject} onOpenStats={(id) => { pickProject(id); openStats(); }} onShowAll={goHome} />
+      putOff={putOff} onPutOff={onPutOff} onOpen={pickProject} onOpenStats={(id) => { pickProject(id); openPage("dashboard"); }} onShowAll={goHome} />
   ) : roadmap === null || (roadmap === undefined && !project) ? (
     <div className="placeholder">
       <h2>Nothing planned here yet</h2>
@@ -537,21 +418,21 @@ export function App() {
     </div>
   ) : !roadmap ? (
     <div className="placeholder">Loading…</div>
-  ) : onStats && projectId ? (
+  ) : page === "dashboard" && projectId ? (
     <StatsPage projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} />
-  ) : onHistory && projectId ? (
+  ) : page === "history" && projectId ? (
     <HistoryPage projectId={projectId} roadmap={roadmap} toast={toast} />
-  ) : onHandoffs && projectId ? (
+  ) : page === "handoffs" && projectId ? (
     <HandoffsPage projectId={projectId} roadmap={roadmap} toast={toast} />
-  ) : onCalendar && projectId ? (
+  ) : page === "calendar" && projectId ? (
     <CalendarPage projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} />
-  ) : onHotfix && projectId ? (
+  ) : page === "hotfix" && projectId ? (
     <HotfixPage projectId={projectId} goals={roadmap.goals} onOpen={pickGoal} onAdded={(id) => { refresh(); pickGoal(id); toast("Hotfix added. Your AI takes it as soon as it finishes the step it is on."); }} />
-  ) : onWishes && projectId ? (
+  ) : page === "wishlist" && projectId ? (
     <WishlistPage projectId={projectId} wishes={roadmap.wishes} onChanged={refresh} />
-  ) : onContext && projectId ? (
+  ) : page === "context" && projectId ? (
     <ContextPage projectId={projectId} rules={roadmap.standingInstructions} context={roadmap.context} onChanged={refresh} version={roadmap} />
-  ) : onTalk && projectId ? (
+  ) : page === "talk" && projectId ? (
     <div className="page">
       <h1 className="page-title">Message your AI</h1>
       <p className="page-sub">
@@ -582,6 +463,14 @@ export function App() {
         } />
     </ErrorBoundary>
   );
+
+  // Home › project › page, at the top of every page; Home shows itself for a project's page opened without a project.
+  const trail = breadcrumbs({
+    page: onHome && page !== "settings" ? "goal" : page,
+    ...(project ? { project: project.name } : {}),
+    ...(onHome && pickedWorkspace ? { workspace: workspaces?.find((w) => w.id === pickedWorkspace)?.name ?? "Workspace" } : {}),
+    ...(shownGoal ? { goal: shownGoal.goal.title } : {}),
+  });
 
   return (
     <>
@@ -617,8 +506,8 @@ export function App() {
           <Icon name="help" size={18} />
           {unseen && <span className="new-dot" aria-hidden="true" />}
         </button>
-        <button className={`iconbtn menu-btn ${panel === "settings" ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={panel === "settings"}
-          title="Settings" aria-label="Settings" onClick={() => openPanel("settings")}>
+        <button className={`iconbtn ${page === "settings" ? "on" : ""}`} aria-current={page === "settings" ? "page" : undefined}
+          title="Settings" aria-label="Settings" onClick={() => openPage("settings")}>
           <Icon name="settings" size={18} />
         </button>
       </header>
@@ -633,8 +522,6 @@ export function App() {
       {switcherOpen && (
         <ProjectList current={projectId} projects={projects ?? []} onPick={(id) => pickProject(id)} onHome={goHome} onClose={() => setSwitcherOpen(false)} />
       )}
-
-      {panel === "settings" && <Settings ctx={settingsContext} onClose={() => setPanel(undefined)} />}
 
       {panel === "help" && (
         <MenuPanel label="Help" onClose={() => setPanel(undefined)}>
@@ -672,8 +559,11 @@ export function App() {
 
       <div className={`shell ${drawer ? "side-open" : ""} ${collapsed ? "collapsed" : ""}`}>
         <aside className="sidebar" aria-label={onHome ? "Projects" : "Your goals"}>
-          <button className="side-link" aria-current={onHome} onClick={goHome}>
+          <button className="side-link" aria-current={onHome && page !== "settings"} onClick={goHome}>
             <Icon name="home" /> Home
+          </button>
+          <button className="side-link" aria-current={page === "settings"} onClick={() => openPage("settings")} title="How the page looks, notifications, and how your AI plans. All optional">
+            <Icon name="settings" /> Settings
           </button>
           {onHome ? (
             <div className="side-group">
@@ -686,29 +576,29 @@ export function App() {
             </div>
           ) : (
             <>
-              <button className="side-link" aria-current={onHotfix} onClick={openHotfix} title="Urgent bugs in this project, fixed before anything else: your AI finishes the step it is on, then fixes it, test first">
+              <button className="side-link" aria-current={page === "hotfix"} onClick={() => openPage("hotfix")} title="Urgent bugs in this project, fixed before anything else: your AI finishes the step it is on, then fixes it, test first">
                 <Icon name="flag" /> Hotfixes
               </button>
-              <button className="side-link" aria-current={onTalk} onClick={openTalk} title="Write to your AI about the whole project, not one goal">
+              <button className="side-link" aria-current={page === "talk"} onClick={() => openPage("talk")} title="Write to your AI about the whole project, not one goal">
                 <Icon name="send" /> Message your AI
                 {unread > 0 && <span className="n" title="New replies from your AI you haven't read yet">{unread}</span>}
               </button>
-              <button className="side-link" aria-current={onContext} onClick={openContext} title="The rules and background your AI keeps for this project">
+              <button className="side-link" aria-current={page === "context"} onClick={() => openPage("context")} title="The rules and background your AI keeps for this project">
                 <Icon name="note" /> Project notes
               </button>
-              <button className="side-link" aria-current={onWishes} onClick={openWishes} title="What you want from this project as a whole; your AI may suggest goals from it">
+              <button className="side-link" aria-current={page === "wishlist"} onClick={() => openPage("wishlist")} title="What you want from this project as a whole; your AI may suggest goals from it">
                 <Icon name="star" /> Wishlist
               </button>
-              <button className="side-link" aria-current={onStats} onClick={openStats} title="How long steps take, how often work drifts, and what was finished each day">
-                <Icon name="chart" /> Statistics
+              <button className="side-link" aria-current={page === "dashboard"} onClick={() => openPage("dashboard")} title="How long steps take, how often work drifts, and what was finished each day">
+                <Icon name="chart" /> Dashboard
               </button>
-              <button className="side-link" aria-current={onCalendar} onClick={openCalendar} title="What your AI did and what comes next, by month, week or day">
+              <button className="side-link" aria-current={page === "calendar"} onClick={() => openPage("calendar")} title="What your AI did and what comes next, by month, week or day">
                 <Icon name="calendar" /> Calendar
               </button>
-              <button className="side-link" aria-current={onHistory} onClick={openHistory} title="Every change to the plan, by you or your AI, and going back to before any of them">
+              <button className="side-link" aria-current={page === "history"} onClick={() => openPage("history")} title="Every change to the plan, by you or your AI, and going back to before any of them">
                 <Icon name="history" /> History
               </button>
-              <button className="side-link" aria-current={onHandoffs} onClick={openHandoffs} title="Write-ups of the work your AI did, for whoever picks it up next">
+              <button className="side-link" aria-current={page === "handoffs"} onClick={() => openPage("handoffs")} title="Write-ups of the work your AI did, for whoever picks it up next">
                 <Icon name="note" /> Handoffs
               </button>
               {roadmap && goals.length === 0 && <p className="empty">No goals yet. Tell your AI what you want to build.</p>}
@@ -760,7 +650,10 @@ export function App() {
           )}
         </aside>
         <div className="scrim" onClick={() => setDrawer(false)} />
-        <main className="main" id="main">{main}</main>
+        <main className="main" id="main">
+          <Breadcrumbs trail={trail} onHome={goHome} onProject={() => projectId && pickProject(projectId)} />
+          {main}
+        </main>
       </div>
 
       {goalMenu && menuGoal && (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type SearchableProject, search } from "../src/dashboard/search.js";
+import { type SearchableProject, SearchIndex, search } from "../src/dashboard/search.js";
 
 const shop: SearchableProject = {
   id: "shop-1",
@@ -67,5 +67,52 @@ describe("search", () => {
     expect(search([shop, blog], "  ")).toEqual([]);
     const many: SearchableProject = { ...shop, goals: [{ ...shop.goals[0]!, tasks: Array.from({ length: 80 }, (_, i) => ({ id: `t${i}`, title: `Step ${i}`, status: "pending" })) }] };
     expect(search([many], "step", 25)).toHaveLength(25);
+  });
+});
+
+describe("the search index", () => {
+  it("reads each project once and keeps it until the project changes", () => {
+    let reads = 0;
+    const index = new SearchIndex(60_000, () => 0);
+    const build = () => {
+      reads++;
+      return shop;
+    };
+    expect(index.get("shop-1", build)).toBe(shop);
+    expect(index.get("shop-1", build)).toBe(shop);
+    expect(reads).toBe(1);
+    index.drop("shop-1");
+    index.get("shop-1", build);
+    expect(reads).toBe(2);
+  });
+
+  it("reads a project again after a while, in case a change was missed", () => {
+    let now = 0;
+    let reads = 0;
+    const index = new SearchIndex(30_000, () => now);
+    const build = () => {
+      reads++;
+      return shop;
+    };
+    index.get("shop-1", build);
+    now = 29_999;
+    index.get("shop-1", build);
+    expect(reads).toBe(1);
+    now = 30_000;
+    index.get("shop-1", build);
+    expect(reads).toBe(2);
+  });
+
+  it("forgets projects no longer on the dashboard", () => {
+    let reads = 0;
+    const index = new SearchIndex(60_000, () => 0);
+    const build = () => {
+      reads++;
+      return blog;
+    };
+    index.get("blog-2", build);
+    index.keepOnly(["shop-1"]);
+    index.get("blog-2", build);
+    expect(reads).toBe(2);
   });
 });

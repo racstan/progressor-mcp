@@ -59,9 +59,9 @@ It works with any app that supports [MCP](https://modelcontextprotocol.io) (the 
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/statistics.png" alt="Statistics: steps done, time worked, goals finished, side trips, and a bar chart of steps finished each day">
-      <h3>Statistics</h3>
-      How long steps take against their estimates, how often the work drifts, and what got done each day, for each project and for all of them on Home.
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/statistics.png" alt="The Dashboard page: steps done, time worked, goals finished, side trips, and a bar chart of steps finished each day">
+      <h3>A Dashboard of the numbers</h3>
+      How long steps take against their estimates (and how the estimates are getting better), how often the work drifts, and what got done each day, for each project and for all of them on Home.
     </td>
     <td width="50%" valign="top">
       <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/notes.png" alt="Project notes: rules the AI follows, one marked Must, and About this project, each with Edit">
@@ -71,9 +71,9 @@ It works with any app that supports [MCP](https://modelcontextprotocol.io) (the 
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/home.png" alt="Home: a goal that needs you, a goal in progress, the projects and statistics across all of them">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/home.png" alt="Home: a goal that needs you, a goal in progress, the projects and the numbers across all of them">
       <h3>Every project on one page</h3>
-      <b>Home</b> shows what needs you and what's being worked on across all your projects, in any app, with statistics for all of them.
+      <b>Home</b> shows what needs you and what's being worked on across all your projects, in any app, with the numbers for all of them.
     </td>
     <td width="50%" valign="top">
       <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/vibrant.png" alt="The dashboard in the colourful Vibrant theme">
@@ -101,7 +101,7 @@ You need [Node.js](https://nodejs.org) 22 or later. Then paste this into your AI
 Set up Progressor (https://github.com/racstan/progressor-mcp) for this project:
 1. Run `node --version`. If it is older than 22, stop and tell me how to install Node.
 2. Run `npm install -g progressor-mcp`.
-3. If you are Claude Code, run `progressor-mcp init --yes` in this folder. Otherwise, add
+3. If you are Claude Code or Claude Desktop, run `progressor-mcp init --yes` in this folder. Otherwise, add
    the "progressor" MCP server to this app's settings as the guide for this app shows
    (https://github.com/racstan/progressor-mcp/blob/main/docs/apps.md), then run
    `progressor-mcp init --yes --no-server` in this folder.
@@ -110,7 +110,7 @@ Set up Progressor (https://github.com/racstan/progressor-mcp) for this project:
    ready, with the dashboard link.
 ```
 
-Your AI does the rest. To have Progressor in every project without setting each one up, add it once to your app's settings for all projects ([how, for each app](docs/apps.md)). If you'd rather do it yourself, [Getting started](docs/getting-started.md) walks through it, and [Setup for your app](docs/apps.md) has the exact settings for each app.
+Your AI does the rest. For Claude Code and Claude Desktop that one `init` command is the whole setup: it adds the server, the hooks that hand your AI the plan at the start of every conversation, and a short note telling the AI to use Progressor. To have Progressor in every project without setting each one up, add it once to your app's settings for all projects ([how, for each app](docs/apps.md)). If you'd rather do it yourself, [Getting started](docs/getting-started.md) walks through it, and [Setup for your app](docs/apps.md) has the exact settings for each app.
 
 ## Then just talk to your AI
 
@@ -127,20 +127,59 @@ Tell it what you want to build, as you would anyway: *"Add a login page with Goo
 
 ## On the dashboard
 
-Open **http://localhost:4747** while your AI's app is open (your AI gives you the link).
+Open **http://localhost:4747** while your AI's app is open (your AI gives you the link). Everything on it is optional: your AI runs the plan by itself, and the page lets you watch and step in when you want to.
 
-- **What the AI is doing:** *AI working*, *Waiting on you*, or *AI stopped* when its chat has closed, with how far along each goal is.
-- **When things happen:** every goal, step, decision and note says when it was added, by whom, and when it changed. Steps say when they started and finished.
-- **How long it will take:** your AI estimates each step, and each goal shows a rough finish: *done in about 2 h*. Tell it *"at most 2 helpers at a time"* and it keeps to that.
-- **Hotfixes:** paste a bug report, such as one from a customer, and it goes to the top of your goals as a **hotfix**. Every AI chat in the project is told; the one that takes it finishes the step it is on, writes a test that shows the bug, then fixes it. You can also just tell your AI: *"Hotfix: checkout fails when the cart has a coupon."*
-- **A wishlist:** what you want from the project as a whole, in your own words, with files or pictures attached if you like. Your AI reads it and may suggest goals from it, but only you change it.
-- **A pop-up when a goal is finished,** from any of your projects, if you turn it on in Settings.
-- **Pictures:** your AI can attach a screenshot or screen recording to a goal or step, so you see the change instead of reading about it.
-- **Copy for your AI** and **Show in folder** on every goal and step, to point your AI at it or open the plan file.
-- **Work for one project, recorded in another:** when a chat in one project does work for another, it can record it in that project's plan, tagged *Updated from*.
-- **Never out of date:** if Progressor was updated, or the page lost touch with it, a bar says so with a **Refresh** button. **What's new** in ❓ Help lists what changed in each version, and a dot on Help says when there is something you haven't seen.
+**Finding your way**
+
+- **Home** shows every project at once: what needs you, what's being worked on, and the numbers across all of them.
+- **Breadcrumbs** at the top of every page say where you are, such as *Home › Bindery › Dashboard*; click Home or the project to go back.
+- **Search** in the top bar (press `/`) finds projects, goals and steps across all your projects as you type.
+- **Settings** has its own page, from the gear at the top or the sidebar, grouped into Look, Notifications, AI & plan, History & releases and Advanced. Nothing there is required: Progressor works fully with the defaults.
+- **Light, Dark, System or Vibrant.** Vibrant, the colourful one with black text, is the default; Light, Dark and System keep to black, white and greys.
+
+**Each goal**
+
+- **What the AI is doing:** *AI working*, *Waiting on you*, or *AI stopped* when its chat has closed, with how far along each goal is. What it's working on right now is highlighted and gently moves.
+- **Every step, as a list or a map,** with side trips (where the AI stepped off the plan, and why), decisions and notes. Each says when it was added, by whom, and when it changed.
+- **Commits and tests on each step:** a finished step shows the commits made for it and the test run behind it, linked when your project is on GitHub, GitLab or Gitea.
+- **How long it will take:** your AI estimates each step and each goal shows a rough finish, *done in about 2 h*. The estimates learn: Progressor compares how long steps really took with the guesses and corrects the finish times.
+- **Goals that wait on other goals** say *Waits on …*, even on a goal in another project, and their finish starts after that one's.
+- **Needs you:** a question, a step to check or something to try by hand waits in one place, and you answer with a click. **Ways to go** shows 2 to 4 options as cards, with your AI's pick marked; if you don't choose, it goes ahead with its pick, and you can still change course later.
+- **Talk to your AI** about one goal, or the whole project from **Message your AI**. Its replies show under your messages, and a number counts the ones you haven't read.
+- **Pictures:** your AI can attach a screenshot or recording to a goal or step, so you see the change instead of reading about it.
+- **Copy for your AI** and **Show in folder** on every goal and step.
+
+**Each project's pages, in the sidebar**
+
+- **Hotfixes:** paste a bug report, such as one from a customer, and it goes to the top of your goals. Every AI chat in the project is told; the one that takes it finishes the step it is on, writes a test that shows the bug, then fixes it. You can also just tell your AI: *"Hotfix: checkout fails when the cart has a coupon."*
+- **Project notes:** the rules your AI keeps and the project's background, which you can edit, and **Goals that come back**: goals your AI set to repeat, such as a weekly dependency check, which you can pause or stop.
+- **Wishlist:** what you want from the project as a whole, in your own words, with files or pictures attached if you like. Your AI reads it and may suggest goals from it, but only you change it.
+- **Dashboard:** the numbers worked out from the plan (called Statistics before 1.3.0), with the **Plan check-up** card: what your AI's last look over the plan fixed, and **Check now**.
+- **Calendar:** the project by month, week, day or as a list: what your AI finished, releases, hotfixes and handoffs, and ahead of today, the steps planned next and when each goal should be done.
+- **History:** every change to the plan, by your AI or by you, with what it changed. **Go back to before this** undoes a change and everything after it, and going back can itself be undone.
+- **Handoffs:** write-ups of a stretch of work for whoever picks it up next. Your AI writes one after each release, or when you ask for one between two dates.
+
+**Staying in touch**
+
+- **Phone notifications** through the free [ntfy](https://ntfy.sh) app: a push when your AI asks a question, has something for you to try, finishes a goal, offers ways to go, or a bug report comes in. Turn it on in Settings.
+- **A desktop pop-up when a goal is finished,** from any of your projects, if you turn it on in Settings.
+- **Never out of date:** if Progressor was updated, or the page lost touch with it, a bar says so with a **Refresh** button. **What's new** in ❓ Help lists what changed in each version.
 
 More in the [dashboard guide](docs/dashboard.md).
+
+## What your AI does by itself
+
+You never have to ask for these, and each one has a section in Settings if you want to change how it works:
+
+- **Keeps the plan tidy.** At the start of each conversation it gives the plan a check-up, repairs what is safe to repair, and lists the rest.
+- **Records the work.** Each finished step is linked to its commits, branch and test run, and your AI is warned when a step's files are not saved in git yet.
+- **Learns from its estimates.** It sees how far off its guesses have been, so its next ones are better.
+- **Writes the changelog.** When it's time for a new version, a release goal gathers the finished goals and commits since the last release, and your AI writes the changelog entry and the new version number from them. It asks you before tagging or publishing anything.
+- **Brings routine work back.** A goal can come back every day, week, two weeks, month or on a weekday; a fresh one is added when it's due, never while the last one is still open.
+- **Hands over.** It writes a handoff after each release, and whenever you ask.
+- **Works across projects.** When a chat in one project does work for another, it records it in that project's plan, tagged *Updated from*.
+
+More in [Using Progressor](docs/using.md#what-your-ai-does-by-itself).
 
 ## If something goes wrong
 
@@ -167,7 +206,7 @@ What you run into shapes what comes next. [Share an idea or feedback](https://gi
 
 ## Support
 
-Progressor is free for personal and other noncommercial use. If it helps you, you can [buy me a coffee](https://buymeacoffee.com/rachitasthana); the link is also in the dashboard's ⚙️ Settings.
+Progressor is free for personal and other noncommercial use. If it helps you, you can [buy me a coffee](https://buymeacoffee.com/rachitasthana); the link is also on the dashboard's Settings page, under About.
 
 ## License
 

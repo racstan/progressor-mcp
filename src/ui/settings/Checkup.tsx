@@ -21,6 +21,7 @@ function Checkup({ ctx }: { ctx: SettingsContext }) {
 
 export const checkupSection: SettingsSection = {
   id: "checkup",
+  group: "plan",
   title: "Plan check-up",
   Component: Checkup,
   reset: (ctx) => ctx.resetComputer("checkup"),

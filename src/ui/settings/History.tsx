@@ -53,6 +53,7 @@ function History({ ctx }: { ctx: SettingsContext }) {
 
 export const historySection: SettingsSection = {
   id: "history",
+  group: "records",
   title: "History",
   Component: History,
   reset: (ctx) => (ctx.computer === null ? undefined : ctx.resetComputer("history")),

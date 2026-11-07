@@ -473,7 +473,7 @@ export function talkSummary(messages: readonly { state: string }[], answers: rea
   return parts.join(" · ");
 }
 
-/** How the time finished steps took compares with their estimates, for the Statistics page. */
+/** How the time finished steps took compares with their estimates, for the Dashboard page. */
 export function estimateWords(c: { steps: number; estimated: number; spent: number; withinEstimate: number }): string {
   if (c.steps === 0 || c.estimated <= 0) return "No finished step has both an estimate and a time yet.";
   const ratio = c.spent / c.estimated;
@@ -485,7 +485,7 @@ export function estimateWords(c: { steps: number; estimated: number; spent: numb
 }
 
 /**
- * How good the estimates have been, for the card on the Statistics page, in plain words: how far off
+ * How good the estimates have been, for the card on the Dashboard page, in plain words: how far off
  * they run, and whether Progressor allows for it. `factor` is undefined until enough steps are finished.
  */
 export function estimateQuality(e: { learn: boolean; window: number; factor: number | undefined; samples: number }): string[] {
@@ -506,7 +506,7 @@ export function estimateQuality(e: { learn: boolean; window: number; factor: num
   return [how, `${basis} ${allow}`];
 }
 
-/** How often work stepped off the plan, for the Statistics page. */
+/** How often work stepped off the plan, for the Dashboard page. */
 export function driftWords(d: { sideTrips: number; goalsWithSideTrips: number; goals: number }): string {
   if (d.sideTrips === 0) return "No side trips: the work kept to the plan.";
   return `${d.sideTrips} side ${d.sideTrips === 1 ? "trip" : "trips"}, in ${d.goalsWithSideTrips} of ${d.goals} ${d.goals === 1 ? "goal" : "goals"}.`;

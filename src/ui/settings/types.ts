@@ -1,8 +1,9 @@
-// What every section of the Settings panel gets (Settings.tsx), and what a section is.
+// What every section of the Settings page gets (Settings.tsx), and what a section is.
 import type { ReactNode } from "react";
 import type { InfoView, ServersView, SettingsView } from "../data.js";
 import type { Finished } from "../goalList.js";
 import type { PutOff } from "../home.js";
+import type { SettingsGroupId } from "./groups.js";
 
 export type Theme = "light" | "dark" | "system" | "vibrant";
 
@@ -36,13 +37,13 @@ export interface SettingsContext {
   resetComputer(section?: string): Promise<void>;
 }
 
-/** One section of the Settings panel. A feature adds its own in src/ui/settings/<Feature>.tsx and one line in index.ts. */
+/** One section of the Settings page. A feature adds its own in src/ui/settings/<Feature>.tsx and one line in index.ts. */
 export interface SettingsSection {
   id: string;
   title: string;
   Component: (props: { ctx: SettingsContext }) => ReactNode;
   /** Puts this section back to its defaults. */
   reset(ctx: SettingsContext): void | Promise<void>;
-  /** Shown under Advanced, for people who look at the code. */
-  advanced?: boolean;
+  /** The group of the Settings page it is shown in (groups.ts). */
+  group: SettingsGroupId;
 }

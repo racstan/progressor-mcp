@@ -65,7 +65,7 @@ Every `get_status` ends with a `Project folder:` line. If it isn't your project,
 
 Something else was using 4747 when your chat started. Most often it's a chat that started before you updated Progressor and still runs the old version, which the new one can't share the dashboard with. Your AI's dashboard link then says so.
 
-Close the chats that started before the update (or stop the old server under **⚙️ Settings → Advanced** on the dashboard). Within a few seconds the dashboard moves back to 4747 by itself; reload the page at the usual address. From this version on, a newer Progressor asks the old one to hand the dashboard over, so this won't happen at the next update.
+Close the chats that started before the update (or stop the old server under **Settings → Advanced** on the dashboard). Within a few seconds the dashboard moves back to 4747 by itself; reload the page at the usual address. From this version on, a newer Progressor asks the old one to hand the dashboard over, so this won't happen at the next update.
 
 ## A goal still shows as worked on after its chat closed
 
@@ -77,7 +77,7 @@ Progressor has closed, most likely because the AI app or its chat closed. Open t
 
 ## The dashboard says it's served by an older Progressor
 
-A chat started before you updated is still running the old version. Close that chat, or stop the old server under **⚙️ Settings → Advanced** on the dashboard.
+A chat started before you updated is still running the old version. Close that chat, or stop the old server under **Settings → Advanced** on the dashboard.
 
 ## It says "AI waiting" but I think it's working
 
@@ -101,7 +101,7 @@ An AI chat in the other project is working on that goal, so it can't be changed 
 
 ## "The plan in … is busy"
 
-Another Progressor was changing the same plan for more than a few seconds. Ask your AI to try again. If it keeps happening, a Progressor may be stuck: stop it under **⚙️ Settings → Advanced** on the dashboard.
+Another Progressor was changing the same plan for more than a few seconds. Ask your AI to try again. If it keeps happening, a Progressor may be stuck: stop it under **Settings → Advanced** on the dashboard.
 
 ## Still stuck?
 

@@ -2,11 +2,52 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own plan, which is kept on the maintainer's computer; from 0.2.0 on, one release bundles several finished Goals.
 
-## 1.3.0 · A new license
+## 1.3.0 · Your AI does more by itself, and a new license
+
+Plans made with earlier versions keep working as they are. Everything new runs by itself; each part has a section on the new Settings page if you want to change how it works, and none of it needs anything from you.
+
+### License
 
 - **Progressor is now under the PolyForm Noncommercial License 1.0.0.** It stays free for personal use with no commercial purpose (study, research, hobby projects and the like) and for charities, schools, public research bodies and government institutions. Any other use, including use by a business, needs a separate license from the author. See [LICENSE.md](LICENSE.md).
-- **Nothing else changes.** The tools, the dashboard and your plans work exactly as in 1.2.2.
 - **1.2.2 and earlier stay under GPL-3.0-or-later.** Copies of those versions keep that license.
+
+### Undo, and a record of the work
+
+- **History and undo.** Every change to the plan, by your AI or by you on the dashboard, is kept on a new **History** page with who made it, when, and the lines it changed. **Go back to before this** undoes a change and everything after it, after you confirm, and going back can itself be undone. Your AI can do the same when you ask it to undo something. Messages with your AI are never changed.
+- **Steps linked to their commits and tests.** When a step is finished, Progressor notes the commits made for it, the branch and the test run behind it, and shows them on the step (*2 commits on main · 715 passed*), linked when the project is on GitHub, GitLab or Gitea. If the step's files still have changes not saved in git, your AI is warned and the step says *Not saved in git yet*.
+- **Handoffs.** Your AI writes up a stretch of work for whoever picks it up next: what was done, the decisions, what is left open and what comes next, from facts Progressor gathers. It writes one after each release by itself, and whenever you ask, by dates or by the last few commits. They are kept on a new **Handoffs** page, with **Copy**.
+
+### Plans that look after themselves
+
+- **Estimates that learn.** Progressor compares how long steps really took with your AI's guesses and corrects the finish times it shows you. Your AI sees one line saying how far off its guesses have been, and the Dashboard page has a card on how good the estimates have been.
+- **A plan check-up.** At the start of each conversation your AI looks the plan over once: mixed line endings, files left by a save that didn't finish, goals held by a conversation that has ended, steps finished with no record of their work, missing pictures. What is safe to repair is repaired, and can be undone from History; the rest is listed on the **Plan check-up** card, with **Check now**.
+- **Changelogs written from finished goals.** A release goal bundles the finished goals since the last version. Progressor gathers their steps, decisions and commits, and your AI writes the changelog entry and the new version number from them. It still asks you before tagging or publishing.
+- **Goals that wait on other goals,** in the same project or another one. They say *Waits on …* with a link, their expected finish starts after the other goal's, and your AI is reminded if it starts one early.
+- **Goals that come back.** Your AI can make a goal repeat every day, week, two weeks, month or on a weekday, such as a weekly dependency check. A fresh goal is added by itself when one is due, never while the last one is still open. They are listed under **Goals that come back** on Project notes, with **Pause** and **Stop**.
+- **Ways to go.** For a big choice your AI offers 2 to 4 options as cards, each with a picture and a line, and marks the one it recommends. Pick one, ask for others, or do nothing: it goes ahead with its own pick, and changes course if you pick another one later.
+
+### Staying in touch
+
+- **Phone notifications** through the free ntfy app: a push when your AI asks a question, has something for you to try, finishes a goal, offers ways to go, or a bug report comes in. Pick which ones you want, and **Send a test** to check it works.
+
+### New pages and a new look
+
+- **Calendar.** The project by month, week, day or as a list: steps finished, goals added and finished, releases, hotfixes, your hand tests and handoffs, and ahead of today the steps planned next, when each goal should be done and when goals that come back are due.
+- **Hotfixes** has its own page in the sidebar, listing the project's urgent bugs, open ones first, with the box to report a new one.
+- **Settings is a page of its own**, from the gear at the top or the sidebar, instead of a narrow panel. Its sections are grouped into Look, Notifications, AI & plan, History & releases, Advanced and About, with a menu on the left on a wide window. Every section has **Reset this section**, and **Reset all settings to defaults** puts everything back. Settings for how Progressor works are kept on your computer, for every project, and a project can have its own.
+- **Breadcrumbs** at the top of every page, such as *Home › Bindery › Dashboard*. Home and the project take you back; on a phone the trail shortens instead of running off the screen.
+- **Statistics is now called Dashboard.** Old links to it still work.
+- **Vibrant is the default theme**, with a new logo. Light, Dark and System are still there, in black, white and greys.
+- **Search is much faster.** Results now come back in a few hundredths of a second instead of about two seconds with many projects.
+- **A note that Progressor is free**, at the bottom of Settings and Help: there is no paid version or subscription, and anyone selling one is not us.
+
+### Setup
+
+- **One command sets up Claude Code and Claude Desktop.** `progressor-mcp init` now also adds Progressor to Claude Desktop when it is installed, including the Microsoft Store version on Windows. Running it in a second project leaves Claude Desktop on the project it already has and says how to switch (`--desktop`).
+
+### Fixes
+
+- **The plan's lock works on Windows**, and a crash in the file watcher is fixed.
 
 ## 1.2.2 · Hotfixes, and What's new
 
