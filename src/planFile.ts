@@ -200,7 +200,29 @@ export interface Question {
   decision: string | undefined;
   /** Whether the Agent has been shown the answer. */
   seen: boolean;
+  /** For alternatives: one per choice, with its line of explanation and picture; empty for a plain question. */
+  alternatives: Alternative[];
+  /** For alternatives: the AI's own pick (1-based), which it goes ahead with if nobody picks. */
+  recommended: number | undefined;
+  /** For alternatives: when the AI goes ahead with its pick if nobody has picked (ISO). */
+  proceeds: string | undefined;
+  /** The Developer asked for other options. */
+  moreRequested: boolean;
+  /** Who chose the answer: the AI going ahead with its pick, or the Developer. */
+  chosenBy: "AI" | "Developer" | undefined;
+  /** The option the AI went ahead with, kept when the Developer later picks. */
+  wentAhead: string | undefined;
 }
+
+/** One of the ways to go the AI offers the Developer: a few words, a line about it and a picture ID (pictures/<goal>/index.json). */
+export interface Alternative {
+  title: string;
+  about?: string | undefined;
+  picture?: string | undefined;
+}
+
+/** The end of an answer the AI gave itself by going ahead with its recommended option. */
+export const CHOSEN_BY_AI = " (chosen by AI)";
 
 export const TASKS = "Tasks";
 export const HAND_TESTS = "Hand tests";
@@ -242,7 +264,10 @@ const MESSAGE_MARKER: Record<MessageState, Marker> = { new: " ", seen: "/", repl
 const MESSAGE_STATE: Record<Marker, MessageState> = { " ": "new", "/": "seen", x: "replied", "-": "seen" };
 const MESSAGE_ORDER = ["sent", "seen", "reply", "replied"];
 const QUESTION_STATE: Record<Marker, QuestionState> = { " ": "open", "/": "open", x: "answered", "-": "withdrawn" };
-const QUESTION_ORDER = ["choice", "task", "asked", "answer", "answered", "decision", "seen"];
+const QUESTION_ORDER = [
+  "choice", ...[1, 2, 3, 4].flatMap((n) => [`about ${n}`, `picture ${n}`]), "recommended", "proceeds", "more",
+  "task", "asked", "answer", "answered", "went ahead", "decision", "seen",
+];
 const STATE_LINE: TaskStatus[] = ["with a helper", "waiting on you", "checked", "released"];
 /** Tasks in these states are over: a Goal can be completed once all its Tasks are. */
 export const FINISHED: readonly TaskStatus[] = ["done", "released", "dropped"];
@@ -934,20 +959,37 @@ export class PlanFile {
   // --- questions to the Developer --------------------------------------------------
 
   get questions(): Question[] {
-    return itemsIn(this.doc, QUESTIONS).map((b) => ({
-      id: b.id,
-      ref: this.ref(b.id),
-      text: b.text,
-      line: b.line,
-      state: QUESTION_STATE[b.marker ?? " "],
-      choices: getDetails(b, "choice"),
-      task: stripRef(getDetail(b, "task")),
-      askedAt: getDetail(b, "asked"),
-      answer: getDetail(b, "answer"),
-      answeredAt: getDetail(b, "answered"),
-      decision: stripRef(getDetail(b, "decision")),
-      seen: getDetail(b, "seen") !== undefined,
-    }));
+    return itemsIn(this.doc, QUESTIONS).map((b) => {
+      const choices = getDetails(b, "choice");
+      const rec = Number(getDetail(b, "recommended"));
+      const recommended = Number.isInteger(rec) && rec >= 1 ? rec : undefined;
+      const raw = getDetail(b, "answer");
+      const byAI = raw?.endsWith(CHOSEN_BY_AI) ?? false;
+      const state = QUESTION_STATE[b.marker ?? " "];
+      return {
+        id: b.id,
+        ref: this.ref(b.id),
+        text: b.text,
+        line: b.line,
+        state,
+        choices,
+        task: stripRef(getDetail(b, "task")),
+        askedAt: getDetail(b, "asked"),
+        answer: byAI ? raw!.slice(0, -CHOSEN_BY_AI.length) : raw,
+        answeredAt: getDetail(b, "answered"),
+        decision: stripRef(getDetail(b, "decision")),
+        seen: getDetail(b, "seen") !== undefined,
+        alternatives:
+          recommended === undefined
+            ? []
+            : choices.map((title, i) => ({ title, about: getDetail(b, `about ${i + 1}`), picture: getDetail(b, `picture ${i + 1}`) })),
+        recommended,
+        proceeds: getDetail(b, "proceeds"),
+        moreRequested: getDetail(b, "more") !== undefined,
+        chosenBy: state === "answered" && raw !== undefined ? (byAI ? "AI" : "Developer") : undefined,
+        wentAhead: getDetail(b, "went ahead"),
+      };
+    });
   }
 
   question(id: string): Question | undefined {
@@ -966,14 +1008,57 @@ export class PlanFile {
     return this.question(id)!;
   }
 
-  /** Records the Developer's answer and the decision it was kept as; the Agent has not seen it yet. */
-  answerQuestion(id: string, answer: string, at: Date, decision: string | undefined): Question {
+  /**
+   * Adds open alternatives: the choices old readers see, each one's line and picture, the AI's own
+   * pick and when it goes ahead with it if nobody picks.
+   */
+  addAlternatives(text: string, alternatives: Alternative[], recommended: number, proceeds: Date, task: string | undefined, at: Date): Question {
+    this.assignMissingIds();
+    const id = nextId(this.allIds(), "q");
+    const b = newItem({ marker: " ", text: oneLine(text), id });
+    for (const a of alternatives) addDetail(b, "choice", oneLine(a.title));
+    alternatives.forEach((a, i) => {
+      if (a.about) addDetail(b, `about ${i + 1}`, oneLine(a.about));
+      if (a.picture) addDetail(b, `picture ${i + 1}`, a.picture);
+    });
+    addDetail(b, "recommended", String(recommended));
+    addDetail(b, "proceeds", proceeds.toISOString());
+    if (task) addDetail(b, "task", `^${task}`);
+    addDetail(b, "asked", at.toISOString());
+    this.addToSection(QUESTIONS, b);
+    return this.question(id)!;
+  }
+
+  /**
+   * Records the Developer's answer and the decision it was kept as; the Agent has not seen it yet,
+   * unless `seen` (the answer changes nothing for it).
+   */
+  answerQuestion(id: string, answer: string, at: Date, decision: string | undefined, seen = false): Question {
     const b = this.entryBlock(QUESTIONS, "question", id);
     b.marker = "x";
     setDetail(b, "answer", oneLine(answer));
     setDetail(b, "answered", at.toISOString());
     setDetail(b, "decision", decision ? `^${decision}` : undefined);
-    setDetail(b, "seen", undefined);
+    setDetail(b, "seen", seen ? at.toISOString() : undefined);
+    sortDetails(b, QUESTION_ORDER);
+    return this.question(id)!;
+  }
+
+  /** The AI goes ahead with its recommended option; `told` when it already knows (it asked with no wait). */
+  goAhead(id: string, at: Date, decision: string | undefined, told: boolean): Question {
+    const q = this.question(id)!;
+    const pick = q.alternatives[(q.recommended ?? 1) - 1]?.title ?? q.choices[0]!;
+    this.answerQuestion(id, `${pick}${CHOSEN_BY_AI}`, at, decision, told);
+    const b = this.entryBlock(QUESTIONS, "question", id);
+    setDetail(b, "went ahead", pick);
+    sortDetails(b, QUESTION_ORDER);
+    return this.question(id)!;
+  }
+
+  /** The Developer asked for other options than these. */
+  requestMore(id: string): Question {
+    const b = this.entryBlock(QUESTIONS, "question", id);
+    setDetail(b, "more", "requested");
     sortDetails(b, QUESTION_ORDER);
     return this.question(id)!;
   }

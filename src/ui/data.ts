@@ -301,6 +301,9 @@ export const takeBackMessage = (projectId: string, goalId: string, id: string) =
 /** Answers one of the AI's questions: a choice, or the person's own words. */
 export const answerQuestion = (projectId: string, goalId: string, id: string, answer: string) =>
   postTalk(projectId, goalId, `questions/${encodeURIComponent(id)}/answer`, { answer });
+/** Asks the AI for other options than the alternatives it offered. */
+export const requestMoreAlternatives = (projectId: string, goalId: string, id: string) =>
+  postTalk(projectId, goalId, `questions/${encodeURIComponent(id)}/more`, {});
 
 /** Sends one of the person's changes to the project notes; says what went wrong in words when refused. */
 async function postNotes(projectId: string, path: string, body: unknown): Promise<void> {

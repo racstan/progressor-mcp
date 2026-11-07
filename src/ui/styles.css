@@ -840,6 +840,19 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 
 
 /* ---------- alternatives: alternatives to choose from ---------- */
+.alt-cards { list-style: none; margin: var(--s3) 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--s3); }
+.alt-card { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3); border: 1px solid var(--line); border-radius: var(--r-s); background: var(--panel); min-width: 0; }
+.alt-card .about { margin: 0; }
+.alt-card .btn { align-self: flex-start; margin-top: auto; }
+.alt-card.recommended { border: var(--heavy); }
+.alt-card.chosen { border: var(--heavy); background: var(--accent-soft); }
+.alt-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s2); overflow-wrap: anywhere; }
+.alt-tag { flex: none; font-size: var(--t-s); font-weight: 700; padding: 1px 6px; border-radius: var(--r-s); border: 1px solid var(--accent); color: var(--accent); }
+.alt-chosen { margin-top: auto; display: inline-flex; align-items: center; gap: var(--s1); font-size: var(--t-s); font-weight: 700; }
+.alt-card .pictures { margin: 0; }
+.talk .answered .alternatives { border: none; padding: 0; background: none; }
+.talk ul.alt-cards { display: grid; }
+.talk .alt-card { border-radius: var(--r-s); padding: var(--s3); }
 
 
 /* ---------- handoffs ---------- */

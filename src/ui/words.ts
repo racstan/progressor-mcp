@@ -674,10 +674,14 @@ export const PHONE_OFF_NOTE = "Off. Nothing is sent from this computer.";
 export const phoneAddress = (server: string, topic: string) => `${server.replace(/\/+$/, "")}/${topic}`;
 
 // --- alternatives ---
-// Alternatives to choose from.
-//
-//
-//
+// Alternatives to choose from: ways to go your AI offers; it goes ahead with its own pick if you don't choose.
+export const ALT_KIND = "Your AI offers ways to go";
+export const ALT_RECOMMENDED = "Recommended";
+export const ALT_PICK = "Pick this";
+export const ALT_MORE = "Show me other options";
+export const ALT_ASKED_MORE = "You asked for other options; your AI will offer new ones.";
+export const ALT_WAITS: [value: string, label: string][] = [["0m", "Go ahead straight away"], ["10m", "After 10 minutes"], ["1h", "After 1 hour"], ["1d", "After 1 day"]];
+export const ALT_OFFERS: [value: string, label: string][] = [["off", "Never"], ["big choices", "For big choices"], ["always", "Always"]];
 
 // --- handoffs ---
 // Handoffs.

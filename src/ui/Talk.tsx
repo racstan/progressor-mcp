@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { type GoalView, answerQuestion, sendMessage, takeBackMessage } from "./data.js";
+import { type GoalView, answerQuestion, requestMoreAlternatives, sendMessage, takeBackMessage } from "./data.js";
 import { Icon } from "./Icon.js";
+import { Pictures } from "./Pictures.js";
 import { RichText } from "./RichText.js";
-import { isNotice, noticeWords } from "./talkView.js";
-import { ago, exactDate, messageStateWords, sentWords, talkSummary, whenWords } from "./words.js";
+import { atTop, chosen, goAheadWords, isNotice, noticeWords } from "./talkView.js";
+import { ALT_ASKED_MORE, ALT_KIND, ALT_MORE, ALT_PICK, ALT_RECOMMENDED, ago, exactDate, messageStateWords, sentWords, talkSummary, whenWords } from "./words.js";
 
 type MessageView = GoalView["messages"][number];
 type QuestionView = GoalView["questions"][number];
@@ -11,7 +12,7 @@ type QuestionView = GoalView["questions"][number];
 interface Props {
   projectId: string;
   goalId: string;
-  view: Pick<GoalView, "messages" | "questions" | "graph">;
+  view: Pick<GoalView, "messages" | "questions" | "graph"> & { pictures?: GoalView["pictures"] };
   /** Loads the plan again now, so a change shows before the server's change notice arrives. */
   onChanged: () => void;
 }
@@ -41,14 +42,78 @@ export function useSend(onChanged: () => void) {
   return { busy, error, run };
 }
 
-/** The AI's open questions, each with a button per choice; shown where the goal says what needs the person. */
-export function OpenQuestions({ projectId, goalId, view, onChanged }: Props) {
+/** The questions shown where the goal says what needs the person: open ones, and alternatives the AI went ahead with while the goal is not finished. */
+export const questionsAtTop = (questions: QuestionView[], finished: boolean) =>
+  questions.filter((q) => q.state === "open" || (!finished && atTop(q)));
+
+/** The AI's open questions, each with a button per choice, and its alternatives as cards; shown where the goal says what needs the person. */
+export function OpenQuestions({ projectId, goalId, view, onChanged, finished = false }: Props & { finished?: boolean }) {
   return (
     <>
-      {view.questions.filter((q) => q.state === "open").map((q) => (
-        <Ask key={q.id} question={q} about={stepTitle(view, q.task)} projectId={projectId} goalId={goalId} onChanged={onChanged} />
-      ))}
+      {questionsAtTop(view.questions, finished).map((q) =>
+        q.alternatives.length > 0 ? (
+          <Alternatives key={q.id} question={q} about={stepTitle(view, q.task)} pictures={view.pictures ?? []} projectId={projectId} goalId={goalId} onChanged={onChanged} />
+        ) : (
+          <Ask key={q.id} question={q} about={stepTitle(view, q.task)} projectId={projectId} goalId={goalId} onChanged={onChanged} />
+        ),
+      )}
     </>
+  );
+}
+
+/**
+ * Ways to go the AI offered, side by side (stacked on a narrow screen), each with its picture, a
+ * Recommended tag on the AI's own pick and "Pick this". Nobody has to pick: the AI goes ahead with its
+ * own, and a later pick still reaches it. Once chosen, says which and by whom.
+ */
+function Alternatives({ question: q, about, pictures, projectId, goalId, onChanged, as = "li" }: { question: QuestionView; about: string | undefined; pictures: NonNullable<Props["view"]["pictures"]>; as?: "li" | "div" } & Omit<Props, "view">) {
+  const { busy, error, run } = useSend(onChanged);
+  const done = chosen(q);
+  const note = goAheadWords(q, Date.now());
+  const pickable = q.state === "open" || q.chosenBy === "AI";
+  const Tag = as;
+  return (
+    <Tag className={`needs-item question alternatives ${q.state}`}>
+      <div className="kind">{done ? `${done.words}: ${q.answer}` : ALT_KIND}</div>
+      <RichText className="text" text={q.text} />
+      {about && <div className="about">About the step: {about}</div>}
+      <ul className="alt-cards">
+        {q.alternatives.map((a, i) => {
+          const recommended = q.recommended === i + 1;
+          const isChosen = done?.index === i;
+          const picture = a.picture ? pictures.find((p) => p.id === a.picture) : undefined;
+          return (
+            <li key={a.title} className={`alt-card${recommended ? " recommended" : ""}${isChosen ? " chosen" : ""}`}>
+              <div className="alt-head">
+                <b>{a.title}</b>
+                {recommended && <span className="alt-tag" title="The one your AI would pick, and goes ahead with if you don't">{ALT_RECOMMENDED}</span>}
+              </div>
+              {picture && <Pictures pictures={[picture]} />}
+              {a.about && <RichText className="about" text={a.about} />}
+              {isChosen ? (
+                <div className="alt-chosen"><Icon name="check" size={14} /> {done!.words}</div>
+              ) : (
+                pickable && (
+                  <button type="button" className="btn ghost small" disabled={busy} onClick={() => void run(() => answerQuestion(projectId, goalId, q.id!, a.title))}>{ALT_PICK}</button>
+                )
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {done && done.index < 0 && <div className="reply"><span className="who">{done.words}:</span> {q.answer}</div>}
+      {note && <div className="about">{note}</div>}
+      {pickable && (
+        <div className="buttons">
+          {q.moreRequested ? (
+            <span className="about">{ALT_ASKED_MORE}</span>
+          ) : (
+            <button type="button" className="linkbtn" disabled={busy} onClick={() => void run(() => requestMoreAlternatives(projectId, goalId, q.id!))}>{ALT_MORE}</button>
+          )}
+        </div>
+      )}
+      {error && <div className="error" role="alert">{error}</div>}
+    </Tag>
   );
 }
 
@@ -71,6 +136,11 @@ export function Conversation({ projectId, goalId, view, onChanged }: Props) {
           {earlier.map((item) =>
             "m" in item ? (
               <Said key={item.m.id} message={item.m} projectId={projectId} goalId={goalId} onChanged={onChanged} />
+            ) : item.q.alternatives.length > 0 ? (
+              <li key={item.q.id} className="answered">
+                <Alternatives question={item.q} about={stepTitle(view, item.q.task)} pictures={view.pictures ?? []} projectId={projectId} goalId={goalId} onChanged={onChanged} as="div" />
+                {item.q.answeredAt && <div className="origin" title={`${exactDate(item.q.answeredAt)} (${ago(Date.parse(item.q.answeredAt))})`}>chosen {whenWords(item.q.answeredAt)}</div>}
+              </li>
             ) : (
               <li key={item.q.id} className="answered">
                 <div className="who">Your AI asked</div>
