@@ -359,13 +359,31 @@ function readDesktop(path: string): Json {
   throw new Error(`${path} is not valid JSON; fix it (or move it aside) and run setup again.`);
 }
 
+/** The project folder Claude Desktop's Progressor works on now, if it has one. */
+export function desktopProject(configPath: string): string | undefined {
+  try {
+    const root = readDesktop(configPath).mcpServers?.[SERVER_NAME]?.env?.PROGRESSOR_ROOT;
+    return typeof root === "string" ? root : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Claude Desktop starts servers without a shell, so on Windows it gets the cmd /c form. It has no project folder, so it is told one. */
-export function planDesktop(root: string, launch: Launch, configPath: string): Change | undefined {
+export function planDesktop(
+  root: string,
+  launch: Launch,
+  configPath: string,
+  { switchProject = true }: { switchProject?: boolean } = {},
+): Change | undefined {
   const config = readDesktop(configPath);
   const how = launch.local ?? launch.server;
   const entry = { command: how.command, args: how.args, env: { PROGRESSOR_ROOT: root } };
   const current = config.mcpServers?.[SERVER_NAME];
   if (JSON.stringify(current) === JSON.stringify(entry)) return undefined;
+  // Claude Desktop has one project folder: a plain setup in another project leaves it where it is.
+  const itsRoot = current?.env?.PROGRESSOR_ROOT;
+  if (!switchProject && typeof itsRoot === "string" && itsRoot !== root) return undefined;
   const next = { ...config, mcpServers: { ...(config.mcpServers ?? {}), [SERVER_NAME]: entry } };
   return {
     file: display(configPath),

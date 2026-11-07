@@ -111,6 +111,14 @@ describe("Claude Desktop setup", () => {
     expect(planDesktop(root, global, config)).toBeUndefined();
   });
 
+  it("leaves Desktop on another project unless asked to switch it", () => {
+    applyChanges([planDesktop("C:/first", global, config)!]);
+    expect(planDesktop(root, global, config, { switchProject: false })).toBeUndefined();
+    expect(desktop().mcpServers.progressor.env.PROGRESSOR_ROOT).toBe("C:/first");
+    applyChanges([planDesktop(root, global, config, { switchProject: true })!]);
+    expect(desktop().mcpServers.progressor.env.PROGRESSOR_ROOT).toBe(root);
+  });
+
   it("uses cmd /c on Windows, because Claude Desktop starts the command without a shell", () => {
     applyChanges([planDesktop(root, windows, config)!]);
     expect(desktop().mcpServers.progressor).toEqual({ command: "cmd", args: ["/c", "progressor-mcp"], env: { PROGRESSOR_ROOT: root } });

@@ -10,6 +10,7 @@ import {
   type LocalStep,
   applyChanges,
   desktopConfigs,
+  desktopProject,
   launchFor,
   pickTargets,
   planDesktop,
@@ -128,8 +129,13 @@ export async function runInitCommand(args: string[]): Promise<number> {
   try {
     if (targets.code) changes = remove ? planRemove(root) : planInit(root, launch, { server: !noServer });
     for (const path of targets.desktop) {
-      const c = remove ? planDesktopRemove(path, args.includes("--desktop") ? undefined : root) : planDesktop(root, launch, path);
+      const c = remove
+        ? planDesktopRemove(path, args.includes("--desktop") ? undefined : root)
+        : planDesktop(root, launch, path, { switchProject: wantsDesktop });
       if (c) desktopChanges.push(c);
+      else if (!remove && !wantsDesktop && desktopProject(path) !== undefined && desktopProject(path) !== root)
+        console.log(`Claude Desktop stays on ${desktopProject(path)}. To switch it to this folder, run this again with --desktop.
+`);
     }
   } catch (e) {
     console.error(`progressor: ${(e as Error).message}`);
