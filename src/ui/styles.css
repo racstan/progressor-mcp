@@ -772,6 +772,11 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 
 
 /* ---------- evidence: steps linked to commits and test runs ---------- */
+.git-facts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); }
+.git-facts .commit { font-family: ui-monospace, Consolas, monospace; font-size: var(--t-s); padding: 0 var(--s1); border: 1px solid var(--line-strong); border-radius: var(--r-s); color: var(--ink); text-decoration: none; }
+.git-facts a.commit:hover { background: var(--hover); }
+.git-facts .not-saved { font-weight: 700; padding: 0 var(--s2); border: var(--heavy); border-style: dashed; border-radius: var(--r-s); color: var(--ink); }
+[data-theme="vibrant"] .git-facts .not-saved { border-color: var(--you); color: var(--you-ink); }
 
 
 /* ---------- estimates: estimates that learn ---------- */

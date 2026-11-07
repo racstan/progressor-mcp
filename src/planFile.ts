@@ -74,6 +74,13 @@ export interface Task {
   startedAt?: string;
   /** When it was done, released or cancelled (an ISO time), while it still is; unknown in older plans. */
   finishedAt?: string;
+  /** What git said when it was finished (see gitFacts.ts): its commits (short hashes, newest first) and branch. */
+  commits?: string[];
+  branch?: string;
+  /** The test run behind it, in a few words ("715 passed"). */
+  tests?: string;
+  /** Whether its files still had changes not saved in git when it was finished; unknown when not checked. */
+  uncommitted?: boolean;
 }
 
 /** Where a helper agent's work on a Task is; every part is optional. */
@@ -293,6 +300,20 @@ function withTime(b: ItemBlock): { estimate?: number; spent: number; timingSince
 }
 
 /** A Task's helper info and evidence, from its `helper`, `helper branch`, `helper folder`, `evidence` and `checked since` lines. */
+/** What a finished Task's work was, from its `commits`, `branch`, `tests` and `uncommitted` lines. */
+function withEvidence(b: ItemBlock): { commits?: string[]; branch?: string; tests?: string; uncommitted?: boolean } {
+  const commits = getDetail(b, TASK_COMMITS)?.split(/\s+/).filter(Boolean);
+  const branch = getDetail(b, TASK_BRANCH);
+  const tests = getDetail(b, TASK_TESTS);
+  const uncommitted = getDetail(b, TASK_UNCOMMITTED);
+  return {
+    ...(commits?.length ? { commits } : {}),
+    ...(branch ? { branch } : {}),
+    ...(tests ? { tests } : {}),
+    ...(uncommitted !== undefined ? { uncommitted: uncommitted === "yes" } : {}),
+  };
+}
+
 /** When a Task was started and finished, from its `started` and `finished` lines. */
 function withTimes(b: ItemBlock): { startedAt?: string; finishedAt?: string } {
   const started = getDetail(b, STARTED);
@@ -428,6 +449,7 @@ export class PlanFile {
       ...withTime(b),
       ...withHelper(b),
       ...withTimes(b),
+      ...withEvidence(b),
       ...withOrigin(b),
       ...withDates(b),
     }));
@@ -611,6 +633,8 @@ export class PlanFile {
     // The first start is kept for good; the finish only while the Task stays finished.
     if (status !== "pending" && !FINISHED.includes(status) && !getDetail(b, STARTED)) setDetail(b, STARTED, this.now().toISOString());
     setDetail(b, FINISHED_AT, FINISHED.includes(status) ? (getDetail(b, FINISHED_AT) ?? this.now().toISOString()) : undefined);
+    // What git said at the finish belongs to that finish: a Task sent back to work loses it.
+    if (!FINISHED.includes(status)) for (const key of [TASK_COMMITS, TASK_BRANCH, TASK_TESTS, TASK_UNCOMMITTED]) setDetail(b, key, undefined);
     sortDetails(b);
   }
 

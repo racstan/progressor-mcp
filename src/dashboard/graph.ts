@@ -44,6 +44,11 @@ export interface TaskNode extends NodeBase {
   helper?: HelperInfo;
   /** What was checked, when the Task was checked with evidence. */
   evidence?: string;
+  /** What git said when it was finished: its commits (short hashes), branch, test run, and unsaved changes. */
+  commits?: string[];
+  branch?: string;
+  tests?: string;
+  uncommitted?: boolean;
 }
 
 export interface DetourNode extends NodeBase {
@@ -117,6 +122,10 @@ export function buildGoalGraph(plan: { tasks: Task[]; detours: Detour[] }): Goal
     ...(t.evidence ? { evidence: t.evidence } : {}),
     ...(t.startedAt ? { startedAt: t.startedAt } : {}),
     ...(t.finishedAt ? { finishedAt: t.finishedAt } : {}),
+    ...(t.commits?.length ? { commits: t.commits } : {}),
+    ...(t.branch ? { branch: t.branch } : {}),
+    ...(t.tests ? { tests: t.tests } : {}),
+    ...(t.uncommitted ? { uncommitted: true } : {}),
     step: 0,
     lane: 0,
   }));

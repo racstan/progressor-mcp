@@ -197,7 +197,9 @@ export function dashboardApi(project: Project, sessionOf?: (pid: number) => stri
       const pictures = project.pictures(goalId).map((p) => ({ ...p, url: `/api/projects/${encodeURIComponent(projectId)}/goals/${encodeURIComponent(goalId)}/pictures/${encodeURIComponent(p.file)}?v=${encodeURIComponent(p.addedAt)}` }));
       // A hotfix's bug report, word for word (planFile.ts).
       const report = goal.hotfix ? plan.report : undefined;
-      return { goal, graph: buildGoalGraph(plan), decisions, notes, handTests, messages, questions, pictures, ...(report ? { report } : {}) };
+      // Where a step's commits can be seen online; git is only asked when some step has commits.
+      const commitLink = plan.tasks.some((t) => t.commits?.length) ? project.commitLink() : undefined;
+      return { goal, graph: buildGoalGraph(plan), decisions, notes, handTests, messages, questions, pictures, ...(report ? { report } : {}), ...(commitLink ? { commitLink } : {}) };
     },
     item: (ref: string) => project.getItem(ref),
     /** Statistics over every goal's steps and side trips (stats.ts); a goal whose plan cannot be read counts as empty. */

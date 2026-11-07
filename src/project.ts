@@ -22,12 +22,17 @@ import {
   MAX_REPORT,
   NOTES,
   TASKS,
+  TASK_BRANCH,
+  TASK_COMMITS,
+  TASK_TESTS,
+  TASK_UNCOMMITTED,
   newPlanFile,
   parsePlanFile,
 } from "./planFile.js";
 import { pause } from "./lock.js";
 import { type MarkdownDoc, findSection, parseMarkdown } from "./markdown.js";
 import { gitBranches, orphanWarnings } from "./helperWork.js";
+import { type GitFacts, realGit } from "./gitFacts.js";
 import { type Origin } from "./origin.js";
 import { ResourceLocks } from "./resources.js";
 import { unsafeRoot } from "./root.js";
@@ -53,6 +58,8 @@ export interface SessionIdentity {
 export interface ProjectOptions {
   /** The project folder; progress lives in `<root>/.progressor`. */
   root: string;
+  /** What git says about a finished step's work (gitFacts.ts); tests pass their own. */
+  git?: GitFacts;
   session: SessionIdentity;
   /** Whether a process is still running; used to spot stale Claims. */
   isAlive?: (pid: number) => boolean;
@@ -344,6 +351,7 @@ export class Project {
   readonly actor: Actor;
   private readonly unsafe: (root: string) => string | undefined;
   private readonly rename: (from: string, to: string) => void;
+  private readonly git: GitFacts;
   /** The project the changes come from, when this is another project's plan (see ProjectOptions.from). */
   readonly from: string | undefined;
 
@@ -359,6 +367,7 @@ export class Project {
       options.unsafe ?? ((root) => unsafeRoot(root, { home: homedir(), systemRoot: process.env.SystemRoot, platform: process.platform }));
     this.from = options.from?.trim() || undefined;
     this.rename = options.rename ?? renameSync;
+    this.git = options.git ?? realGit;
   }
 
   /**
@@ -903,6 +912,32 @@ export class Project {
    */
   completeTask(id: string, code: string[] = [], summary?: string, goalId?: string): Task {
     return this.change(goalId, (plan) => this.complete(plan, id, code, summary));
+  }
+
+  /**
+   * Writes on a finished Task what its work was: the commits since it started (or those given), the
+   * branch, the test run given, and whether its files still have changes not saved in git. A Task not
+   * done or released is left alone. Git knowing nothing leaves those lines out.
+   */
+  recordEvidence(id: string, goalId?: string, given: { commits?: string[]; tests?: string } = {}): Task {
+    const commits = given.commits?.map((c) => c.trim()).filter(Boolean);
+    if (commits?.some((c) => !/^[0-9a-f]{4,40}$/i.test(c))) throw new Error("Commits are short hashes, such as a1b2c3d.");
+    return this.change(goalId, (plan) => {
+      const task = this.taskIn(plan, id);
+      if (task.status !== "done" && task.status !== "released") return task;
+      const found = commits?.length ? commits : this.git.commitsSince(this.root, task.startedAt, task.code);
+      plan.setTaskDetail(id, TASK_COMMITS, found?.length ? found.map((c) => c.slice(0, 12)).join(" ") : undefined);
+      plan.setTaskDetail(id, TASK_BRANCH, this.git.branch(this.root));
+      if (given.tests?.trim()) plan.setTaskDetail(id, TASK_TESTS, given.tests);
+      // Only a step that lists its files is checked: the whole folder often has other work in it.
+      plan.setTaskDetail(id, TASK_UNCOMMITTED, task.code.length > 0 && this.git.dirty(this.root, task.code) ? "yes" : undefined);
+      return plan.task(id)!;
+    });
+  }
+
+  /** Where a commit of this project can be seen online (add the short hash), when its git remote is known. */
+  commitLink(): string | undefined {
+    return this.git.commitLink(this.root);
   }
 
   dropTask(id: string, reason: string, goalId?: string): Task {

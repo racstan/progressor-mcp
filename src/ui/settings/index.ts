@@ -4,6 +4,7 @@
 import { advancedSection, finishedSection, popUpsSection, themeSection } from "./Look.js";
 import { phoneSection } from "./Phone.js";
 import { estimatesSection } from "./Estimates.js";
+import { evidenceSection } from "./Evidence.js";
 import type { SettingsSection } from "./types.js";
 
 export type { SettingsContext, SettingsSection, Theme } from "./types.js";
@@ -15,5 +16,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   // Features' sections go here, one line each.
   phoneSection,
   estimatesSection,
+  evidenceSection,
   advancedSection,
 ];
