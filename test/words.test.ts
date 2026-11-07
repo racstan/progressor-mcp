@@ -392,3 +392,13 @@ describe("what git said about a finished step", () => {
     expect(testsLabel(" ")).toBeUndefined();
   });
 });
+
+describe("a goal that waits on another", () => {
+  it("says it is waiting, and on what", async () => {
+    const { goalState, waitsChip, WAITING_ON_GOAL } = await import("../src/ui/words.js");
+    expect(goalState({ status: "planned", updatedAt: undefined, running: undefined, blocked: true }).label).toBe(WAITING_ON_GOAL);
+    expect(goalState({ status: "planned", updatedAt: undefined, running: undefined }).label).toBe("Not started");
+    expect(waitsChip([{ raw: "login", title: "Login", state: "open" }, { raw: "api/x", state: "finished" }])).toBe("Waits on Login");
+    expect(waitsChip([{ raw: "api/x", state: "unknown" }])).toBeUndefined();
+  });
+});

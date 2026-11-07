@@ -33,10 +33,11 @@ import { pause } from "./lock.js";
 import { type MarkdownDoc, findSection, parseMarkdown } from "./markdown.js";
 import { gitBranches, orphanWarnings } from "./helperWork.js";
 import { type GitFacts, realGit } from "./gitFacts.js";
+import { type GoalLookup, type Waiting, finishedState, parseWaitRef, waitCycle } from "./dependencies.js";
 import { type Origin } from "./origin.js";
 import { ResourceLocks } from "./resources.js";
 import { unsafeRoot } from "./root.js";
-import { type Claim, type Goal, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
+import { type Claim, type Goal, GOAL_WAITS_ON, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
 import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule } from "./schedule.js";
 import { type Calibration, calibration } from "./stats.js";
@@ -848,6 +849,35 @@ export class Project {
       this.savePlan(plan);
     }
     return roadmap.goal(goalId)!;
+  }
+
+  /**
+   * Sets the goals a Goal waits on (none clears them): goals here by ID, or `<project>/<goal>` in
+   * another project. A goal here must exist, and a loop of goals waiting on each other is refused.
+   */
+  setWaitsOn(goalId: string, refs: string[]): Goal {
+    if (this.from) this.changeable(goalId, { done: true });
+    const roadmap = this.roadmap();
+    if (!roadmap.goal(goalId)) throw new Error(`No Goal ${goalId} on the Roadmap.`);
+    const wanted = [...new Set(refs.map((r) => parseWaitRef(r).raw).filter(Boolean))];
+    const here = wanted.map(parseWaitRef).filter((r) => !r.project).map((r) => r.goal);
+    for (const id of here) if (!roadmap.goal(id)) throw new Error(`No Goal ${id} on the Roadmap to wait on.`);
+    const loop = waitCycle(goalId, here, (id) => (roadmap.goal(id)?.waitsOn ?? []).map(parseWaitRef).filter((r) => !r.project).map((r) => r.goal));
+    if (loop) throw new Error(`Goal ${goalId} would wait on itself: ${loop.join(" → ")}.`);
+    roadmap.setGoalDetail(goalId, GOAL_WAITS_ON, wanted);
+    this.markGoal(roadmap, goalId);
+    this.saveRoadmap(roadmap);
+    return this.roadmap().goal(goalId)!;
+  }
+
+  /** What each goal a Goal waits on is now; another project's goals are asked of `lookup` (unknown without one). */
+  waitingOn(goalId: string, lookup?: GoalLookup): Waiting[] {
+    const roadmap = this.roadmap();
+    return (roadmap.goal(goalId)?.waitsOn ?? []).map((raw) => {
+      const ref = parseWaitRef(raw);
+      const found = ref.project ? lookup?.(ref.project, ref.goal) : roadmap.goal(ref.goal);
+      return found ? { ref, state: finishedState(found.status), title: found.title } : { ref, state: "unknown" as const };
+    });
   }
 
   /** Moves a Goal right before or after another, to put the Roadmap in the order the work should happen. */

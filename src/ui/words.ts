@@ -232,6 +232,8 @@ export type GoalStatus = {
   helpers?: number;
   /** The latest change an AI chat in another project made to the Goal, if any. */
   fromElsewhere?: FromElsewhere;
+  /** It waits on another goal that is not finished yet (dependencies.ts). */
+  blocked?: boolean;
 };
 
 /** Where and when something was changed from another project (an `updated from` line). */
@@ -272,6 +274,7 @@ export function goalState(goal: GoalStatus, now = Date.now()): { state: GoalStat
     case "dropped":
       return { state: "cancelled", label: "Cancelled", hint: "This was cancelled and will not be done." };
     case "planned":
+      if (goal.blocked) return { state: "planned", label: WAITING_ON_GOAL, hint: WAITING_ON_GOAL_HINT };
       return { state: "planned", label: "Not started", hint: "Your AI has planned this but not started it yet." };
     case "testing":
       return {
@@ -545,6 +548,16 @@ export const testsLabel = (tests: string | undefined) => (tests?.trim() ? `Tests
 export const NOT_SAVED = "Not saved in git yet";
 export const NOT_SAVED_HINT = "When this step was finished, some of its files still had changes that were not saved (committed) in git.";
 
+// --- dependencies ---
+// Goals that wait on other goals.
+export const WAITING_ON_GOAL = "Waiting on another goal";
+export const WAITING_ON_GOAL_HINT = "This goal waits on another goal that isn't finished yet. Your AI starts it once that one is done.";
+/** The chip on a goal that waits: "Waits on Login" for open waits; undefined when nothing holds it up. */
+export function waitsChip(waiting: { raw: string; title?: string; state: string }[] | undefined): string | undefined {
+  const open = (waiting ?? []).filter((w) => w.state === "open");
+  return open.length > 0 ? `Waits on ${open.map((w) => w.title ?? w.raw).join(", ")}` : undefined;
+}
+
 // --- estimates ---
 // Estimates that learn.
 //
@@ -559,12 +572,6 @@ export const NOT_SAVED_HINT = "When this step was finished, some of its files st
 
 // --- release ---
 // The changelog from finished goals.
-//
-//
-//
-
-// --- dependencies ---
-// Goals that wait on other goals.
 //
 //
 //
