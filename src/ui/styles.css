@@ -775,7 +775,10 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .settings-side { position: sticky; top: var(--s4); display: grid; gap: var(--s2); align-content: start; }
 .settings-nav { display: grid; gap: 2px; }
 .settings-nav button { text-align: left; border: none; border-left: 3px solid transparent; background: none; padding: 7px var(--s3); color: var(--muted); border-radius: 0 var(--r-s) var(--r-s) 0; }
-.settings-nav button:hover { background: var(--hover); color: var(--ink); }
+/* only the current group has the bar and the fill, and it changes at once, so two never look current */
+.settings-nav button { transition: color .18s var(--ease); }
+.settings-nav button:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.settings-nav button[aria-current="true"]:hover { text-decoration: none; }
 .settings-nav button[aria-current="true"] { border-left-color: var(--ink); color: var(--ink); font-weight: 700; background: var(--hover); }
 [data-theme="vibrant"] .settings-nav button[aria-current="true"] { border-left-color: var(--accent); background: var(--accent-soft); }
 .settings-group { scroll-margin-top: var(--s4); }
@@ -1166,7 +1169,8 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 /* ---------- the first-run tour (Tour.tsx): never blocks the page, so clicks go through the dimming ---------- */
 .tour { position: fixed; inset: 0; z-index: 80; pointer-events: none; }
 .tour-dim { position: absolute; inset: 0; background: rgba(0, 0, 0, .28); }
-.tour-spot { position: absolute; border-radius: var(--r); box-shadow: 0 0 0 9999px rgba(0, 0, 0, .28); outline: 3px solid var(--ink); outline-offset: 0; transition: top .25s var(--ease), left .25s var(--ease), width .25s var(--ease), height .25s var(--ease); }
+.tour-spot { position: absolute; border-radius: var(--r); box-shadow: 0 0 0 9999px rgba(0, 0, 0, .28); outline: 3px solid var(--ink); outline-offset: 0; }
+.tour-spot.glide { transition: top .25s var(--ease), left .25s var(--ease), width .25s var(--ease), height .25s var(--ease); }
 [data-theme="vibrant"] .tour-spot { outline-color: var(--accent); }
 .tour-card { position: absolute; pointer-events: auto; width: 340px; max-width: calc(100vw - 24px); background: var(--panel); color: var(--ink); border: var(--heavy); border-radius: var(--r); box-shadow: var(--shadow); padding: var(--s4); animation: pop .16s var(--ease) both; }
 .tour-card:focus { outline: none; }

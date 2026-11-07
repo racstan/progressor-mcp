@@ -15,6 +15,18 @@ export function Tour({ onClose }: { onClose: () => void }) {
   const card = useRef<HTMLDivElement>(null);
   const before = useRef<Element | null>(null);
   const step = TOUR_STEPS[at]!;
+  // The highlight glides from one step's place to the next, but jumps while a step's place settles.
+  const [glide, setGlide] = useState(false);
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!opened.current) {
+      opened.current = true;
+      return;
+    }
+    setGlide(true);
+    const t = setTimeout(() => setGlide(false), 350);
+    return () => clearTimeout(t);
+  }, [at]);
 
   // Focus moves to the card, and back to where it was once the tour ends.
   useEffect(() => {
@@ -23,8 +35,11 @@ export function Tour({ onClose }: { onClose: () => void }) {
   }, []);
   useEffect(() => card.current?.focus(), [at]);
 
-  // Where the step points, kept in place as the page scrolls or resizes.
+  // Where the step points, measured again until the page settles (the sidebar may still be sliding in or
+  // the plan still loading when a step opens), and whenever the page scrolls, resizes or finishes moving.
   useLayoutEffect(() => {
+    let target: Element | null = null;
+    const sizes = new ResizeObserver(() => place());
     const place = () => {
       const selector = firstTarget(step.targets, (s) => {
         const el = document.querySelector(s);
@@ -33,17 +48,39 @@ export function Tour({ onClose }: { onClose: () => void }) {
         return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
       });
       const el = selector ? document.querySelector(selector) : null;
+      if (el !== target) {
+        if (target) sizes.unobserve(target);
+        if (el) sizes.observe(el);
+        target = el;
+      }
       if (!el) return setBox(undefined);
       const r = el.getBoundingClientRect();
       const top = Math.max(r.top, 0);
-      setBox({ top: top - PAD, left: r.left - PAD, width: r.width + 2 * PAD, height: Math.min(r.bottom, innerHeight) - top + 2 * PAD });
+      const next = { top: top - PAD, left: r.left - PAD, width: r.width + 2 * PAD, height: Math.min(r.bottom, innerHeight) - top + 2 * PAD };
+      setBox((b) => (b && b.top === next.top && b.left === next.left && b.width === next.width && b.height === next.height ? b : next));
     };
     place();
+    // a few frames' worth of measuring while things slide and load
+    const until = performance.now() + 800;
+    let frame = requestAnimationFrame(function again() {
+      place();
+      if (performance.now() < until) frame = requestAnimationFrame(again);
+    });
+    // and once more whenever something on the page finishes moving, or the page itself changes size
+    const settle = setTimeout(place, 900);
+    sizes.observe(document.body);
     addEventListener("resize", place);
     addEventListener("scroll", place, true);
+    document.addEventListener("transitionend", place, true);
+    document.addEventListener("animationend", place, true);
     return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(settle);
+      sizes.disconnect();
       removeEventListener("resize", place);
       removeEventListener("scroll", place, true);
+      document.removeEventListener("transitionend", place, true);
+      document.removeEventListener("animationend", place, true);
     };
   }, [step]);
 
@@ -74,7 +111,7 @@ export function Tour({ onClose }: { onClose: () => void }) {
   const last = at === TOUR_STEPS.length - 1;
   return (
     <div className="tour" aria-live="polite">
-      {box ? <div className="tour-spot" style={box} aria-hidden="true" /> : <div className="tour-dim" aria-hidden="true" />}
+      {box ? <div className={`tour-spot ${glide ? "glide" : ""}`} style={box} aria-hidden="true" /> : <div className="tour-dim" aria-hidden="true" />}
       <div ref={card} className={`tour-card ${place ? "" : "docked"}`} style={place} role="dialog" aria-modal="false" aria-labelledby="tour-title" aria-describedby="tour-body" tabIndex={-1}
         onKeyDown={(e) => {
           if (e.key === "ArrowRight") move("next");

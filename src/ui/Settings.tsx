@@ -73,8 +73,9 @@ export function Settings({ ctx }: { ctx: SettingsContext }) {
       // not remembered; the menu still folds
     }
   };
-  // The menu marks the group being read as the page scrolls: the last one whose heading has passed the
-  // top, or the last one of all at the bottom of the page. Just after a click, the clicked one stays marked.
+  // The menu marks one group, the one being read, as the page scrolls: the last one whose heading has
+  // passed the top, or the last one of all at the bottom of the page. While the page glides to a group
+  // that was clicked, that one stays marked; scrolling yourself (wheel, touch, keys) takes over at once.
   const clickedAt = useRef(0);
   useEffect(() => {
     const main = document.getElementById("main");
@@ -87,8 +88,15 @@ export function Settings({ ctx }: { ctx: SettingsContext }) {
       const passed = atBottom ? groups.at(-1) : groups.filter((g) => g.getBoundingClientRect().top <= top).at(-1);
       setCurrent((passed ?? groups[0])?.id.replace(/^settings-/, "") ?? ABOUT.id);
     };
+    const takeOver = () => {
+      clickedAt.current = 0;
+    };
     main.addEventListener("scroll", onScroll, { passive: true });
-    return () => main.removeEventListener("scroll", onScroll);
+    for (const e of ["wheel", "touchmove", "keydown"] as const) main.addEventListener(e, takeOver, { passive: true });
+    return () => {
+      main.removeEventListener("scroll", onScroll);
+      for (const e of ["wheel", "touchmove", "keydown"] as const) main.removeEventListener(e, takeOver);
+    };
   }, []);
   const go = (id: string) => {
     clickedAt.current = Date.now();
