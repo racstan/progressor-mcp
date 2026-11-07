@@ -167,13 +167,49 @@ Your AI does the rest. For Claude Code and Claude Desktop that one `init` comman
 
 ### Run it with Docker
 
-Would you rather not install Node? Progressor also comes as a Docker image, `ghcr.io/racstan/progressor-mcp`. Your project folder has to be mounted into the container, because that is where the plan is kept. On macOS or Linux, in your project's folder:
+Would you rather not install Node? Progressor also comes as a Docker image, `ghcr.io/racstan/progressor-mcp`. You don't start the container yourself: your AI app starts one for each conversation, so you save the command it should use, once. Your project folder has to be mounted into the container, because that is where the plan is kept.
+
+**1. Download the image** (optional; it also downloads the first time it's used):
+
+```bash
+docker pull ghcr.io/racstan/progressor-mcp
+```
+
+**2. Claude Code.** In your project's folder, on macOS or Linux:
 
 ```bash
 claude mcp add progressor -- docker run -i --rm -v "$PWD:$PWD" -w "$PWD" -v progressor-data:/data -p 127.0.0.1:4800:4800 ghcr.io/racstan/progressor-mcp
 ```
 
-The dashboard is then at **http://localhost:4800**. The `progressor-data` volume keeps the project list and your settings between runs. On Windows, mount the folder under `/work` and say so: `-v "C:\Projects\shop:/work/shop" -w /work/shop -e PROGRESSOR_ROOT=/work/shop`. Using Docker for two projects at once? Give the second its own port: `-p 127.0.0.1:4801:4801 -e PROGRESSOR_PORT=4801`. Other apps take the same `docker run` line as their command.
+On Windows, mount the folder under `/work` and say so: `-v "C:\Projects\shop:/work/shop" -w /work/shop -e PROGRESSOR_ROOT=/work/shop`.
+
+**3. Claude Desktop, Cursor, Windsurf and other apps.** The same command goes in the app's MCP settings, with your project's folder in place of `/path/to/your/project`:
+
+```json
+{
+  "mcpServers": {
+    "progressor": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm",
+        "-v", "/path/to/your/project:/path/to/your/project", "-w", "/path/to/your/project",
+        "-v", "progressor-data:/data", "-p", "127.0.0.1:4800:4800",
+        "ghcr.io/racstan/progressor-mcp"]
+    }
+  }
+}
+```
+
+VS Code calls the list `servers` instead of `mcpServers`, and Codex and others use their own format: [Setup for your app](docs/apps.md) shows where each one keeps it.
+
+The dashboard is then at **http://localhost:4800**. The `progressor-data` volume keeps the project list and your settings between runs. Using Docker for two projects at once? Give the second its own port: `-p 127.0.0.1:4801:4801 -e PROGRESSOR_PORT=4801`.
+
+**4. Dashboard only, always running.** To keep the dashboard up with no AI app open, run it as its own container that restarts by itself. Mount your projects' folder at the same path as in the commands above, so it can read their plans:
+
+```bash
+docker run -d --name progressor --restart unless-stopped -v progressor-data:/data -v "$HOME/projects:$HOME/projects" -p 127.0.0.1:4800:4800 ghcr.io/racstan/progressor-mcp daemon run
+```
+
+With this one running, leave `-p 127.0.0.1:4800:4800` out of the commands in steps 2 and 3. `docker stop progressor` stops it, and `docker rm progressor` removes it.
 
 ## Then just talk to your AI
 
