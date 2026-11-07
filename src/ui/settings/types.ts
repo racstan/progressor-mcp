@@ -1,4 +1,4 @@
-// What every section of the Settings panel gets (Settings.tsx), and what a section is.
+// What every section of the Settings page gets (Settings.tsx), and what a section is.
 import type { ReactNode } from "react";
 import type { InfoView, ServersView, SettingsView } from "../data.js";
 import type { Finished } from "../goalList.js";
@@ -37,7 +37,7 @@ export interface SettingsContext {
   resetComputer(section?: string): Promise<void>;
 }
 
-/** One section of the Settings panel. A feature adds its own in src/ui/settings/<Feature>.tsx and one line in index.ts. */
+/** One section of the Settings page. A feature adds its own in src/ui/settings/<Feature>.tsx and one line in index.ts. */
 export interface SettingsSection {
   id: string;
   title: string;

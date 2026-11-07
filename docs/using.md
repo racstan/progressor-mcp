@@ -93,7 +93,7 @@ Each project has one **Important context** page. It holds your rules and the pro
 
 ## What your AI does by itself
 
-Your AI runs all of these on its own. You never have to do anything for them; each one has a section in **Settings** (the gear at the top right) if you want to change how it works, and every section has **Reset this section**, with **Reset all settings to defaults** at the bottom.
+Your AI runs all of these on its own. You never have to do anything for them; each one has a section on the **Settings** page (the gear at the top right, or Settings in the sidebar) if you want to change how it works, and every section has **Reset this section**, with **Reset all settings to defaults** under About.
 
 - **Undo for the plan.** Every change to the plan, by your AI or by you on the dashboard, is kept on the **History** page, with who made it and when. **Go back to before this** undoes it and everything after it, and going back can itself be undone. Your AI can do the same if you ask: *"undo the last change to the plan"*.
 - **Steps linked to their commits and tests.** When a step is finished, Progressor notes the commits made for it, the branch and the test run behind it, and shows them on the step. If the step's files still have changes not saved in git, your AI is warned.

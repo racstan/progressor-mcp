@@ -4,6 +4,12 @@ The dashboard is a page in your browser that shows what your AI is doing, live. 
 
 The dashboard shows the plan. The one thing you do on it yourself is mark the things your AI asks you to try by hand (see [Things to try by hand](#things-to-try-by-hand)); to change anything else in the plan, tell your AI.
 
+## Finding your way
+
+**Breadcrumbs** at the top of every page say where you are: *Home* on Home, *Home › Settings*, *Home › Bindery › Calendar*, or *Home › Bindery › Ship OAuth login* on a goal. Click **Home** to see every project, or the project's name to go back to its goals. On a phone the middle of the trail shortens, with *…*, instead of running off the screen.
+
+The sidebar has **Home** and **Settings** at the top, then the project's own pages (Hotfixes, Message your AI, Project notes, Wishlist, Dashboard, Calendar, History, Handoffs) and its goals.
+
 ## At the top of a goal
 
 A banner says, in one glance:
@@ -189,16 +195,28 @@ On **Project notes**, **Goals that come back** lists the goals your AI set to re
 
 ## Phone notifications
 
-In **Settings → Phone notifications**, turn it on, install the free ntfy app on your phone and subscribe to the topic shown. You get a push when your AI asks a question, has something for you to try, finishes a goal, offers ways to go, or a bug report comes in; untick the ones you don't want. **Send a test** checks it works. Keep the topic private: anyone who knows it can read the messages.
+In **Settings → Notifications → Phone notifications**, turn it on, install the free ntfy app on your phone and subscribe to the topic shown. You get a push when your AI asks a question, has something for you to try, finishes a goal, offers ways to go, or a bug report comes in; untick the ones you don't want. **Send a test** checks it works. Keep the topic private: anyone who knows it can read the messages.
 
 ## Search
 
-The search box at the top (press `/` to jump to it) finds projects, goals and steps across all your projects. Click a result to open it.
+The search box at the top (press `/` to jump to it) finds projects, goals and steps across all your projects as you type. Use the arrow keys and Enter, or click a result to open it.
 
-## Help and Settings
+## Settings
+
+**Settings** has its own page: click the gear at the top right, or **Settings** in the sidebar. Nothing on it is ever required: Progressor and your AI work fully with the defaults, whether or not you ever open it. On a wide window a menu on the left jumps to each group and marks the one you are reading; on a phone the groups are stacked, with a row of buttons at the top.
+
+- **Look**: the theme (Vibrant, the default, or Light, Dark and System in black, white and greys) and whether finished goals fold away straight away or wait for you to look.
+- **Notifications**: a desktop pop-up when a goal is finished, and [phone notifications](#phone-notifications).
+- **AI & plan**: what your AI does by itself: estimates, commits and tests, goals that wait, the plan check-up, goals that come back, handoffs and ways to go.
+- **History & releases**: how long the plan's history is kept, and which files a release updates.
+- **Advanced**: the code editor files open in, bringing back the things to try you put off, and the Progressor servers running on your computer.
+- **About**: support Progressor, **Reset all settings to defaults** (after you confirm), and the note that Progressor is free: there is no paid version or subscription, and anyone selling one is not us.
+
+Every section has **Reset this section**. How the page looks is kept in your browser; settings for how Progressor works are kept on your computer, for all your projects, and a project can have its own. The old `#/stats` address of the Dashboard page still works; Settings is at `#/settings`.
+
+## Help
 
 - **❓ Help**: **What's new**, what changed in each version, newest first, with yours marked (a dot on the Help button means there is a version you haven't looked at); then report a problem or suggest an idea. Both open a form on GitHub with your Progressor version and system already filled in.
-- **⚙️ Settings**: the view a goal opens in, light or dark, and whether finished goals wait for you to look. Under **Advanced**: the code editor files open in, showing hidden goals, and the Progressor servers running on your computer. How the page looks is kept in your browser; settings for how Progressor works are kept on your computer, for all your projects. There is a section for each thing your AI does by itself: phone notifications, estimates, commits and tests, goals that wait, the plan check-up, history, releases, handoffs, goals that come back, and ways to go. Every section has **Reset this section**, and **Reset all settings to defaults** at the bottom puts everything back after you confirm. Nothing in Settings is ever required: Progressor works fully with the defaults. At the bottom: Progressor is free; there is no paid version or subscription, and anyone selling one is not us.
 - **If the page is out of date**, a bar at the bottom says so, with a **Refresh** button: when Progressor was updated after you opened the page, or when the page has been out of touch with Progressor for a minute. It goes away by itself once things are back to normal.
 - **The green dot** at the top means the page is live. If it turns orange and says *Reconnecting…*, Progressor has closed (it runs while your AI's app is open); it comes back by itself when the app is open again.
 
@@ -208,7 +226,7 @@ The search box at the top (press `/` to jump to it) finds projects, goals and st
 
 ### Choosing the code editor
 
-With **File names** on, clicking a file opens it in VS Code by default. Pick another under **⚙️ Settings → Advanced → Open files in**, or set it for a project with `PROGRESSOR_EDITOR` in the MCP server's environment:
+With **File names** on, clicking a file opens it in VS Code by default. Pick another under **Settings → Advanced → Open files in**, or set it for a project with `PROGRESSOR_EDITOR` in the MCP server's environment:
 
 | `PROGRESSOR_EDITOR` | Opens |
 | --- | --- |
@@ -238,4 +256,4 @@ Progressor looks through that folder and its subfolders (5 levels deep, skipping
 
 ### Running servers
 
-**⚙️ Settings → Advanced** lists the Progressor servers running on your computer: one per open AI chat, plus any `progressor-mcp dashboard`. For each it shows the project, the goals it's working on (a chat can work on several at once), its memory and when it started. **Stop** ends one after you confirm; that chat loses Progressor until it starts again. Stopping the one serving the dashboard hands it to another within a few seconds.
+**Settings → Advanced** lists the Progressor servers running on your computer: one per open AI chat, plus any `progressor-mcp dashboard`. For each it shows the project, the goals it's working on (a chat can work on several at once), its memory and when it started. **Stop** ends one after you confirm; that chat loses Progressor until it starts again. Stopping the one serving the dashboard hands it to another within a few seconds.

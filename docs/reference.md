@@ -87,7 +87,7 @@ The AI calls these; the server's instructions tell it when.
 
 ### New in this version
 
-**Settings.** Every feature has a section in `~/.progressor/settings.json` (or the file `PROGRESSOR_SETTINGS` names), beside the project list; a project can override a section. The dashboard's Settings shows them all, each with **Reset this section**, and **Reset all settings to defaults**. `GET /api/settings?project=<id>`, `POST /api/settings` (`{section, values, project?}`) and `POST /api/settings/reset` (`{section?, project?}`), with the `settings` header.
+**Settings.** Every feature has a section in `~/.progressor/settings.json` (or the file `PROGRESSOR_SETTINGS` names), beside the project list; a project can override a section. The dashboard's Settings page (`#/settings`) shows them all, grouped by `group` in `src/ui/settings/groups.ts`, each with **Reset this section**, and **Reset all settings to defaults**. `GET /api/settings?project=<id>`, `POST /api/settings` (`{section, values, project?}`) and `POST /api/settings/reset` (`{section?, project?}`), with the `settings` header.
 
 | Section | Values (defaults) |
 | --- | --- |
