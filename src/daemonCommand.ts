@@ -131,10 +131,11 @@ async function ownMemory(pid: number, resident: number): Promise<number> {
 export async function daemonStatus(registryFile = defaultRegistryFile()): Promise<DaemonStatus | undefined> {
   const r = record(registryFile);
   if (!r) return undefined;
+  const sessions = listServers(defaultServersDir(registryFile)).filter((s) => s.kind === "session").length;
   const state = readState(daemonFiles(registryFile).state);
   const port = state?.port ?? DEFAULT_PORT;
   const info = await hubInfo(port);
-  return { pid: r.pid, port, version: r.version, memory: await ownMemory(r.pid, r.memory), serving: info?.pid === r.pid, startedAt: r.startedAt };
+  return { pid: r.pid, port, version: r.version, memory: await ownMemory(r.pid, r.memory), serving: info?.pid === r.pid, startedAt: r.startedAt, sessions };
 }
 
 /** Whether `install` set it up to start at login. */
@@ -258,6 +259,8 @@ export async function runDaemon(): Promise<number> {
     port: process.env.PROGRESSOR_PORT ? Number(process.env.PROGRESSOR_PORT) : undefined,
     editor: process.env.PROGRESSOR_EDITOR || undefined,
     uiDir: fileURLToPath(new URL("./ui/", import.meta.url)),
+    // it serves in place of the AI sessions' processes, which go on sharing it
+    background: true,
     // A newer Progressor has taken the port over: move to it, if it says where it is.
     onStepDown: () =>
       void (async () => {

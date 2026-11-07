@@ -72,6 +72,11 @@ export interface DashboardOptions {
   ntfyFetch?: FetchFn;
   /** Called after this process stopped serving because a newer Progressor took the port over (daemon.ts). */
   onStepDown?: () => void;
+  /**
+   * This is the background dashboard (daemonCommand.ts): it takes the serving over from an AI
+   * session's process of the same version, which goes on sharing it, and never hands it to another.
+   */
+  background?: boolean;
 }
 
 export interface Dashboard {
@@ -333,6 +338,8 @@ class Hub {
   private entries: ProjectEntry[] = [];
   /** The port this hub serves on, for the links in phone notifications. */
   port = DEFAULT_PORT;
+  /** Whether this is the background dashboard (daemonCommand.ts). */
+  background = false;
   private look: Look | undefined;
   private lookTimer: NodeJS.Timeout | undefined;
 
@@ -343,8 +350,8 @@ class Hub {
     rescanMs: number,
     private readonly workspaceScanMs: number,
     private readonly serversDir: string,
-    /** Called once a newer Progressor has asked this hub to hand the port over. */
-    private readonly onStepDown: () => void,
+    /** Called once a newer Progressor, or the background dashboard, has asked this hub to hand the port over. */
+    private readonly onStepDown: (toBackground: boolean) => void,
     /** Opens the file manager for "Show in folder". */
     private readonly reveal: RevealRunner = runReveal,
     /** The settings for how Progressor works (settings.ts). */
@@ -827,9 +834,12 @@ class Hub {
   private stepDown(req: IncomingMessage, res: ServerResponse): void {
     if (req.headers["x-progressor"] !== "step-down" || req.headers.origin !== undefined)
       return json(res, 403, { error: "Only another Progressor can ask the dashboard to step down." });
-    if (!(Number(req.headers["x-progressor-hub"]) > HUB_VERSION))
-      return json(res, 409, { error: "Only a newer Progressor can take the dashboard over." });
-    res.once("finish", () => this.onStepDown());
+    const hub = Number(req.headers["x-progressor-hub"]);
+    // The background dashboard of this version takes it over from an AI session's process, which goes on sharing it.
+    const toBackground = req.headers["x-progressor-from"] === "background" && hub === HUB_VERSION && !this.background;
+    if (!(hub > HUB_VERSION) && !toBackground)
+      return json(res, 409, { error: "Only a newer Progressor, or the background dashboard, can take the dashboard over." });
+    res.once("finish", () => this.onStepDown(toBackground));
     return json(res, 202, { steppingDown: process.pid });
   }
 
@@ -883,7 +893,7 @@ class Hub {
       if (path === "/api/servers") return json(res, 200, this.servers());
       if (path === "/api/search") return json(res, 200, this.search(url.searchParams.get("q") ?? ""));
       if (path === "/api/info")
-        return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, build: uiBuild(this.uiDir), editor: this.editor, pid: process.pid, stepDown: true, cli: CLI });
+        return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, build: uiBuild(this.uiDir), editor: this.editor, pid: process.pid, stepDown: true, cli: CLI, background: this.background });
       if (path === "/api/projects") return json(res, 200, this.sync(url.searchParams.has("rescan")));
       if (path === "/api/workspaces") return json(res, 200, listWorkspaces(this.registryFile));
       if (path === "/api/overview") return json(res, 200, this.overview());
@@ -984,6 +994,8 @@ export interface HubInfo {
   stepDown?: boolean;
   /** Its command line program (from 1.3.0). */
   cli?: string;
+  /** Whether it is the background dashboard (from 1.3.0). */
+  background?: boolean;
 }
 
 /**
@@ -1012,12 +1024,12 @@ export async function hubInfo(port: number): Promise<HubInfo | null | undefined>
 /** A hub this version can share: the same version, or a newer one, which serves its own page. */
 const canShare = (info: HubInfo | null | undefined): boolean => typeof info?.hub === "number" && info.hub >= HUB_VERSION;
 
-/** Asks an older hub to hand its port over; true when it agreed. */
-async function askToStepDown(port: number): Promise<boolean> {
+/** Asks a hub to hand its port over (an older one, or any AI session's for the background dashboard); true when it agreed. */
+async function askToStepDown(port: number, background = false): Promise<boolean> {
   try {
     const res = await fetch(`http://${HOST}:${port}/api/hub/step-down`, {
       method: "POST",
-      headers: { "x-progressor": "step-down", "x-progressor-hub": String(HUB_VERSION) },
+      headers: { "x-progressor": "step-down", "x-progressor-hub": String(HUB_VERSION), ...(background ? { "x-progressor-from": "background" } : {}) },
       signal: AbortSignal.timeout(1500),
     });
     return res.status === 202;
@@ -1072,8 +1084,13 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
     const http = createServer();
     const result = await listen(http, p);
     if (result !== "ok") return result;
-    hub ??= new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs, serversDir, () => void stopServing().then(() => options.onStepDown?.()), reveal, options.settingsFile ?? settingsFileFor(registryFile), options.ntfyFetch);
+    hub ??= new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs, serversDir, (toBackground) => {
+      // the background dashboard takes the port a moment after this lets it go: don't take it back meanwhile
+      if (toBackground) holdOffUntil = Date.now() + 4000;
+      void stopServing().then(() => options.onStepDown?.());
+    }, reveal, options.settingsFile ?? settingsFileFor(registryFile), options.ntfyFetch);
     hub.port = p;
+    hub.background = !!options.background;
     http.on("request", hub.handle);
     const previous = servers;
     [servers, port, role] = [[http], p, "serving"];
@@ -1098,6 +1115,8 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
 
   /** An older Progressor's hub that holds the first port, for the notice. */
   let blocker: HubInfo | undefined;
+  /** Until when, after handing the port to the background dashboard, not to take it back while it moves in. */
+  let holdOffUntil = 0;
 
   /** Serves or shares the dashboard on one port; false when the port is held by something this cannot use. */
   const tryPort = async (p: number): Promise<boolean> => {
@@ -1105,6 +1124,9 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
     if (result === "ok") return true;
     if (result !== "in use") return false;
     const info = await hubInfo(p);
+    // The background dashboard serves in place of an AI session's process of its version.
+    if (options.background && info?.hub === HUB_VERSION && !info.background && info.stepDown && (await askToStepDown(p, true)) && (await serveWhenFree(p)))
+      return true;
     if (canShare(info)) {
       if (role === "serving") await stopServing();
       [port, role] = [p, "shared"];
@@ -1156,7 +1178,14 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
           await tryPort(firstPort);
           updateNotice();
         }
-      } else if (!canShare(await hubInfo(port))) await claimPort();
+      } else {
+        const info = await hubInfo(port);
+        if (canShare(info)) {
+          holdOffUntil = 0;
+          // the background dashboard takes over from an AI session's process that got the port while it was away
+          if (options.background && info?.hub === HUB_VERSION && !info.background) await tryPort(port);
+        } else if (Date.now() >= holdOffUntil) await claimPort();
+      }
     } finally {
       checking = false;
     }
@@ -1190,7 +1219,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
 
 export type DashboardApi = ReturnType<typeof dashboardApi>;
 /** `pid` is missing from hubs older than 0.3.2. */
-export type InfoView = { app: "progressor"; hub: number; version: string; build?: string; editor: string; pid?: number };
+export type InfoView = { app: "progressor"; hub: number; version: string; build?: string; editor: string; pid?: number; background?: boolean };
 export type RoadmapView = ReturnType<DashboardApi["roadmap"]>;
 export type GoalView = NonNullable<ReturnType<DashboardApi["goal"]>>;
 export type GoalSummary = GoalView["goal"];

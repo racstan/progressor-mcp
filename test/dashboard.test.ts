@@ -489,6 +489,77 @@ describe("who serves the dashboard", () => {
   });
 });
 
+describe("the background dashboard takes the serving over", () => {
+  const until = async (check: () => boolean, ms = 3000) => {
+    const end = Date.now() + ms;
+    while (!check() && Date.now() < end) await new Promise((r) => setTimeout(r, 10));
+  };
+  const background = async (port: number) => {
+    const d = await startDashboard({ registryFile: registry, port, background: true });
+    open.push(d);
+    return d;
+  };
+
+  it("from an AI session's process of the same version, which keeps running and shares it", async () => {
+    const port = freePort();
+    const session = await start(agent, { port });
+    const bg = await background(port);
+    expect(bg.role).toBe("serving");
+    await until(() => session.role === "shared");
+    expect(session.role).toBe("shared");
+    const info = (await get(bg, "/api/info")).body;
+    expect(info.background).toBe(true);
+    expect(info.pid).toBe(process.pid);
+    expect((await get(bg, "/api/projects")).body.map((p: ProjectEntry) => p.id)).toContain(entry(agent).id);
+    // the session's process stays on the same address, shared, through its next look
+    await session.refresh();
+    expect(session.role).toBe("shared");
+    expect(new URL(session.url).port).toBe(String(port));
+  });
+
+  it("is only shared by an AI session that starts while it serves", async () => {
+    const port = freePort();
+    const bg = await background(port);
+    const session = await start(billing, { port });
+    expect(session.role).toBe("shared");
+    expect(bg.role).toBe("serving");
+    expect((await get(bg, "/api/projects")).body.map((p: ProjectEntry) => p.id)).toContain(entry(billing).id);
+  });
+
+  it("never steps down for another background dashboard of its version, or for a web page", async () => {
+    const port = freePort();
+    const bg = await background(port);
+    const ask = (headers: Record<string, string>) => fetch(`http://127.0.0.1:${port}/api/hub/step-down`, { method: "POST", headers });
+    const hub = String((await get(bg, "/api/info")).body.hub);
+    expect((await ask({ "x-progressor": "step-down", "x-progressor-hub": hub, "x-progressor-from": "background" })).status).toBe(409);
+    expect((await ask({ "x-progressor": "step-down", "x-progressor-hub": hub, "x-progressor-from": "background", origin: "https://evil.example" })).status).toBe(403);
+    expect(bg.role).toBe("serving");
+  });
+
+  it("an AI session's process does not step down for the background dashboard of an older version", async () => {
+    const port = freePort();
+    const session = await start(agent, { port });
+    const ask = await fetch(`http://127.0.0.1:${port}/api/hub/step-down`, {
+      method: "POST",
+      headers: { "x-progressor": "step-down", "x-progressor-hub": "1", "x-progressor-from": "background" },
+    });
+    expect(ask.status).toBe(409);
+    expect(session.role).toBe("serving");
+  });
+
+  it("gives the serving back to an AI session when it stops", async () => {
+    const port = freePort();
+    const session = await start(agent, { port });
+    const bg = await background(port);
+    await until(() => session.role === "shared");
+    await session.refresh();
+    await bg.close();
+    await session.refresh();
+    expect(session.role).toBe("serving");
+    expect(new URL(session.url).port).toBe(String(port));
+  });
+});
+
 describe("running servers", () => {
   const announced: { close(): void }[] = [];
   afterEach(() => announced.splice(0).forEach((a) => a.close()));

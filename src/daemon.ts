@@ -265,6 +265,8 @@ export interface DaemonStatus {
   memory: number;
   /** Whether it serves the dashboard itself, rather than sharing a newer Progressor's. */
   serving: boolean;
+  /** How many AI chats' Progressor processes are running (they share the dashboard). */
+  sessions?: number;
   startedAt: string;
 }
 
@@ -284,6 +286,16 @@ export function privateFromSmaps(text: string): number | undefined {
 export function describeStatus(s: DaemonStatus | undefined): string {
   if (!s) return "The background dashboard is not running.";
   const url = `http://localhost:${s.port}/`;
-  if (s.serving) return `The background dashboard is running: ${url}, version ${s.version}, process ${s.pid}, ${mb(s.memory)} of memory.`;
+  if (s.serving) {
+    const chats =
+      s.sessions === undefined
+        ? ""
+        : s.sessions === 0
+          ? " No AI chat is open right now."
+          : s.sessions === 1
+            ? " 1 AI chat is connected; it runs a small Progressor process of its own to talk to it."
+            : ` ${s.sessions} AI chats are connected; each runs a small Progressor process of its own to talk to it.`;
+    return `Served by the background dashboard: ${url}, version ${s.version}, process ${s.pid}, ${mb(s.memory)} of memory.${chats}`;
+  }
   return `The background dashboard is running (version ${s.version}, process ${s.pid}, ${mb(s.memory)} of memory). Another Progressor process serves ${url} right now; this one takes over when it closes.`;
 }

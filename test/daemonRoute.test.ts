@@ -56,7 +56,7 @@ describe("Where the dashboard runs (Settings › Advanced)", () => {
     const view = await res.json();
     expect(view.background).toBe(true);
     expect(view.status.pid).toBe(7);
-    expect(view.text).toMatch(/is running: http:\/\/localhost:4747\//);
+    expect(view.text).toMatch(/^Served by the background dashboard: http:\/\/localhost:4747\//);
     expect(view.done).toBe("It now starts when you log in.");
     expect(calls).toEqual([`install ${registry}`]);
   });

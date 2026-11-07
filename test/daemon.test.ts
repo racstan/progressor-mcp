@@ -173,7 +173,13 @@ describe("the daemon command's words", () => {
     expect(describeStatus(undefined)).toBe("The background dashboard is not running.");
     expect(
       describeStatus({ pid: 42, port: 4747, version: "1.3.0", memory: 69 * 1_048_576, serving: true, startedAt: "2026-11-07T10:00:00.000Z" }),
-    ).toBe("The background dashboard is running: http://localhost:4747/, version 1.3.0, process 42, about 69 MB of memory.");
+    ).toBe("Served by the background dashboard: http://localhost:4747/, version 1.3.0, process 42, about 69 MB of memory.");
+    const base = { pid: 42, port: 4747, version: "1.3.0", memory: 30 * 1_048_576, serving: true, startedAt: "x" };
+    expect(describeStatus({ ...base, sessions: 2 })).toBe(
+      "Served by the background dashboard: http://localhost:4747/, version 1.3.0, process 42, about 30 MB of memory. 2 AI chats are connected; each runs a small Progressor process of its own to talk to it.",
+    );
+    expect(describeStatus({ ...base, sessions: 1 })).toMatch(/ 1 AI chat is connected; it runs a small Progressor process of its own to talk to it\.$/);
+    expect(describeStatus({ ...base, sessions: 0 })).toMatch(/ No AI chat is open right now\.$/);
     expect(describeStatus({ pid: 42, port: 4747, version: "1.2.0", memory: 31.2 * 1_048_576, serving: false, startedAt: "x" })).toBe(
       "The background dashboard is running (version 1.2.0, process 42, about 31 MB of memory). Another Progressor process serves http://localhost:4747/ right now; this one takes over when it closes.",
     );

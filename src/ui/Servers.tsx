@@ -87,8 +87,11 @@ export function ServersPanel({ servers, hub, reload, toast }: {
       ))}
       {list.length > 0 && (
         <p className="hint">
-          {list.length} {list.length === 1 ? "process" : "processes"}, {megabytes(total)} in all. Each Agent conversation runs its own
-          server; one of them serves this dashboard. Servers from Progressor 0.3.0 or older are not listed.
+          {list.length} {list.length === 1 ? "process" : "processes"}, {megabytes(total)} in all.{" "}
+          {list.some((s) => s.kind === "background" && s.serving)
+            ? "The background dashboard serves this page; each AI chat runs a small server of its own to talk to Progressor."
+            : "Each AI chat runs its own server; one of them serves this dashboard."}{" "}
+          Servers from Progressor 0.3.0 or older are not listed.
         </p>
       )}
     </section>
