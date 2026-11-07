@@ -506,6 +506,22 @@ export function useHistory(projectId: string, version: unknown): [HistoryView | 
   return [view?.path === path ? view.view : undefined, () => setAsked((n) => n + 1)];
 }
 
+/** The last plan check-up (checkup.ts); null when none ran yet. */
+export type CheckupView = { at: string; findings: { kind: string; file: string; text: string; fixed: boolean }[] };
+export const getCheckup = async (projectId: string) =>
+  (await getJson<{ last: CheckupView | null }>(`/api/projects/${encodeURIComponent(projectId)}/checkup`))?.last ?? null;
+/** Runs the check-up now; says what went wrong in words when refused. */
+export async function runCheckup(projectId: string): Promise<CheckupView> {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/checkup`, {
+    method: "POST",
+    headers: { "x-progressor": "checkup", "content-type": "application/json" },
+    body: "{}",
+  });
+  const answer = (await res.json().catch(() => ({}))) as { last?: CheckupView; error?: string };
+  if (!res.ok || !answer.last) throw new Error(answer.error ?? `The server answered ${res.status}.`);
+  return answer.last;
+}
+
 /** What one change did, file by file. */
 export const historyChanges = (projectId: string, id: string) =>
   getJson<{ item: HistoryItem; files: FileChange[] }>(`/api/projects/${encodeURIComponent(projectId)}/history/${encodeURIComponent(id)}`);

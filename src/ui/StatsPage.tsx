@@ -1,4 +1,5 @@
 import { sayDuration } from "../estimate.js";
+import { CheckupCard } from "./CheckupCard.js";
 import { type RoadmapView, type StatsView, useStats } from "./data.js";
 import { SIDE_TRIP_HINT, driftWords, estimateQuality, estimateWords } from "./words.js";
 
@@ -31,6 +32,7 @@ export function StatsPage({ projectId, roadmap, onOpenGoal }: { projectId: strin
       ) : (
         <Stats stats={stats} onOpenGoal={onOpenGoal} />
       )}
+      <CheckupCard projectId={projectId} />
     </div>
   );
 }

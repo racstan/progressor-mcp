@@ -6,6 +6,7 @@ import { phoneSection } from "./Phone.js";
 import { estimatesSection } from "./Estimates.js";
 import { evidenceSection } from "./Evidence.js";
 import { dependenciesSection } from "./Dependencies.js";
+import { checkupSection } from "./Checkup.js";
 import { historySection } from "./History.js";
 import type { SettingsSection } from "./types.js";
 
@@ -20,6 +21,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   estimatesSection,
   evidenceSection,
   dependenciesSection,
+  checkupSection,
   historySection,
   advancedSection,
 ];
