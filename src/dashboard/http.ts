@@ -28,7 +28,9 @@ import {
 } from "./registry.js";
 import { isFromDashboardPage, json, readBody, readBytes } from "./respond.js";
 import { type HubContext, featureRoutes, runFeatureRoute } from "./routes.js";
-import { settingsFileFor } from "../settings.js";
+import { type FetchFn, lookAtProject, sendNew } from "../ntfy.js";
+import { type Look, eventsBetween } from "../events.js";
+import { readSettings, settingsFileFor } from "../settings.js";
 import { watchProgress } from "./watch.js";
 import { allProjects, findProjects } from "./workspace.js";
 import { combineStats, projectStats } from "../stats.js";
@@ -64,6 +66,8 @@ export interface DashboardOptions {
   reveal?: RevealRunner;
   /** The settings file (settings.ts); `settings.json` next to the registry unless set. */
   settingsFile?: string;
+  /** Stands in for the network when the hub sends phone notifications (tests). */
+  ntfyFetch?: FetchFn;
 }
 
 export interface Dashboard {
@@ -291,6 +295,10 @@ class Hub {
   private readonly timer: NodeJS.Timeout;
   private readonly scans = new Map<string, { at: number; roots: string[] }>();
   private entries: ProjectEntry[] = [];
+  /** The port this hub serves on, for the links in phone notifications. */
+  port = DEFAULT_PORT;
+  private look: Look | undefined;
+  private lookTimer: NodeJS.Timeout | undefined;
 
   constructor(
     private readonly registryFile: string,
@@ -305,10 +313,43 @@ class Hub {
     private readonly reveal: RevealRunner = runReveal,
     /** The settings for how Progressor works (settings.ts). */
     private readonly settingsFile: string = settingsFileFor(registryFile),
+    private readonly ntfyFetch?: FetchFn,
   ) {
     this.sync();
+    this.look = this.lookNow();
     this.timer = setInterval(() => this.sync(), rescanMs);
     this.timer.unref();
+  }
+
+  /** Every project as it is now, for phone notifications; undefined when the list cannot be read. */
+  private lookNow(): Look | undefined {
+    try {
+      return this.entries.flatMap((e) => {
+        const project = this.projects.get(e.id)?.project;
+        try {
+          return project ? [lookAtProject(project, e.id, e.name)] : [];
+        } catch {
+          return []; // a roadmap that cannot be read leaves the project out of this look
+        }
+      });
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Phone notifications: only this hub sends them, a moment after the plan files settle, each once (ntfy.ts). */
+  private pushSoon(): void {
+    clearTimeout(this.lookTimer);
+    this.lookTimer = setTimeout(() => {
+      const before = this.look;
+      const after = this.lookNow();
+      if (!after) return;
+      this.look = after;
+      const settings = readSettings(this.settingsFile).ntfy;
+      if (!settings.enabled) return;
+      void sendNew(this.settingsFile, settings, eventsBetween(before, after), `http://localhost:${this.port}`, this.ntfyFetch).catch(() => undefined);
+    }, 400);
+    this.lookTimer.unref();
   }
 
   private send(event: string, data: unknown): void {
@@ -342,7 +383,10 @@ class Hub {
       if (!this.projects.has(entry.id)) {
         // The dashboard is not a Session: it never changes the plan, not even to clear stale Claims.
         const project = new Project({ root: entry.root, session: { id: "dashboard", pid: process.pid }, clearStaleClaims: false });
-        const stop = watchProgress(entry.root, (files) => this.send("change", { project: entry.id, files }));
+        const stop = watchProgress(entry.root, (files) => {
+          this.send("change", { project: entry.id, files });
+          this.pushSoon();
+        });
         this.projects.set(entry.id, { api: dashboardApi(project, (pid) => sessionOfProcess(this.serversDir, pid)), project, stop });
         changed = true;
       }
@@ -730,6 +774,7 @@ class Hub {
       settingsFile: this.settingsFile,
       registryFile: this.registryFile,
       send: (event, data) => this.send(event, data),
+      fetch: this.ntfyFetch,
     };
   }
 
@@ -821,6 +866,7 @@ class Hub {
 
   close(): void {
     clearInterval(this.timer);
+    clearTimeout(this.lookTimer);
     for (const p of this.projects.values()) p.stop();
     this.projects.clear();
     for (const c of this.clients) c.end();
@@ -943,7 +989,8 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
     const http = createServer();
     const result = await listen(http, p);
     if (result !== "ok") return result;
-    hub ??= new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs, serversDir, () => void stopServing(), reveal, options.settingsFile ?? settingsFileFor(registryFile));
+    hub ??= new Hub(registryFile, uiDir, editor, rescanMs, workspaceScanMs, serversDir, () => void stopServing(), reveal, options.settingsFile ?? settingsFileFor(registryFile), options.ntfyFetch);
+    hub.port = p;
     http.on("request", hub.handle);
     const previous = servers;
     [servers, port, role] = [[http], p, "serving"];
