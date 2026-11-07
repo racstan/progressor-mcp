@@ -699,6 +699,19 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   const settingsFile = options.settingsFile ?? settingsFileFor(options.registryFile ?? defaultRegistryFile());
   const estimatesOf = (p: Project) => readSettings(settingsFile, p.root).estimates;
   const calibrationLine = (p: Project) => estimateLine(p.calibration(estimatesOf(p)));
+  // Steps linked to their commits and tests (gitFacts.ts): recorded as they finish, with one warning
+  // line for a step whose files still have changes not saved in git.
+  const recordEvidence = (p: Project, finished: { task: Task; goal?: string; commits?: string[]; tests?: string }[]): string[] => {
+    const s = readSettings(settingsFile, p.root).evidence;
+    if (!s.record) return [];
+    return finished.flatMap(({ task, goal, commits, tests }) => {
+      if (task.status !== "done" && task.status !== "released") return [];
+      const t = p.recordEvidence(task.id!, goal, { commits, tests });
+      return s.warnUncommitted && t.uncommitted ? [`Warning: ${t.id} is done but its files have changes not saved in git.`] : [];
+    });
+  };
+  const commitsInput = z.array(z.string()).optional().describe("Short hashes of its commits; found from git when left out.");
+  const testsInput = z.string().optional().describe("The test run behind it, in a few words ('715 passed').");
   const withNow = (text: string) => `${text}\n${nowLine(project.sessionStatus())}`;
   const { dashboard, registryFile } = options;
   // Told once per Session: each get_status after that would only repeat it.
@@ -1041,7 +1054,8 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       respondIn(wanted, (p) => {
         const added = p.addTasks(newTasks(tasks.map(({ hand_test, ...t }) => t)), goal);
         const tests = tasks.flatMap((t, i) => (t.hand_test?.trim() ? [p.addHandTest(t.hand_test, goal, added[i]!.id)] : []));
-        return doneIn(p, [`Added: ${added.map(taskLine).join("; ")}`, ...[calibrationLine(p)].filter((l): l is string => !!l), ...tests.map((h) => `Saved hand test ${h.id} about ${h.task}: ${h.text}`)].join("\n"));
+        const warnings = recordEvidence(p, added.map((task) => ({ task, goal })));
+        return doneIn(p, [`Added: ${added.map(taskLine).join("; ")}`, ...[calibrationLine(p)].filter((l): l is string => !!l), ...tests.map((h) => `Saved hand test ${h.id} about ${h.task}: ${h.text}`), ...warnings].join("\n"));
       }),
   );
 
@@ -1080,7 +1094,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     ({ goal, task, state, helper_branch, helper_folder, helper_label, evidence: proof, project: wanted }) =>
       respondIn(wanted, (p) => {
         const t = p.setTaskState(task, state, goal, { helper: helperOf(helper_branch, helper_folder, helper_label), evidence: proof });
-        const said = [`Task ${taskLine(t)} is now ${t.status}.`, ...tookLine([t], new Date()), ...(state === "with a helper" ? helperWarning(p) : [])];
+        const said = [`Task ${taskLine(t)} is now ${t.status}.`, ...tookLine([t], new Date()), ...(state === "with a helper" ? helperWarning(p) : []), ...recordEvidence(p, [{ task: t, goal }])];
         return doneIn(p, said.join("\n"));
       }),
   );
@@ -1098,6 +1112,8 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     state: z.enum(states).optional().describe("For action 'state': the new state, as in set_task_state."),
     reason: z.string().optional().describe("For action 'drop': why the Task is no longer needed."),
     code: z.array(z.string()).optional().describe("For action 'complete': files the Task touched, optionally with :line."),
+    commits: commitsInput,
+    tests: testsInput,
     summary: taskInput.shape.summary,
     estimate: estimateText.optional().describe("The Task's new estimate, such as '45m' or '2h' (any action; needed for 'estimate'); an empty string removes it."),
   });
@@ -1112,11 +1128,17 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     ({ goal, operations, project: wanted }) =>
       respondIn(wanted, (p) => {
         const held = p !== project || project.claimedGoals().length > 1;
-        const ops: TaskOperation[] = operations.map(({ estimate, helper_branch, helper_folder, helper_label, ...op }) => {
+        const ops: TaskOperation[] = operations.map(({ estimate, helper_branch, helper_folder, helper_label, commits: _commits, tests: _tests, ...op }) => {
           const helper = helperOf(helper_branch, helper_folder, helper_label);
           return { ...op, ...(helper ? { helper } : {}), estimate: readEstimate(estimate) };
         });
         const changed = p.updateTasks(ops, goal);
+        const finished = changed.flatMap((c, i) => {
+          const op = operations[i]!;
+          const finishing = op.action === "complete" || (op.action === "state" && (op.state === "done" || op.state === "released"));
+          return finishing ? [{ task: c.task, goal: c.goal, commits: op.commits, tests: op.tests }] : [];
+        });
+        const warnings = recordEvidence(p, finished);
         const now = new Date();
         // An estimate set in this call is said back; the others are left out, to keep the answer short.
         const est = (t: Task, i: number) => (operations[i]!.estimate !== undefined ? `, estimated ${t.estimate !== undefined ? sayDuration(t.estimate) : "none"}` : "");
@@ -1129,6 +1151,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
               now,
             ),
             ...(operations.some((o) => o.state === "with a helper") ? helperWarning(p) : []),
+            ...warnings,
           ].join("\n"),
         );
       }),
@@ -1169,14 +1192,17 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         task: taskId,
         code: z.array(z.string()).optional().describe("Files the Task touched, optionally with :line; added to the ones it has."),
         summary: taskInput.shape.summary,
+        commits: commitsInput,
+        tests: testsInput,
         project: otherProject,
       },
     },
-    ({ goal, task, code, summary, project: wanted }) =>
+    ({ goal, task, code, summary, commits, tests, project: wanted }) =>
       respondIn(wanted, (p) => {
         const t = p.completeTask(task, code ?? [], summary, goal);
-        if (p !== project) return doneIn(p, [`Task ${taskLine(t)} is now ${t.status}.`, ...tookLine([t], new Date())].join("\n"));
-        return withNow([`Done: ${taskLine(t)}.`, ...tookLine([t], new Date())].join("\n"));
+        const warnings = recordEvidence(p, [{ task: t, goal, commits, tests }]);
+        if (p !== project) return doneIn(p, [`Task ${taskLine(t)} is now ${t.status}.`, ...tookLine([t], new Date()), ...warnings].join("\n"));
+        return withNow([`Done: ${taskLine(t)}.`, ...tookLine([t], new Date()), ...warnings].join("\n"));
       }),
   );
 

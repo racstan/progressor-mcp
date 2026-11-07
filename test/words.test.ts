@@ -380,3 +380,15 @@ describe("statistics in words", () => {
     expect(driftWords({ sideTrips: 1, goalsWithSideTrips: 1, goals: 1 })).toBe("1 side trip, in 1 of 1 goal.");
   });
 });
+
+describe("what git said about a finished step", () => {
+  it("says how many commits and on which branch, in plain words", async () => {
+    const { commitsLabel, testsLabel } = await import("../src/ui/words.js");
+    expect(commitsLabel({ commits: ["a1b2c3d", "b2c3d4e"], branch: "main" })).toBe("2 commits on main");
+    expect(commitsLabel({ commits: ["a1b2c3d"] })).toBe("1 commit");
+    expect(commitsLabel({ branch: "main" })).toBe("on main");
+    expect(commitsLabel({})).toBeUndefined();
+    expect(testsLabel("715 passed")).toBe("Tests: 715 passed");
+    expect(testsLabel(" ")).toBeUndefined();
+  });
+});

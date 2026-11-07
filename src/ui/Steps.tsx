@@ -9,7 +9,7 @@ import { type PictureItem, Pictures } from "./Pictures.js";
 import { RichText } from "./RichText.js";
 import { plainText } from "./text.js";
 import { checklistRows } from "./views.js";
-import { SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, elsewhereTag, evidenceLine, helperLine, statusClass, stepTime, stepTimes, stepWhen } from "./words.js";
+import { NOT_SAVED, NOT_SAVED_HINT, SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, commitsLabel, elsewhereTag, evidenceLine, helperLine, statusClass, stepTime, stepTimes, stepWhen, testsLabel } from "./words.js";
 
 export type FileLink = (path: string, line?: number) => { href: string | undefined; onClick: () => void };
 
@@ -46,7 +46,7 @@ export function Steps({ view, fileLink, onCopy, onReveal }: { view: GoalView; fi
       <ol className="steps" aria-label="Steps in order">
         {rows.flatMap((row) => [
           ...(row.task && (cancelled || row.task.status !== "dropped")
-            ? [<Step key={row.task.id} task={row.task} open={open.has(row.task.id)} onToggle={() => toggle(row.task!.id)} pictures={view.pictures.filter((p) => p.task === row.task!.id)} fileLink={fileLink} onCopy={() => copy(row.task!)} onReveal={onReveal} />]
+            ? [<Step key={row.task.id} task={row.task} open={open.has(row.task.id)} onToggle={() => toggle(row.task!.id)} pictures={view.pictures.filter((p) => p.task === row.task!.id)} fileLink={fileLink} onCopy={() => copy(row.task!)} onReveal={onReveal} commitLink={view.commitLink} />]
             : []),
           ...row.detours.map((d) => <SideTrip key={d.id} detour={d} open={open.has(d.id)} onToggle={() => toggle(d.id)} onCopy={() => copy(d)} />),
         ])}
@@ -62,7 +62,28 @@ export function Steps({ view, fileLink, onCopy, onReveal }: { view: GoalView; fi
   );
 }
 
-function Step({ task: t, open, onToggle, pictures, fileLink, onCopy, onReveal }: { task: TaskNode; open: boolean; onToggle: () => void; pictures: PictureItem[]; fileLink: FileLink; onCopy: () => void; onReveal: () => void }) {
+/** What git said when a step was finished: its commits (linked when the project's remote is known), branch and tests. */
+function GitFacts({ task: t, commitLink }: { task: TaskNode; commitLink: string | undefined }) {
+  const saved = commitsLabel(t);
+  const tests = testsLabel(t.tests);
+  if (!saved && !tests && !t.uncommitted) return null;
+  return (
+    <div className="meta git-facts">
+      {saved && <span>Saved in git: {saved}</span>}
+      {t.commits?.map((c) =>
+        commitLink ? (
+          <a key={c} className="commit" href={`${commitLink}${c}`} target="_blank" rel="noopener noreferrer" title={`See commit ${c}`}>{c}</a>
+        ) : (
+          <code key={c} className="commit">{c}</code>
+        ),
+      )}
+      {tests && <span>{tests}</span>}
+      {t.uncommitted && <span className="not-saved" title={NOT_SAVED_HINT}>{NOT_SAVED}</span>}
+    </div>
+  );
+}
+
+function Step({ task: t, open, onToggle, pictures, fileLink, onCopy, onReveal, commitLink }: { task: TaskNode; open: boolean; onToggle: () => void; pictures: PictureItem[]; fileLink: FileLink; onCopy: () => void; onReveal: () => void; commitLink?: string }) {
   const elsewhere = elsewhereTag(t.updatedFrom);
   const meta = [stepTime(t), helperLine(t.helper), t.fromDetour && "Added after a side trip", elsewhere?.label].filter(Boolean).join(" · ");
   const cls = t.status === "in progress" ? "now" : t.status === "waiting on you" ? "you" : statusClass(t.status);
@@ -78,6 +99,7 @@ function Step({ task: t, open, onToggle, pictures, fileLink, onCopy, onReveal }:
         <div className="step-detail">
           {t.summary ? <RichText className="summary" text={t.summary} /> : <p className="summary">No details yet.</p>}
           {evidenceLine(t.evidence) && <div className="meta">{evidenceLine(t.evidence)}</div>}
+          <GitFacts task={t} commitLink={commitLink} />
           {t.status === "dropped" && t.reason && <div className="meta">Why it was cancelled: {plainText(t.reason)}</div>}
           {meta && <div className="meta">{meta}</div>}
           {times.line && <div className="meta" title={times.title}>{times.line}</div>}

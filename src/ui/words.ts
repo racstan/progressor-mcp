@@ -535,9 +535,15 @@ export const RESET_ALL_DONE = "Every setting is back to its default.";
 
 // --- evidence ---
 // Steps linked to commits and test runs.
-//
-//
-//
+/** Where a finished step's work was saved in git: "2 commits on main", "on main", or undefined when git said nothing. */
+export function commitsLabel(t: { commits?: string[]; branch?: string }): string | undefined {
+  const n = t.commits?.length ?? 0;
+  if (n === 0 && !t.branch) return undefined;
+  return [n > 0 ? `${n} ${n === 1 ? "commit" : "commits"}` : "", t.branch ? `on ${t.branch}` : ""].filter(Boolean).join(" ");
+}
+export const testsLabel = (tests: string | undefined) => (tests?.trim() ? `Tests: ${tests.trim()}` : undefined);
+export const NOT_SAVED = "Not saved in git yet";
+export const NOT_SAVED_HINT = "When this step was finished, some of its files still had changes that were not saved (committed) in git.";
 
 // --- estimates ---
 // Estimates that learn.
