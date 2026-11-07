@@ -1,14 +1,18 @@
 <h1 align="center">Progressor</h1>
 
-<p align="center"><b>Your AI forgets. Your plan doesn't.</b></p>
+1. **Your AI forgets the plan** the moment the chat's memory is compressed.
+2. **You lose track** of what's done, what's half-done and what's next.
+3. **Your AI says "done" when it isn't,** or quietly drifts off the plan.
+4. **Juggling several projects and AI apps** turns into micromanagement.
+5. **There's nowhere to see your whole project** at a glance, today or months from now.
+
+**Progressor fixes all five.** It's a free add-on for your AI coding app: your AI writes its plan into your project folder and keeps it up to date as it works, and you watch that plan live on a page in your browser.
 
 <p align="center">
   <a href="https://www.npmjs.com/package/progressor-mcp"><img src="https://img.shields.io/npm/v/progressor-mcp" alt="npm"></a>
   <a href="https://github.com/racstan/progressor-mcp/actions/workflows/test.yml"><img src="https://github.com/racstan/progressor-mcp/actions/workflows/test.yml/badge.svg" alt="Test"></a>
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue" alt="License: PolyForm Noncommercial 1.0.0"></a>
 </p>
-
-Progressor is a free add-on for your AI coding app: your AI writes its plan into your project folder and keeps it up to date as it works, and you watch that plan live on a page in your browser.
 
 <p align="center">
   <a href="https://youtu.be/PVk795l6om8"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail-1.3.0.png" alt="Watch the 4-minute video on YouTube" width="640"></a>
