@@ -31,7 +31,7 @@ import { canPopUp, editorName } from "./settings/Look.js";
 import type { SettingsContext, Theme } from "./settings/index.js";
 import { StepKey } from "./StepKey.js";
 import { Tour, type TourEnd } from "./Tour.js";
-import { onOpen, setWhatsNewAuto, tourClosed, whatsNewAuto } from "./firstLook.js";
+import { onOpen, setTourOnOpen, setWhatsNewAuto, tourClosed, tourOnOpen, whatsNewAuto } from "./firstLook.js";
 import type { FileLink } from "./Steps.js";
 import { goalState, resourceWords } from "./words.js";
 
@@ -48,6 +48,14 @@ function defaultGoal(goals: Goal[]): string | undefined {
 
 /** The talk with the whole project, in the dashboard's API: the goal routes with this ID (project.ts). */
 const PROJECT_TALK = "_project";
+/** The browser's storage keys as they were when the page loaded, before it wrote any: tells someone updating from a brand-new browser (firstLook.ts). */
+const KEYS_AT_LOAD: string[] = (() => {
+  try {
+    return Object.keys(localStorage);
+  } catch {
+    return [];
+  }
+})();
 
 function useToast() {
   const [message, setMessage] = useState<string>();
@@ -124,7 +132,7 @@ export function App() {
   const [goalMenu, setGoalMenu] = useState<{ id: string; at: { x: number; y: number } }>();
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [toast, toastNode] = useToast();
-  // The first-run tour: once per browser, never when the browser can't remember it (tourSteps.ts), and again from Help.
+  // The first-run tour: on a brand-new browser, never when the browser can't remember it (firstLook.ts), and again from Help or Settings.
   const [touring, setTouring] = useState(false);
   const browserStore = () => {
     try {
@@ -135,6 +143,12 @@ export function App() {
       };
       return { getItem: none, setItem: none, removeItem: none };
     }
+  };
+  // Whether the tour opens by itself when the page opens (Settings › Look).
+  const [tourAuto, setTourAutoState] = useState(() => tourOnOpen(browserStore()));
+  const setTourAuto = (on: boolean) => {
+    setTourOnOpen(browserStore(), on);
+    setTourAutoState(tourOnOpen(browserStore()));
   };
   // Whether What's new opens by itself on new versions (Don't show again turns it off).
   const [autoNew, setAutoNewState] = useState(() => whatsNewAuto(browserStore()));
@@ -269,6 +283,7 @@ export function App() {
     theme, setTheme, popUps, switchPopUps, setPopUps, finished, setFinished,
     editor, info, setEditorChoice, putOff, setPutOff,
     servers, reloadServers: reloadServers, toast,
+    tourOnOpen: tourAuto, setTourOnOpen: setTourAuto, takeTour: () => setTouring(true),
     computer, projectId,
     save: async (section, values, forProject) => setComputer(await saveSettings(section, values, forProject ? projectId : undefined)),
     resetComputer: async (section) => setComputer(await resetComputerSettings(section)),
@@ -396,6 +411,7 @@ export function App() {
   const closeTour = useCallback((how: TourEnd) => {
     setTouring(false);
     tourClosed(browserStore(), how);
+    setTourAutoState(tourOnOpen(browserStore()));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Once the page has something on it: the tour on a first visit (What's new then counts as seen), or
@@ -403,7 +419,8 @@ export function App() {
   const loaded = projects !== undefined;
   useEffect(() => {
     if (!loaded) return;
-    const opens = onOpen(browserStore(), latest?.title);
+    const opens = onOpen(browserStore(), latest?.title, KEYS_AT_LOAD);
+    setTourAutoState(tourOnOpen(browserStore()));
     if (opens.tour) {
       setTouring(true);
       if (latest) setSeenChanges(latest.title);

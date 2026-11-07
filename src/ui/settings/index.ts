@@ -1,7 +1,7 @@
 // Every section of the Settings page, in the order shown. A feature adds its section in
 // src/ui/settings/<Feature>.tsx and one line here (with its group, groups.ts); Settings.tsx shows it with "Reset this section",
 // and "Reset all settings to defaults" resets it too.
-import { advancedSection, finishedSection, popUpsSection, themeSection } from "./Look.js";
+import { advancedSection, finishedSection, popUpsSection, themeSection, tourSection } from "./Look.js";
 import { phoneSection } from "./Phone.js";
 import { estimatesSection } from "./Estimates.js";
 import { evidenceSection } from "./Evidence.js";
@@ -20,6 +20,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   themeSection,
   popUpsSection,
   finishedSection,
+  tourSection,
   // Features' sections go here, one line each.
   phoneSection,
   estimatesSection,

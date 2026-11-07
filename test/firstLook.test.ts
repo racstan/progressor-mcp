@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { onOpen, setWhatsNewAuto, tourClosed, whatsNewAuto } from "../src/ui/firstLook.js";
+import { onOpen, setTourOnOpen, setWhatsNewAuto, tourClosed, tourOnOpen, whatsNewAuto } from "../src/ui/firstLook.js";
 
 const store = (items: Record<string, string> = {}) => {
   const map = new Map(Object.entries(items));
@@ -83,6 +83,66 @@ describe("What's new", () => {
 
   it("never opens with no changelog to show", () => {
     expect(onOpen(after({}), undefined).whatsNew).toBe(false);
+  });
+});
+
+describe("people updating from an earlier Progressor", () => {
+  it("don't get the tour when the browser already had Progressor's keys, and What's new opens instead", () => {
+    const s = store({ "progressor.seenChanges": OLD });
+    expect(onOpen(s, V, ["progressor.seenChanges"])).toEqual({ tour: false, whatsNew: true });
+    expect(s.map.get("progressor.tour")).toBe("done");
+    expect(onOpen(s, V, ["progressor.seenChanges", "progressor.tour"]).tour).toBe(false);
+  });
+
+  it("are told apart by any earlier key, such as replies read or goals seen", () => {
+    expect(onOpen(store(), V, ["progressor.read-replies.bindery"]).tour).toBe(false);
+    expect(onOpen(store(), V, ["progressor.seen.abc123"]).tour).toBe(false);
+    expect(onOpen(store(), V, ["progressor.theme"]).tour).toBe(false);
+  });
+
+  it("but other sites' keys, or none, still mean a brand-new browser", () => {
+    expect(onOpen(store(), V, []).tour).toBe(true);
+    expect(onOpen(store(), V, ["something-else", "theme"]).tour).toBe(true);
+  });
+
+  it("keep the tour where it was if this version already decided it", () => {
+    const s = store();
+    onOpen(s, V, []);
+    expect(onOpen(s, V, ["progressor.tour", "progressor.seen.x"]).tour).toBe(true);
+  });
+});
+
+describe("Show the tour when the page opens (Settings)", () => {
+  it("is on for a brand-new browser and off once the tour is done", () => {
+    expect(tourOnOpen(store())).toBe(true);
+    expect(tourOnOpen(store({ "progressor.tour": "done" }))).toBe(false);
+    expect(tourOnOpen(store({ "progressor.tour": "again" }))).toBe(false);
+    expect(tourOnOpen(store({ "progressor.tour-seen": "x" }))).toBe(false);
+  });
+
+  it("turned on, opens the tour on every load until it is turned off, finished or Don't show again", () => {
+    const s = store({ "progressor.tour": "done" });
+    setTourOnOpen(s, true);
+    expect(tourOnOpen(s)).toBe(true);
+    expect(onOpen(s, V, ["progressor.tour"]).tour).toBe(true);
+    tourClosed(s, "skip");
+    expect(onOpen(s, V, ["progressor.tour"]).tour).toBe(true);
+    tourClosed(s, "finish");
+    expect(onOpen(s, V).tour).toBe(false);
+    setTourOnOpen(s, true);
+    setTourOnOpen(s, false);
+    expect(onOpen(s, V).tour).toBe(false);
+  });
+
+  it("works on a browser that saw the tour in an earlier build", () => {
+    const s = store({ "progressor.tour-seen": "x" });
+    setTourOnOpen(s, true);
+    expect(onOpen(s, V).tour).toBe(true);
+  });
+
+  it("never fails when the browser can't keep anything", () => {
+    expect(tourOnOpen(broken)).toBe(false);
+    expect(() => setTourOnOpen(broken, true)).not.toThrow();
   });
 });
 

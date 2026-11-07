@@ -23,6 +23,11 @@ export interface SettingsContext {
   setEditorChoice(e: string | undefined): void;
   putOff: PutOff;
   setPutOff(p: PutOff): void;
+  /** Whether the tour opens by itself when the page opens; turning it on opens it on every load until finished (firstLook.ts). */
+  tourOnOpen: boolean;
+  setTourOnOpen(on: boolean): void;
+  /** Opens the tour now. */
+  takeTour(): void;
   servers: ServersView | "unsupported" | undefined;
   reloadServers(): void;
   toast(text: string): void;
