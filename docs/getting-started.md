@@ -22,7 +22,7 @@ Open your project in your AI app, and paste this into the chat:
 Set up Progressor (https://github.com/racstan/progressor-mcp) for this project:
 1. Run `node --version`. If it is older than 22, stop and tell me how to install Node.
 2. Run `npm install -g progressor-mcp`.
-3. If you are Claude Code, run `progressor-mcp init --yes` in this folder. Otherwise, add
+3. If you are Claude Code or Claude Desktop, run `progressor-mcp init --yes` in this folder. Otherwise, add
    the "progressor" MCP server to this app's settings as the guide for this app shows
    (https://github.com/racstan/progressor-mcp/blob/main/docs/apps.md), then run
    `progressor-mcp init --yes --no-server` in this folder.
@@ -32,6 +32,8 @@ Set up Progressor (https://github.com/racstan/progressor-mcp) for this project:
 ```
 
 Your AI may ask your permission to run each command: say yes. If your AI can't run commands or change settings, follow [Setup for your app](apps.md) yourself instead; it takes a minute.
+
+If you use Claude Desktop (the chat app), the same `progressor-mcp init` command sets it up too. Claude Desktop works on one project folder, the one you ran it in; your AI can still reach your other projects by naming them.
 
 ## 3. Restart the app
 
