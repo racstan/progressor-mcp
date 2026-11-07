@@ -33,6 +33,8 @@ export interface SettingsContext {
   projectId: string | undefined;
   /** Changes one section for every project, or with `forProject` for the project shown only. */
   save(section: string, values: Record<string, unknown>, forProject?: boolean): Promise<void>;
+  /** Gives phone notifications a new private topic ("Make a new private address"). */
+  renewTopic(): Promise<void>;
   /** Puts one section, or every one when none is named, back to its defaults on this computer. */
   resetComputer(section?: string): Promise<void>;
 }

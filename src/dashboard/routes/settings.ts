@@ -14,7 +14,7 @@ function projectRoot(ctx: RouteContext, id: unknown): string | undefined {
   return project.root;
 }
 
-function view(ctx: RouteContext, root: string | undefined) {
+export function view(ctx: RouteContext, root: string | undefined) {
   const { settings, secretsSet } = maskSecrets(readSettings(ctx.settingsFile, root));
   return { sections: SETTINGS_SECTIONS, settings, secretsSet, project: root ? readOwnSettings(ctx.settingsFile, root) : undefined };
 }

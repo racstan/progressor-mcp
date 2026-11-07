@@ -47,6 +47,18 @@ describe("phone notifications from the dashboard", () => {
     expect(calls[0]!.headers.Click).toMatch(/^http:\/\/localhost:\d+\/\?project=.*#\/goal\//);
   });
 
+  it("makes a new private address from Settings, only from the dashboard's own page", async () => {
+    const d = await start();
+    const before = writeSettings(settingsFile(), "ntfy", { enabled: true }).ntfy.topic;
+    const post = (headers: Record<string, string>) => fetch(new URL("/api/settings/ntfy/new-topic", d.url), { method: "POST", headers });
+    expect((await post({})).status).toBe(403);
+    const res = await post({ origin: new URL(d.url).origin, "x-progressor": "ntfy" });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { settings: { ntfy: { topic: string } } };
+    expect(body.settings.ntfy.topic).toMatch(/^progressor-[0-9a-f]{16}$/);
+    expect(body.settings.ntfy.topic).not.toBe(before);
+  });
+
   it("sends a test from Settings, only from the dashboard's own page", async () => {
     const d = await start();
     writeSettings(settingsFile(), "ntfy", { enabled: true });

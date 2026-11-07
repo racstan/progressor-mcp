@@ -459,6 +459,14 @@ async function postSettings(path: string, body: unknown): Promise<SettingsView> 
 export const saveSettings = (section: string, values: Record<string, unknown>, projectId?: string) =>
   postSettings("/api/settings", { section, values, project: projectId });
 
+/** Gives phone notifications a new private topic, for every project. */
+export async function renewPhoneTopic(): Promise<SettingsView> {
+  const res = await fetch("/api/settings/ntfy/new-topic", { method: "POST", headers: { "x-progressor": "ntfy" } });
+  const answer = (await res.json().catch(() => ({}))) as SettingsView & { error?: string };
+  if (!res.ok) throw new Error(answer.error ?? `The server answered ${res.status}.`);
+  return answer;
+}
+
 /** Puts one section, or every section when none is named, back to its defaults. */
 export const resetComputerSettings = (section?: string, projectId?: string) => postSettings("/api/settings/reset", { section, project: projectId });
 

@@ -1155,3 +1155,9 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .goal-scroll { max-height: 60vh; overflow-y: auto; margin-top: var(--s3); border: 1px solid var(--line); border-radius: var(--r-s); }
 .goal-scroll .stat-table thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
 @media (max-width: 640px) { .goal-scroll { max-height: 45vh; } }
+
+/* phone notifications: the address with Copy and Open, and a topic that can't be used */
+.phone-address-row { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.phone-address-row code { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; padding: 6px var(--s2); border: 1px solid var(--line); border-radius: var(--r-s); background: var(--panel2); font-size: var(--t-s); }
+.phone-choice { margin: var(--s3) 0; }
+.phone-problem { margin: 0 0 var(--s2); font-size: var(--t-s); font-weight: 600; color: var(--ink); }

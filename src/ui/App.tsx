@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DEFAULT_EDITOR, editorUrl } from "../dashboard/editor.js";
 import type { GoalSchedule } from "../schedule.js";
-import { type RoadmapView, showInFolder, useDashboard, useOverview, useSearch, useServers, usePageStaleness, useSettings, useStored, useStoredJson, resetComputerSettings, saveSettings } from "./data.js";
+import { type RoadmapView, showInFolder, useDashboard, useOverview, useSearch, useServers, usePageStaleness, useSettings, useStored, useStoredJson, renewPhoneTopic, resetComputerSettings, saveSettings } from "./data.js";
 import { HotfixPage } from "./HotfixPage.js";
 import { WhatsNew, changelog } from "./WhatsNew.js";
 import { ContextPage } from "./ContextPage.js";
@@ -252,6 +252,7 @@ export function App() {
     computer, projectId,
     save: async (section, values, forProject) => setComputer(await saveSettings(section, values, forProject ? projectId : undefined)),
     resetComputer: async (section) => setComputer(await resetComputerSettings(section)),
+    renewTopic: async () => setComputer(await renewPhoneTopic()),
   };
   const goHome = () => {
     setParams({ project: undefined, workspace: undefined }, "push");

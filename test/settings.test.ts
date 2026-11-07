@@ -6,7 +6,9 @@ import {
   SETTINGS_DEFAULTS,
   SETTINGS_SECTIONS,
   maskSecrets,
+  newTopic,
   readSettings,
+  renewTopic,
   resetSettings,
   settingsFileFor,
   writeSettings,
@@ -95,6 +97,24 @@ describe("changing settings", () => {
     const topic = writeSettings(file, "ntfy", { enabled: true }).ntfy.topic;
     expect(topic).toMatch(/^progressor-[0-9a-f]{16}$/);
     expect(writeSettings(file, "ntfy", { enabled: false }).ntfy.topic).toBe(topic);
+  });
+
+  it("takes a topic of your own made of safe characters, at a sensible length", () => {
+    const file = fresh();
+    expect(writeSettings(file, "ntfy", { topic: "my-alerts_2" }).ntfy.topic).toBe("my-alerts_2");
+    expect(writeSettings(file, "ntfy", { topic: "abc" }).ntfy.topic).toBe("abc");
+    for (const bad of ["ab", "has space", "a/b", "émoji", "x".repeat(65), "dots.in.it"])
+      expect(() => writeSettings(file, "ntfy", { topic: bad }), bad).toThrow(/topic/);
+    expect(readSettings(file).ntfy.topic).toBe("abc");
+  });
+
+  it("makes a new private topic on request, different from the last", () => {
+    const file = fresh();
+    const first = writeSettings(file, "ntfy", { enabled: true }).ntfy.topic;
+    const next = renewTopic(file).ntfy.topic;
+    expect(next).toMatch(/^progressor-[0-9a-f]{16}$/);
+    expect(next).not.toBe(first);
+    expect(newTopic()).toMatch(/^progressor-[0-9a-f]{16}$/);
   });
 });
 

@@ -31,7 +31,8 @@ const SCHEMA = {
   ntfy: z.object({
     enabled: flag,
     server: z.string().url(),
-    topic: z.string(),
+    // ntfy's own rule for topic names: letters, digits, - and _, here 3 to 64 of them; empty means none yet
+    topic: z.string().regex(/^(?:[A-Za-z0-9_-]{3,64})?$/),
     token: z.string(),
     events: z.object({ question: flag, handTest: flag, goalFinished: flag, hotfix: flag, alternatives: flag }),
     includeTitles: flag,
@@ -177,11 +178,20 @@ export function writeSettings(file: string, section: string, values: Json, proje
     }
     target[name] = deepMerge(target[name], values);
     // Phone notifications get a topic nobody can guess the first time they are turned on.
-    if (name === "ntfy" && merged(data, projectRoot).ntfy.enabled && !merged(data, projectRoot).ntfy.topic)
-      (target.ntfy as Json).topic = `progressor-${randomBytes(8).toString("hex")}`;
+    if (name === "ntfy" && merged(data, projectRoot).ntfy.enabled && !merged(data, projectRoot).ntfy.topic) (target.ntfy as Json).topic = newTopic();
     writeRaw(file, data);
     return merged(data, projectRoot);
   });
+}
+
+/** A topic for phone notifications nobody can guess. */
+export const newTopic = (): string => `progressor-${randomBytes(8).toString("hex")}`;
+
+/** Gives phone notifications a new private topic, for every project ("Make a new private address"). */
+export function renewTopic(file: string): Settings {
+  let topic = newTopic();
+  while (topic === readSettings(file).ntfy.topic) topic = newTopic();
+  return writeSettings(file, "ntfy", { topic });
 }
 
 /**
