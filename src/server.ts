@@ -20,6 +20,7 @@ import { type Goal, type StandingInstruction, hardFirst, helperLimit, hotfixLine
 import type { GoalSchedule, Schedule } from "./schedule.js";
 import type { Wish } from "./wishlist.js";
 import { readSettings, settingsFileFor } from "./settings.js";
+import { everyWords, parseEvery } from "./routines.js";
 import { releaseFacts } from "./facts.js";
 import { offerHint, parseWait } from "./alternatives.js";
 import { registerFeatureTools } from "./tools/index.js";
@@ -768,6 +769,15 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           return text ? [[g.id, text] as const] : [];
         }),
     );
+  // Recurring goals (routines.ts): due ones are added by get_status without asking, one line each.
+  const routineLines = (p: Project): string[] => {
+    try {
+      if (!readSettings(settingsFile, p.root).routines.enabled) return [];
+      return p.runRoutines().map((g) => `Routine ${g.fromRoutine} added goal ${g.id} "${g.title}" (${everyWords(p.roadmap().routine(g.fromRoutine!)?.every ?? "")}).`);
+    } catch {
+      return []; // a routine never fails the status
+    }
+  };
   const waitsOnInput = z.array(z.string()).optional().describe("Goals it waits on: IDs here, or <project>/<goal-id>.");
   const commitsInput = z.array(z.string()).optional().describe("Short hashes of its commits; found from git when left out.");
   const testsInput = z.string().optional().describe("The test run behind it, in a few words ('715 passed').");
@@ -818,6 +828,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     async ({ project: wanted, check }) => {
       // The Session serving the dashboard may have ended; if so, this one takes over.
       await dashboard?.refresh().catch(() => undefined);
+      const routined = wanted?.trim() ? [] : routineLines(project);
       return respondIn(wanted, (p) => {
         if (p !== project) return formatOtherProject(p, nameOf(p));
         // The plan check-up (checkup.ts): once per Session by itself, or every finding when asked.
@@ -842,6 +853,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const hooks = hooksLine();
         return [
           now,
+          ...routined,
           ...checked,
           ...(elsewhere ? [elsewhere] : []),
           ...(hooks ? [hooks] : []),
@@ -903,13 +915,18 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           .optional()
           .describe("Make it a release goal: it bundles the finished goals no earlier release took, and the reply gives the facts to write the changelog entry and version bump from."),
         bundles: z.array(z.string()).optional().describe("For a release goal: the finished goals it bundles, by ID, instead of all the unreleased ones."),
+        repeat: z
+          .string()
+          .optional()
+          .describe("Make it come back: 1d, 1w, 2w, 1mo or a weekday (monday). A goal like it is added by itself when due, once the last one is finished or dropped."),
         project: otherProject,
       },
     },
-    ({ title, id, outcome, estimate, tasks, allow_duplicate, done, claim, waits_on, release, bundles, project: wanted }) =>
+    ({ title, id, outcome, estimate, tasks, allow_duplicate, done, claim, waits_on, release, bundles, repeat, project: wanted }) =>
       respondIn(wanted, (p) => {
         if (p !== project && claim)
           throw new Error("A Goal added to another project's plan cannot be claimed from here; leave out claim (or record finished work with done).");
+        if (repeat !== undefined && !parseEvery(repeat)) throw new Error(`Say how often it comes back: 1d, 1w, 2w, 1mo or a weekday such as monday (not "${repeat}").`);
         const goal = p.addGoal(title, newTasks(tasks), { id, outcome, estimate: readEstimate(estimate) ?? undefined, allowDuplicate: allow_duplicate, done });
         if (waits_on?.length) p.setWaitsOn(goal.id, waits_on);
         let facts = "";
@@ -918,6 +935,10 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           p.setRelease(goal.id, f.version ?? "next", f.bundles);
           // Held release goals show their facts in the status; otherwise the reply carries them.
           if (!claim || p !== project) facts = `\n${f.text}`;
+        }
+        if (repeat !== undefined) {
+          const r = p.repeatGoal(goal.id, repeat);
+          facts = `\nComes back ${everyWords(r.every)} (routine ${r.id}).${facts}`;
         }
         const unknown = waits_on?.length ? unknownWaits(p, goal.id) : [];
         const n = tasks?.length ?? 0;
@@ -928,7 +949,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const learned = calibrationLine(p);
         if (claim) {
           project.claimGoal(goal.id);
-          return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks, claimed by this Session.${learned ? `\n${learned}` : ""}\n\n${status()}`;
+          return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks, claimed by this Session.${facts}${learned ? `\n${learned}` : ""}\n\n${status()}`;
         }
         return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks. Claim it with claim_goal to work on it.${learned ? `\n${learned}` : ""}${facts}`;
       }),
@@ -1012,11 +1033,18 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       title: "Drop Goal",
       description:
         "Drop a Goal that will not be done, with the reason; its Plan File stays as a record. Releases this Session's Claim on it. A Goal another running Session holds, or one already done, cannot be dropped. To drop a single Task, use drop_task.",
-      inputSchema: { goal: goalId, reason: z.string().min(1).describe("Why the Goal will not be done.") },
+      inputSchema: {
+        goal: goalId,
+        reason: z.string().min(1).describe("Why the Goal will not be done."),
+        stop_repeating: z.boolean().optional().describe("For a goal a routine made: also stop the routine, so it won't come back."),
+      },
     },
-    ({ goal, reason }) =>
+    ({ goal, reason, stop_repeating }) =>
       respondIn(undefined, () => {
-        const g = project.dropGoal(goal, reason);
+        const g = project.dropGoal(goal, reason, { stopRepeating: stop_repeating });
+        const routine = g.fromRoutine ? project.roadmap().routine(g.fromRoutine) : undefined;
+        if (stop_repeating && g.fromRoutine) return `Dropped Goal ${g.id}: ${g.reason} It won't come back.`;
+        if (routine) return `Dropped Goal ${g.id}: ${g.reason} Routine ${routine.id} still brings it back ${everyWords(routine.every)} (stop_repeating stops it).`;
         return `Dropped Goal ${g.id}: ${g.reason}`;
       }),
   );

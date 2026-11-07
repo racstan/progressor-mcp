@@ -12,6 +12,7 @@ import { Choice } from "./Menus.js";
 import { MetroMap } from "./MetroMap.js";
 import { Popover } from "./Popover.js";
 import { RichText } from "./RichText.js";
+import { RoutineChip } from "./RoutineChip.js";
 import { StepKey } from "./StepKey.js";
 import { type FileLink, Steps, StepIcon } from "./Steps.js";
 import { Conversation, OpenQuestions, questionsAtTop } from "./Talk.js";
@@ -92,6 +93,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
           {goal.release !== undefined && (
             <span className="waits-chip release-chip" title={RELEASE_HINT}>{releaseChip(goal.release)}</span>
           )}
+          {goal.fromRoutine && <RoutineChip projectId={projectId} routineId={goal.fromRoutine} version={view} />}
           <span className="sp" />
           <button className="btn ghost small" title="Copies a description of this goal to paste into your AI chat"
             onClick={() => onCopy(copyAsPrompt({ kind: "goal", goal, graph }))}>

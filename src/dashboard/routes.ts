@@ -12,6 +12,7 @@ import { historyRoutes } from "./routes/history.js";
 import { checkupRoutes } from "./routes/checkup.js";
 import { handoffRoutes } from "./routes/handoffs.js";
 import { settingsRoutes } from "./routes/settings.js";
+import { routinesRoutes } from "./routes/routines.js";
 
 /** What the hub gives every feature route. */
 export interface HubContext {
@@ -53,6 +54,7 @@ export const featureRoutes: FeatureRoute[] = [
   ...historyRoutes,
   ...checkupRoutes,
   ...handoffRoutes,
+  ...routinesRoutes,
 ];
 
 /** A body bigger than this is refused unread, unless the route asks for more. */

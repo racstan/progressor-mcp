@@ -522,7 +522,7 @@ export function App() {
   ) : onWishes && projectId ? (
     <WishlistPage projectId={projectId} wishes={roadmap.wishes} onChanged={refresh} />
   ) : onContext && projectId ? (
-    <ContextPage projectId={projectId} rules={roadmap.standingInstructions} context={roadmap.context} onChanged={refresh} />
+    <ContextPage projectId={projectId} rules={roadmap.standingInstructions} context={roadmap.context} onChanged={refresh} version={roadmap} />
   ) : onTalk && projectId ? (
     <div className="page">
       <h1 className="page-title">Message your AI</h1>
