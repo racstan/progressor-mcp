@@ -68,3 +68,20 @@ export function breadcrumbs(at: { page: Page; project?: string; workspace?: stri
   const last = trail.length - 1;
   return trail.map((c, i) => (i === last ? { label: c.label } : c));
 }
+
+/**
+ * A page's heading, named after its project so it can't be taken for the whole app's: "Bindery
+ * Dashboard", "Message your AI about Bindery". Settings is for every project, so it stays plain.
+ */
+export function pageHeading(page: Exclude<Page, "goal">, project?: string): string {
+  if (!project || page === "settings") return PAGE_TITLE[page];
+  if (page === "talk") return `Message your AI about ${project}`;
+  if (page === "context") return `${project} project notes`;
+  return `${project} ${PAGE_TITLE[page]}`;
+}
+
+/** The browser tab's title: the page (named after its project), or the goal and its project, then Progressor. */
+export function tabTitle(at: { page: Page; project?: string; goal?: string; home?: string }): string {
+  const parts = at.page === "goal" ? [at.goal, at.project, at.project ? undefined : at.home] : [pageHeading(at.page, at.project)];
+  return [...parts, "Progressor"].filter(Boolean).join(" · ");
+}

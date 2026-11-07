@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PAGE_HASH, PAGE_TITLE, breadcrumbs, newHash, routeFromHash } from "../src/ui/route.js";
+import { PAGE_HASH, PAGE_TITLE, breadcrumbs, newHash, pageHeading, routeFromHash, tabTitle } from "../src/ui/route.js";
 
 describe("the page in the address", () => {
   it("is a goal's page for #/goal/<id>, and the default goal's page with no hash", () => {
@@ -59,5 +59,38 @@ describe("the Dashboard page (once called Statistics)", () => {
     expect(newHash("#/stats")).toBe("#/dashboard");
     expect(newHash("#/dashboard")).toBeUndefined();
     expect(newHash("#/goal/stats")).toBeUndefined();
+  });
+});
+
+describe("a page's heading", () => {
+  it("names the project on every page that belongs to one", () => {
+    const p = "Bindery";
+    expect(pageHeading("dashboard", p)).toBe("Bindery Dashboard");
+    expect(pageHeading("wishlist", p)).toBe("Bindery Wishlist");
+    expect(pageHeading("hotfix", p)).toBe("Bindery Hotfixes");
+    expect(pageHeading("calendar", p)).toBe("Bindery Calendar");
+    expect(pageHeading("history", p)).toBe("Bindery History");
+    expect(pageHeading("handoffs", p)).toBe("Bindery Handoffs");
+    expect(pageHeading("context", p)).toBe("Bindery project notes");
+    expect(pageHeading("talk", p)).toBe("Message your AI about Bindery");
+  });
+
+  it("keeps Settings plain, since it is for every project", () => {
+    expect(pageHeading("settings", "Bindery")).toBe("Settings");
+    expect(pageHeading("settings")).toBe("Settings");
+  });
+
+  it("is the page's plain name when there is no project", () => {
+    expect(pageHeading("dashboard")).toBe("Dashboard");
+    expect(pageHeading("talk")).toBe("Message your AI");
+  });
+});
+
+describe("the browser tab's title", () => {
+  it("leads with the page named after its project", () => {
+    expect(tabTitle({ page: "dashboard", project: "Bindery" })).toBe("Bindery Dashboard · Progressor");
+    expect(tabTitle({ page: "goal", project: "Bindery", goal: "Ship it" })).toBe("Ship it · Bindery · Progressor");
+    expect(tabTitle({ page: "settings", project: "Bindery" })).toBe("Settings · Progressor");
+    expect(tabTitle({ page: "goal", home: "Home" })).toBe("Home · Progressor");
   });
 });

@@ -165,7 +165,7 @@ function List({ days, today, events, picked, onPick }: { days: Date[]; today: Da
   );
 }
 
-export function CalendarPage({ projectId, roadmap, onOpenGoal }: { projectId: string; roadmap: RoadmapView; onOpenGoal: (goalId: string) => void }) {
+export function CalendarPage({ projectId, roadmap, onOpenGoal, heading }: { projectId: string; heading: string; roadmap: RoadmapView; onOpenGoal: (goalId: string) => void }) {
   const data = useCalendar(projectId, roadmap);
   const [view, setViewState] = useState<CalendarView>(() => stored("progressor.calendar-view", "month", ["month", "week", "day", "list"] as const));
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()));
@@ -218,7 +218,7 @@ export function CalendarPage({ projectId, roadmap, onOpenGoal }: { projectId: st
     <div className="page wide calendar-page">
       <div className="cal-top">
         <div>
-          <h1 className="page-title">Calendar</h1>
+          <h1 className="page-title">{heading}</h1>
           <p className="page-sub">What your AI did and what comes next, by date. It fills itself as your AI works; ahead of today it shows the steps planned next, when each goal should be done, and goals that come back.</p>
         </div>
       </div>

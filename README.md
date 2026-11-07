@@ -149,7 +149,7 @@ Open **http://localhost:4747** while your AI's app is open (your AI gives you th
 - **Pictures:** your AI can attach a screenshot or recording to a goal or step, so you see the change instead of reading about it.
 - **Copy for your AI** and **Show in folder** on every goal and step.
 
-**Each project's pages, in the sidebar**
+**Each project's pages, in the sidebar** (under the project's name, Dashboard first; each page's heading names its project, such as *Bindery Dashboard*)
 
 - **Hotfixes:** paste a bug report, such as one from a customer, and it goes to the top of your goals. Every AI chat in the project is told; the one that takes it finishes the step it is on, writes a test that shows the bug, then fixes it. You can also just tell your AI: *"Hotfix: checkout fails when the cart has a coupon."*
 - **Project notes:** the rules your AI keeps and the project's background, which you can edit, and **Goals that come back**: goals your AI set to repeat, such as a weekly dependency check, which you can pause or stop.

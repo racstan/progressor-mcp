@@ -84,7 +84,7 @@ function Ask({ projectId, toast, onClose }: { projectId: string; toast: (text: s
   );
 }
 
-export function HandoffsPage({ projectId, roadmap, toast }: { projectId: string; roadmap: RoadmapView; toast: (text: string) => void }) {
+export function HandoffsPage({ projectId, roadmap, toast, heading }: { projectId: string; heading: string; roadmap: RoadmapView; toast: (text: string) => void }) {
   const list = useHandoffs(projectId, roadmap);
   const [open, setOpen] = useState<string>();
   const [text, setText] = useState<string>();
@@ -113,7 +113,7 @@ export function HandoffsPage({ projectId, roadmap, toast }: { projectId: string;
     <div className="page wide handoffs-page">
       <div className="handoffs-head">
         <div>
-          <h1 className="page-title">Handoffs</h1>
+          <h1 className="page-title">{heading}</h1>
           <p className="page-sub">{HANDOFFS_INTRO}</p>
         </div>
         {!empty && !asking && (

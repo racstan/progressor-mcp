@@ -18,7 +18,7 @@ import {
 } from "./words.js";
 
 
-export function HistoryPage({ projectId, roadmap, toast }: { projectId: string; roadmap: RoadmapView; toast: (text: string) => void }) {
+export function HistoryPage({ projectId, roadmap, toast, heading }: { projectId: string; heading: string; roadmap: RoadmapView; toast: (text: string) => void }) {
   const [view, reload] = useHistory(projectId, roadmap);
   const [busy, setBusy] = useState<string>();
   const goalTitle = (id: string) => roadmap.goals.find((g) => g.id === id)?.title;
@@ -37,7 +37,7 @@ export function HistoryPage({ projectId, roadmap, toast }: { projectId: string; 
   };
   return (
     <div className="page history">
-      <h1 className="page-title">History</h1>
+      <h1 className="page-title">{heading}</h1>
       <p className="page-sub">{HISTORY_INTRO}</p>
       {view?.enabled === false && <p className="history-off">{HISTORY_OFF}</p>}
       {view === undefined ? (

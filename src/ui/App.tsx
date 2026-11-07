@@ -10,7 +10,7 @@ import { StatsPage } from "./StatsPage.js";
 import { HistoryPage } from "./HistoryPage.js";
 import { HandoffsPage } from "./HandoffsPage.js";
 import { CalendarPage } from "./CalendarPage.js";
-import { PAGE_HASH, PAGE_TITLE, type Page, type Route, breadcrumbs, newHash, routeFromHash } from "./route.js";
+import { PAGE_HASH, PAGE_TITLE, type Page, type Route, breadcrumbs, newHash, pageHeading, routeFromHash, tabTitle } from "./route.js";
 import { Breadcrumbs } from "./Breadcrumbs.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
@@ -284,7 +284,7 @@ export function App() {
 
   useEffect(() => {
     const where = onHome ? (workspaces?.find((w) => w.id === pickedWorkspace)?.name ?? "Home") : undefined;
-    document.title = [page === "goal" ? shownGoal?.goal.title : PAGE_TITLE[page], project?.name, where, "Progressor"].filter(Boolean).join(" · ");
+    document.title = tabTitle({ page: onHome && page !== "settings" ? "goal" : page, ...(project ? { project: project.name } : {}), ...(shownGoal ? { goal: shownGoal.goal.title } : {}), ...(where ? { home: where } : {}) });
   }, [shownGoal, project, onHome, page, workspaces, pickedWorkspace]);
 
   useEffect(() => {
@@ -392,6 +392,8 @@ export function App() {
   const freshGoals = grouped.open.filter((g) => grouped.fresh.has(g.id));
   const doneShown = groupOpen({ pinned: !!doneOpen, closedFor: doneClosedFor, holdsShown: grouped.done.some((g) => g.id === effectiveGoal), shown: effectiveGoal });
 
+  // The page's heading, named after its project: "Bindery Dashboard".
+  const heading = page === "goal" ? "" : pageHeading(page, project?.name);
   const main = page === "settings" ? (
     <Settings ctx={settingsContext} />
   ) : error && !projects ? (
@@ -419,22 +421,22 @@ export function App() {
   ) : !roadmap ? (
     <div className="placeholder">Loading…</div>
   ) : page === "dashboard" && projectId ? (
-    <StatsPage projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} />
+    <StatsPage heading={heading} projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} />
   ) : page === "history" && projectId ? (
-    <HistoryPage projectId={projectId} roadmap={roadmap} toast={toast} />
+    <HistoryPage heading={heading} projectId={projectId} roadmap={roadmap} toast={toast} />
   ) : page === "handoffs" && projectId ? (
-    <HandoffsPage projectId={projectId} roadmap={roadmap} toast={toast} />
+    <HandoffsPage heading={heading} projectId={projectId} roadmap={roadmap} toast={toast} />
   ) : page === "calendar" && projectId ? (
-    <CalendarPage projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} />
+    <CalendarPage heading={heading} projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} />
   ) : page === "hotfix" && projectId ? (
-    <HotfixPage projectId={projectId} goals={roadmap.goals} onOpen={pickGoal} onAdded={(id) => { refresh(); pickGoal(id); toast("Hotfix added. Your AI takes it as soon as it finishes the step it is on."); }} />
+    <HotfixPage heading={heading} projectId={projectId} goals={roadmap.goals} onOpen={pickGoal} onAdded={(id) => { refresh(); pickGoal(id); toast("Hotfix added. Your AI takes it as soon as it finishes the step it is on."); }} />
   ) : page === "wishlist" && projectId ? (
-    <WishlistPage projectId={projectId} wishes={roadmap.wishes} onChanged={refresh} />
+    <WishlistPage heading={heading} projectId={projectId} wishes={roadmap.wishes} onChanged={refresh} />
   ) : page === "context" && projectId ? (
-    <ContextPage projectId={projectId} rules={roadmap.standingInstructions} context={roadmap.context} onChanged={refresh} version={roadmap} />
+    <ContextPage heading={heading} projectId={projectId} rules={roadmap.standingInstructions} context={roadmap.context} onChanged={refresh} version={roadmap} />
   ) : page === "talk" && projectId ? (
     <div className="page">
-      <h1 className="page-title">Message your AI</h1>
+      <h1 className="page-title">{heading}</h1>
       <p className="page-sub">
         For anything about the whole project, such as "stop everything" or "start on the logo next". Any AI chat working in this project reads it at its
         next step, or as soon as you type in the chat, and answers here.
@@ -562,44 +564,52 @@ export function App() {
           <button className="side-link" aria-current={onHome && page !== "settings"} onClick={goHome}>
             <Icon name="home" /> Home
           </button>
-          <button className="side-link" aria-current={page === "settings"} onClick={() => openPage("settings")} title="How the page looks, notifications, and how your AI plans. All optional">
-            <Icon name="settings" /> Settings
-          </button>
           {onHome ? (
-            <div className="side-group">
-              <h3>Projects</h3>
-              {sortProjects(projects ?? []).map((p) => (
-                <button key={p.id} className="side-link" onClick={() => pickProject(p.id)} title={p.root}>
-                  <Icon name="file" /> {p.name}
-                </button>
-              ))}
-            </div>
+            <>
+              <button className="side-link" aria-current={page === "settings"} onClick={() => openPage("settings")} title="How the page looks, notifications, and how your AI plans. All optional">
+                <Icon name="settings" /> Settings
+              </button>
+              <div className="side-group">
+                <h3>Projects</h3>
+                {sortProjects(projects ?? []).map((p) => (
+                  <button key={p.id} className="side-link" onClick={() => pickProject(p.id)} title={p.root}>
+                    <Icon name="file" /> {p.name}
+                  </button>
+                ))}
+              </div>
+            </>
           ) : (
             <>
-              <button className="side-link" aria-current={page === "hotfix"} onClick={() => openPage("hotfix")} title="Urgent bugs in this project, fixed before anything else: your AI finishes the step it is on, then fixes it, test first">
-                <Icon name="flag" /> Hotfixes
-              </button>
-              <button className="side-link" aria-current={page === "talk"} onClick={() => openPage("talk")} title="Write to your AI about the whole project, not one goal">
-                <Icon name="send" /> Message your AI
-                {unread > 0 && <span className="n" title="New replies from your AI you haven't read yet">{unread}</span>}
-              </button>
-              <button className="side-link" aria-current={page === "context"} onClick={() => openPage("context")} title="The rules and background your AI keeps for this project">
-                <Icon name="note" /> Project notes
-              </button>
-              <button className="side-link" aria-current={page === "wishlist"} onClick={() => openPage("wishlist")} title="What you want from this project as a whole; your AI may suggest goals from it">
-                <Icon name="star" /> Wishlist
-              </button>
-              <button className="side-link" aria-current={page === "dashboard"} onClick={() => openPage("dashboard")} title="How long steps take, how often work drifts, and what was finished each day">
-                <Icon name="chart" /> Dashboard
-              </button>
-              <button className="side-link" aria-current={page === "calendar"} onClick={() => openPage("calendar")} title="What your AI did and what comes next, by month, week or day">
-                <Icon name="calendar" /> Calendar
-              </button>
-              <button className="side-link" aria-current={page === "history"} onClick={() => openPage("history")} title="Every change to the plan, by you or your AI, and going back to before any of them">
-                <Icon name="history" /> History
-              </button>
-              <button className="side-link" aria-current={page === "handoffs"} onClick={() => openPage("handoffs")} title="Write-ups of the work your AI did, for whoever picks it up next">
-                <Icon name="note" /> Handoffs
+              <div className="side-group project-links">
+                <h3 title={project?.root}>{project?.name ?? "This project"}</h3>
+                <button className="side-link" aria-current={page === "dashboard"} onClick={() => openPage("dashboard")} title={`${project?.name ?? "This project"}: how long steps take, how often work drifts, and what was finished each day`}>
+                  <Icon name="chart" /> Dashboard
+                </button>
+                <button className="side-link" aria-current={page === "hotfix"} onClick={() => openPage("hotfix")} title="Urgent bugs in this project, fixed before anything else: your AI finishes the step it is on, then fixes it, test first">
+                  <Icon name="flag" /> Hotfixes
+                </button>
+                <button className="side-link" aria-current={page === "talk"} onClick={() => openPage("talk")} title="Write to your AI about the whole project, not one goal">
+                  <Icon name="send" /> Message your AI
+                  {unread > 0 && <span className="n" title="New replies from your AI you haven't read yet">{unread}</span>}
+                </button>
+                <button className="side-link" aria-current={page === "context"} onClick={() => openPage("context")} title="The rules and background your AI keeps for this project">
+                  <Icon name="note" /> Project notes
+                </button>
+                <button className="side-link" aria-current={page === "wishlist"} onClick={() => openPage("wishlist")} title="What you want from this project as a whole; your AI may suggest goals from it">
+                  <Icon name="star" /> Wishlist
+                </button>
+                <button className="side-link" aria-current={page === "calendar"} onClick={() => openPage("calendar")} title="What your AI did and what comes next, by month, week or day">
+                  <Icon name="calendar" /> Calendar
+                </button>
+                <button className="side-link" aria-current={page === "history"} onClick={() => openPage("history")} title="Every change to the plan, by you or your AI, and going back to before any of them">
+                  <Icon name="history" /> History
+                </button>
+                <button className="side-link" aria-current={page === "handoffs"} onClick={() => openPage("handoffs")} title="Write-ups of the work your AI did, for whoever picks it up next">
+                  <Icon name="note" /> Handoffs
+                </button>
+              </div>
+              <button className="side-link" aria-current={page === "settings"} onClick={() => openPage("settings")} title="How the page looks, notifications, and how your AI plans, for every project. All optional">
+                <Icon name="settings" /> Settings
               </button>
               {roadmap && goals.length === 0 && <p className="empty">No goals yet. Tell your AI what you want to build.</p>}
               {sidebarSections(grouped.open.filter((g) => !grouped.fresh.has(g.id)), putOffHere).map((s) => (

@@ -18,12 +18,12 @@ const code = (text: string) => <Highlighted text={text} />;
  * The project's rules and background. The AI keeps them, and the person can add, reword and remove
  * rules and rewrite the background here; the server tells the AI about each change.
  */
-export function ContextPage({ projectId, rules, context, onChanged, version }: { projectId: string; rules: Rule[]; context: string; onChanged: () => void; version?: unknown }) {
+export function ContextPage({ projectId, rules, context, onChanged, version, heading }: { projectId: string; heading: string; rules: Rule[]; context: string; onChanged: () => void; version?: unknown }) {
   const [adding, setAdding] = useState(false);
   const blocks = contextBlocks(context);
   return (
     <div className="page">
-      <h1 className="page-title">Project notes</h1>
+      <h1 className="page-title">{heading}</h1>
       <p className="page-sub">Your AI keeps these up to date, and you can change them too. {TOLD}</p>
       <section className="section">
         <h2>Rules your AI follows</h2>

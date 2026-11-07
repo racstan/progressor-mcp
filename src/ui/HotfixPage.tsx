@@ -12,8 +12,10 @@ const MAX_REPORT = 8000;
  * kept word for word; every AI chat in the project is told, and the one that takes it finishes the step
  * it is on, then writes a test that shows the bug and fixes it.
  */
-export function HotfixPage({ projectId, goals, onOpen, onAdded }: {
+export function HotfixPage({ projectId, goals, onOpen, onAdded, heading }: {
   projectId: string;
+  /** The page's heading, named after its project (route.ts pageHeading). */
+  heading: string;
   goals: RoadmapView["goals"];
   onOpen: (goalId: string) => void;
   onAdded: (goalId: string) => void;
@@ -35,7 +37,7 @@ export function HotfixPage({ projectId, goals, onOpen, onAdded }: {
   };
   return (
     <div className="page">
-      <h1 className="page-title">Hotfixes</h1>
+      <h1 className="page-title">{heading}</h1>
       <p className="page-sub">
         Urgent bugs in this project, such as one your own customers or users ran into, fixed before anything else. A new one goes to the top of your goals.
         Your AI finishes the step it is on, then writes a test that shows the bug, and fixes it. Your AI can also add one by itself; adding one here is optional.

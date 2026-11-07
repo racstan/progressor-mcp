@@ -8,7 +8,9 @@ The dashboard shows the plan. The one thing you do on it yourself is mark the th
 
 **Breadcrumbs** at the top of every page say where you are: *Home* on Home, *Home › Settings*, *Home › Bindery › Calendar*, or *Home › Bindery › Ship OAuth login* on a goal. Click **Home** to see every project, or the project's name to go back to its goals. On a phone the middle of the trail shortens, with *…*, instead of running off the screen.
 
-The sidebar has **Home** and **Settings** at the top, then the project's own pages (Hotfixes, Message your AI, Project notes, Wishlist, Dashboard, Calendar, History, Handoffs) and its goals.
+In a project, the sidebar has **Home** at the top, then the project's own pages under its name: **Dashboard** first, then Hotfixes, Message your AI, Project notes, Wishlist, Calendar, History and Handoffs. **Settings** comes after them, then the project's goals. On Home, the sidebar has Home, Settings and your projects.
+
+Each project page's heading and browser tab say which project it is about, such as *Bindery Dashboard*, *Bindery project notes* or *Message your AI about Bindery*, so you always know which project you're looking at. Settings is for every project, so it is just *Settings*.
 
 ## At the top of a goal
 

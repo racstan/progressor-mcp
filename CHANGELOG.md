@@ -36,7 +36,8 @@ Plans made with earlier versions keep working as they are. Everything new runs b
 - **Hotfixes** has its own page in the sidebar, listing the project's urgent bugs, open ones first, with the box to report a new one.
 - **Settings is a page of its own**, from the gear at the top or the sidebar, instead of a narrow panel. Its sections are grouped into Look, Notifications, AI & plan, History & releases, Advanced and About, with a menu on the left on a wide window. Every section has **Reset this section**, and **Reset all settings to defaults** puts everything back. Settings for how Progressor works are kept on your computer, for every project, and a project can have its own.
 - **Breadcrumbs** at the top of every page, such as *Home › Bindery › Dashboard*. Home and the project take you back; on a phone the trail shortens instead of running off the screen.
-- **Statistics is now called Dashboard.** Old links to it still work.
+- **Statistics is now called Dashboard**, and it comes first among a project's pages in the sidebar, right after Home. Old links to it still work.
+- **Every project page says which project it is about**, in its heading and the browser tab: *Bindery Dashboard*, *Bindery Wishlist*, *Message your AI about Bindery*. In the sidebar, the project's pages sit under its name.
 - **Vibrant is the default theme**, with a new logo. Light, Dark and System are still there, in black, white and greys.
 - **Search is much faster.** Results now come back in a few hundredths of a second instead of about two seconds with many projects.
 - **A note that Progressor is free**, at the bottom of Settings and Help: there is no paid version or subscription, and anyone selling one is not us.

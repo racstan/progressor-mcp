@@ -19,11 +19,11 @@ export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n ==
  * day, how the time taken compares with the estimates, how often work drifted, the longest steps and
  * a line per goal. Read-only; it follows the plan as it changes.
  */
-export function StatsPage({ projectId, roadmap, onOpenGoal }: { projectId: string; roadmap: RoadmapView; onOpenGoal: (id: string) => void }) {
+export function StatsPage({ projectId, roadmap, onOpenGoal, heading }: { projectId: string; heading: string; roadmap: RoadmapView; onOpenGoal: (id: string) => void }) {
   const stats = useStats(projectId, roadmap);
   return (
     <div className="page stats">
-      <h1 className="page-title">Dashboard</h1>
+      <h1 className="page-title">{heading}</h1>
       <p className="page-sub">Worked out from this project's plan: how long steps take, how often the work stepped off the plan, and what was finished each day.</p>
       {stats === undefined ? (
         <p className="quiet">Working them out…</p>

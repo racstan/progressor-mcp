@@ -1134,3 +1134,9 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
   .crumbs { padding: var(--s2) var(--s4) 0; }
   .crumbs li.middle { max-width: 30vw; }
 }
+
+/* the project's own pages in the sidebar, under its name; long names shorten with an ellipsis */
+.side-group.project-links h3 { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.side-group.project-links + .side-link { margin-top: var(--s2); }
+/* a page's heading names its project, so a long name wraps instead of running off a phone */
+.page-title { overflow-wrap: anywhere; }
