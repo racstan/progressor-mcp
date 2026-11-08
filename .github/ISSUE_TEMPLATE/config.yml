@@ -3,3 +3,6 @@ contact_links:
   - name: Setup guide and troubleshooting
     url: https://github.com/racstan/progressor-mcp#troubleshooting
     about: Most setup problems have a quick fix listed here.
+  - name: Report a security problem privately
+    url: https://github.com/racstan/progressor-mcp/security/advisories/new
+    about: Please don't post security problems in a public issue.
