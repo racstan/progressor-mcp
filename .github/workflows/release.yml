@@ -66,14 +66,19 @@ jobs:
           done
           echo "::error::progressor-mcp ${{ steps.version.outputs.version }} did not show up on npm within 10 minutes"; exit 1
 
-  # The image for linux/amd64 and linux/arm64, tagged with the version and latest. It skips itself
-  # if that version's image is already on ghcr.io, like the steps above.
+  # The image for linux/amd64 and linux/arm64, tagged with the version and latest, on ghcr.io and on
+  # Docker Hub (racstan/progressor-mcp; needs the DOCKERHUB_TOKEN secret, else Docker Hub is skipped
+  # with a warning). It is built once: a version already on ghcr.io is copied to Docker Hub as it is,
+  # and a version already on both is skipped, like the steps above.
   docker:
     needs: release
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    env:
+      VERSION: ${{ needs.release.outputs.version }}
+      HUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -83,22 +88,39 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Check whether the image is already published
+      - if: env.HUB_TOKEN != ''
+        uses: docker/login-action@v3
+        with:
+          username: racstan
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Check where the image is already published
         id: exists
         run: |
-          if docker manifest inspect "ghcr.io/racstan/progressor-mcp:${{ needs.release.outputs.version }}" >/dev/null 2>&1; then
-            echo "ghcr.io/racstan/progressor-mcp:${{ needs.release.outputs.version }} is already published."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
+          if docker manifest inspect "ghcr.io/racstan/progressor-mcp:$VERSION" >/dev/null 2>&1; then
+            echo "ghcr.io/racstan/progressor-mcp:$VERSION is already published."
+            echo "ghcr=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -z "$HUB_TOKEN" ]; then
+            echo "::warning::No DOCKERHUB_TOKEN secret, so the image is not published to Docker Hub."
+            echo "hub=skip" >> "$GITHUB_OUTPUT"
+          elif docker manifest inspect "docker.io/racstan/progressor-mcp:$VERSION" >/dev/null 2>&1; then
+            echo "racstan/progressor-mcp:$VERSION is already on Docker Hub."
+            echo "hub=skip" >> "$GITHUB_OUTPUT"
           fi
       - id: meta
-        if: steps.exists.outputs.skip != 'true'
+        if: steps.exists.outputs.ghcr != 'true'
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/racstan/progressor-mcp
+          images: |
+            ghcr.io/racstan/progressor-mcp
+            name=docker.io/racstan/progressor-mcp,enable=${{ steps.exists.outputs.hub != 'skip' }}
           tags: |
             type=raw,value=${{ needs.release.outputs.version }}
             type=raw,value=latest
-      - if: steps.exists.outputs.skip != 'true'
+      - if: steps.exists.outputs.ghcr == 'true' && steps.exists.outputs.hub != 'skip'
+        name: Copy the published image to Docker Hub
+        run: docker buildx imagetools create -t "docker.io/racstan/progressor-mcp:$VERSION" -t docker.io/racstan/progressor-mcp:latest "ghcr.io/racstan/progressor-mcp:$VERSION"
+      - if: steps.exists.outputs.ghcr != 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -109,6 +131,15 @@ jobs:
           build-args: VERSION=${{ needs.release.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - if: env.HUB_TOKEN != ''
+        name: Docker Hub page
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: racstan
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: racstan/progressor-mcp
+          short-description: Your AI's plan, saved in your project and shown live on a dashboard. Free for personal and noncommercial use.
+          readme-filepath: docs/dockerhub.md
 
   # The MCP Registry checks that the npm package and the Docker image exist, so this runs after both.
   registry:
