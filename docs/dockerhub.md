@@ -17,7 +17,7 @@ Your AI app starts the container itself for each conversation, so you save the c
 **Claude Code**, in your project's folder (macOS or Linux):
 
 ```bash
-claude mcp add progressor -- docker run -i --rm -v "$PWD:$PWD" -w "$PWD" -v progressor-data:/data -p 127.0.0.1:4800:4800 racstan/progressor-mcp
+claude mcp add progressor -- docker run -i --rm -v "$PWD:$PWD" -w "$PWD" -v progressor-data:/data -p 127.0.0.1:4800:4800 rachitasthana/progressor-mcp
 ```
 
 **Other apps** (Claude Desktop, Cursor, Windsurf…), in the app's MCP settings:
@@ -30,7 +30,7 @@ claude mcp add progressor -- docker run -i --rm -v "$PWD:$PWD" -w "$PWD" -v prog
       "args": ["run", "-i", "--rm",
         "-v", "/path/to/your/project:/path/to/your/project", "-w", "/path/to/your/project",
         "-v", "progressor-data:/data", "-p", "127.0.0.1:4800:4800",
-        "racstan/progressor-mcp"]
+        "rachitasthana/progressor-mcp"]
     }
   }
 }
@@ -41,7 +41,7 @@ The dashboard is then at **http://localhost:4800**.
 **Dashboard only, always running:**
 
 ```bash
-docker run -d --name progressor --restart unless-stopped -v progressor-data:/data -v "$HOME/projects:$HOME/projects" -p 127.0.0.1:4800:4800 racstan/progressor-mcp daemon run
+docker run -d --name progressor --restart unless-stopped -v progressor-data:/data -v "$HOME/projects:$HOME/projects" -p 127.0.0.1:4800:4800 rachitasthana/progressor-mcp daemon run
 ```
 
 On Windows, mount the folder under `/work` and say so: `-v "C:\Projects\shop:/work/shop" -w /work/shop -e PROGRESSOR_ROOT=/work/shop`. More in the [README](https://github.com/racstan/progressor-mcp#run-it-with-docker).

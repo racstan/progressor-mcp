@@ -67,7 +67,7 @@ jobs:
           echo "::error::progressor-mcp ${{ steps.version.outputs.version }} did not show up on npm within 10 minutes"; exit 1
 
   # The image for linux/amd64 and linux/arm64, tagged with the version and latest, on ghcr.io and on
-  # Docker Hub (racstan/progressor-mcp; needs the DOCKERHUB_TOKEN secret, else Docker Hub is skipped
+  # Docker Hub (rachitasthana/progressor-mcp; needs the DOCKERHUB_TOKEN secret, else Docker Hub is skipped
   # with a warning). It is built once: a version already on ghcr.io is copied to Docker Hub as it is,
   # and a version already on both is skipped, like the steps above.
   docker:
@@ -91,7 +91,7 @@ jobs:
       - if: env.HUB_TOKEN != ''
         uses: docker/login-action@v3
         with:
-          username: racstan
+          username: rachitasthana
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Check where the image is already published
         id: exists
@@ -103,8 +103,8 @@ jobs:
           if [ -z "$HUB_TOKEN" ]; then
             echo "::warning::No DOCKERHUB_TOKEN secret, so the image is not published to Docker Hub."
             echo "hub=skip" >> "$GITHUB_OUTPUT"
-          elif docker manifest inspect "docker.io/racstan/progressor-mcp:$VERSION" >/dev/null 2>&1; then
-            echo "racstan/progressor-mcp:$VERSION is already on Docker Hub."
+          elif docker manifest inspect "docker.io/rachitasthana/progressor-mcp:$VERSION" >/dev/null 2>&1; then
+            echo "rachitasthana/progressor-mcp:$VERSION is already on Docker Hub."
             echo "hub=skip" >> "$GITHUB_OUTPUT"
           fi
       - id: meta
@@ -113,13 +113,13 @@ jobs:
         with:
           images: |
             ghcr.io/racstan/progressor-mcp
-            name=docker.io/racstan/progressor-mcp,enable=${{ steps.exists.outputs.hub != 'skip' }}
+            name=docker.io/rachitasthana/progressor-mcp,enable=${{ steps.exists.outputs.hub != 'skip' }}
           tags: |
             type=raw,value=${{ needs.release.outputs.version }}
             type=raw,value=latest
       - if: steps.exists.outputs.ghcr == 'true' && steps.exists.outputs.hub != 'skip'
         name: Copy the published image to Docker Hub
-        run: docker buildx imagetools create -t "docker.io/racstan/progressor-mcp:$VERSION" -t docker.io/racstan/progressor-mcp:latest "ghcr.io/racstan/progressor-mcp:$VERSION"
+        run: docker buildx imagetools create -t "docker.io/rachitasthana/progressor-mcp:$VERSION" -t docker.io/rachitasthana/progressor-mcp:latest "ghcr.io/racstan/progressor-mcp:$VERSION"
       - if: steps.exists.outputs.ghcr != 'true'
         uses: docker/build-push-action@v6
         with:
@@ -135,9 +135,9 @@ jobs:
         name: Docker Hub page
         uses: peter-evans/dockerhub-description@v4
         with:
-          username: racstan
+          username: rachitasthana
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: racstan/progressor-mcp
+          repository: rachitasthana/progressor-mcp
           short-description: Your AI's plan, saved in your project and shown live on a dashboard. Free for personal and noncommercial use.
           readme-filepath: docs/dockerhub.md
 
