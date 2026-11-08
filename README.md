@@ -167,7 +167,7 @@ Your AI does the rest. For Claude Code and Claude Desktop that one `init` comman
 
 ### Run it with Docker
 
-Would you rather not install Node? Progressor also comes as a Docker image, `ghcr.io/racstan/progressor-mcp`. You don't start the container yourself: your AI app starts one for each conversation, so you save the command it should use, once. Your project folder has to be mounted into the container, because that is where the plan is kept.
+Would you rather not install Node? Progressor also comes as a Docker image, `ghcr.io/racstan/progressor-mcp`, also on [Docker Hub](https://hub.docker.com/r/rachitasthana/progressor-mcp) as `rachitasthana/progressor-mcp`. You don't start the container yourself: your AI app starts one for each conversation, so you save the command it should use, once. Your project folder has to be mounted into the container, because that is where the plan is kept.
 
 **1. Download the image** (optional; it also downloads the first time it's used):
 
