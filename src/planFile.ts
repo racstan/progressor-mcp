@@ -933,6 +933,11 @@ export class PlanFile {
     this.removeBlock(this.entryBlock(MESSAGES, "message", id));
   }
 
+  /** Takes a question, with its answer, out of the talk. */
+  removeQuestion(id: string): void {
+    this.removeBlock(this.entryBlock(QUESTIONS, "question", id));
+  }
+
   /** The Agent's reply to a message; a message replied to again keeps only the last reply. */
   replyToMessage(id: string, reply: string, at: Date): Message {
     const b = this.entryBlock(MESSAGES, "message", id);

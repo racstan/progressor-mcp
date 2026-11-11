@@ -17,6 +17,7 @@ import { calendarRoutes } from "./routes/calendar.js";
 import { daemonRoutes } from "./routes/daemon.js";
 import { globalRoutes } from "./routes/global.js";
 import { projectRoutes } from "./routes/projects.js";
+import { goalNoteRoutes } from "./routes/goalNotes.js";
 
 /** What the hub gives every feature route. */
 export interface HubContext {
@@ -65,6 +66,7 @@ export const featureRoutes: FeatureRoute[] = [
   ...daemonRoutes,
   ...globalRoutes,
   ...projectRoutes,
+  ...goalNoteRoutes,
 ];
 
 /** A body bigger than this is refused unread, unless the route asks for more. */

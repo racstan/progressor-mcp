@@ -1607,6 +1607,38 @@ export class Project {
     this.saveTalk(talk);
   }
 
+  /**
+   * The Developer removes something from a conversation on the dashboard: a message they wrote (read
+   * or not, with the AI's reply) or a question the AI asked that is answered or withdrawn. A question
+   * still waiting for an answer cannot be removed, only answered. The AI is not told.
+   */
+  removeFromTalk(goalId: string, id: string): void {
+    const talk = this.talkable(goalId);
+    if (talk.message(id)) talk.removeMessage(id);
+    else {
+      const question = talk.question(id);
+      if (!question) throw new Error(`No message ${id} in Goal ${goalId}.`);
+      if (question.state === "open") throw new Error(`Your AI is still waiting for your answer to ${id}, so it can't be removed. Answer it instead.`);
+      talk.removeQuestion(id);
+    }
+    this.saveTalk(talk);
+  }
+
+  /**
+   * Removes every finished message from a conversation: the Developer's messages the AI has read or
+   * answered, and questions that are answered (and the answer shown to the AI) or withdrawn. Messages
+   * the AI has not read yet, open questions and answers it has not seen stay. Gives how many went.
+   */
+  clearFinishedTalk(goalId: string): number {
+    const talk = this.talkable(goalId);
+    const messages = talk.messages.filter((m) => m.state !== "new").map((m) => m.id!);
+    const questions = talk.questions.filter((q) => q.state === "withdrawn" || (q.state === "answered" && q.seen)).map((q) => q.id!);
+    for (const id of messages) talk.removeMessage(id);
+    for (const id of questions) talk.removeQuestion(id);
+    if (messages.length + questions.length > 0) this.saveTalk(talk);
+    return messages.length + questions.length;
+  }
+
   /** The Developer's answer to a question: one of its choices or their own words, kept as a decision too. */
   answerQuestion(goalId: string, id: string, answer: string): Question {
     const words = cutText(answer);
@@ -1815,6 +1847,23 @@ export class Project {
       this.markItems(plan, [id]);
       result = plan.note(id);
     }
+    this.savePlan(plan);
+    return result;
+  }
+
+  /**
+   * The Developer rewords a goal's decision on the dashboard, or removes it with an empty text; no
+   * Claim is needed. Undefined when removed.
+   */
+  editDecision(goalId: string, id: string, text: string): Decision | undefined {
+    const plan = this.notable(goalId);
+    plan.assignMissingIds();
+    if (!plan.decision(id)) throw new Error(`No decision ${id} in Goal ${goalId}.`);
+    let result: Decision | undefined;
+    if (text.trim()) {
+      this.markItems(plan, [plan.setDecision(id, text).id]);
+      result = plan.decision(id);
+    } else plan.removeDecision(id);
     this.savePlan(plan);
     return result;
   }

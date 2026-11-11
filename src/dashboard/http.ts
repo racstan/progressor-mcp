@@ -689,8 +689,21 @@ class Hub {
       return v;
     };
     try {
-      const answer = project.transaction(action === "messages" ? "Sent a message" : action.endsWith("/more") ? "Asked for other options" : action.startsWith("questions") ? "Answered a question" : "Took back a message", () => {
+      const label =
+        action === "messages" ? "Sent a message"
+        : action === "clear" ? "Cleared finished messages"
+        : action.endsWith("/remove") ? "Removed a message"
+        : action.endsWith("/more") ? "Asked for other options"
+        : action.startsWith("questions") ? "Answered a question"
+        : "Took back a message";
+      const answer = project.transaction(label, () => {
         if (action === "messages") return { status: 201, body: project.sendMessage(goalId, words("text")) };
+        if (action === "clear") return { status: 200, body: { removed: project.clearFinishedTalk(goalId) } };
+        const remove = /^(?:messages|questions)\/([^/]+)\/remove$/.exec(action);
+        if (remove) {
+          project.removeFromTalk(goalId, remove[1]!);
+          return { status: 200, body: { removed: remove[1] } };
+        }
         const del = /^messages\/([^/]+)\/delete$/.exec(action);
         if (del) {
           project.deleteMessage(goalId, del[1]!);
@@ -705,7 +718,7 @@ class Hub {
       return json(res, answer.status, answer.body);
     } catch (e) {
       const message = (e as Error).message;
-      return json(res, /^No /.test(message) ? 404 : /already|withdrawn/.test(message) ? 409 : 400, { error: message });
+      return json(res, /^No /.test(message) ? 404 : /already|withdrawn|still waiting/.test(message) ? 409 : 400, { error: message });
     }
   }
 
@@ -728,7 +741,12 @@ class Hub {
         if (action === "context") {
           if (text === undefined) throw new Error("Write the project notes first.");
           const context = project.setContext(text);
-          project.sendMessage(PROJECT_TALK, "On the dashboard I changed the Important context. Read it again with get_rules before your next step.");
+          project.sendMessage(
+            PROJECT_TALK,
+            context
+              ? "On the dashboard I changed the Important context. Read it again with get_rules before your next step."
+              : "On the dashboard I removed the Important context. Fill it in again with update_context only if I ask.",
+          );
           return { status: 200, body: { context } };
         }
         if (action === "rules") {
@@ -913,7 +931,7 @@ class Hub {
     if (req.method === "POST" && upload) return void this.attach(req, res, decodeURIComponent(upload[1]!), decodeURIComponent(upload[2]!));
     const notes = /^\/api\/projects\/([^/]+)\/(context|hotfixes|(?:rules|wishes)(?:\/[^/]+(?:\/attachments\/[^/]+)?(?:\/delete)?)?)$/.exec(path);
     if (req.method === "POST" && notes) return void this.notes(req, res, decodeURIComponent(notes[1]!), notes[2]!);
-    const talk = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/((?:messages|questions)(?:\/[^/]+\/(?:delete|answer|more))?)$/.exec(path);
+    const talk = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/((?:messages|questions)(?:\/[^/]+\/(?:delete|answer|more|remove))?|clear)$/.exec(path);
     if (req.method === "POST" && talk) return void this.talk(req, res, decodeURIComponent(talk[1]!), decodeURIComponent(talk[2]!), talk[3]!);
     const mark = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/hand-tests\/([^/]+)$/.exec(path);
     if (req.method === "POST" && mark)
