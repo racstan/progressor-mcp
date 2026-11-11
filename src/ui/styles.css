@@ -870,6 +870,8 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .checkup-card { margin-top: var(--s5); }
 .checkup-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
 .checkup-list { list-style: none; margin: var(--s2) 0 0; padding: 0; display: grid; gap: var(--s1); }
+/* The card keeps a fixed height however much the check-up found; its findings scroll inside. */
+.checkup-card .checkup-list { max-height: 320px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; align-content: start; }
 .checkup-list li { font-size: var(--t-s); padding: var(--s1) var(--s2); border-left: 3px solid var(--line-strong); }
 .checkup-list li.left { border-left: var(--heavy); border-left-width: 3px; font-weight: 600; }
 .checkup-list li b { margin-right: var(--s1); }
