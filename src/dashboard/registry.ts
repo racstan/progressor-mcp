@@ -56,8 +56,8 @@ function read(file: string): RegistryFile {
   }
 }
 
-/** Writes one list; projects.json holds only the projects and workspaces.json only the Workspaces. */
-function write(file: string, data: Partial<RegistryFile>): void {
+/** Writes one list; projects.json holds only the projects, workspaces.json only the Workspaces and hidden.json the removed projects. */
+function write(file: string, data: Partial<RegistryFile> | { hidden: WorkspaceEntry[] }): void {
   mkdirSync(dirname(file), { recursive: true });
   const text = `${JSON.stringify(data, null, 2)}\n`;
   const tmp = `${file}.${process.pid}.tmp`;
@@ -82,9 +82,61 @@ function add(kind: keyof RegistryFile, root: string, file: string): WorkspaceEnt
 
 const byName = (a: WorkspaceEntry, b: WorkspaceEntry) => a.name.localeCompare(b.name) || a.root.localeCompare(b.root);
 
-/** Adds a project to the registry, if it is not there yet. Returns its entry. */
+/**
+ * Adds a project to the registry, if it is not there yet. Returns its entry. A Progressor server
+ * calls it when it starts in a project, so a project the Developer removed from the dashboard comes
+ * back once their AI uses Progressor there again.
+ */
 export function registerProject(root: string, file = defaultRegistryFile()): ProjectEntry {
+  unhideProject(root, file);
   return add("projects", root, file);
+}
+
+/**
+ * The projects the Developer removed from the dashboard, in their own file beside the projects'
+ * (`~/.progressor/hidden.json`), so a Progressor server from before this list, which rewrites
+ * projects.json, cannot drop it. It keeps a removed project from coming back through a Workspace scan.
+ */
+const hiddenFile = (registryFile: string) => join(dirname(registryFile), "hidden.json");
+
+function readHidden(registryFile: string): WorkspaceEntry[] {
+  try {
+    const data = JSON.parse(readFileSync(hiddenFile(registryFile), "utf8")) as { hidden?: unknown };
+    return Array.isArray(data.hidden) ? data.hidden.filter(isEntry).map(({ id, name, root }) => ({ id, name, root })) : [];
+  } catch {
+    return [];
+  }
+}
+
+const writeHidden = (registryFile: string, hidden: WorkspaceEntry[]) => write(hiddenFile(registryFile), { hidden });
+
+/**
+ * Takes a project off the dashboard: off the project list, and hidden from Workspace scans. Its
+ * folder and its .progressor/ plan are not touched. Gives its entry.
+ */
+export function removeProject(root: string, file = defaultRegistryFile()): WorkspaceEntry {
+  const entry = projectEntry(root);
+  const data = read(file);
+  const kept = data.projects.filter((p) => p.id !== entry.id);
+  if (kept.length !== data.projects.length) write(file, { projects: kept });
+  const hidden = readHidden(file);
+  if (!hidden.some((h) => h.id === entry.id)) writeHidden(file, [...hidden, entry]);
+  return entry;
+}
+
+/** Shows a removed project again. True when it was hidden. */
+export function unhideProject(root: string, file = defaultRegistryFile()): boolean {
+  const { id } = projectEntry(root);
+  const hidden = readHidden(file);
+  const kept = hidden.filter((h) => h.id !== id);
+  if (kept.length === hidden.length) return false;
+  writeHidden(file, kept);
+  return true;
+}
+
+/** The IDs of the projects the Developer removed from the dashboard. */
+export function hiddenProjectIds(file = defaultRegistryFile()): Set<string> {
+  return new Set(readHidden(file).map((h) => h.id));
 }
 
 /** The registered projects that still have a progress record, by name. */

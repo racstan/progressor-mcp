@@ -6,6 +6,7 @@ import { PROGRESSOR_DIR, Project, type ProjectOverview, type Status } from "./pr
 import { launcherWarning, onPath } from "./init.js";
 import { seenFile, takeElsewhereLine } from "./elsewhere.js";
 import { hardFirst, hotfixLine, ruleText } from "./roadmap.js";
+import { type GlobalNotes, defaultGlobalFile, globalFileFor, globalRuleText, readGlobal } from "./globalRules.js";
 import { handTestLines } from "./handTestText.js";
 import { promptNewsLine, talkLines } from "./talkText.js";
 import { existsSync } from "node:fs";
@@ -29,8 +30,12 @@ function goalLine(s: Status): string {
   return `- ${s.goal?.title}: ${[now, ...(s.nextTask ? [`next ${task(s.nextTask)}`] : []), ...elsewhere(s)].join("; ")}`;
 }
 
-function instructions(o: ProjectOverview): string[] {
+function instructions(o: ProjectOverview, global?: GlobalNotes): string[] {
+  const everywhere = global ? hardFirst(global.rules) : [];
   return [
+    // The rules and context for every project (globalRules.ts) come before the project's own.
+    ...(everywhere.length > 0 ? [`Rules for every project: ${everywhere.map(globalRuleText).join("; ")}`] : []),
+    ...(global?.context ? ["Context for every project:", global.context] : []),
     ...(o.standingInstructions.length > 0 ? [`Standing Instructions: ${hardFirst(o.standingInstructions).map(ruleText).join("; ")}`] : []),
     ...(o.context ? ["Important context:", o.context] : []),
   ];
@@ -64,10 +69,10 @@ function fullStatus(s: Status): string[] {
  * The status added at session start and after context compaction. Undefined for a project that has
  * no Goals, so projects that don't use Progressor get nothing.
  */
-export function sessionStatus(o: ProjectOverview): string | undefined {
+export function sessionStatus(o: ProjectOverview, global?: GlobalNotes): string | undefined {
   if (o.active.length === 0 && o.paused.length === 0 && o.planned.length === 0 && !o.context) return undefined;
   const hotfix = hotfixOf(o);
-  const text = sessionText(o);
+  const text = sessionText(o, global);
   return hotfix ? `${PREFIX} ${hotfix}\n${text}` : text;
 }
 
@@ -76,13 +81,13 @@ function hotfixOf(o: ProjectOverview): string | undefined {
   return hotfixLine([...o.planned, ...o.paused.flatMap((s) => (s.goal ? [s.goal] : []))]);
 }
 
-function sessionText(o: ProjectOverview): string {
+function sessionText(o: ProjectOverview, global?: GlobalNotes): string {
   const [only] = o.active;
   if (only && o.active.length === 1)
     return [
       `${PREFIX} The plan for this project, kept in .progressor/ by the progressor MCP server:`,
       ...fullStatus(only),
-      ...instructions(o),
+      ...instructions(o, global),
       "Call get_status before you start. Declare a Detour (start_detour) before doing anything that isn't the current Task.",
     ].join("\n");
   // One Session holding them all is most likely this conversation, picking up after compaction.
@@ -90,14 +95,14 @@ function sessionText(o: ProjectOverview): string {
     return [
       `${PREFIX} One Session is working on ${o.active.length} Goals in this project:`,
       ...o.active.flatMap(fullStatus),
-      ...instructions(o),
+      ...instructions(o, global),
       "Call get_status before you start, and pass goal (the Goal ID) to the tools that change one. Declare a Detour (start_detour) before doing anything that isn't the current Task.",
     ].join("\n");
   if (o.active.length > 1)
     return [
       `${PREFIX} ${o.active.length} Goals are being worked on in this project:`,
       ...o.active.map(goalLine),
-      ...instructions(o),
+      ...instructions(o, global),
       "Call get_status to see which Goal is yours before you start. Declare a Detour (start_detour) before doing anything that isn't the current Task.",
     ].join("\n");
   const at = (s: Status) => (s.currentTask ? `at ${task(s.currentTask)}` : s.nextTask ? `next ${task(s.nextTask)}` : "no Tasks left");
@@ -105,7 +110,7 @@ function sessionText(o: ProjectOverview): string {
     `${PREFIX} No Goal is being worked on in this project right now.`,
     ...(o.paused.length > 0 ? [`Paused: ${o.paused.map((s) => `${s.goal?.title} (${at(s)})`).join("; ")}`] : []),
     ...(o.planned.length > 0 ? [`Planned: ${o.planned.map((g) => g.title).join("; ")}`] : []),
-    ...instructions(o),
+    ...instructions(o, global),
     "Before starting work, call get_status, then claim the Goal the Developer wants to work on (claim_goal) or add one (add_goal).",
   ].join("\n");
 }
@@ -210,7 +215,8 @@ export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, 
     const project = new Project({ root, session: { id: "hook", pid: process.pid }, isAlive });
     const overview = project.overview();
     const warning = kind === "session-start" ? launcherWarning(root, canRun) : undefined;
-    const status = kind === "session-start" ? sessionStatus(overview) : promptReminder(overview, now());
+    const global = readGlobal(env.PROGRESSOR_REGISTRY ? globalFileFor(env.PROGRESSOR_REGISTRY) : defaultGlobalFile());
+    const status = kind === "session-start" ? sessionStatus(overview, global) : promptReminder(overview, now());
     // Changes an AI chat in another project made to this plan, told once (elsewhere.ts).
     const elsewhere = takeElsewhereLine(project, env.PROGRESSOR_REGISTRY ? seenFile(env.PROGRESSOR_REGISTRY) : seenFile());
     const text = [

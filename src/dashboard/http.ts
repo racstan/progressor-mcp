@@ -32,6 +32,7 @@ import { runRoutinesIn } from "./routes/routines.js";
 import { type FetchFn, lookAtProject, sendNew } from "../ntfy.js";
 import { type Look, eventsBetween } from "../events.js";
 import { readSettings, settingsFileFor } from "../settings.js";
+import { globalFileFor, readGlobal } from "../globalRules.js";
 import type { GoalLookup } from "../dependencies.js";
 import { watchProgress } from "./watch.js";
 import { allProjects, findProjects } from "./workspace.js";
@@ -471,7 +472,22 @@ class Hub {
     if (!changed && JSON.stringify(entries) !== JSON.stringify(this.entries)) changed = true;
     this.entries = entries;
     if (changed) this.send("projects", entries);
+    this.watchGlobal();
     return entries;
+  }
+
+  private globalSeen: number | undefined;
+  /** Tells open pages when the rules and context for every project changed, such as by an AI's tool call (globalRules.ts). */
+  private watchGlobal(): void {
+    const file = globalFileFor(this.registryFile);
+    let at = 0;
+    try {
+      at = statSync(file).mtimeMs;
+    } catch {
+      // no file yet: nothing for every project
+    }
+    if (this.globalSeen !== undefined && at !== this.globalSeen) this.send("global", readGlobal(file));
+    this.globalSeen = at;
   }
 
   /** Every project with its Goals' progress, for the overview page. */
@@ -878,6 +894,7 @@ class Hub {
       settingsFile: this.settingsFile,
       registryFile: this.registryFile,
       send: (event, data) => this.send(event, data),
+      refresh: () => void this.sync(),
       fetch: this.ntfyFetch,
     };
   }

@@ -15,6 +15,8 @@ import { settingsRoutes } from "./routes/settings.js";
 import { routinesRoutes } from "./routes/routines.js";
 import { calendarRoutes } from "./routes/calendar.js";
 import { daemonRoutes } from "./routes/daemon.js";
+import { globalRoutes } from "./routes/global.js";
+import { projectRoutes } from "./routes/projects.js";
 
 /** What the hub gives every feature route. */
 export interface HubContext {
@@ -26,6 +28,8 @@ export interface HubContext {
   registryFile: string;
   /** Tells every open dashboard page something changed (a server-sent event). */
   send(event: string, data: unknown): void;
+  /** Reads the project list again now, telling open pages when it changed. */
+  refresh(): void;
   /** How web requests are made, so a test can stand in for the network (ntfy). Undefined means the real one. */
   fetch?: unknown;
 }
@@ -59,6 +63,8 @@ export const featureRoutes: FeatureRoute[] = [
   ...routinesRoutes,
   ...calendarRoutes,
   ...daemonRoutes,
+  ...globalRoutes,
+  ...projectRoutes,
 ];
 
 /** A body bigger than this is refused unread, unless the route asks for more. */

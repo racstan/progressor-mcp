@@ -4,7 +4,7 @@
 import { type Dirent, existsSync, readdirSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { PROGRESSOR_DIR, ROADMAP_FILE } from "../project.js";
-import { type ProjectEntry, defaultRegistryFile, listProjects, listWorkspaces, pathKey, projectEntry } from "./registry.js";
+import { type ProjectEntry, defaultRegistryFile, hiddenProjectIds, listProjects, listWorkspaces, pathKey, projectEntry } from "./registry.js";
 
 /** Folders that hold dependencies or build output, never a Project of their own. */
 const SKIPPED = new Set([
@@ -58,7 +58,7 @@ const within = (dir: string, workspace: string) => {
 
 /**
  * Every project the dashboard shows: the ones Progressor servers registered and the ones found in
- * the Workspaces, each once, by name. A project inside a Workspace is tagged with the innermost one.
+ * the Workspaces (less the ones the Developer removed), each once, by name. A project inside a Workspace is tagged with the innermost one.
  */
 export function allProjects(
   registryFile = defaultRegistryFile(),
@@ -67,9 +67,11 @@ export function allProjects(
   const workspaces = listWorkspaces(registryFile).sort((a, b) => b.root.length - a.root.length);
   const byId = new Map<string, ProjectEntry>();
   for (const p of listProjects(registryFile)) byId.set(p.id, p);
+  // A project the Developer removed from the dashboard stays off it, though a Workspace still holds it.
+  const hidden = hiddenProjectIds(registryFile);
   for (const w of workspaces) for (const root of scan(w.root)) {
     const entry = projectEntry(root);
-    if (!byId.has(entry.id)) byId.set(entry.id, entry);
+    if (!byId.has(entry.id) && !hidden.has(entry.id)) byId.set(entry.id, entry);
   }
   return [...byId.values()]
     .map((p) => {

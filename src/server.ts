@@ -24,6 +24,7 @@ import { everyWords, parseEvery } from "./routines.js";
 import { releaseFacts } from "./facts.js";
 import { offerHint, parseWait } from "./alternatives.js";
 import { registerFeatureTools } from "./tools/index.js";
+import { type GlobalNotes, addGlobalRule, globalFileFor, globalStatusLines, setGlobalContext, readGlobal, updateGlobalRule } from "./globalRules.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const BUILD_SEAL = "368785021a7bdfc977b37e328e88f7750027fa2b92ecb8f73cfeeb2b2e433fa0";
@@ -38,7 +39,7 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 5. About to change code for something that is not the current Task? Call start_detour with the reason first; afterwards end_detour ("merge back", "return" or "recalibrate").
 6. When every Task is done, released or dropped and the Outcome is true, call complete_goal and tell the Developer in one sentence.
 7. Talk to the Developer in everyday words: say "step" for Task and "side trip" for Detour, and leave out tool names, IDs and the files in .progressor/. Give them the dashboard link from get_status at the start and when a Goal is finished.
-8. A lasting rule from the Developer ("always...", "never...") is saved with add_standing_instruction (update_standing_instruction changes or removes one); a rule that must never be broken (they say "never", "this is a hard rule") with hard: true. update_context keeps the project's short Important context page; add_decision records a choice that is not a project rule; add_note records something that belongs to a Goal instead of fixing it now.
+8. A lasting rule from the Developer ("always...", "never...") is saved with add_standing_instruction (update_standing_instruction changes or removes one); a rule that must never be broken (they say "never", "this is a hard rule") with hard: true; a rule for every project (they say "in all my projects...") with global: true. update_context keeps the project's short Important context page; add_decision records a choice that is not a project rule; add_note records something that belongs to a Goal instead of fixing it now.
 9. Anything only the Developer can try by hand goes in add_hand_test, not in your chat summary. Show a screenshot or recording with attach_picture instead of naming a file.
 10. The Developer can write to you on the dashboard: their messages and answers arrive at the end of your next Progressor reply under "New from the Developer". Act on each one and answer with reply_to_developer (whole_project: true for a message to the whole project). For a product or UX choice, use ask_developer with 2 to 4 short choices instead of stopping in the chat.
 11. When you brief a helper agent, paste in the block from get_rules: helpers don't see the Standing Instructions. Before starting something only one can use at a time (a dev window, a port), call claim_resource; release_resource when done.
@@ -131,6 +132,10 @@ const hardFlag = z
   .boolean()
   .optional()
   .describe("true for a rule that must never be broken (not just a preference); get_status, the session start and get_rules list those first as HARD RULE.");
+const globalFlag = z
+  .boolean()
+  .optional()
+  .describe("true for a rule for every project: the Developer says it holds in all their projects ('in all my projects...'). Saved once for this computer; every project's get_status shows it.");
 const outcome = z
   .string()
   .describe("What done looks like, in one sentence, such as 'Users can sign in with Google and stay signed in for 30 days'.");
@@ -321,12 +326,15 @@ export function estimateLine(c: { factor: number | undefined; samples: number } 
   return `Your estimates here have run ${c.factor.toFixed(1)}× ${long ? "long" : "short"} (last ${c.samples} steps); allow for it.`;
 }
 
-export function formatStatus(session: SessionStatus, schedule?: Schedule, warnings: string[] = [], waits?: Map<string, string>): string {
+export function formatStatus(session: SessionStatus, schedule?: Schedule, warnings: string[] = [], waits?: Map<string, string>, global?: GlobalNotes): string {
   const rules = hardFirst(session.standingInstructions);
-  const instructions =
-    rules.length > 0
+  // The rules and context for every project come first, then this project's own.
+  const instructions = [
+    ...globalStatusLines(global),
+    ...(rules.length > 0
       ? [rules.some((r) => r.hard) ? "Standing Instructions (a HARD RULE must never be broken):" : "Standing Instructions:", ...rules.map((r) => `- ${ruleText(r)}`)]
-      : [];
+      : []),
+  ];
   const timing = [...(schedule ? scheduleLines(schedule, session.held.map((s) => s.goal!.id)) : []), ...warnings];
   if (session.context) instructions.push("Important context:", session.context);
   instructions.push(...wishlistLines(session.wishes));
@@ -383,12 +391,27 @@ export function formatStatus(session: SessionStatus, schedule?: Schedule, warnin
  * The rules as a block to paste into a helper agent's brief: hard rules first, then the others.
  * A helper does not see the Standing Instructions, but it is bound by them.
  */
-export function formatRules(instructions: StandingInstruction[]): string {
-  if (instructions.length === 0) return "No Standing Instructions are set for this project, so there is no rules block to add to the brief.";
+export function formatRules(instructions: StandingInstruction[], global?: GlobalNotes): string {
+  const everywhere = global ? hardFirst(global.rules) : [];
+  const everywhereContext = global?.context ?? "";
+  if (instructions.length === 0 && everywhere.length === 0 && !everywhereContext)
+    return "No Standing Instructions are set for this project, so there is no rules block to add to the brief.";
   const hard = instructions.filter((i) => i.hard);
   const other = instructions.filter((i) => !i.hard);
   const limit = helperLimit(instructions);
+  const globalBlock = [
+    ...(everywhere.length > 0
+      ? [
+          "Rules from the Developer for every project (they apply in all their projects):",
+          ...everywhere.map((r) => `- ${r.hard ? "HARD RULE, never break it: " : ""}${r.text}`),
+        ]
+      : []),
+    ...(everywhereContext ? ["Context for every project:", everywhereContext] : []),
+  ];
+  if (instructions.length === 0)
+    return [...globalBlock, "This project has no rules of its own.", "Do not edit anything in .progressor/; the Agent that briefed you keeps the plan there."].join("\n");
   return [
+    ...globalBlock,
     "Project rules from the Developer. Follow all of them in this work.",
     ...(hard.length > 0
       ? ["HARD RULES: never break these. If the work seems to need breaking one, stop and report back instead.", ...hard.map((i) => `- ${i.text}`)]
@@ -711,6 +734,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           ...resourceLines(project.resources().list(), project.now()),
         ],
         goalWaits(session.goals),
+        readGlobal(globalFile),
       ),
       ...session.held.filter((h) => h.goal!.release !== undefined && h.goal!.status !== "done").map((h) => `\n${releaseFor(project, h.goal!).text}`),
     ].join("\n");
@@ -721,6 +745,8 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   // Apps without Claude Code's hooks never hand the Agent the plan between calls, so results that
   // don't show the whole status end with where the work stands.
   const settingsFile = options.settingsFile ?? settingsFileFor(options.registryFile ?? defaultRegistryFile());
+  // The rules and context for every project (globalRules.ts), beside the project list.
+  const globalFile = globalFileFor(options.registryFile ?? defaultRegistryFile());
   const estimatesOf = (p: Project) => readSettings(settingsFile, p.root).estimates;
   // Release goals (facts.ts): the facts the AI writes the changelog entry and version bump from.
   const releaseFor = (p: Project, g: Goal, bundles?: string[]) => {
@@ -884,10 +910,10 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Get rules",
       description:
-        "The project's Standing Instructions as a block to paste into the brief of a helper agent you start, hard rules first. Helpers don't see the Standing Instructions, so include this block whenever you brief one.",
+        "The Developer's rules as a block to paste into the brief of a helper agent you start: the rules and context for every project first, then this project's Standing Instructions, hard rules first. Helpers don't see the Standing Instructions, so include this block whenever you brief one.",
       annotations: { readOnlyHint: true },
     },
-    () => respondIn(undefined, () => formatRules(project.roadmap().standingInstructions)),
+    () => respondIn(undefined, () => formatRules(project.roadmap().standingInstructions, readGlobal(globalFile))),
   );
 
   server.registerTool(
@@ -1638,15 +1664,22 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Add Standing Instruction",
       description:
-        "Save a lasting rule from the Developer about how you should work in this project, such as 'ask me before changing the plan'. get_status lists it from then on. Use it only for rules meant to last; a one-off request is just done.",
+        "Save a lasting rule from the Developer about how you should work in this project, such as 'ask me before changing the plan'. get_status lists it from then on. Use it only for rules meant to last; a one-off request is just done. " +
+        "A rule the Developer says holds in every project ('in all my projects...', 'always, everywhere...') goes in with global: true: it is saved once for this computer and every project's get_status shows it.",
       inputSchema: {
         text: z.string().min(1).describe("The rule, in the Developer's words where possible."),
         hard: hardFlag,
         helpers_at_once: helpersAtOnce,
+        global: globalFlag,
       },
     },
-    ({ text, hard, helpers_at_once }) =>
+    ({ text, hard, helpers_at_once, global }) =>
       respondIn(undefined, () => {
+        if (global) {
+          if (helpers_at_once) throw new Error("A helper limit belongs to one project: add it without global.");
+          const g = addGlobalRule(globalFile, text, hard ?? false);
+          return withNow(`Saved ${g.hard ? "HARD RULE" : "rule"} ${g.id} for every project: ${g.text}`);
+        }
         const s = project.addStandingInstruction(text, hard, helpers_at_once || undefined);
         return withNow(`Saved ${s.hard ? "HARD RULE" : "Standing Instruction"} ${s.id}: ${s.text}${limitText(s)}`);
       }),
@@ -1657,16 +1690,23 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Update Standing Instruction",
       description:
-        "Reword a Standing Instruction when the Developer changes a rule, make it a hard rule (hard: true) or an ordinary one again (hard: false), set or change the helper limit it holds (helpers_at_once), or remove it with an empty text when they drop it. Give any of text, hard and helpers_at_once; what you leave out stays. The IDs (s1, s2...) are in get_status.",
+        "Reword a Standing Instruction when the Developer changes a rule, make it a hard rule (hard: true) or an ordinary one again (hard: false), set or change the helper limit it holds (helpers_at_once), or remove it with an empty text when they drop it. Give any of text, hard and helpers_at_once; what you leave out stays. The IDs (s1, s2...) are in get_status. " +
+        "For a rule for every project (IDs g1, g2...), pass global: true.",
       inputSchema: {
-        id: z.string().describe("The Standing Instruction ID, such as 's2'."),
+        id: z.string().describe("The Standing Instruction ID, such as 's2', or a rule for every project's ID, such as 'g1', with global: true."),
         text: z.string().optional().describe("The new wording; empty to remove the rule. Left out, the wording stays."),
         hard: hardFlag,
         helpers_at_once: helpersAtOnce,
+        global: globalFlag,
       },
     },
-    ({ id, text, hard, helpers_at_once }) =>
+    ({ id, text, hard, helpers_at_once, global }) =>
       respondIn(undefined, () => {
+        if (global || /^g\d+$/i.test(id.trim())) {
+          if (helpers_at_once !== undefined) throw new Error("A helper limit belongs to one project: set it on a project rule, without global.");
+          const g = updateGlobalRule(globalFile, id, { text, hard });
+          return g ? `Changed ${g.hard ? "HARD RULE" : "rule"} ${g.id} for every project: ${g.text}` : `Removed rule ${id} for every project.`;
+        }
         const s = project.updateStandingInstruction(id, { text, hard, helpersAtOnce: helpers_at_once });
         return s ? `Changed ${s.hard ? "HARD RULE" : "Standing Instruction"} ${s.id}: ${s.text}${limitText(s)}` : `Removed Standing Instruction ${id}.`;
       }),
@@ -1680,10 +1720,20 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         "Replace the project's Important context: lasting background you and the Developer need in every conversation, such as what the project is, key facts, where things live and choices that hold for the whole project. " +
         "Not for rules (add_standing_instruction) or for one Goal's details. get_status shows the current text: send the whole new text, or an empty text to clear it. " +
         `At most ${MAX_CONTEXT_LENGTH} characters.`,
-      inputSchema: { text: z.string().describe("The whole Important context, in plain words; short paragraphs or a list.") },
+      inputSchema: {
+        text: z.string().describe("The whole Important context, in plain words; short paragraphs or a list."),
+        global: z
+          .boolean()
+          .optional()
+          .describe("true to replace the context for every project instead: background the Developer says holds in all their projects. get_status shows it in every project."),
+      },
     },
-    ({ text }) =>
+    ({ text, global }) =>
       respondIn(undefined, () => {
+        if (global) {
+          const context = setGlobalContext(globalFile, text);
+          return context ? `Saved the context for every project (${context.length} of ${MAX_CONTEXT_LENGTH} characters).` : "Cleared the context for every project.";
+        }
         const context = project.setContext(text);
         return context
           ? `Saved the Important context (${context.length} of ${MAX_CONTEXT_LENGTH} characters).`
