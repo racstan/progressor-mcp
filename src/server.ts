@@ -44,7 +44,7 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 10. The Developer can write to you on the dashboard: their messages and answers arrive at the end of your next Progressor reply under "New from the Developer". Act on each one and answer with reply_to_developer (whole_project: true to message the whole project). For a product or UX choice, use ask_developer with 2 to 4 short choices instead of stopping in the chat.
 11. When you brief a helper agent, paste in the block from get_rules: helpers don't see the Standing Instructions. Before starting something only one can use at a time (a dev window, a port), call claim_resource; release_resource when done.
 12. Work that belongs to another project using Progressor goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it.
-13. A * line in .progressor/.gitignore keeps the plan out of git; delete it to commit the plan.`;
+13. A * line in .progressor/.gitignore keeps the plan out of git; delete it to keep it in git.`;
 
 const resourceName = z.string().max(80).describe("The shared thing's name, such as 'dev-window' or 'plasmashell'. Case and spaces do not matter.");
 const resourceLabel = z
