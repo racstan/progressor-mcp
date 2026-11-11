@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DEFAULT_EDITOR, editorUrl } from "../dashboard/editor.js";
 import type { GoalSchedule } from "../schedule.js";
-import { type RoadmapView, showInFolder, useDashboard, useOverview, useSearch, useServers, usePageStaleness, useSettings, useStored, useStoredJson, renewPhoneTopic, resetComputerSettings, saveSettings } from "./data.js";
+import { type ProjectEntry, type RoadmapView, removeProjectFromDashboard, showInFolder, useDashboard, useOverview, useSearch, useServers, usePageStaleness, useSettings, useStored, useStoredJson, renewPhoneTopic, resetComputerSettings, saveSettings } from "./data.js";
 import { HotfixPage } from "./HotfixPage.js";
 import { WhatsNew, changelog } from "./WhatsNew.js";
 import { ContextPage } from "./ContextPage.js";
@@ -672,9 +672,12 @@ export function App() {
               <div className="side-group">
                 <h3>Projects</h3>
                 {sortProjects(projects ?? []).map((p) => (
-                  <button key={p.id} className="side-link" onClick={() => pickProject(p.id)} title={p.root}>
-                    <Icon name="file" /> {p.name}
-                  </button>
+                  <SideProject key={p.id} project={p} canRemove={!sample} onPick={() => pickProject(p.id)}
+                    onRemoved={() => {
+                      if (p.id === pickedProject) goHome();
+                      refresh();
+                      toast(`${p.name} is off the dashboard. Its plan is unchanged.`);
+                    }} />
                 ))}
               </div>
             </>
@@ -821,6 +824,54 @@ function ProjectList({ current, projects, onPick, onHome, onClose }: {
           <span className="path">{p.root}</span>
         </button>
       ))}
+    </div>
+  );
+}
+
+/**
+ * A project in Home's sidebar. Hovering it or moving to it with the keyboard shows a remove button;
+ * removing takes it off the dashboard only (registry.ts): its folder and plan stay as they are.
+ */
+function SideProject({ project: p, canRemove, onPick, onRemoved }: { project: ProjectEntry; canRemove: boolean; onPick: () => void; onRemoved: () => void }) {
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const remove = async () => {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await removeProjectFromDashboard(p.id);
+      setAsking(false);
+      onRemoved();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className={`side-project ${asking ? "asking" : ""}`}>
+      <div className="side-project-row">
+        <button className="side-link" onClick={onPick} title={p.root}>
+          <Icon name="file" /> <span className="side-project-name">{p.name}</span>
+        </button>
+        {canRemove && !asking && (
+          <button className="iconbtn side-remove" aria-label={`Remove ${p.name} from the dashboard`} title="Remove from the dashboard (its plan stays)"
+            onClick={() => setAsking(true)}>
+            <Icon name="close" size={14} />
+          </button>
+        )}
+      </div>
+      {asking && (
+        <div className="side-confirm" role="group" aria-label={`Remove ${p.name} from the dashboard?`}>
+          <p>Remove <b>{p.name}</b> from the dashboard? Its folder and plan are not touched. It comes back if your AI uses Progressor there again.</p>
+          <div className="form-actions">
+            <button className="btn small" disabled={busy} autoFocus onClick={() => void remove()}>Remove</button>
+            <button className="btn ghost small" disabled={busy} onClick={() => setAsking(false)}>Keep it</button>
+          </div>
+          {error && <div className="error" role="alert">{error}</div>}
+        </div>
+      )}
     </div>
   );
 }

@@ -8,6 +8,21 @@ import { useSend } from "./Talk.js";
 
 type Rule = { id?: string; text: string; hard?: boolean; helpersAtOnce?: number };
 
+/** Where rule and context changes go: one project's notes, or the ones for every project (Home). */
+export interface NotesApi {
+  add(text: string, hard: boolean): Promise<void>;
+  change(id: string, text: string, hard: boolean): Promise<void>;
+  remove(id: string): Promise<void>;
+  saveContext(text: string): Promise<void>;
+}
+
+const projectNotes = (projectId: string): NotesApi => ({
+  add: (text, hard) => addRule(projectId, text, hard),
+  change: (id, text, hard) => changeRule(projectId, id, text, hard),
+  remove: (id) => removeRule(projectId, id),
+  saveContext: (text) => saveContext(projectId, text),
+});
+
 /** MAX_CONTEXT_LENGTH in project.ts, which the page cannot import. */
 const MAX_CONTEXT = 4000;
 const TOLD = "Your AI is told about each change at its next step.";
@@ -20,7 +35,7 @@ const code = (text: string) => <Highlighted text={text} />;
  */
 export function ContextPage({ projectId, rules, context, onChanged, version, heading }: { projectId: string; heading: string; rules: Rule[]; context: string; onChanged: () => void; version?: unknown }) {
   const [adding, setAdding] = useState(false);
-  const blocks = contextBlocks(context);
+  const api = projectNotes(projectId);
   return (
     <div className="page">
       <h1 className="page-title">{heading}</h1>
@@ -31,31 +46,33 @@ export function ContextPage({ projectId, rules, context, onChanged, version, hea
         {rules.length > 0 && (
           <ol className="rules">
             {hardFirst(rules.map((r) => ({ ...r, hard: r.hard === true }))).map((r, i) => (
-              <RuleRow key={r.id ?? i} projectId={projectId} rule={r} onChanged={onChanged} />
+              <RuleRow key={r.id ?? i} api={api} rule={r} onChanged={onChanged} />
             ))}
           </ol>
         )}
         {adding ? (
           <RuleForm submit="Add rule" onCancel={() => setAdding(false)}
-            save={(text, hard) => addRule(projectId, text, hard)} onSaved={() => { setAdding(false); onChanged(); }} />
+            save={(text, hard) => api.add(text, hard)} onSaved={() => { setAdding(false); onChanged(); }} />
         ) : (
           <button className="btn ghost small add-rule" onClick={() => setAdding(true)}>+ Add a rule</button>
         )}
       </section>
-      <About projectId={projectId} context={context} blocks={blocks} onChanged={onChanged} />
+      <About api={api} context={context} onChanged={onChanged} title="About this project" told={TOLD}
+        empty="Nothing here yet. This is the project's background: what it is, key facts and choices that hold for the whole project. Your AI fills it in, or press Edit to write it yourself."
+        placeholder="What the project is, key facts and choices that hold for all of it. Start a line with - for a list, and put code in `backticks`." />
       <RoutinesCard projectId={projectId} version={version} />
     </div>
   );
 }
 
-function RuleRow({ projectId, rule: r, onChanged }: { projectId: string; rule: Rule & { hard: boolean }; onChanged: () => void }) {
+export function RuleRow({ api, rule: r, onChanged, told = TOLD }: { api: NotesApi; rule: Rule & { hard: boolean }; onChanged: () => void; told?: string }) {
   const [mode, setMode] = useState<"edit" | "remove">();
   const { busy, error, run } = useSend(onChanged);
   if (mode === "edit" && r.id)
     return (
       <li className={r.hard ? "must" : undefined}>
-        <RuleForm submit="Save" text={r.text} hard={r.hard} onCancel={() => setMode(undefined)}
-          save={(text, hard) => changeRule(projectId, r.id!, text, hard)} onSaved={() => { setMode(undefined); onChanged(); }} />
+        <RuleForm submit="Save" text={r.text} hard={r.hard} onCancel={() => setMode(undefined)} told={told}
+          save={(text, hard) => api.change(r.id!, text, hard)} onSaved={() => { setMode(undefined); onChanged(); }} />
       </li>
     );
   return (
@@ -80,7 +97,7 @@ function RuleRow({ projectId, rule: r, onChanged }: { projectId: string; rule: R
       {mode === "remove" && (
         <div className="confirm" role="group" aria-label="Remove this rule?">
           <span>Remove this rule? Your AI stops following it.</span>
-          <button className="btn small" disabled={busy} onClick={() => void run(() => removeRule(projectId, r.id!))}>Remove</button>
+          <button className="btn small" disabled={busy} onClick={() => void run(() => api.remove(r.id!))}>Remove</button>
           <button className="btn ghost small" disabled={busy} onClick={() => setMode(undefined)}>Keep it</button>
         </div>
       )}
@@ -90,8 +107,9 @@ function RuleRow({ projectId, rule: r, onChanged }: { projectId: string; rule: R
 }
 
 /** Writing a rule: its words, and whether it must never be broken. */
-function RuleForm({ submit, text: start = "", hard: startHard = false, save, onSaved, onCancel }: {
+export function RuleForm({ submit, text: start = "", hard: startHard = false, save, onSaved, onCancel, told = TOLD }: {
   submit: string;
+  told?: string;
   text?: string;
   hard?: boolean;
   save: (text: string, hard: boolean) => Promise<void>;
@@ -119,31 +137,42 @@ function RuleForm({ submit, text: start = "", hard: startHard = false, save, onS
       <div className="form-actions">
         <button type="submit" className="btn small" disabled={busy || !text.trim() || !changed}>{submit}</button>
         <button type="button" className="btn ghost small" disabled={busy} onClick={onCancel}>Cancel</button>
-        <span className="hint">{TOLD}</span>
+        <span className="hint">{told}</span>
       </div>
       {error && <div className="error" role="alert">{error}</div>}
     </form>
   );
 }
 
-function About({ projectId, context, blocks, onChanged }: { projectId: string; context: string; blocks: ReturnType<typeof contextBlocks>; onChanged: () => void }) {
+/** The background text: shown with its lists and code, and edited in place. */
+export function About({ api, context, onChanged, title, empty, placeholder, told }: {
+  api: NotesApi;
+  context: string;
+  onChanged: () => void;
+  title: string;
+  /** What shows while there is no text. */
+  empty: string;
+  placeholder: string;
+  told: string;
+}) {
+  const blocks = contextBlocks(context);
   const [draft, setDraft] = useState<string>();
   const { busy, error, run } = useSend(onChanged);
   const editing = draft !== undefined;
   return (
     <section className="section context-body">
       <h2>
-        About this project
+        {title}
         {!editing && <button className="linkbtn" onClick={() => setDraft(context)}>Edit</button>}
       </h2>
       {editing ? (
         <form className="note-form" onSubmit={(e) => {
           e.preventDefault();
-          void run(() => saveContext(projectId, draft)).then((ok) => ok && setDraft(undefined));
+          void run(() => api.saveContext(draft)).then((ok) => ok && setDraft(undefined));
         }}>
           <textarea rows={Math.min(24, Math.max(6, draft.split("\n").length + 1))} autoFocus value={draft} maxLength={MAX_CONTEXT}
-            onChange={(e) => setDraft(e.target.value)} aria-label="About this project"
-            placeholder="What the project is, key facts and choices that hold for all of it. Start a line with - for a list, and put code in `backticks`."
+            onChange={(e) => setDraft(e.target.value)} aria-label={title}
+            placeholder={placeholder}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) e.currentTarget.form?.requestSubmit();
               if (e.key === "Escape") setDraft(undefined);
@@ -151,12 +180,12 @@ function About({ projectId, context, blocks, onChanged }: { projectId: string; c
           <div className="form-actions">
             <button type="submit" className="btn small" disabled={busy || draft.trim() === context.trim()}>Save</button>
             <button type="button" className="btn ghost small" disabled={busy} onClick={() => setDraft(undefined)}>Cancel</button>
-            <span className="hint">{draft.length} of {MAX_CONTEXT} characters · {TOLD}</span>
+            <span className="hint">{draft.length} of {MAX_CONTEXT} characters · {told}</span>
           </div>
           {error && <div className="error" role="alert">{error}</div>}
         </form>
       ) : blocks.length === 0 ? (
-        <p className="empty">Nothing here yet. This is the project's background: what it is, key facts and choices that hold for the whole project. Your AI fills it in, or press Edit to write it yourself.</p>
+        <p className="empty">{empty}</p>
       ) : (
         blocks.map((b, i) =>
           b.kind === "paragraph" ? (

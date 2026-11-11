@@ -515,6 +515,65 @@ export function useSettings(projectId: string | undefined): [SettingsView | null
   return [view, setView];
 }
 
+// --- rules and context for every project ---
+
+/** The rules and context for every project (globalRules.ts), as GET /api/global answers. */
+export interface GlobalView {
+  rules: { id: string; text: string; hard: boolean }[];
+  context: string;
+}
+
+/**
+ * The rules and context for every project, fetched again when they change (the "global" event).
+ * Undefined while loading; null when the hub is older and has none, or while the tour's sample shows.
+ */
+export function useGlobal(): [GlobalView | null | undefined, () => void] {
+  const [view, setView] = useState<GlobalView | null>();
+  const [asked, setAsked] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      if (sampleOn()) return void setView(null);
+      getJson<GlobalView>("/api/global")
+        .then((v) => alive && setView(v ?? null))
+        .catch(() => alive && setView(null));
+    };
+    load();
+    const stop = live.on({ global: () => load() });
+    const unswitch = onSampleSwitch(load);
+    return () => {
+      alive = false;
+      stop();
+      unswitch();
+    };
+  }, [asked]);
+  return [view, () => setAsked((n) => n + 1)];
+}
+
+async function postGlobal(path: string, body: unknown): Promise<void> {
+  const res = await fetch(`/api/global/${path}`, {
+    method: "POST",
+    headers: { "x-progressor": "global", "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
+}
+
+export const addGlobalRule = (text: string, hard: boolean) => postGlobal("rules", { text, hard });
+export const changeGlobalRule = (id: string, text: string, hard: boolean) => postGlobal(`rules/${encodeURIComponent(id)}`, { text, hard });
+export const removeGlobalRule = (id: string) => postGlobal(`rules/${encodeURIComponent(id)}/delete`, {});
+export const saveGlobalContext = (text: string) => postGlobal("context", { text });
+
+/** Takes a project off the dashboard; its folder and plan are not touched (registry.ts). */
+export async function removeProjectFromDashboard(projectId: string): Promise<void> {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/remove`, {
+    method: "POST",
+    headers: { "x-progressor": "remove-project", "content-type": "application/json" },
+    body: "{}",
+  });
+  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
+}
+
 // --- history ---
 
 /** The plan's history as GET /api/projects/:id/history answers it: newest first. */

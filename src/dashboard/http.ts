@@ -53,7 +53,7 @@ export function dashboardHost(env: Record<string, string | undefined> = process.
   return env.PROGRESSOR_HOST?.trim() || HOST;
 }
 /** Bumped when the hub's API changes, so a hub from an older version is not shared. */
-const HUB_VERSION = 9;
+const HUB_VERSION = 10;
 
 export interface DashboardOptions {
   /** This Session's project; it is added to the registry. Absent when only a Workspace is opened. */

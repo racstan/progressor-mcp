@@ -1,4 +1,7 @@
-import { type OverviewView, type SearchView, type WorkspaceEntry, useAllStats } from "./data.js";
+import { useState } from "react";
+import { hardFirst } from "../roadmap.js";
+import { About, type NotesApi, RuleForm, RuleRow } from "./ContextPage.js";
+import { type OverviewView, type SearchView, type WorkspaceEntry, addGlobalRule, changeGlobalRule, removeGlobalRule, saveGlobalContext, useAllStats, useGlobal } from "./data.js";
 import { type PutOff, homeSections, needsWhy, progressWords } from "./home.js";
 import { Ring } from "./Icon.js";
 import { sortProjects } from "./projectList.js";
@@ -105,6 +108,8 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
         )}
       </section>
 
+      {!query.trim() && <EveryProject />}
+
       {overview.length > 0 && !query.trim() && <AllStats version={overview} onOpen={onOpen} onOpenStats={onOpenStats} />}
     </div>
   );
@@ -157,4 +162,38 @@ function AllStats({ version, onOpen, onOpenStats }: { version: unknown; onOpen: 
 function putOffNote(goal: Parameters<typeof needsWhy>[0], putOff: number | undefined): string {
   if (putOff === undefined || !goal.untriedTests || needsWhy(goal, putOff).why) return "";
   return ` · ${goal.untriedTests === 1 ? "1 thing" : `${goal.untriedTests} things`} to try, put off`;
+}
+
+const EVERYWHERE: NotesApi = { add: addGlobalRule, change: changeGlobalRule, remove: removeGlobalRule, saveContext: saveGlobalContext };
+const TOLD_EVERYWHERE = "Your AI reads these in every project, at its next status check.";
+
+/**
+ * Rules and context for every project (globalRules.ts): what the AI should remember in all the
+ * person's projects. The AI keeps them too, when told a rule holds "in all my projects".
+ */
+function EveryProject() {
+  const [view, reload] = useGlobal();
+  const [adding, setAdding] = useState(false);
+  if (!view) return null;
+  return (
+    <section className="section every-project">
+      <h2>Rules for every project</h2>
+      <p className="quiet">Rules your AI follows in all your projects, before each project's own. Tell it "in all my projects…" in the chat, or add one here.</p>
+      {view.rules.length === 0 && !adding && <p className="empty">No rules for every project yet.</p>}
+      {view.rules.length > 0 && (
+        <ol className="rules">
+          {hardFirst(view.rules).map((r) => <RuleRow key={r.id} api={EVERYWHERE} rule={r} onChanged={reload} told={TOLD_EVERYWHERE} />)}
+        </ol>
+      )}
+      {adding ? (
+        <RuleForm submit="Add rule" told={TOLD_EVERYWHERE} onCancel={() => setAdding(false)}
+          save={(text, hard) => addGlobalRule(text, hard)} onSaved={() => { setAdding(false); reload(); }} />
+      ) : (
+        <button className="btn ghost small add-rule" onClick={() => setAdding(true)}>+ Add a rule for every project</button>
+      )}
+      <About api={EVERYWHERE} context={view.context} onChanged={reload} title="Context for every project" told={TOLD_EVERYWHERE}
+        empty="Nothing here yet. Background your AI should know in every project, such as the computer you use or how you like to work. Press Edit to write it."
+        placeholder="For example: I use Windows. I am not a programmer, so explain things in plain words. Start a line with - for a list." />
+    </section>
+  );
 }
