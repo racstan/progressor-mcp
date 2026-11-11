@@ -4,7 +4,7 @@ All notable changes to progressor-mcp. Each release is a Goal on Progressor's ow
 
 ## Unreleased
 
-- **Rules for every project.** A new card on Home holds rules your AI follows in all your projects, such as *Never push to GitHub without asking me*, and **Context for every project**: background it should know everywhere. Add, reword, mark as **Must never be broken** or remove them there, or just tell your AI *"in all my projects…"* and it saves the rule for you. Your AI sees them in every project, before that project's own rules, and passes them to its helpers.
+- **Rules and context for everything.** A new card on Home holds rules your AI follows in every project and anywhere it uses Progressor on this computer, even in a folder with no plan yet, such as *Never push to GitHub without asking me*. Next to them, **About this computer** (your setup: the operating system, tools, where CI runs) and **About me and how I work** (your preferences). Add, reword, mark as **Must never be broken** or remove rules there, or just tell your AI *"in all my projects…"* and it saves the rule for you. Your AI gets them as soon as it connects, before any project's own rules, and passes them to its helpers.
 - **Remove a project from the dashboard.** Point at a project in Home's sidebar and press **×**. After you confirm, the dashboard forgets it, even if it sits in a folder the dashboard scans. Its files and plan are not touched, and it comes back by itself if your AI uses Progressor there again.
 
 ## 1.3.0 · Your AI does more by itself, and a new license

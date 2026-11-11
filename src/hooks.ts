@@ -6,7 +6,7 @@ import { PROGRESSOR_DIR, Project, type ProjectOverview, type Status } from "./pr
 import { launcherWarning, onPath } from "./init.js";
 import { seenFile, takeElsewhereLine } from "./elsewhere.js";
 import { hardFirst, hotfixLine, ruleText } from "./roadmap.js";
-import { type GlobalNotes, defaultGlobalFile, globalFileFor, globalRuleText, readGlobal } from "./globalRules.js";
+import { type GlobalNotes, contextLines, defaultGlobalFile, globalFileFor, globalRuleText, readGlobal } from "./globalRules.js";
 import { handTestLines } from "./handTestText.js";
 import { promptNewsLine, talkLines } from "./talkText.js";
 import { existsSync } from "node:fs";
@@ -33,9 +33,9 @@ function goalLine(s: Status): string {
 function instructions(o: ProjectOverview, global?: GlobalNotes): string[] {
   const everywhere = global ? hardFirst(global.rules) : [];
   return [
-    // The rules and context for every project (globalRules.ts) come before the project's own.
-    ...(everywhere.length > 0 ? [`Rules for every project: ${everywhere.map(globalRuleText).join("; ")}`] : []),
-    ...(global?.context ? ["Context for every project:", global.context] : []),
+    // The rules and context for everything (globalRules.ts) come before the project's own.
+    ...(everywhere.length > 0 ? [`Rules for everything: ${everywhere.map(globalRuleText).join("; ")}`] : []),
+    ...(global ? contextLines(global) : []),
     ...(o.standingInstructions.length > 0 ? [`Standing Instructions: ${hardFirst(o.standingInstructions).map(ruleText).join("; ")}`] : []),
     ...(o.context ? ["Important context:", o.context] : []),
   ];
@@ -70,7 +70,8 @@ function fullStatus(s: Status): string[] {
  * no Goals, so projects that don't use Progressor get nothing.
  */
 export function sessionStatus(o: ProjectOverview, global?: GlobalNotes): string | undefined {
-  if (o.active.length === 0 && o.paused.length === 0 && o.planned.length === 0 && !o.context) return undefined;
+  const everywhere = !!global && (global.rules.length > 0 || !!global.computer || !!global.me);
+  if (o.active.length === 0 && o.paused.length === 0 && o.planned.length === 0 && !o.context && !everywhere) return undefined;
   const hotfix = hotfixOf(o);
   const text = sessionText(o, global);
   return hotfix ? `${PREFIX} ${hotfix}\n${text}` : text;

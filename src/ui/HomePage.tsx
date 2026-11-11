@@ -164,12 +164,15 @@ function putOffNote(goal: Parameters<typeof needsWhy>[0], putOff: number | undef
   return ` · ${goal.untriedTests === 1 ? "1 thing" : `${goal.untriedTests} things`} to try, put off`;
 }
 
-const EVERYWHERE: NotesApi = { add: addGlobalRule, change: changeGlobalRule, remove: removeGlobalRule, saveContext: saveGlobalContext };
-const TOLD_EVERYWHERE = "Your AI reads these in every project, at its next status check.";
+const rulesApi = (saveContext: (text: string) => Promise<void>): NotesApi => ({ add: addGlobalRule, change: changeGlobalRule, remove: removeGlobalRule, saveContext });
+const EVERYWHERE = rulesApi((text) => saveGlobalContext("me", text));
+const COMPUTER = rulesApi((text) => saveGlobalContext("computer", text));
+const TOLD_EVERYWHERE = "Your AI reads these everywhere, at its next status check.";
 
 /**
- * Rules and context for every project (globalRules.ts): what the AI should remember in all the
- * person's projects. The AI keeps them too, when told a rule holds "in all my projects".
+ * Rules and context for everything (globalRules.ts): what the AI should remember in all the person's
+ * projects and anywhere it uses Progressor on this computer. The AI keeps them too, when told a rule
+ * holds "in all my projects".
  */
 function EveryProject() {
   const [view, reload] = useGlobal();
@@ -177,9 +180,9 @@ function EveryProject() {
   if (!view) return null;
   return (
     <section className="section every-project">
-      <h2>Rules for every project</h2>
-      <p className="quiet">Rules your AI follows in all your projects, before each project's own. Tell it "in all my projects…" in the chat, or add one here.</p>
-      {view.rules.length === 0 && !adding && <p className="empty">No rules for every project yet.</p>}
+      <h2>Rules and context for everything</h2>
+      <p className="quiet">These apply in every project, and anywhere your AI uses Progressor on this computer, before each project's own rules. Tell your AI "in all my projects…" in the chat, or add them here.</p>
+      {view.rules.length === 0 && !adding && <p className="empty">No rules for everything yet.</p>}
       {view.rules.length > 0 && (
         <ol className="rules">
           {hardFirst(view.rules).map((r) => <RuleRow key={r.id} api={EVERYWHERE} rule={r} onChanged={reload} told={TOLD_EVERYWHERE} />)}
@@ -189,11 +192,14 @@ function EveryProject() {
         <RuleForm submit="Add rule" told={TOLD_EVERYWHERE} onCancel={() => setAdding(false)}
           save={(text, hard) => addGlobalRule(text, hard)} onSaved={() => { setAdding(false); reload(); }} />
       ) : (
-        <button className="btn ghost small add-rule" onClick={() => setAdding(true)}>+ Add a rule for every project</button>
+        <button className="btn ghost small add-rule" onClick={() => setAdding(true)}>+ Add a rule for everything</button>
       )}
-      <About api={EVERYWHERE} context={view.context} onChanged={reload} title="Context for every project" told={TOLD_EVERYWHERE}
-        empty="Nothing here yet. Background your AI should know in every project, such as the computer you use or how you like to work. Press Edit to write it."
-        placeholder="For example: I use Windows. I am not a programmer, so explain things in plain words. Start a line with - for a list." />
+      <About api={COMPUTER} context={view.computer} onChanged={reload} title="About this computer" told={TOLD_EVERYWHERE}
+        empty="Nothing here yet. Facts about your setup your AI should know everywhere: the operating system, the tools you use, where tests and CI run, the hardware. Press Edit to write it."
+        placeholder="For example: Windows 11. Node 22 and Docker are installed. CI runs on the local Gitea. Start a line with - for a list." />
+      <About api={EVERYWHERE} context={view.me} onChanged={reload} title="About me and how I work" told={TOLD_EVERYWHERE}
+        empty="Nothing here yet. How you like to work, so your AI knows it everywhere: how to explain things, what to ask you first, what you care about. Press Edit to write it."
+        placeholder="For example: I am not a programmer, so explain things in plain words. Ask me before anything that costs money." />
     </section>
   );
 }

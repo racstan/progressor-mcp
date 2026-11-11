@@ -145,9 +145,15 @@ A goal that finishes turns green and gets a green dot until you've looked at it;
 
 If you use Progressor in several projects, click the project name at the top of the sidebar to switch, or pick **🗂 All projects** for an overview of every project at once.
 
-## Rules and context for every project
+## Rules and context for everything
 
-On **Home**, the **Rules for every project** card holds rules your AI follows in all your projects, such as *Never push to GitHub without asking me*, and **Context for every project**: background it should know everywhere, such as the computer you use or how you like things explained. Your AI reads them in every project before that project's own rules, at the start of each conversation and with every status check, and puts them in each helper's brief. **+ Add a rule for every project**, **Edit**, **Remove** and **Must never be broken** work as on Project notes, and **Edit** rewrites the context. Your AI keeps them too: tell it a rule holds *"in all my projects"* and it saves it here. They are kept once for your user, in `global.json` beside the list of projects, not in any project's `.progressor/` folder.
+On **Home**, the **Rules and context for everything** card holds what your AI should remember in every project and anywhere it uses Progressor on this computer, even in a folder with no plan yet:
+
+- **Rules**, such as *Never push to GitHub without asking me*. **+ Add a rule for everything**, **Edit**, **Remove** and **Must never be broken** work as on Project notes.
+- **About this computer**: facts about your setup, such as the operating system, the tools installed, where tests and CI run, and the hardware.
+- **About me and how I work**: your preferences, such as how to explain things and what to ask you first.
+
+Your AI gets them when it connects to Progressor (every rule that must never be broken, up to ten others, then *and N more*), again with every status check, before a project's own rules, and puts them in each helper's brief. Your AI keeps them too: tell it a rule holds *"in all my projects"* and it saves it here; it changes the two About texts only when you ask it to. They are kept once for your user, in `global.json` beside the list of projects, not in any project's `.progressor/` folder.
 
 ## Important context
 
@@ -255,7 +261,7 @@ The dashboard listens only on your own computer (`127.0.0.1`, and `::1` where th
 
 ### What the dashboard can change
 
-Only a few things, all from the dashboard's own page: stopping a Progressor server, marking a hand test, talking with your AI (sending or taking back a message, answering a question), editing the project notes (adding, rewording or removing a rule, and rewriting About this project), editing the rules and context for every project on Home, removing a project from the dashboard (never its files), changing the wishlist (adding, rewording, ticking off or removing a wish), and reporting a bug as a hotfix; your AI is told about each change. Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark, message, answer or note is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
+Only a few things, all from the dashboard's own page: stopping a Progressor server, marking a hand test, talking with your AI (sending or taking back a message, answering a question), editing the project notes (adding, rewording or removing a rule, and rewriting About this project), editing the rules and context for everything on Home, removing a project from the dashboard (never its files), changing the wishlist (adding, rewording, ticking off or removing a wish), and reporting a bug as a hotfix; your AI is told about each change. Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark, message, answer or note is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
 
 ### The dashboard in the background
 

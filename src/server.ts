@@ -24,7 +24,7 @@ import { everyWords, parseEvery } from "./routines.js";
 import { releaseFacts } from "./facts.js";
 import { offerHint, parseWait } from "./alternatives.js";
 import { registerFeatureTools } from "./tools/index.js";
-import { type GlobalNotes, addGlobalRule, globalFileFor, globalStatusLines, setGlobalContext, readGlobal, updateGlobalRule } from "./globalRules.js";
+import { type GlobalNotes, PART_TITLE, addGlobalRule, contextLines, globalFileFor, globalInstructions, globalStatusLines, readGlobal, setGlobalContext, updateGlobalRule } from "./globalRules.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const BUILD_SEAL = "368785021a7bdfc977b37e328e88f7750027fa2b92ecb8f73cfeeb2b2e433fa0";
@@ -135,7 +135,7 @@ const hardFlag = z
 const globalFlag = z
   .boolean()
   .optional()
-  .describe("true for a rule for every project: the Developer says it holds in all their projects ('in all my projects...'). Saved once for this computer; every project's get_status shows it.");
+  .describe("true for a rule for everything: the Developer says it holds in all their projects ('in all my projects...'). Saved once for this computer; shown wherever Progressor runs.");
 const outcome = z
   .string()
   .describe("What done looks like, in one sentence, such as 'Users can sign in with Google and stay signed in for 30 days'.");
@@ -328,7 +328,7 @@ export function estimateLine(c: { factor: number | undefined; samples: number } 
 
 export function formatStatus(session: SessionStatus, schedule?: Schedule, warnings: string[] = [], waits?: Map<string, string>, global?: GlobalNotes): string {
   const rules = hardFirst(session.standingInstructions);
-  // The rules and context for every project come first, then this project's own.
+  // The rules and context for everything come first, then this project's own.
   const instructions = [
     ...globalStatusLines(global),
     ...(rules.length > 0
@@ -393,8 +393,8 @@ export function formatStatus(session: SessionStatus, schedule?: Schedule, warnin
  */
 export function formatRules(instructions: StandingInstruction[], global?: GlobalNotes): string {
   const everywhere = global ? hardFirst(global.rules) : [];
-  const everywhereContext = global?.context ?? "";
-  if (instructions.length === 0 && everywhere.length === 0 && !everywhereContext)
+  const everywhereContext = global ? contextLines(global) : [];
+  if (instructions.length === 0 && everywhere.length === 0 && everywhereContext.length === 0)
     return "No Standing Instructions are set for this project, so there is no rules block to add to the brief.";
   const hard = instructions.filter((i) => i.hard);
   const other = instructions.filter((i) => !i.hard);
@@ -402,11 +402,11 @@ export function formatRules(instructions: StandingInstruction[], global?: Global
   const globalBlock = [
     ...(everywhere.length > 0
       ? [
-          "Rules from the Developer for every project (they apply in all their projects):",
+          "Rules from the Developer for everything (they apply in every project and anywhere Progressor is used on this computer):",
           ...everywhere.map((r) => `- ${r.hard ? "HARD RULE, never break it: " : ""}${r.text}`),
         ]
       : []),
-    ...(everywhereContext ? ["Context for every project:", everywhereContext] : []),
+    ...everywhereContext,
   ];
   if (instructions.length === 0)
     return [...globalBlock, "This project has no rules of its own.", "Do not edit anything in .progressor/; the Agent that briefed you keeps the plan there."].join("\n");
@@ -686,8 +686,19 @@ export async function appRoots(server: McpServer, timeoutMs: number): Promise<st
   }
 }
 
+/**
+ * The instructions an app gets when it connects: INSTRUCTIONS, then the rules and context for
+ * everything (globalRules.ts), so they hold wherever Progressor runs, even in a folder with no plan.
+ */
+export function serverInstructions(global: GlobalNotes): string {
+  const extra = globalInstructions(global);
+  return extra ? `${INSTRUCTIONS}\n\n${extra}` : INSTRUCTIONS;
+}
+
 export function createServer(project: Project, options: ServerOptions = {}): McpServer {
-  const server = new McpServer({ name: "progressor", version: BUILD.version }, { instructions: INSTRUCTIONS });
+  // The rules and context for everything (globalRules.ts), beside the project list.
+  const globalFile = globalFileFor(options.registryFile ?? defaultRegistryFile());
+  const server = new McpServer({ name: "progressor", version: BUILD.version }, { instructions: serverInstructions(readGlobal(globalFile)) });
   withExamples(server);
   // Each tool call is one change in the plan's history, named after the tool (history.ts).
   const toolName = new AsyncLocalStorage<string>();
@@ -745,8 +756,6 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   // Apps without Claude Code's hooks never hand the Agent the plan between calls, so results that
   // don't show the whole status end with where the work stands.
   const settingsFile = options.settingsFile ?? settingsFileFor(options.registryFile ?? defaultRegistryFile());
-  // The rules and context for every project (globalRules.ts), beside the project list.
-  const globalFile = globalFileFor(options.registryFile ?? defaultRegistryFile());
   const estimatesOf = (p: Project) => readSettings(settingsFile, p.root).estimates;
   // Release goals (facts.ts): the facts the AI writes the changelog entry and version bump from.
   const releaseFor = (p: Project, g: Goal, bundles?: string[]) => {
@@ -910,7 +919,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Get rules",
       description:
-        "The Developer's rules as a block to paste into the brief of a helper agent you start: the rules and context for every project first, then this project's Standing Instructions, hard rules first. Helpers don't see the Standing Instructions, so include this block whenever you brief one.",
+        "The Developer's rules as a block to paste into the brief of a helper agent you start: the rules and context for everything first, then this project's Standing Instructions, hard rules first. Helpers don't see the Standing Instructions, so include this block whenever you brief one.",
       annotations: { readOnlyHint: true },
     },
     () => respondIn(undefined, () => formatRules(project.roadmap().standingInstructions, readGlobal(globalFile))),
@@ -1678,7 +1687,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         if (global) {
           if (helpers_at_once) throw new Error("A helper limit belongs to one project: add it without global.");
           const g = addGlobalRule(globalFile, text, hard ?? false);
-          return withNow(`Saved ${g.hard ? "HARD RULE" : "rule"} ${g.id} for every project: ${g.text}`);
+          return withNow(`Saved ${g.hard ? "HARD RULE" : "rule"} ${g.id} for everything: ${g.text}`);
         }
         const s = project.addStandingInstruction(text, hard, helpers_at_once || undefined);
         return withNow(`Saved ${s.hard ? "HARD RULE" : "Standing Instruction"} ${s.id}: ${s.text}${limitText(s)}`);
@@ -1691,9 +1700,9 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       title: "Update Standing Instruction",
       description:
         "Reword a Standing Instruction when the Developer changes a rule, make it a hard rule (hard: true) or an ordinary one again (hard: false), set or change the helper limit it holds (helpers_at_once), or remove it with an empty text when they drop it. Give any of text, hard and helpers_at_once; what you leave out stays. The IDs (s1, s2...) are in get_status. " +
-        "For a rule for every project (IDs g1, g2...), pass global: true.",
+        "For a rule for everything (IDs g1, g2...), pass global: true.",
       inputSchema: {
-        id: z.string().describe("The Standing Instruction ID, such as 's2', or a rule for every project's ID, such as 'g1', with global: true."),
+        id: z.string().describe("The Standing Instruction ID, such as 's2', or the ID of a rule for everything, such as 'g1', with global: true."),
         text: z.string().optional().describe("The new wording; empty to remove the rule. Left out, the wording stays."),
         hard: hardFlag,
         helpers_at_once: helpersAtOnce,
@@ -1705,7 +1714,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         if (global || /^g\d+$/i.test(id.trim())) {
           if (helpers_at_once !== undefined) throw new Error("A helper limit belongs to one project: set it on a project rule, without global.");
           const g = updateGlobalRule(globalFile, id, { text, hard });
-          return g ? `Changed ${g.hard ? "HARD RULE" : "rule"} ${g.id} for every project: ${g.text}` : `Removed rule ${id} for every project.`;
+          return g ? `Changed ${g.hard ? "HARD RULE" : "rule"} ${g.id} for everything: ${g.text}` : `Removed rule ${id} for everything.`;
         }
         const s = project.updateStandingInstruction(id, { text, hard, helpersAtOnce: helpers_at_once });
         return s ? `Changed ${s.hard ? "HARD RULE" : "Standing Instruction"} ${s.id}: ${s.text}${limitText(s)}` : `Removed Standing Instruction ${id}.`;
@@ -1725,14 +1734,21 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         global: z
           .boolean()
           .optional()
-          .describe("true to replace the context for every project instead: background the Developer says holds in all their projects. get_status shows it in every project."),
+          .describe(
+            "true to replace a part of the context for everything instead (every project, and anywhere Progressor runs on this computer). Only when the Developer asks for it. Give part too.",
+          ),
+        part: z
+          .enum(["computer", "me"])
+          .optional()
+          .describe("With global: \"computer\" for About this computer (setup facts: the operating system, tools, where CI runs, hardware), \"me\" for About me and how I work (the Developer's preferences)."),
       },
     },
-    ({ text, global }) =>
+    ({ text, global, part }) =>
       respondIn(undefined, () => {
-        if (global) {
-          const context = setGlobalContext(globalFile, text);
-          return context ? `Saved the context for every project (${context.length} of ${MAX_CONTEXT_LENGTH} characters).` : "Cleared the context for every project.";
+        if (global || part) {
+          if (!part) throw new Error('Say which part of the context for everything: part: "computer" (About this computer) or "me" (About me and how I work).');
+          const saved = setGlobalContext(globalFile, part, text);
+          return saved ? `Saved "${PART_TITLE[part]}" for everything (${saved.length} of ${MAX_CONTEXT_LENGTH} characters).` : `Cleared "${PART_TITLE[part]}" for everything.`;
         }
         const context = project.setContext(text);
         return context

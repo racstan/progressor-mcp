@@ -1,9 +1,9 @@
-// Rules and context for every project on the dashboard's Home page (globalRules.ts).
-//   GET  /api/global                       {rules, context}
-//   POST /api/global/rules                 {text, hard?} adds a rule for every project
+// Rules and context for everything, on the dashboard's Home page (globalRules.ts).
+//   GET  /api/global                       {rules, computer, me}
+//   POST /api/global/rules                 {text, hard?} adds a rule for everything
 //   POST /api/global/rules/:id             {text?, hard?} rewords it or marks it must / should
 //   POST /api/global/rules/:id/delete      removes it
-//   POST /api/global/context               {text} replaces the context for every project
+//   POST /api/global/context               {part: "computer" | "me", text} replaces that part of the context
 // Each change tells every open page ("global" event); an AI reads them at its next get_status.
 import { addGlobalRule, globalFileFor, readGlobal, setGlobalContext, updateGlobalRule } from "../../globalRules.js";
 import type { FeatureRoute, RouteContext } from "../routes.js";
@@ -78,9 +78,11 @@ export const globalRoutes: FeatureRoute[] = [
       if (!body) return;
       const { text } = fields(body);
       if (text === undefined) throw new Error("Write the context first.");
-      const context = setGlobalContext(fileOf(ctx), text);
+      const part = body.part;
+      if (part !== "computer" && part !== "me") throw new Error('Say which part: "computer" or "me".');
+      const saved = setGlobalContext(fileOf(ctx), part, text);
       changed(ctx);
-      ctx.json(200, { context });
+      ctx.json(200, { part, text: saved });
     },
   },
 ];

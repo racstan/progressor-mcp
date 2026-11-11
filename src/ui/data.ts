@@ -515,12 +515,15 @@ export function useSettings(projectId: string | undefined): [SettingsView | null
   return [view, setView];
 }
 
-// --- rules and context for every project ---
+// --- rules and context for everything ---
 
-/** The rules and context for every project (globalRules.ts), as GET /api/global answers. */
+/** The rules and context for everything (globalRules.ts), as GET /api/global answers. */
 export interface GlobalView {
   rules: { id: string; text: string; hard: boolean }[];
-  context: string;
+  /** About this computer: setup facts. */
+  computer: string;
+  /** About me and how I work: the person's preferences. */
+  me: string;
 }
 
 /**
@@ -562,7 +565,7 @@ async function postGlobal(path: string, body: unknown): Promise<void> {
 export const addGlobalRule = (text: string, hard: boolean) => postGlobal("rules", { text, hard });
 export const changeGlobalRule = (id: string, text: string, hard: boolean) => postGlobal(`rules/${encodeURIComponent(id)}`, { text, hard });
 export const removeGlobalRule = (id: string) => postGlobal(`rules/${encodeURIComponent(id)}/delete`, {});
-export const saveGlobalContext = (text: string) => postGlobal("context", { text });
+export const saveGlobalContext = (part: "computer" | "me", text: string) => postGlobal("context", { part, text });
 
 /** Takes a project off the dashboard; its folder and plan are not touched (registry.ts). */
 export async function removeProjectFromDashboard(projectId: string): Promise<void> {

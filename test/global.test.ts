@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type Dashboard, startDashboard } from "../src/dashboard/http.js";
 import {
+  INSTRUCTION_CONTEXT,
+  INSTRUCTION_RULES,
   addGlobalRule,
   globalFileFor,
   globalStatusLines,
@@ -14,7 +16,7 @@ import {
 } from "../src/globalRules.js";
 import { sessionStatus } from "../src/hooks.js";
 import { MAX_CONTEXT_LENGTH, Project } from "../src/project.js";
-import { createServer, formatRules } from "../src/server.js";
+import { INSTRUCTIONS, createServer, formatRules, serverInstructions } from "../src/server.js";
 import { tempDir } from "./tmp.js";
 
 let registry: string;
@@ -25,10 +27,10 @@ beforeEach(() => {
   file = globalFileFor(registry);
 });
 
-describe("the rules and context for every project", () => {
+describe("the rules and context for everything", () => {
   it("live in global.json beside the project list", () => {
     expect(file).toBe(join(registry, "..", "global.json"));
-    expect(readGlobal(file)).toEqual({ rules: [], context: "" });
+    expect(readGlobal(file)).toEqual({ rules: [], computer: "", me: "" });
   });
 
   it("adds rules with IDs g1, g2..., rewords them, marks them hard and removes them", () => {
@@ -52,33 +54,55 @@ describe("the rules and context for every project", () => {
     expect(existsSync(file)).toBe(false);
   });
 
-  it("keeps one context text, cleared by an empty one, within the length limit", () => {
-    expect(setGlobalContext(file, "  I work on Windows.\n\nMy projects use pnpm. ")).toBe("I work on Windows.\n\nMy projects use pnpm.");
-    expect(readGlobal(file).context).toBe("I work on Windows.\n\nMy projects use pnpm.");
-    expect(() => setGlobalContext(file, "x".repeat(MAX_CONTEXT_LENGTH + 1))).toThrow(/too long/);
-    expect(setGlobalContext(file, "")).toBe("");
-    expect(readGlobal(file).context).toBe("");
+  it("keeps two context texts, about this computer and about me, each cleared by an empty one, within the length limit", () => {
+    expect(setGlobalContext(file, "computer", "  Windows 11. CI runs on the local Gitea. ")).toBe("Windows 11. CI runs on the local Gitea.");
+    expect(setGlobalContext(file, "me", "Explain in plain words.")).toBe("Explain in plain words.");
+    expect(readGlobal(file)).toEqual({ rules: [], computer: "Windows 11. CI runs on the local Gitea.", me: "Explain in plain words." });
+    expect(() => setGlobalContext(file, "me", "x".repeat(MAX_CONTEXT_LENGTH + 1))).toThrow(/too long/);
+    expect(() => setGlobalContext(file, "other" as "me", "x")).toThrow(/Say which part/);
+    expect(setGlobalContext(file, "computer", "")).toBe("");
+    expect(readGlobal(file).computer).toBe("");
+    expect(readGlobal(file).me).toBe("Explain in plain words.");
   });
 
   it("reads a broken or hand-edited file safely", () => {
     writeFileSync(file, "{ not json");
-    expect(readGlobal(file)).toEqual({ rules: [], context: "" });
-    writeFileSync(file, JSON.stringify({ rules: [{ id: "g1", text: "ok", hard: true }, { id: "x", text: "bad id" }, { id: "g2", text: " " }, "junk"], context: 5 }));
-    expect(readGlobal(file)).toEqual({ rules: [{ id: "g1", text: "ok", hard: true }], context: "" });
+    expect(readGlobal(file)).toEqual({ rules: [], computer: "", me: "" });
+    writeFileSync(file, JSON.stringify({ rules: [{ id: "g1", text: "ok", hard: true }, { id: "x", text: "bad id" }, { id: "g2", text: " " }, "junk"], computer: 5, me: " hi " }));
+    expect(readGlobal(file)).toEqual({ rules: [{ id: "g1", text: "ok", hard: true }], computer: "", me: "hi" });
   });
 
-  it("lists hard rules first, labelled as for every project", () => {
+  it("lists hard rules first, labelled as for everything", () => {
     addGlobalRule(file, "Prefer small commits");
     addGlobalRule(file, "Never delete my notes", true);
-    setGlobalContext(file, "I am not a programmer.");
+    setGlobalContext(file, "computer", "Windows 11.");
+    setGlobalContext(file, "me", "I am not a programmer.");
     expect(globalStatusLines(readGlobal(file))).toEqual([
-      "Rules for every project (the Developer's, they apply in all their projects; a HARD RULE must never be broken):",
+      "Rules for everything (the Developer's: they apply in every project and anywhere you use Progressor on this computer; a HARD RULE must never be broken):",
       "- HARD RULE g2: Never delete my notes",
       "- g1 Prefer small commits",
-      "Context for every project:",
+      "About this computer (for everything):",
+      "Windows 11.",
+      "About me and how I work (for everything):",
       "I am not a programmer.",
     ]);
-    expect(globalStatusLines({ rules: [], context: "" })).toEqual([]);
+    expect(globalStatusLines({ rules: [], computer: "", me: "" })).toEqual([]);
+  });
+
+  it("go into the server's instructions: every hard rule, the others up to a limit, and the context cut short", () => {
+    expect(serverInstructions({ rules: [], computer: "", me: "" })).toBe(INSTRUCTIONS);
+    for (let i = 1; i <= INSTRUCTION_RULES + 3; i++) addGlobalRule(file, `Preference ${i}`);
+    addGlobalRule(file, "Never push", true);
+    addGlobalRule(file, "Never delete notes", true);
+    setGlobalContext(file, "computer", "x".repeat(INSTRUCTION_CONTEXT + 50));
+    setGlobalContext(file, "me", "Plain words.");
+    const text = serverInstructions(readGlobal(file));
+    expect(text.startsWith(`${INSTRUCTIONS}\n\nRules for everything`)).toBe(true);
+    expect(text).toContain("- HARD RULE g14: Never push\n- HARD RULE g15: Never delete notes\n- g1 Preference 1");
+    expect(text).toContain("- g10 Preference 10\n- and 3 more; get_rules lists them all.");
+    expect(text).not.toContain("Preference 11");
+    expect(text).toContain(`About this computer (for everything):\n${"x".repeat(INSTRUCTION_CONTEXT)}… (get_rules has all of it)`);
+    expect(text).toContain("About me and how I work (for everything):\nPlain words.");
   });
 });
 
@@ -99,33 +123,49 @@ describe("what the AI is given", () => {
     return { text: result.content.map((c) => c.text).join("\n"), isError: result.isError ?? false };
   }
 
-  it("get_status shows the rules and context for every project before the project's own", async () => {
+  it("get_status shows the rules and context for everything before the project's own", async () => {
     project.addStandingInstruction("Write tests first");
     addGlobalRule(file, "Prefer small commits");
     addGlobalRule(file, "Never push without asking", true);
-    setGlobalContext(file, "I use Windows.");
+    setGlobalContext(file, "computer", "I use Windows.");
     const text = (await call("get_status")).text;
     const at = (s: string) => text.indexOf(s);
-    expect(at("Rules for every project")).toBeGreaterThan(-1);
+    expect(at("Rules for everything")).toBeGreaterThan(-1);
     expect(at("- HARD RULE g2: Never push without asking")).toBeLessThan(at("- g1 Prefer small commits"));
-    expect(at("Context for every project:\nI use Windows.")).toBeGreaterThan(at("- g1 Prefer small commits"));
+    expect(at("About this computer (for everything):\nI use Windows.")).toBeGreaterThan(at("- g1 Prefer small commits"));
     expect(at("Standing Instructions:\n- s1 Write tests first")).toBeGreaterThan(at("I use Windows."));
   });
 
   it("get_status says nothing of them when there are none", async () => {
-    expect((await call("get_status")).text).not.toContain("every project");
+    expect((await call("get_status")).text).not.toContain("for everything");
+  });
+
+  it("get_status and get_rules show them in a folder with no plan yet, without making one", async () => {
+    addGlobalRule(file, "Never push without asking", true);
+    expect(existsSync(join(project.root, ".progressor"))).toBe(false);
+    expect((await call("get_status")).text).toContain("- HARD RULE g1: Never push without asking");
+    expect((await call("get_rules")).text).toContain("- HARD RULE, never break it: Never push without asking");
+  });
+
+  it("are in the instructions the app gets when it connects", async () => {
+    addGlobalRule(file, "Never push without asking", true);
+    const server = createServer(project, { registryFile: registry });
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    const other = new Client({ name: "test", version: "0" });
+    await Promise.all([server.connect(serverSide), other.connect(clientSide)]);
+    expect(other.getInstructions()).toContain("- HARD RULE g1: Never push without asking");
   });
 
   it("get_rules puts them in the helper's brief, hard ones first", async () => {
     addGlobalRule(file, "Prefer small commits");
     addGlobalRule(file, "Never push without asking", true);
-    setGlobalContext(file, "I use Windows.");
+    setGlobalContext(file, "me", "I use Windows.");
     expect((await call("get_rules")).text).toBe(
       [
-        "Rules from the Developer for every project (they apply in all their projects):",
+        "Rules from the Developer for everything (they apply in every project and anywhere Progressor is used on this computer):",
         "- HARD RULE, never break it: Never push without asking",
         "- Prefer small commits",
-        "Context for every project:",
+        "About me and how I work (for everything):",
         "I use Windows.",
         "This project has no rules of its own.",
         "Do not edit anything in .progressor/; the Agent that briefed you keeps the plan there.",
@@ -139,13 +179,13 @@ describe("what the AI is given", () => {
 
   it("formatRules without global rules is as before", () => {
     expect(formatRules([])).toMatch(/^No Standing Instructions/);
-    expect(formatRules([], { rules: [], context: "" })).toMatch(/^No Standing Instructions/);
+    expect(formatRules([], { rules: [], computer: "", me: "" })).toMatch(/^No Standing Instructions/);
   });
 
-  it("add_standing_instruction with global: true saves a rule for every project, not in this one", async () => {
+  it("add_standing_instruction with global: true saves a rule for everything, not in this one", async () => {
     const res = await call("add_standing_instruction", { text: "Answer in plain English", hard: true, global: true });
     expect(res.isError).toBe(false);
-    expect(res.text).toMatch(/^Saved HARD RULE g1 for every project: Answer in plain English/);
+    expect(res.text).toMatch(/^Saved HARD RULE g1 for everything: Answer in plain English/);
     expect(readGlobal(file).rules).toEqual([{ id: "g1", text: "Answer in plain English", hard: true }]);
     expect(project.roadmap().standingInstructions).toEqual([]);
     expect((await call("add_standing_instruction", { text: "x", global: true, helpers_at_once: 2 })).isError).toBe(true);
@@ -154,10 +194,10 @@ describe("what the AI is given", () => {
   it("update_standing_instruction with global: true rewords and removes one", async () => {
     addGlobalRule(file, "Answer in English");
     expect((await call("update_standing_instruction", { id: "g1", text: "Answer in plain English", global: true })).text).toBe(
-      "Changed rule g1 for every project: Answer in plain English",
+      "Changed rule g1 for everything: Answer in plain English",
     );
-    expect((await call("update_standing_instruction", { id: "g1", hard: true })).text).toBe("Changed HARD RULE g1 for every project: Answer in plain English");
-    expect((await call("update_standing_instruction", { id: "g1", text: "", global: true })).text).toBe("Removed rule g1 for every project.");
+    expect((await call("update_standing_instruction", { id: "g1", hard: true })).text).toBe("Changed HARD RULE g1 for everything: Answer in plain English");
+    expect((await call("update_standing_instruction", { id: "g1", text: "", global: true })).text).toBe("Removed rule g1 for everything.");
     expect(readGlobal(file).rules).toEqual([]);
     expect((await call("update_standing_instruction", { id: "g4", text: "x", global: true })).isError).toBe(true);
   });
@@ -168,21 +208,24 @@ describe("what the AI is given", () => {
     expect(readGlobal(file).rules).toEqual([]);
   });
 
-  it("update_context with global: true replaces the context for every project", async () => {
-    expect((await call("update_context", { text: "I use Windows.", global: true })).text).toMatch(/^Saved the context for every project/);
-    expect(readGlobal(file).context).toBe("I use Windows.");
+  it("update_context with global: true replaces one part of the context for everything", async () => {
+    expect((await call("update_context", { text: "I use Windows.", global: true, part: "computer" })).text).toMatch(/^Saved "About this computer" for everything/);
+    expect((await call("update_context", { text: "Plain words.", global: true, part: "me" })).text).toMatch(/^Saved "About me and how I work" for everything/);
+    expect(readGlobal(file)).toMatchObject({ computer: "I use Windows.", me: "Plain words." });
     expect(project.context()).toBe("");
+    expect((await call("update_context", { text: "x", global: true })).isError).toBe(true);
+    expect((await call("update_context", { text: "", global: true, part: "me" })).text).toBe('Cleared "About me and how I work" for everything.');
   });
 
   it("the session start hook shows them too", () => {
     project.addGoal("Login");
-    const text = sessionStatus(project.overview(), { rules: [{ id: "g1", text: "Be brief", hard: false }, { id: "g2", text: "Never push", hard: true }], context: "On Windows." })!;
-    expect(text).toContain("Rules for every project: HARD RULE g2: Never push; g1 Be brief");
-    expect(text).toContain("Context for every project:\nOn Windows.");
+    const text = sessionStatus(project.overview(), { rules: [{ id: "g1", text: "Be brief", hard: false }, { id: "g2", text: "Never push", hard: true }], computer: "On Windows.", me: "" })!;
+    expect(text).toContain("Rules for everything: HARD RULE g2: Never push; g1 Be brief");
+    expect(text).toContain("About this computer (for everything):\nOn Windows.");
   });
 });
 
-describe("the rules and context for every project on the dashboard", () => {
+describe("the rules and context for everything on the dashboard", () => {
   let d: Dashboard;
   let events: string[];
   let stream: AbortController;
@@ -219,16 +262,17 @@ describe("the rules and context for every project on the dashboard", () => {
     });
 
   it("adds, rewords, marks and removes a rule, and edits the context", async () => {
-    expect(await (await fetch(new URL("/api/global", d.url))).json()).toEqual({ rules: [], context: "" });
+    expect(await (await fetch(new URL("/api/global", d.url))).json()).toEqual({ rules: [], computer: "", me: "" });
     const added = await post("rules", { text: "Never push without asking", hard: true });
     expect(added.status).toBe(201);
     expect(await added.json()).toEqual({ id: "g1", text: "Never push without asking", hard: true });
     expect((await post("rules/g1", { text: "Ask before pushing" })).status).toBe(200);
     expect((await post("rules/g1", { hard: false })).status).toBe(200);
     expect(readGlobal(file).rules).toEqual([{ id: "g1", text: "Ask before pushing", hard: false }]);
-    expect((await post("context", { text: "I use Windows." })).status).toBe(200);
+    expect((await post("context", { part: "computer", text: "I use Windows." })).status).toBe(200);
+    expect((await post("context", { part: "me", text: "Plain words." })).status).toBe(200);
     expect((await post("rules/g1/delete", {})).status).toBe(200);
-    expect(await (await fetch(new URL("/api/global", d.url))).json()).toEqual({ rules: [], context: "I use Windows." });
+    expect(await (await fetch(new URL("/api/global", d.url))).json()).toEqual({ rules: [], computer: "I use Windows.", me: "Plain words." });
     await new Promise((r) => setTimeout(r, 50));
     expect(events.join("")).toContain("event: global");
   });
@@ -240,8 +284,9 @@ describe("the rules and context for every project on the dashboard", () => {
     expect((await post("rules", { text: "x", hard: "yes" })).status).toBe(400);
     expect((await post("rules/g7", { text: "x" })).status).toBe(404);
     expect((await post("rules/g7/delete", {})).status).toBe(404);
-    expect((await post("context", { text: "x".repeat(MAX_CONTEXT_LENGTH + 1) })).status).toBe(400);
-    expect(readGlobal(file)).toEqual({ rules: [], context: "" });
+    expect((await post("context", { part: "me", text: "x".repeat(MAX_CONTEXT_LENGTH + 1) })).status).toBe(400);
+    expect((await post("context", { text: "no part" })).status).toBe(400);
+    expect(readGlobal(file)).toEqual({ rules: [], computer: "", me: "" });
   });
 
   it("tells open pages when an AI changed them", async () => {
