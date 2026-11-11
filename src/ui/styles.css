@@ -157,6 +157,8 @@ code { font: .92em ui-monospace, "Cascadia Code", Consolas, monospace; backgroun
 .section { margin-top: var(--s6); }
 .section > h2 { margin: 0 0 var(--s3); font-size: var(--t-m); font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: var(--s2); }
 .section.needs > h2 { color: var(--you); }
+/* Home's Needs you stays a fixed-height box however many goals wait; the list scrolls inside it. */
+.section.needs > .list { max-height: 320px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .placeholder { margin: 15vh auto 0; text-align: center; color: var(--muted); max-width: 420px; padding: var(--s5); }
 .placeholder h2 { color: var(--ink); font-size: var(--t-l); margin: 0 0 var(--s2); }
 .placeholder .detail { display: block; margin-top: var(--s3); font-size: var(--t-s); color: var(--faint); }
