@@ -84,7 +84,7 @@ Once you've done what the step needed, tell your AI in the chat: it moves the st
 
 ## Talk with your AI
 
-Under the goal's banner there is a box to write to your AI: type what you want ("use the blue logo", "skip the export step for now") and press **Send**. Your message is kept with the goal's plan. Your AI reads it the next time it updates the plan, which while it works is every few minutes, and does what you asked. It can't read it any sooner: nothing on this page can interrupt or wake up an AI chat. If the chat is closed, your message waits for the next one. Under your message you see where it stands: *sent; your AI reads it at its next update*, *read by your AI*, then your AI's reply. Changed your mind before your AI read it? Press **Take back**.
+Under the goal's banner there is a box to write to your AI: type what you want ("use the blue logo", "skip the export step for now") and press **Send**. Your message is kept with the goal's plan. Your AI reads it the next time it updates the plan, which while it works is every few minutes, and does what you asked. It can't read it any sooner: nothing on this page can interrupt or wake up an AI chat. If the chat is closed, your message waits for the next one. Under your message you see where it stands: *sent; your AI reads it at its next update*, *read by your AI*, then your AI's reply. Changed your mind before your AI read it? Press **Take back**. Once it has read or answered it, point at the message and press **Remove** to take it, and its answer, off the page; **Clear all finished messages** does that for every message your AI has read or answered and every question you answered. Your AI is not told, and a question still waiting for your answer can only be answered.
 
 When your AI needs you to choose something, it asks here instead of stopping in the chat. The question shows at the top of the box under **Your AI asks**, with a button for each answer, plus **Something else…** to answer in your own words. Click one and your AI gets your answer at its next update. Your AI keeps working on other steps meanwhile, and your answer is also kept in the goal's decisions. While a question waits, the goal says **Waiting on you**, like a step waiting on you.
 
@@ -110,7 +110,7 @@ Press **Undo** on a marked item to take the mark back. If it had added a step th
 
 ## Decisions and notes
 
-Under the map, or under the list, a goal shows what your AI decided and what it noticed while working. Both are read-only: your AI writes them as it goes, and you can ask it to change one.
+Under the map, or under the list, a goal shows what your AI decided and what it noticed while working. Your AI writes them as it goes. You can change them too: **Edit** rewords one, **Remove** deletes it after you confirm, and **Dealt with** (or **Open again**) settles a note. Your AI is told at its next step, and each change is in History, so it can be undone.
 
 - **Decisions**: choices made along the way that are worth remembering, such as *"Use email links, not codes, for password resets."*
 - **Notes**: things spotted that need dealing with, such as a bug found nearby. A note found while working on a different goal says so: *"Found while working on Let people sign in."* When a note has been dealt with it's crossed out and folded into *notes dealt with*.

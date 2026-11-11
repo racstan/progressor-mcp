@@ -107,6 +107,21 @@ code { font: .92em ui-monospace, "Cascadia Code", Consolas, monospace; backgroun
 .side-link { display: flex; align-items: center; gap: var(--s2); width: 100%; text-align: left; border: none; background: none; padding: 6px var(--s2); border-radius: var(--r-s); color: var(--muted); }
 .side-link:hover { background: var(--hover); color: var(--ink); }
 .side-link[aria-current="true"] { background: var(--hover); color: var(--ink); font-weight: 600; }
+/* Remove / Edit links that show when their row is pointed at or reached with the keyboard */
+.reveal-on-hover { opacity: 0; transition: opacity .15s var(--ease); }
+li:hover .reveal-on-hover, li:focus-within .reveal-on-hover, h2:hover .reveal-on-hover, h2:focus-within .reveal-on-hover, .reveal-on-hover:focus-visible { opacity: 1; }
+@media (hover: none) { .reveal-on-hover { opacity: 1; } }
+.talk li .reveal-on-hover, .talk li .inline-confirm { margin-top: var(--s1); }
+.inline-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-size: var(--t-s); padding-top: var(--s2); border-top: 1px dashed var(--line); animation: rise .18s ease-out backwards; }
+.inline-confirm > span { flex: 1; min-width: 180px; }
+.section > h2:has(.inline-confirm) { flex-wrap: wrap; }
+h2 .inline-confirm { font-weight: 400; font-size: var(--t-s); color: var(--ink); flex-basis: 100%; }
+.clear-all { display: flex; justify-content: flex-end; margin: var(--s2) 0; }
+.clear-all .confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-size: var(--t-s); }
+.clear-all .confirm > span { flex: 1; min-width: 200px; }
+.item-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin-top: var(--s1); font-size: var(--t-s); }
+.item-actions .inline-confirm { width: 100%; }
+
 /* a project in Home's sidebar, with a remove button shown on hover or keyboard focus */
 .side-project-row { position: relative; display: flex; align-items: center; }
 .side-project-row .side-link { padding-right: 30px; }

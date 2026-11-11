@@ -322,6 +322,30 @@ export const sendMessage = (projectId: string, goalId: string, text: string) => 
 export const takeBackMessage = (projectId: string, goalId: string, id: string) =>
   postTalk(projectId, goalId, `messages/${encodeURIComponent(id)}/delete`, {});
 
+/** Removes a message (read or not, with its answer) or an answered question; the AI is not told. */
+export const removeTalkItem = (projectId: string, goalId: string, kind: "messages" | "questions", id: string) =>
+  postTalk(projectId, goalId, `${kind}/${encodeURIComponent(id)}/remove`, {});
+
+/** Removes every finished message and answered question from a conversation. */
+export const clearFinishedTalk = (projectId: string, goalId: string) => postTalk(projectId, goalId, "clear", {});
+
+/** Changes a goal's note or decision (goalNotes.ts routes); the AI is told. */
+async function postGoalNote(projectId: string, goalId: string, path: string, body: unknown): Promise<void> {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/goals/${encodeURIComponent(goalId)}/${path}`, {
+    method: "POST",
+    headers: { "x-progressor": "notes", "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
+}
+
+export const changeNote = (projectId: string, goalId: string, id: string, changes: { text?: string; resolved?: boolean }) =>
+  postGoalNote(projectId, goalId, `notes/${encodeURIComponent(id)}`, changes);
+export const deleteNote = (projectId: string, goalId: string, id: string) => postGoalNote(projectId, goalId, `notes/${encodeURIComponent(id)}/delete`, {});
+export const changeDecision = (projectId: string, goalId: string, id: string, text: string) =>
+  postGoalNote(projectId, goalId, `decisions/${encodeURIComponent(id)}`, { text });
+export const deleteDecision = (projectId: string, goalId: string, id: string) => postGoalNote(projectId, goalId, `decisions/${encodeURIComponent(id)}/delete`, {});
+
 /** Answers one of the AI's questions: a choice, or the person's own words. */
 export const answerQuestion = (projectId: string, goalId: string, id: string, answer: string) =>
   postTalk(projectId, goalId, `questions/${encodeURIComponent(id)}/answer`, { answer });

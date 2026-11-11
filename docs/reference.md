@@ -191,6 +191,9 @@ Talking with the Agent uses three more, with the header `x-progressor: talk` and
 ```
 POST /api/projects/<project>/goals/<goal>/messages                {"text": "Use the blue logo"}     → 201, the message
 POST /api/projects/<project>/goals/<goal>/messages/<id>/delete    {}                               → 200 (409 once the Agent has seen it)
+POST /api/projects/<project>/goals/<goal>/messages/<id>/remove    {}                               → 200, read or not, with its reply; the Agent is not told
+POST /api/projects/<project>/goals/<goal>/questions/<id>/remove   {}                               → 200 (409 while the question waits for an answer)
+POST /api/projects/<project>/goals/<goal>/clear                   {}                               → 200, {"removed": n}: read or answered messages, and answered questions whose answer the Agent has seen
 POST /api/projects/<project>/goals/<goal>/questions/<id>/answer   {"answer": "Follow the computer"} → 200, the question (409 if already answered or withdrawn)
 ```
 
@@ -225,6 +228,17 @@ POST /api/global/context             {"part": "computer", "text": "Windows 11."}
 ```
 
 They are kept in `global.json` beside `projects.json` (so `PROGRESSOR_REGISTRY` moves it too), read fresh by every Progressor server. The server's instructions, sent when an app connects, end with them (every hard rule, up to 10 others and *and N more*, each About text up to 600 characters), so they hold even in a folder with no plan; get_status and get_rules show all of them. Open pages get a `global` event when the file changes, by the dashboard or by an AI's tool call.
+
+A goal's notes and decisions can be changed with four more, with the header `x-progressor: notes` (`_project` is the whole project's talk for the remove routes above too):
+
+```
+POST /api/projects/<project>/goals/<goal>/notes/<id>              {"text": "...", "resolved": true}  → 200, the note (either field may be left out)
+POST /api/projects/<project>/goals/<goal>/notes/<id>/delete       {}                                 → 200
+POST /api/projects/<project>/goals/<goal>/decisions/<id>          {"text": "..."}                    → 200, the decision
+POST /api/projects/<project>/goals/<goal>/decisions/<id>/delete   {}                                 → 200
+```
+
+Each goes through the same code as the tools, under the plan's lock, so it is in the plan's history, and leaves a message on the goal ("On the dashboard I changed note n1…") for the Agent. An unknown note or decision is 404; an empty text is 400. Clearing the Important context (`POST /api/projects/<project>/context` with an empty text) tells the Agent it was removed.
 
 Taking a project off the dashboard uses one more, with the header `x-progressor: remove-project`:
 

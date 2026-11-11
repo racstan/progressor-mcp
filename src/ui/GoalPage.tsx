@@ -198,7 +198,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
                 </section>
               )}
               <HandTests {...props} />
-              <GoalNotes view={view} goals={goals} />
+              <GoalNotes view={view} goals={goals} projectId={projectId} goalId={goal.id} onChanged={onChanged} />
             </>
           )
         )}

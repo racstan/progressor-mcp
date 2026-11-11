@@ -4,7 +4,7 @@ import { contextBlocks } from "./context.js";
 import { addRule, changeRule, removeRule, saveContext } from "./data.js";
 import { Highlighted, RichText } from "./RichText.js";
 import { RoutinesCard } from "./RoutinesCard.js";
-import { useSend } from "./Talk.js";
+import { RemoveLink, useSend } from "./Talk.js";
 
 type Rule = { id?: string; text: string; hard?: boolean; helpersAtOnce?: number };
 
@@ -164,6 +164,7 @@ export function About({ api, context, onChanged, title, empty, placeholder, told
       <h2>
         {title}
         {!editing && <button className="linkbtn" onClick={() => setDraft(context)}>Edit</button>}
+        {!editing && context.trim() && <RemoveLink what={`everything in “${title}”`} told={told} onRemove={() => api.saveContext("")} onChanged={onChanged} />}
       </h2>
       {editing ? (
         <form className="note-form" onSubmit={(e) => {

@@ -35,6 +35,8 @@ describe("notices", () => {
     expect(noticeWords("On the dashboard I changed the Important context. Read it again with get_rules before your next step.")).toBe(
       "You changed the Important context.",
     );
+    expect(noticeWords("On the dashboard I removed the Important context. Fill it in again with update_context only if I ask.")).toBe("You removed the Important context.");
+    expect(noticeWords('On the dashboard I changed decision c2 on goal login to: "Close at 5pm". Follow it from now on.')).toBe('You changed decision c2 on goal login to: "Close at 5pm".');
     expect(noticeWords(`On the dashboard I added wish w1 to the wishlist: "Stable". You may suggest a goal for it; don't change the wishlist yourself.`)).toBe(
       'You added wish w1 to the wishlist: "Stable".',
     );

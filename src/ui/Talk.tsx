@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { type GoalView, answerQuestion, requestMoreAlternatives, sendMessage, takeBackMessage } from "./data.js";
+import { type GoalView, answerQuestion, clearFinishedTalk, removeTalkItem, requestMoreAlternatives, sendMessage, takeBackMessage } from "./data.js";
 import { Icon } from "./Icon.js";
 import { Pictures } from "./Pictures.js";
 import { RichText } from "./RichText.js";
@@ -126,9 +126,13 @@ export function Conversation({ projectId, goalId, view, onChanged }: Props) {
   const earlier = [...view.messages.map((m) => ({ at: m.sentAt ?? "", m })), ...answered.map((q) => ({ at: q.answeredAt ?? "", q }))].sort((a, b) =>
     b.at.localeCompare(a.at),
   );
+  // What Clear all removes: messages your AI has read or answered, and questions whose answer it has seen (Project.clearFinishedTalk).
+  const finished = view.messages.filter((m) => m.state !== "new").length + view.questions.filter((q) => q.state === "withdrawn" || (q.state === "answered" && q.seen)).length;
+  const remove = (kind: "messages" | "questions", id: string) => removeTalkItem(projectId, goalId, kind, id);
   return (
     <section className="talk" aria-label="Talk with your AI">
       <Write projectId={projectId} goalId={goalId} onChanged={onChanged} />
+      {finished > 0 && <ClearAll count={finished} onClear={() => clearFinishedTalk(projectId, goalId)} onChanged={onChanged} />}
       {earlier.length === 0 ? (
         <p className="empty">Nothing said yet. Write to your AI above; it reads it at its next step and answers here.</p>
       ) : (
@@ -140,6 +144,7 @@ export function Conversation({ projectId, goalId, view, onChanged }: Props) {
               <li key={item.q.id} className="answered">
                 <Alternatives question={item.q} about={stepTitle(view, item.q.task)} pictures={view.pictures ?? []} projectId={projectId} goalId={goalId} onChanged={onChanged} as="div" />
                 {item.q.answeredAt && <div className="origin" title={`${exactDate(item.q.answeredAt)} (${ago(Date.parse(item.q.answeredAt))})`}>chosen {whenWords(item.q.answeredAt)}</div>}
+                <RemoveLink what="this question and your answer" onRemove={() => remove("questions", item.q.id!)} onChanged={onChanged} />
               </li>
             ) : (
               <li key={item.q.id} className="answered">
@@ -147,6 +152,7 @@ export function Conversation({ projectId, goalId, view, onChanged }: Props) {
                 <RichText className="text" text={item.q.text} />
                 <div className="reply"><span className="who">You answered</span> {item.q.answer}</div>
                 {item.q.answeredAt && <div className="origin" title={`${exactDate(item.q.answeredAt)} (${ago(Date.parse(item.q.answeredAt))})`}>answered {whenWords(item.q.answeredAt)}</div>}
+                <RemoveLink what="this question and your answer" onRemove={() => remove("questions", item.q.id!)} onChanged={onChanged} />
               </li>
             ),
           )}
@@ -205,8 +211,51 @@ function Write({ projectId, goalId, onChanged }: Omit<Props, "view">) {
   );
 }
 
+/**
+ * A small Remove link, shown when the row is pointed at or reached with the keyboard, that asks
+ * first in plain words. Removing is only on this page: the AI is not told.
+ */
+export function RemoveLink({ what, onRemove, onChanged, told = "Your AI is not told." }: { what: string; onRemove: () => Promise<void>; onChanged: () => void; told?: string }) {
+  const [asking, setAsking] = useState(false);
+  const { busy, error, run } = useSend(onChanged);
+  return asking ? (
+    <div className="confirm inline-confirm" role="group" aria-label={`Remove ${what}?`}>
+      <span>Remove {what}? {told}</span>
+      <button type="button" className="btn small" disabled={busy} autoFocus onClick={() => void run(onRemove)}>Remove</button>
+      <button type="button" className="btn ghost small" disabled={busy} onClick={() => setAsking(false)}>Keep it</button>
+      {error && <div className="error" role="alert">{error}</div>}
+    </div>
+  ) : (
+    <button type="button" className="linkbtn reveal-on-hover" onClick={() => setAsking(true)}>Remove</button>
+  );
+}
+
+/** Clear all: removes every finished message (read or answered) after asking; unread messages and open questions stay. */
+function ClearAll({ count, onClear, onChanged }: { count: number; onClear: () => Promise<void>; onChanged: () => void }) {
+  const [asking, setAsking] = useState(false);
+  const { busy, error, run } = useSend(onChanged);
+  return (
+    <div className="clear-all">
+      {asking ? (
+        <div className="confirm" role="group" aria-label="Clear finished messages?">
+          <span>Remove {count === 1 ? "the 1 finished message" : `all ${count} finished messages`} (ones your AI has read or answered)? Unread messages and questions waiting for you stay. Your AI is not told.</span>
+          <button type="button" className="btn small" disabled={busy} autoFocus onClick={() => void run(onClear).then((ok) => ok && setAsking(false))}>Clear all</button>
+          <button type="button" className="btn ghost small" disabled={busy} onClick={() => setAsking(false)}>Keep them</button>
+        </div>
+      ) : (
+        <button type="button" className="linkbtn" onClick={() => setAsking(true)}>Clear all finished messages</button>
+      )}
+      {error && <div className="error" role="alert">{error}</div>}
+    </div>
+  );
+}
+
 function Said({ message: m, projectId, goalId, onChanged }: { message: MessageView } & Omit<Props, "view">) {
   const { busy, error, run } = useSend(onChanged);
+  // A message your AI has not read is taken back; any other is removed, with its answer.
+  const remove = m.state === "new" ? null : (
+    <RemoveLink what={m.reply ? "this message and its answer" : "this message"} onRemove={() => removeTalkItem(projectId, goalId, "messages", m.id!)} onChanged={onChanged} />
+  );
   // The dashboard's own notice of a change to the rules, notes or wishlist: a small line, not a message.
   if (isNotice(m.text))
     return (
@@ -214,6 +263,10 @@ function Said({ message: m, projectId, goalId, onChanged }: { message: MessageVi
         <span className="notice-text">{noticeWords(m.text)}</span>
         {sentWords(m) && <span className="origin" title={m.sentAt && exactDate(m.sentAt)}> · {sentWords(m)}</span>}
         {m.reply && <div className="reply"><span className="who">Your AI:</span> <RichText className="inline" text={m.reply} /></div>}
+        {m.state === "new" ? (
+          <button type="button" className="linkbtn undo reveal-on-hover" disabled={busy} onClick={() => void run(() => takeBackMessage(projectId, goalId, m.id!))}>Take back</button>
+        ) : remove}
+        {error && <div className="error" role="alert">{error}</div>}
       </li>
     );
   return (
@@ -222,9 +275,9 @@ function Said({ message: m, projectId, goalId, onChanged }: { message: MessageVi
       <div className="text">{m.text}</div>
       {sentWords(m) && <div className="origin" title={[m.sentAt, m.repliedAt].filter(Boolean).map((t) => exactDate(t!)).join(" · ")}>{sentWords(m)}</div>}
       {m.reply && <div className="reply"><span className="who">Your AI:</span> <RichText className="inline" text={m.reply} /></div>}
-      {m.state === "new" && (
+      {m.state === "new" ? (
         <button type="button" className="linkbtn undo" disabled={busy} onClick={() => void run(() => takeBackMessage(projectId, goalId, m.id!))}>Take back</button>
-      )}
+      ) : remove}
       {error && <div className="error" role="alert">{error}</div>}
     </li>
   );

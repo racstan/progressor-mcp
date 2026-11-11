@@ -15,6 +15,7 @@ export function noticeWords(text: string): string {
     .replace(/\s+Read it again with get_rules[^.]*\./, "")
     .replace(/\s+You may suggest a goal for it; don't change the wishlist yourself\./, "")
     .replace(/\s+Offer new ones with ask_developer\./, "")
+    .replace(/\s+Fill it in again with update_context only if I ask\./, "")
     .replace(/[:.]\s+(?:I have what I wished for|I still want it|I don't want it any more|Follow it from now on|Stop following it)\.$/, ".");
 }
 
