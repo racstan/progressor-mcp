@@ -10,7 +10,7 @@ The dashboard shows the plan. The one thing you do on it yourself is mark the th
 
 **Breadcrumbs** at the top of every page say where you are: *Home* on Home, *Home › Settings*, *Home › Bindery › Calendar*, or *Home › Bindery › Ship OAuth login* on a goal. Click **Home** to see every project, or the project's name to go back to its goals. On a phone the middle of the trail shortens, with *…*, instead of running off the screen.
 
-In a project, the sidebar has **Home** at the top, then the project's own pages under its name: **Dashboard** first, then Hotfixes, Message your AI, Project notes, Wishlist, Calendar, History and Handoffs. **Settings** comes after them, then the project's goals. On Home, the sidebar has Home, Settings and your projects.
+In a project, the sidebar has **Home** at the top, then the project's own pages under its name: **Dashboard** first, then Hotfixes, Message your AI, Project notes, Wishlist, Calendar, History and Handoffs. **Settings** comes after them, then the project's goals. On Home, the sidebar has Home, Settings and your projects. Point at a project there (or move to it with the keyboard) and a small **×** appears: it removes the project from the dashboard, after you confirm. Only the dashboard forgets it: its folder and its plan are not touched, and it comes back by itself if your AI uses Progressor in that project again.
 
 Each project page's heading and browser tab say which project it is about, such as *Bindery Dashboard*, *Bindery project notes* or *Message your AI about Bindery*, so you always know which project you're looking at. Settings is for every project, so it is just *Settings*.
 
@@ -145,6 +145,10 @@ A goal that finishes turns green and gets a green dot until you've looked at it;
 
 If you use Progressor in several projects, click the project name at the top of the sidebar to switch, or pick **🗂 All projects** for an overview of every project at once.
 
+## Rules and context for every project
+
+On **Home**, the **Rules for every project** card holds rules your AI follows in all your projects, such as *Never push to GitHub without asking me*, and **Context for every project**: background it should know everywhere, such as the computer you use or how you like things explained. Your AI reads them in every project before that project's own rules, at the start of each conversation and with every status check, and puts them in each helper's brief. **+ Add a rule for every project**, **Edit**, **Remove** and **Must never be broken** work as on Project notes, and **Edit** rewrites the context. Your AI keeps them too: tell it a rule holds *"in all my projects"* and it saves it here. They are kept once for your user, in `global.json` beside the list of projects, not in any project's `.progressor/` folder.
+
 ## Important context
 
 **📌 Important context**, above Your goals, opens the project's one page of rules and background: the rules you've given your AI, then what the project is, key facts and choices that hold for the whole project. Your AI writes it and reads all of it at the start of every conversation. Rules you've said must never be broken come first, each marked with a **Must** label. The rule that holds your helper limit says so: *At most 2 helpers at once*. You can change it yourself: **+ Add a rule**, **Edit** and **Remove** on each rule, and **Edit** on About this project. Your AI is told about each change at its next step.
@@ -245,13 +249,13 @@ With **File names** on, clicking a file opens it in VS Code by default. Pick ano
 
 ### One dashboard for every project
 
-Every Progressor server adds its project folder to a list for your user, `~/.progressor/projects.json` (`PROGRESSOR_REGISTRY` points it elsewhere). Whichever Progressor holds the port serves every project on that list; if it ends, the next one to start takes over. Projects whose folder has gone are not shown. To take a project off the list, delete its entry from the file.
+Every Progressor server adds its project folder to a list for your user, `~/.progressor/projects.json` (`PROGRESSOR_REGISTRY` points it elsewhere). Whichever Progressor holds the port serves every project on that list; if it ends, the next one to start takes over. Projects whose folder has gone are not shown. To take a project off the dashboard, point at it in Home's sidebar and press **×**: it is removed from the list and hidden from Workspace scans (`hidden.json` beside the list) until a Progressor server starts in it again. Its folder and plan stay as they are.
 
 The dashboard listens only on your own computer (`127.0.0.1`, and `::1` where there is IPv6), on port 4747 (`PROGRESSOR_PORT` changes it). If that port is taken it uses the next free one; the `Dashboard:` line at the end of `get_status` always has the right address. `PROGRESSOR_DASHBOARD=off` runs Progressor without it.
 
 ### What the dashboard can change
 
-Only a few things, all from the dashboard's own page: stopping a Progressor server, marking a hand test, talking with your AI (sending or taking back a message, answering a question), editing the project notes (adding, rewording or removing a rule, and rewriting About this project), changing the wishlist (adding, rewording, ticking off or removing a wish), and reporting a bug as a hotfix; your AI is told about each change. Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark, message, answer or note is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
+Only a few things, all from the dashboard's own page: stopping a Progressor server, marking a hand test, talking with your AI (sending or taking back a message, answering a question), editing the project notes (adding, rewording or removing a rule, and rewriting About this project), editing the rules and context for every project on Home, removing a project from the dashboard (never its files), changing the wishlist (adding, rewording, ticking off or removing a wish), and reporting a bug as a hotfix; your AI is told about each change. Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark, message, answer or note is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
 
 ### The dashboard in the background
 

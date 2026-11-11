@@ -233,6 +233,8 @@ Open **http://localhost:4747** while your AI's app is open (your AI gives you th
 **Finding your way**
 
 - **Home** shows every project at once: what needs you, what's being worked on, and the numbers across all of them.
+- **Rules for every project** on Home: rules and background your AI follows in all your projects, such as *"Never push without asking me"*. Add them there, or tell your AI *"in all my projects…"*.
+- **Remove a project** from the dashboard: point at it in Home's sidebar and press **×**. Its files and plan stay as they are, and it comes back if your AI uses Progressor there again.
 - **Breadcrumbs** at the top of every page say where you are, such as *Home › Bindery › Dashboard*; click Home or the project to go back.
 - **Search** in the top bar (press `/`) finds projects, goals and steps across all your projects as you type.
 - **Settings** has its own page, from the gear at the top or the sidebar, grouped into Look, Notifications, AI & plan, History & releases and Advanced, with a menu that folds away. Nothing there is required: Progressor works fully with the defaults.

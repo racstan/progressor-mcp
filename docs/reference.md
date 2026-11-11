@@ -48,7 +48,7 @@ The AI calls these; the server's instructions tell it when.
 | --- | --- |
 | `get_status` | Every Goal this Session holds, each with its current Task, open Detour, Tasks with a helper (with their branch, folder and label when recorded), waiting on the Developer or checked (with their evidence), next Task, decisions and open notes; the helper limit and the schedule, one short line each, when set; then the Standing Instructions, the project folder and the dashboard link. In Claude Code, the first `get_status` of a Session says when the project has no Progressor hooks (in `.claude/settings.json`, `.claude/settings.local.json` or `~/.claude/settings.json`), with the `progressor-mcp init` command that adds them. With no Goal claimed it lists only the Goals that are active, paused, waiting on the Developer's tests or planned, and counts the finished and cancelled ones (*Finished: 37 goals (not listed; get_item progressor://<goal> to look one up).*). It also runs the plan check-up once per Session (`check: true` runs it again and lists every finding), adds the goals of due routines, gives the release facts for a held release goal, lists alternatives waiting for a pick, and says how far off past estimates were. See [New in this version](#new-in-this-version). |
 | `get_item` | Looks up any item by its `progressor://` ref (the `progressor://` may be left off), with its file and line; a Task with its time against its estimate, a Goal with its estimate and expected finish. |
-| `get_rules` | The Standing Instructions as a block to paste into a helper agent's brief: hard rules first, then the others, the helper limit if one is set, and a line telling the helper not to edit `.progressor/`. |
+| `get_rules` | The rules and context for every project, then the Standing Instructions, as a block to paste into a helper agent's brief: hard rules first, then the others, the helper limit if one is set, and a line telling the helper not to edit `.progressor/`. |
 | `add_goal` | Adds a Goal with an optional Task list, Outcome, `estimate` and short ID; `claim: true` claims it at once; `done: true` records finished work. `waits_on` lists goals it waits on; `release: true` (or `bundles`) makes it a release goal; `repeat` (`1d`, `1w`, `2w`, `1mo`, `monday`) makes it come back. |
 | `add_hotfix` | Adds a hotfix from a bug `report` (kept word for word; at most 8,000 characters) and an optional `title` (the report's first line otherwise): a Goal at the top of the Roadmap, after older hotfixes, with two Tasks, a test that shows the bug and the fix. `claim: true` claims it at once. See [Hotfixes](#hotfixes). |
 | `update_goal` | Renames a Goal or changes its Outcome or `estimate` (empty removes it), or the goals it `waits_on` (empty: none). |
@@ -79,9 +79,9 @@ The AI calls these; the server's instructions tell it when.
 | `attach_picture` | Shows the Developer a screenshot or short screen recording on the dashboard: `path` (absolute, or from the project folder) and a `caption`, optionally the `task` or `hand_test` it is about; or `remove` a picture by its ID. The file is copied into `.progressor/pictures/`, which is kept out of git. Needs a claimed Goal; takes no `project`. |
 | `ask_developer` | Asks the Developer a `question` on the dashboard with 2 to 4 `choices` (optionally the `task` it is about); or `withdraw` an open question by its ID. The answer comes back at a later call and is kept as a decision. Instead of `choices`, `alternatives` (2 to 4, each a `title`, an `about` line and a `picture` ID) with `recommended` (1-based) and `wait` (such as `10m`; the setting otherwise) offer ways to go: nothing waits on the Developer, the AI goes ahead with its pick when the wait is over, and a later pick comes as news. Takes no `project`. |
 | `reply_to_developer` | Answers one of the Developer's dashboard messages (`message` ID, `reply`); `whole_project: true` for a message to the whole project, which needs no Goal. Takes no `project`. |
-| `add_standing_instruction` | Saves a lasting rule from the Developer; `hard: true` marks one that must never be broken; `helpers_at_once: 2` makes it the rule that holds the helper limit. |
-| `update_standing_instruction` | Changes a rule's text, its `hard` flag and/or the helper limit it holds (`helpers_at_once`, 0 removes it), or removes the rule when the text is empty. |
-| `update_context` | Replaces the project's Important context (at most 4000 characters), or clears it with an empty text. |
+| `add_standing_instruction` | Saves a lasting rule from the Developer; `hard: true` marks one that must never be broken; `helpers_at_once: 2` makes it the rule that holds the helper limit; `global: true` saves it as a rule for every project instead ("in all my projects…"). |
+| `update_standing_instruction` | Changes a rule's text, its `hard` flag and/or the helper limit it holds (`helpers_at_once`, 0 removes it), or removes the rule when the text is empty. With `global: true` (or an ID such as `g1`), it changes or removes a rule for every project. |
+| `update_context` | Replaces the project's Important context (at most 4000 characters), or clears it with an empty text. With `global: true`, the context for every project instead. |
 | `plan_history` | The plan's last changes, newest first (`list`, 10 unless set), or `restore` a change's ID to go back to before it. Going back is itself a change that can be undone. |
 | `handoff` | Without `text`: the facts for a handoff of a range (`since` a date or commit, `until` a date, or exactly `commits`; since the last handoff by default). With `text` and `title`: saves the handoff the AI wrote in `.progressor/handoffs/`. |
 
@@ -213,6 +213,26 @@ POST /api/projects/<project>/wishes/<id>/delete   {}                            
 Each change also sends a message to the whole project ("On the dashboard I added a rule…"), so the Agent hears of it at its next call and replies as it would to any message. An unknown rule or wish is 404; an empty one is 400. `GET /api/projects/<project>/roadmap` includes the `wishes`.
 
 The dashboard's hub version is now 8, so a Progressor with this change takes the port over from an older one that cannot take these.
+
+The rules and context for every project (on Home) use five more, with the header `x-progressor: global` and the same checks:
+
+```
+GET  /api/global                                  → {"rules": [{"id": "g1", "text": "...", "hard": true}], "context": "..."}
+POST /api/global/rules               {"text": "Never push without asking", "hard": true} → 201, the rule
+POST /api/global/rules/<id>          {"text": "...", "hard": false}                     → 200, the rule (either field may be left out)
+POST /api/global/rules/<id>/delete   {}                                                 → 200
+POST /api/global/context             {"text": "I use Windows."}                         → 200 (empty text clears it; 400 over 4000 characters)
+```
+
+They are kept in `global.json` beside `projects.json` (so `PROGRESSOR_REGISTRY` moves it too), read fresh by every Progressor server. Open pages get a `global` event when the file changes, by the dashboard or by an AI's tool call.
+
+Taking a project off the dashboard uses one more, with the header `x-progressor: remove-project`:
+
+```
+POST /api/projects/<project>/remove   {}   → 200, {"removed": "<project>"}
+```
+
+It removes the project from `projects.json` and adds it to `hidden.json` beside it, so a Workspace scan does not bring it back. Its folder and `.progressor/` are not touched. When a Progressor server starts in that folder again, it is taken off `hidden.json` and shows again. The hub version is now 10.
 
 ## `progressor-mcp` commands
 
