@@ -299,6 +299,8 @@ Two hooks put the plan in front of the AI without it having to ask. Without them
 
 The hook reads `.progressor/` straight from disk, so it needs no running server, and prints nothing in projects without Progressor. It never blocks a message: if anything goes wrong, it stays silent. `npx -y progressor-mcp hook ...` works too, but adds about 1.5 seconds to every message, so the global install is recommended.
 
+Each hook also counts token use (`.progressor/cost/tokens.json`, ignored by git): it reads what is new in the chat's transcript (`transcript_path`) and adds each reply's tokens to the goal and step the chat had started, following its own `claim_goal`, `start_task`, `complete_task`, `update_tasks`, `complete_goal` and `release_goal` calls. `init` also adds a `Stop` hook (`progressor-mcp hook stop`) that counts a reply as soon as it ends; it prints nothing, and a setup without it still works. `GET /api/projects/:id/cost` gives each goal's and step's tokens, and money once prices are set (Settings, `cost.inputPrice` and `cost.outputPrice`, dollars per million tokens; cache writes count at 1.25 times input, cache reads at a tenth).
+
 ## The files
 
 Everything lives in `.progressor/` in the project:

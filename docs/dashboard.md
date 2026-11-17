@@ -191,6 +191,10 @@ Some steps wait on someone other than you: a team member, a lawyer, a payments p
 
 A **Waiting on others** section lists these steps grouped by person, with the person's role, each step's goal (click it to open the goal) and what they need to do. It shows on Home, for every project, and on a project's **Dashboard** page, for that project, apart from Needs you. These steps do not make a goal show under Needs you, because nothing is waiting on you. The section is hidden when nobody holds anything.
 
+## What goals cost
+
+Each goal's page shows how many tokens your AI used on it, such as *Used 2.4M tokens*, and each step shows its own share when you open it. Your AI's hooks count them by themselves as it works: they read the chat's own record of each reply and add it to the goal and step the chat was working on. The project's **Dashboard** page has a **What goals cost** section with the goals that used most, and what a finished step and an hour of work cost on average. To see money too, put your AI's prices in **Settings**, under **What goals cost** (dollars per million tokens it reads and writes); reading what it read before is cheaper, so it counts at a tenth. The counts stay on this computer, in `.progressor/cost/`, which git ignores. The hook that counts the end of each reply comes with `progressor-mcp init`; without it, a reply is counted at your next message.
+
 ## Ready to launch?
 
 **Ready to launch?** in the sidebar answers *can this project ship?* It starts with one line, such as *Not ready yet: 3 steps for the AI, 2 things for you, 1 serious risk*, or *Ready to launch: nothing is left* in a filled box. Under it, it says which goals it counts, then lists what is left by who it waits on: **For you** (things to try, questions and steps waiting on you), **For your AI** (steps still to build or finish), **Waiting on others** (grouped by person) and **Serious risks** that nothing is reducing. Click a goal's name to open it.

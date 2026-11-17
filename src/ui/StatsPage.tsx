@@ -2,8 +2,11 @@ import { useState } from "react";
 import { sayDuration } from "../estimate.js";
 import { CheckupCard } from "./CheckupCard.js";
 import { SinceLook } from "./SinceLook.js";
+import { costSummary } from "./costStats.js";
+import { costWords, moneyWords, tokenWords } from "../costWords.js";
+import type { CostLine } from "../dashboard/routes/cost.js";
 import { WaitingOnOthers } from "./WaitingOnOthers.js";
-import { type RoadmapView, type StatsView, useStats } from "./data.js";
+import { type RoadmapView, type StatsView, useCost, useStats } from "./data.js";
 import { GOAL_SORTS, type GoalSort, readGoalSort, sortGoals } from "./goalSort.js";
 import { SIDE_TRIP_HINT, driftWords, estimateQuality, estimateWords } from "./words.js";
 
@@ -37,10 +40,44 @@ export function StatsPage({ projectId, roadmap, onOpenGoal, heading }: { project
       ) : stats === null ? (
         <p className="quiet">The numbers could not be loaded. Try Refresh.</p>
       ) : (
-        <Stats stats={stats} onOpenGoal={onOpenGoal} />
+        <>
+          <Stats stats={stats} onOpenGoal={onOpenGoal} />
+          <GoalCosts projectId={projectId} roadmap={roadmap} minutesWorked={stats.time.spent} onOpenGoal={onOpenGoal} />
+        </>
       )}
       <CheckupCard projectId={projectId} />
     </div>
+  );
+}
+
+const costText = (l: CostLine) => `${tokenWords(l.tokens)}${l.money !== undefined ? ` · about ${moneyWords(l.money)}` : ""}`;
+
+/** What goals cost (cost.ts): hidden until the hooks have counted some tokens. */
+function GoalCosts({ projectId, roadmap, minutesWorked, onOpenGoal }: { projectId: string; roadmap: RoadmapView; minutesWorked: number; onOpenGoal: (id: string) => void }) {
+  const cost = useCost(projectId, roadmap);
+  const s = costSummary(cost, roadmap.goals.map((g) => ({ id: g.id, title: g.title, done: g.done })), minutesWorked);
+  if (!s) return null;
+  return (
+    <section className="section goal-costs">
+      <h2>What goals cost</h2>
+      <p className="stat-lead">{costWords(s.total)} on this project's goals, counted by your AI's hooks as it works.</p>
+      {(s.perStep || s.perHour) && (
+        <p className="quiet">
+          {[s.perStep && `About ${costText(s.perStep)} per finished step`, s.perHour && `${costText(s.perHour)} per hour of work`].filter(Boolean).join(" · ")}.
+        </p>
+      )}
+      <ol className="stat-list">
+        {s.ranked.map((r) => (
+          <li key={r.id}>
+            <button className="linkrow" onClick={() => onOpenGoal(r.id)} title={`Open the goal "${r.title}"`}>
+              <span className="t">{r.title}{r.perStep && <small>{costText(r.perStep)} per finished step</small>}</span>
+              <span className="v">{costText(r)}</span>
+            </button>
+          </li>
+        ))}
+      </ol>
+      {cost && !cost.priced && <p className="quiet">To see money too, put your AI's prices in Settings, under What goals cost.</p>}
+    </section>
   );
 }
 
