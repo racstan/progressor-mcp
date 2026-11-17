@@ -42,12 +42,13 @@ import { ResourceLocks } from "./resources.js";
 import { unsafeRoot } from "./root.js";
 import { type Routine, dueRoutines, formatEvery, nextAfter, nextDue, parseEvery, splitStep } from "./routines.js";
 import { formatDuration, parseDuration } from "./estimate.js";
-import { type Claim, type Goal, GOAL_BUNDLES, GOAL_FROM_ROUTINE, GOAL_RELEASE, GOAL_WAITS_ON, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
+import { type Readiness, readiness } from "./readiness.js";
+import { type Claim, type Goal, GOAL_BUNDLES, GOAL_FOR_LAUNCH, GOAL_FROM_ROUTINE, GOAL_RELEASE, GOAL_WAITS_ON, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
 import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule, helperCount } from "./schedule.js";
 import { type Calibration, calibration } from "./stats.js";
 import { PEOPLE_FILE, type Person, findPerson, formatPeople, nextPersonId, parsePeople, personName } from "./people.js";
-import { RISKS_FILE, type Risk, type RiskChanges, type Level, formatRisks, nextRiskId, parseRisks, riskLine } from "./risks.js";
+import { RISKS_FILE, type Risk, type RiskChanges, type Level, formatRisks, nextRiskId, parseRisks, riskLine, riskScore, unreducedSeriousRisks } from "./risks.js";
 import { WISHLIST_FILE, type Attachment, type Wish, formatWishlist, isWishId, nextWishId, parseWishlist, wishText } from "./wishlist.js";
 
 /** The estimates settings the schedule needs (settings.ts); without them estimates are taken as written. */
@@ -1174,6 +1175,44 @@ export class Project {
   /** The commits after a git ref such as `v1.3.0` (gitFacts.ts); undefined without git or that ref. */
   commitsAfter(ref: string, max = 40): { total: number; lines: string[] } | undefined {
     return this.git.commitsAfter?.(this.root, ref, max);
+  }
+
+  /** Marks goals as needed for the launch, or unmarks them (readiness.ts). Needs no Claim. */
+  setForLaunch(goalIds: string[], needed: boolean): Goal[] {
+    const roadmap = this.roadmap();
+    for (const id of goalIds) if (!roadmap.goal(id)) throw new Error(`No Goal ${id} on the Roadmap.`);
+    for (const id of goalIds) {
+      roadmap.setGoalDetail(id, GOAL_FOR_LAUNCH, needed ? "yes" : undefined);
+      this.markGoal(roadmap, id);
+    }
+    this.saveRoadmap(roadmap);
+    const after = this.roadmap();
+    return goalIds.map((id) => after.goal(id)!);
+  }
+
+  /** What still stands between the project and a launch or release (readiness.ts); a goal whose plan cannot be read adds nothing. */
+  readiness(): Readiness {
+    const goals = this.roadmap().goals;
+    const input: Parameters<typeof readiness>[0] = { goals, steps: [], untried: [], questions: [], risks: [] };
+    for (const g of goals) {
+      if (g.status === "dropped") continue;
+      try {
+        const plan = this.plan(g.id);
+        for (const t of plan.tasks)
+          input.steps.push({ goal: g.id, step: t.id ?? `line-${t.line}`, title: t.title, status: t.status, ...(t.waitingFor ? { waitingFor: t.waitingFor } : {}), ...(t.need ? { need: t.need } : {}) });
+        for (const h of plan.handTests) if (h.result === "pending") input.untried.push({ goal: g.id, test: h.id ?? `line-${h.line}`, text: h.text });
+        for (const q of this.talk(g.id).questions) if (q.state === "open") input.questions.push({ goal: g.id, id: q.id ?? `line-${q.line}`, text: q.text });
+      } catch {
+        // nothing from a plan that cannot be read
+      }
+    }
+    try {
+      const status = new Map(goals.map((g) => [g.id, g.status]));
+      input.risks = unreducedSeriousRisks(this.risks(), (id) => status.get(id)).map((r) => ({ id: r.id, title: r.title, score: riskScore(r) }));
+    } catch {
+      // a risks file that cannot be read adds nothing
+    }
+    return readiness(input);
   }
 
   /** Makes a Goal a release goal: the version it releases and the finished goals it bundles. */

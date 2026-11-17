@@ -18,6 +18,7 @@ import { elsewhereNewsLine, newsLines, projectTalkLine, talkLines } from "./talk
 import { type ResourceLock, holderText, resourceLine } from "./resources.js";
 import { oncePerDay, reminderLine, summarizeUntried } from "./untried.js";
 import { type Goal, type StandingInstruction, hardFirst, helperLimit, hotfixLine, ruleText } from "./roadmap.js";
+import { readinessText } from "./readiness.js";
 import { LEVELS, RISK_STATUSES, type Risk, unreducedSeriousRisks } from "./risks.js";
 import type { GoalSchedule, Schedule } from "./schedule.js";
 import type { Wish } from "./wishlist.js";
@@ -603,6 +604,7 @@ export const TOOL_EXAMPLES: Record<string, string> = {
   complete_goal: "complete_goal({})",
   add_tasks: 'add_tasks({ tasks: [{ title: "Fix typo", done: true, code: ["src/a.ts"], hand_test: "Check the button text" }] })',
   add_person: 'add_person({ name: "Priya", role: "payments lawyer" })',
+  launch_readiness: "launch_readiness()",
   add_risk: 'add_risk({ title: "Windows paths break setup", likelihood: "medium", impact: "high", mitigation: "Test setup on Windows in CI", goals: ["tests-ci-deps"] })',
   update_risk: 'update_risk({ risk: "r2", status: "reduced" })',
   add_small_fix: 'add_small_fix({ title: "Faster dev server start", summary: "Skip the type check on start.", code: ["vite.config.ts"] })',
@@ -1126,7 +1128,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Update Goal",
       description:
-        "Rename a Goal, set its Outcome or its estimate. Its ID, refs and Plan File stay the same, and it needs no Claim. To change a Goal's Tasks, claim it and use add_tasks, update_task or drop_task.",
+        "Rename a Goal, set its Outcome or its estimate, or mark it needed for the launch (for_launch). Its ID, refs and Plan File stay the same, and it needs no Claim. To change a Goal's Tasks, claim it and use add_tasks, update_task or drop_task.",
       inputSchema: {
         goal: goalId,
         title: z.string().trim().min(1).optional().describe("The new title."),
@@ -1135,16 +1137,32 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           .optional()
           .describe("How long the whole Goal should take, such as '6h'; it covers the open Tasks that have no estimate of their own. An empty string removes it, so the Goal's estimate is the sum of its Tasks'."),
         waits_on: waitsOnInput.describe("The goals it waits on, replacing any it had (empty: none): IDs here, or <project>/<goal-id>."),
+        for_launch: z
+          .boolean()
+          .optional()
+          .describe("true: the Goal is needed for the launch, so the dashboard's Ready to launch? page and launch_readiness count it; false: no longer. Mark the goals a launch needs as soon as you know; nobody has to ask."),
         project: otherProject,
       },
     },
-    ({ goal, title, outcome, estimate, waits_on, project: wanted }) =>
+    ({ goal, title, outcome, estimate, waits_on, for_launch, project: wanted }) =>
       respondIn(wanted, (p) => {
         const g = p.updateGoal(goal, { title, outcome, estimate: readEstimate(estimate) });
         if (waits_on) p.setWaitsOn(goal, waits_on);
+        if (for_launch !== undefined) p.setForLaunch([goal], for_launch);
         const item = [formatItem(p.getItem(g.ref), p.schedule(estimatesOf(p))), ...(waits_on?.length ? unknownWaits(p, goal) : [])].join("\n");
         return p === project ? item : doneIn(p, item);
       }),
+  );
+
+  server.registerTool(
+    "launch_readiness",
+    {
+      title: "Launch readiness",
+      description:
+        "Answer 'are we ready to launch?': what still stands before the launch or the next release, grouped by who it waits on (you, the Developer, other people), with serious risks nothing is reducing. It is the same summary as the dashboard's Ready to launch? page, so answer from it. It counts the next open release goal and what it bundles, else the goals marked for launch (update_goal for_launch), else every open goal.",
+      inputSchema: { project: otherProject },
+    },
+    ({ project: wanted }) => respondIn(wanted, (p) => readinessText(p.readiness())),
   );
 
   server.registerTool(

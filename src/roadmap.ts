@@ -37,6 +37,8 @@ export const GOAL_WAITS_ON = "waits on";
 export const GOAL_RELEASE = "release";
 export const GOAL_BUNDLES = "bundles";
 export const GOAL_FROM_ROUTINE = "from routine";
+/** A goal needed for the launch (readiness.ts). */
+export const GOAL_FOR_LAUNCH = "for launch";
 /** Known Goal details, in this order, when one is written with setGoalDetail; unknown ones follow as they were. */
 /** A routine's details (routines.ts). */
 const ROUTINE_EVERY = "every";
@@ -44,7 +46,7 @@ const ROUTINE_NEXT = "next";
 const ROUTINE_STEP = "step";
 const ROUTINE_LAST = "last goal";
 const ROUTINE_PAUSED = "paused";
-const GOAL_DETAIL_ORDER = ["outcome", "estimate", HOTFIX, GOAL_WAITS_ON, GOAL_RELEASE, GOAL_BUNDLES, GOAL_FROM_ROUTINE, WAITING_ON, "claimed by", "reason", "note", ORIGIN_KEY, ADDED, UPDATED];
+const GOAL_DETAIL_ORDER = ["outcome", "estimate", HOTFIX, GOAL_FOR_LAUNCH, GOAL_WAITS_ON, GOAL_RELEASE, GOAL_BUNDLES, GOAL_FROM_ROUTINE, WAITING_ON, "claimed by", "reason", "note", ORIGIN_KEY, ADDED, UPDATED];
 
 export interface Claim {
   session: string;
@@ -70,6 +72,8 @@ export interface Goal {
   estimate?: number;
   /** A hotfix: a bug to fix before any other work. Hotfixes stay at the top of the Roadmap. */
   hotfix?: true;
+  /** Needed for the launch: Ready to launch? counts it (readiness.ts). */
+  forLaunch?: true;
   /** The goals it waits on, as written: `login` here, or `api/ship-v2` in another project (dependencies.ts). */
   waitsOn?: string[];
   /** A release goal: the version it releases (facts.ts). */
@@ -226,6 +230,7 @@ export class Roadmap {
         reason: getDetail(b, "reason"),
         ...(estimate !== undefined ? { estimate } : {}),
         ...(isYes(getDetail(b, HOTFIX)) ? { hotfix: true as const } : {}),
+        ...(isYes(getDetail(b, GOAL_FOR_LAUNCH)) ? { forLaunch: true as const } : {}),
         ...(getDetails(b, GOAL_WAITS_ON).length > 0 ? { waitsOn: getDetails(b, GOAL_WAITS_ON) } : {}),
         ...(getDetail(b, GOAL_RELEASE) ? { release: getDetail(b, GOAL_RELEASE)! } : {}),
         ...(getDetails(b, GOAL_BUNDLES).length > 0 ? { bundles: getDetails(b, GOAL_BUNDLES) } : {}),
