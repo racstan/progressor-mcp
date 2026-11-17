@@ -28,6 +28,10 @@ async function call(name: string, args: Record<string, unknown> = {}) {
   return { text: result.content.map((c) => c.text).join("\n"), isError: result.isError ?? false };
 }
 
+/** The once-per-chat nudge to start a risks list (server.ts), in a project without one. */
+const NO_RISKS =
+  "This project has no risks list yet: add the risks you notice as you work (what could go wrong, how likely, how bad, what would reduce it) with add_risk. Nobody has to ask.";
+
 describe("the MCP server", () => {
   it("lists its tools and tells the Agent how to use them", async () => {
     const { tools } = await client.listTools();
@@ -89,6 +93,7 @@ describe("the MCP server", () => {
         "No Goal is claimed by this Session. Claim one with claim_goal, or plan one and add it with add_goal (claim: true).",
         "Goals:",
         "- login: Login (planned)",
+        NO_RISKS,
         `Project folder: ${root}`,
       ].join("\n"),
     );
@@ -117,6 +122,7 @@ describe("the MCP server", () => {
         "For a big product or design choice, offer 2 to 4 alternatives with ask_developer (alternatives, recommended) and go ahead with your pick; nobody has to choose.",
         "Standing Instructions:",
         "- s1 Ask me before recalibrating",
+        NO_RISKS,
         `Project folder: ${root}`,
       ].join("\n"),
     );
@@ -544,6 +550,7 @@ describe("several Goals in one Session", () => {
         "For a big product or design choice, offer 2 to 4 alternatives with ask_developer (alternatives, recommended) and go ahead with your pick; nobody has to choose.",
         "Standing Instructions:",
         "- s1 Write tests first",
+        NO_RISKS,
         `Project folder: ${root}`,
       ].join("\n"),
     );

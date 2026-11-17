@@ -18,7 +18,7 @@ import { elsewhereNewsLine, newsLines, projectTalkLine, talkLines } from "./talk
 import { type ResourceLock, holderText, resourceLine } from "./resources.js";
 import { oncePerDay, reminderLine, summarizeUntried } from "./untried.js";
 import { type Goal, type StandingInstruction, hardFirst, helperLimit, hotfixLine, ruleText } from "./roadmap.js";
-import { LEVELS, RISK_STATUSES, type Risk } from "./risks.js";
+import { LEVELS, RISK_STATUSES, type Risk, unreducedSeriousRisks } from "./risks.js";
 import type { GoalSchedule, Schedule } from "./schedule.js";
 import type { Wish } from "./wishlist.js";
 import { readSettings, settingsFileFor } from "./settings.js";
@@ -888,6 +888,38 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       return undefined; // a reminder never fails the status
     }
   };
+  // The risks list (risks.ts) is the AI's to keep: a project without one is nudged once per chat, and
+  // serious risks nothing is reducing are named in get_status until a goal is linked or they change.
+  let riskNudged = false;
+  const riskReminder = (): string | undefined => {
+    try {
+      const risks = project.risks();
+      if (risks.length === 0) {
+        if (riskNudged) return undefined;
+        riskNudged = true;
+        return "This project has no risks list yet: add the risks you notice as you work (what could go wrong, how likely, how bad, what would reduce it) with add_risk. Nobody has to ask.";
+      }
+      const goals = new Map(project.roadmap().goals.map((g) => [g.id, g.status]));
+      const serious = unreducedSeriousRisks(risks, (id) => goals.get(id));
+      return serious.length > 0
+        ? `Serious risks nothing is reducing: ${serious.map((r) => `${r.id} ${r.title}`).join("; ")}. Link a goal that reduces each (update_risk with goals), plan one, or update the risk if it has changed.`
+        : undefined;
+    } catch {
+      return undefined; // a reminder never fails the status
+    }
+  };
+  /** After a goal is finished: the open risks linked to it, for the AI to mark reduced or closed. */
+  const finishedGoalRisks = (p: Project, goalId: string): string => {
+    try {
+      return p
+        .risks()
+        .filter((r) => r.status === "open" && r.goals.includes(goalId))
+        .map((r) => ` Risk ${r.id} ${r.title} is linked to this goal: now that it is finished, mark it reduced or closed with update_risk, or say why it is still open.`)
+        .join("");
+    } catch {
+      return "";
+    }
+  };
   const hooksLine = (): string | undefined => {
     if (hooksChecked || !isClaudeCode(server)) return undefined;
     hooksChecked = true;
@@ -952,11 +984,13 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const elsewhere = takeElsewhereLine(project, seenFile(registryFile));
         const hooks = hooksLine();
         const reminder = untriedReminder();
+        const risky = riskReminder();
         return [
           now,
           ...routined,
           ...checked,
           ...(reminder ? [reminder] : []),
+          ...(risky ? [risky] : []),
           ...(elsewhere ? [elsewhere] : []),
           ...(hooks ? [hooks] : []),
           `Project folder: ${project.root}`,
@@ -1261,7 +1295,8 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const ev = readSettings(settingsFile, p.root).evidence;
         const unsaved = ev.record && ev.warnUncommitted && p.goalUncommitted(id) === true;
         const goal = p.completeGoal(id, options);
-        const unsavedLine = unsaved ? ` Warning: some files this goal's steps touched still have changes not saved in git.` : "";
+        const unsavedLine =
+          (unsaved ? ` Warning: some files this goal's steps touched still have changes not saved in git.` : "") + finishedGoalRisks(p, goal.id);
         if (goal.status === "testing") {
           const left = p.plan(goal.id).handTests.filter((h) => h.result === "pending").length;
           const said =
