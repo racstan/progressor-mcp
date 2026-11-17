@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { MAX_CONTEXT, STALE_AFTER_MINUTES, promptReminder, runHook, sessionStatus } from "../src/hooks.js";
 import { Project } from "../src/project.js";
-import { mkdirSync, readdirSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "./tmp.js";
 
@@ -290,6 +290,23 @@ describe("runHook", () => {
     const elsewhere = JSON.stringify({ cwd: tempDir("progressor-"), hook_event_name: "UserPromptSubmit" });
     expect(run("prompt", elsewhere)).toBe("");
     expect(run("prompt", elsewhere, { CLAUDE_PROJECT_DIR: root })).toContain("Goal: Ship OAuth login");
+  });
+
+  it("says in one line when the plan can't be read, instead of nothing", () => {
+    oauthInProgress();
+    const file = join(root, ".progressor", "roadmap.md");
+    rmSync(file);
+    mkdirSync(file); // a folder where the roadmap should be: reading it fails
+    const out = run("session-start", sessionStart());
+    expect(out.split(/\n/)).toHaveLength(1);
+    expect(out).toMatch(/can't read this project's plan/);
+  });
+
+  it("leaves a chat's claim alone even when that chat looks closed: the server tidies it", () => {
+    oauthInProgress(session("s-gone", 777));
+    alive.delete(777);
+    run("prompt", prompt());
+    expect(readFileSync(join(root, ".progressor", "roadmap.md"), "utf8")).toContain("s-gone");
   });
 
   it("prints nothing for a project without .progressor/, bad input or an unknown event", () => {

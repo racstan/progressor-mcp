@@ -326,14 +326,28 @@ const CONTEXT_HEADING = "# Important context";
  */
 export function claimMayBeLive(
   claim: Claim,
-  options: { isAlive: (pid: number) => boolean; sessionOf?: (pid: number) => string | undefined; self?: SessionIdentity },
+  options: {
+    isAlive: (pid: number) => boolean;
+    sessionOf?: (pid: number) => string | undefined;
+    self?: SessionIdentity;
+    /** When the claimed Goal's plan last changed, and the time now: see CLAIM_IDLE_MS. */
+    lastActive?: number;
+    now?: number;
+  },
 ): boolean {
   if (claim.pid === undefined) return true;
   if (options.self && claim.pid === options.self.pid) return claim.session === options.self.id;
   if (!options.isAlive(claim.pid)) return false;
   const running = options.sessionOf?.(claim.pid);
-  return running === undefined || running === claim.session;
+  if (running !== undefined) return running === claim.session;
+  // Some process has that number, but nothing says it is this Session: the number may have been
+  // reused after the chat closed. A claim on a plan nobody has changed for a day is taken as ended.
+  if (options.lastActive !== undefined && options.now !== undefined && options.now - options.lastActive > CLAIM_IDLE_MS) return false;
+  return true;
 }
+
+/** How long a claim whose process can't be told apart from a reused one stays held with no change to its plan. */
+export const CLAIM_IDLE_MS = 24 * 3_600_000;
 
 export function processIsAlive(pid: number): boolean {
   try {
@@ -580,7 +594,13 @@ export class Project {
       (g) =>
         g.claim &&
         g.claim.session !== this.session.id &&
-        !claimMayBeLive(g.claim, { isAlive: this.isAlive, sessionOf: this.sessionOf, ...(self ? { self } : {}) }),
+        !claimMayBeLive(g.claim, {
+          isAlive: this.isAlive,
+          sessionOf: this.sessionOf,
+          ...(self ? { self } : {}),
+          lastActive: this.lastActive(g, g.claim),
+          now: this.now().getTime(),
+        }),
     );
     if (ended.length === 0) return [];
     for (const g of ended) roadmap.setClaim(g.id, undefined);
@@ -888,8 +908,25 @@ export class Project {
   }
 
   /** Whether a Claim's Session may still be running (see claimMayBeLive). */
-  private claimMayBeLive(claim: Claim): boolean {
-    return claimMayBeLive(claim, { isAlive: this.isAlive, sessionOf: this.sessionOf, self: this.session });
+  private claimMayBeLive(claim: Claim, goal?: Goal): boolean {
+    return claimMayBeLive(claim, {
+      isAlive: this.isAlive,
+      sessionOf: this.sessionOf,
+      self: this.session,
+      ...(goal ? { lastActive: this.lastActive(goal, claim), now: this.now().getTime() } : {}),
+    });
+  }
+
+  /** The latest of when a claimed Goal was claimed, last changed on the Roadmap, and its plan file last saved. */
+  private lastActive(goal: Goal, claim: Claim): number {
+    const times = [claim.since, goal.updated?.at].map((t) => (t ? Date.parse(t) : NaN));
+    try {
+      times.push(statSync(this.path("goals", `${goal.id}.md`)).mtimeMs);
+    } catch {
+      // no plan file yet
+    }
+    const known = times.filter((t) => Number.isFinite(t));
+    return known.length > 0 ? Math.max(...known) : this.now().getTime();
   }
 
   /**
@@ -915,7 +952,7 @@ export class Project {
   private claimIsLive(goal: Goal): boolean {
     const claim = goal.claim;
     if (!claim || claim.session === this.session.id) return false;
-    return this.claimMayBeLive(claim);
+    return this.claimMayBeLive(claim, goal);
   }
 
   /**
@@ -927,7 +964,7 @@ export class Project {
   private tidyRoadmap(): Roadmap {
     const roadmap = this.roadmap();
     if (!this.tidy) return roadmap;
-    const stale = roadmap.goals.filter((g) => g.claim && g.claim.session !== this.session.id && !this.claimMayBeLive(g.claim));
+    const stale = roadmap.goals.filter((g) => g.claim && g.claim.session !== this.session.id && !this.claimMayBeLive(g.claim, g));
     if (stale.length === 0) return roadmap;
     for (const g of stale) roadmap.setClaim(g.id, undefined);
     try {
@@ -1288,6 +1325,11 @@ export class Project {
    * Marks a Task done, adding the files it touched and, optionally, the summary of what it changed.
    * A released Task stays released.
    */
+  /** A claimed Goal's Task's status, without changing anything. */
+  taskStatus(id: string, goalId?: string): Task["status"] {
+    return this.taskIn(this.requireClaim(goalId).plan, id).status;
+  }
+
   completeTask(id: string, code: string[] = [], summary?: string, goalId?: string): Task {
     return this.change(goalId, (plan) => this.complete(plan, id, code, summary));
   }
@@ -2177,19 +2219,20 @@ export class Project {
       throw missing();
     }
     const goal = this.roadmap().goal(scope);
+    const goalId = goal?.id ?? scope;
     if (!goal && !id) throw new Error(`No Goal ${scope}. Refs look like progressor://<goal>/<item>, such as progressor://login/t2.`);
     if (!goal) throw missing();
     if (!id) {
       let tasks: Task[] = [];
       try {
-        tasks = this.plan(scope).tasks;
+        tasks = this.plan(goalId).tasks;
       } catch {
         // a Goal whose Plan File cannot be read is still found
       }
-      return { kind: "goal", ref, file: roadmapFile, line: goal.line, item: goal, planFile: this.planFilePath(scope), tasks };
+      return { kind: "goal", ref, file: roadmapFile, line: goal.line, item: goal, planFile: this.planFilePath(goalId), tasks };
     }
-    const plan = this.plan(scope);
-    const file = this.planFilePath(scope);
+    const plan = this.plan(goalId);
+    const file = this.planFilePath(goalId);
     const task = plan.task(id);
     if (task) return { kind: "task", ref, file, line: task.line, item: task };
     const detour = plan.detour(id);
@@ -2229,7 +2272,7 @@ export class Project {
    */
   overview(): ProjectOverview {
     const roadmap = this.tidyRoadmap();
-    const held = (g: Goal) => g.status === "active" && g.claim !== undefined && this.claimMayBeLive(g.claim);
+    const held = (g: Goal) => g.status === "active" && g.claim !== undefined && this.claimMayBeLive(g.claim, g);
     const started = roadmap.goals.filter((g) => g.status === "active" || g.status === "paused");
     return {
       active: started.filter(held).map((g) => this.goalStatus(g, roadmap)),

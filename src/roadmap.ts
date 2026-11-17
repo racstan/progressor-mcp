@@ -318,8 +318,9 @@ export class Roadmap {
     this.doc.blocks.splice(this.doc.blocks.indexOf(this.routineBlock(id)), 1);
   }
 
+  /** A Goal by its ID, typed in any case: IDs are lowercase, so LOGIN finds login. */
   goal(id: string): Goal | undefined {
-    return this.goals.find((g) => g.id === id);
+    return this.goals.find((g) => g.id === id) ?? this.goals.find((g) => g.id === id.toLowerCase());
   }
 
   idea(id: string): Idea | undefined {

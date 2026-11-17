@@ -621,10 +621,24 @@ function withExamples(server: McpServer): void {
     const optional = Object.keys(shape).filter((f) => shape[f]!.isOptional?.());
     const fields = [...required.map((f) => `${f} (required)`), ...optional];
     const example = TOOL_EXAMPLES[name];
+    const thisPlanOnly =
+      /unrecognized key/i.test(message) && /"project"/.test(message) && !("project" in shape)
+        ? [`${name} only works on this project's plan, so nothing was changed. To change another project's plan, use a tool that takes project.`]
+        : [];
     return original(
-      [message, ...(fields.length > 0 ? [`${name} takes: ${fields.join(", ")}.`] : []), ...(example ? [`A correct call: ${example}`] : [])].join("\n"),
+      [message, ...thisPlanOnly, ...(fields.length > 0 ? [`${name} takes: ${fields.join(", ")}.`] : []), ...(example ? [`A correct call: ${example}`] : [])].join("\n"),
     );
   };
+}
+
+/**
+ * A tool's fields as a strict object: a field it doesn't take (a typo such as goall, or project on a
+ * tool that only works on this plan) is refused instead of quietly dropped while the change goes ahead.
+ */
+function strictInput(config: unknown): unknown {
+  const c = config as { inputSchema?: unknown };
+  if (!c?.inputSchema || c.inputSchema instanceof z.ZodType) return config;
+  return { ...c, inputSchema: z.strictObject(c.inputSchema as z.ZodRawShape) };
 }
 
 /** Runs a tool body, turning thrown domain errors into MCP tool errors the Agent can read. */
@@ -704,7 +718,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   const toolName = new AsyncLocalStorage<string>();
   const register = server.registerTool.bind(server) as (name: string, config: unknown, cb: (...args: unknown[]) => unknown) => unknown;
   (server as { registerTool: unknown }).registerTool = (name: string, config: unknown, cb: (...args: unknown[]) => unknown) =>
-    register(name, config, (...args: unknown[]) => toolName.run(name, () => cb(...args)));
+    register(name, strictInput(config), (...args: unknown[]) => toolName.run(name, () => cb(...args)));
   // What the Developer wrote on the dashboard to the whole project (shown to whichever Session calls
   // first, with or without a Goal) and to the Goals this Session holds, now marked as shown.
   const takeNews = () =>
@@ -908,10 +922,10 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       title: "Get item",
       description:
         "Look up one Goal, Task, Detour, decision, note or Standing Instruction by its ref (progressor://<goal>/<item>, or progressor://roadmap/<instruction>), with its file and line. Use it when the Developer pastes a ref or you need one item's details; for where the work stands overall, use get_status.",
-      inputSchema: { ref: z.string().describe("A ref such as progressor://login/t2 or progressor://roadmap/i1.") },
+      inputSchema: { ref: z.string().describe("A ref such as progressor://login/t2 or progressor://roadmap/i1."), project: otherProject },
       annotations: { readOnlyHint: true },
     },
-    ({ ref }) => respondIn(undefined, () => formatItem(project.getItem(ref), project.schedule(estimatesOf(project)))),
+    ({ ref, project: wanted }) => respondIn(wanted, (p) => formatItem(p.getItem(ref), p.schedule(estimatesOf(p)))),
   );
 
   server.registerTool(
@@ -945,7 +959,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         tasks: z.array(newTaskInput).optional(),
         allow_duplicate: z.boolean().optional().describe("Add the Goal even though another Goal has the same title."),
         done: z.boolean().optional().describe("Record a Goal that is already finished. Every Task must then have done: true."),
-        claim: z.boolean().optional().describe("Claim the new Goal straight away, to start working on it."),
+        claim: z.boolean().optional().describe("Claim the new Goal straight away, to start working on it. Not with project: a Goal on another project's plan can't be claimed from here."),
         waits_on: waitsOnInput,
         release: z
           .boolean()
@@ -1001,7 +1015,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       inputSchema: {
         report: z.string().min(1).describe("The bug report as the Developer or customer wrote it: what goes wrong, and how to make it happen if known."),
         title: z.string().optional().describe("A few words naming the bug; the report's first line when left out."),
-        claim: z.boolean().optional().describe("Claim the hotfix straight away, to start on it now."),
+        claim: z.boolean().optional().describe("Claim the hotfix straight away, to start on it now. Not with project: a hotfix on another project's plan can't be claimed from here."),
         project: otherProject,
       },
     },
@@ -1367,7 +1381,13 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     },
     ({ goal, task, code, summary, commits, tests, project: wanted }) =>
       respondIn(wanted, (p) => {
+        const was = p.taskStatus(task, goal);
         const t = p.completeTask(task, code ?? [], summary, goal);
+        if (was === "done" || was === "released") {
+          const added = code?.length || summary?.trim() ? " Its files and summary were updated." : "";
+          const line = `Task ${taskLine(t)} was already ${was}; nothing else changed.${added}`;
+          return p === project ? withNow(line) : doneIn(p, line);
+        }
         const warnings = recordEvidence(p, [{ task: t, goal, commits, tests }]);
         if (p !== project) return doneIn(p, [`Task ${taskLine(t)} is now ${t.status}.`, ...tookLine([t], new Date()), ...warnings].join("\n"));
         return withNow([`Done: ${taskLine(t)}.`, ...tookLine([t], new Date()), ...warnings].join("\n"));

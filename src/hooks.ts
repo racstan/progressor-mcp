@@ -213,8 +213,14 @@ export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, 
     const kind = EVENTS[event ?? String(data.hook_event_name)];
     const root = env.PROGRESSOR_ROOT ?? env.CLAUDE_PROJECT_DIR ?? (typeof data.cwd === "string" ? data.cwd : undefined);
     if (!kind || !root || !existsSync(join(root, PROGRESSOR_DIR))) return "";
-    const project = new Project({ root, session: { id: "hook", pid: process.pid }, isAlive });
-    const overview = project.overview();
+    // The hook only reads: tidying claims of chats that look closed is the server's job, under its lock.
+    const project = new Project({ root, session: { id: "hook", pid: process.pid }, isAlive, now, clearStaleClaims: false });
+    let overview: ReturnType<Project["overview"]>;
+    try {
+      overview = project.overview();
+    } catch {
+      return `${PREFIX} Progressor can't read this project's plan right now, so this message has no status. Call get_status: it says what is wrong.`;
+    }
     const warning = kind === "session-start" ? launcherWarning(root, canRun) : undefined;
     const global = readGlobal(env.PROGRESSOR_REGISTRY ? globalFileFor(env.PROGRESSOR_REGISTRY) : defaultGlobalFile());
     const status = kind === "session-start" ? sessionStatus(overview, global) : promptReminder(overview, now());

@@ -801,7 +801,7 @@ describe("a call with the wrong shape", () => {
   it("names the fields the tool takes, required ones first", async () => {
     const r = await call("get_item", { id: "login" });
     expect(r.isError).toBe(true);
-    expect(r.text).toContain("get_item takes: ref (required).");
+    expect(r.text).toContain("get_item takes: ref (required), project.");
     const h = await call("add_hand_test", { title: "Try it", steps: "Open the page" });
     expect(h.text).toContain("add_hand_test takes: text (required), goal, task.");
   });
