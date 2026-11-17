@@ -10,6 +10,7 @@ import { sortProjects } from "./projectList.js";
 import { Bars, Tile, plural, time } from "./StatsPage.js";
 import { driftWords, estimateWords } from "./words.js";
 import { Loading } from "./Loading.js";
+import { WaitingOnOthers } from "./WaitingOnOthers.js";
 
 /**
  * The page the dashboard opens on: what needs the person across every project, what is being worked
@@ -94,6 +95,9 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
         <Walkthrough showProject goals={tryGoals.map((x) => ({ projectId: x.project.id, projectName: x.project.name, goalId: x.goal.id, goalTitle: x.goal.title }))}
           onClose={() => setWalking(false)} onChanged={() => undefined} />
       )}
+
+      <WaitingOnOthers showProject onOpen={onOpen}
+        blocks={inWorkspace.map((p) => ({ projectId: p.id, projectName: p.name, lines: p.waitingOnOthers ?? [], people: p.people ?? [] }))} />
 
       {s.inProgress.length > 0 && (
         <section className="section">

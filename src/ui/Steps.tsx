@@ -8,6 +8,7 @@ import { Dates } from "./Dates.js";
 import { Icon } from "./Icon.js";
 import { type PictureItem, Pictures } from "./Pictures.js";
 import { RichText } from "./RichText.js";
+import { waitingLine } from "./others.js";
 import { plainText } from "./text.js";
 import { checklistRows } from "./views.js";
 import { NOT_SAVED, NOT_SAVED_HINT, SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, commitsLabel, elsewhereTag, evidenceLine, finishedAt, helperLine, statusClass, stepTime, stepTimes, stepWhen, testsLabel } from "./words.js";
@@ -21,6 +22,7 @@ export function StepIcon({ status }: { status: string }) {
     <span className={`step-icon ${statusClass(status)}`} aria-hidden="true">
       {tick && <Icon name="check" size={12} />}
       {status === "waiting on you" && "!"}
+      {status === "waiting on someone" && "…"}
     </span>
   );
 }
@@ -114,6 +116,7 @@ function Step({ task: t, open, onToggle, pictures, fileLink, onCopy, onReveal, c
         <StepIcon status={t.status} />
         <span className="t">{t.title}</span>
         <span className="end" title={times.title || undefined}>{stepWhen(t)}</span>
+        {t.status === "waiting on someone" && <span className="holder">{waitingLine(t.waitingFor, t.need)}</span>}
       </button>
       {open && (
         <div className="step-detail">
