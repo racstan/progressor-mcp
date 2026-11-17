@@ -1,0 +1,27 @@
+# The local Gitea's copy of .github/workflows/test.yml. Gitea reads .gitea/workflows when it exists
+# (and then skips .github/workflows); its runner only has Linux machines, so this runs on ubuntu-latest.
+# GitHub ignores this folder and still runs the full Linux, macOS and Windows matrix.
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ubuntu-latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
