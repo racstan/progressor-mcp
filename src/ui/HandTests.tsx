@@ -108,12 +108,19 @@ function Item({ test, about, added, pictures, projectId, goalId, onChanged, need
           </div>
         </form>
       ) : (
-        <div className="buttons">
-          <button type="button" disabled={busy} className="btn ghost" onClick={() => void mark("works")}><Icon name="check" /> Works</button>
-          <button type="button" disabled={busy} className="btn ghost" onClick={() => setAsking(true)}><Icon name="close" /> Doesn't work</button>
-          <button type="button" disabled={busy} className="linkbtn" onClick={() => void mark("won't test")}>Won't test</button>
-          {shot.picker}
-        </div>
+        <>
+          <div className="buttons">
+            <button type="button" disabled={busy} className="btn ghost" onClick={() => void mark("works", note.trim())}><Icon name="check" /> Works</button>
+            <button type="button" disabled={busy} className="btn ghost"
+              onClick={() => (note.trim() ? void mark("doesn't work", note.trim()) : setAsking(true))}><Icon name="close" /> Doesn't work</button>
+            <button type="button" disabled={busy} className="btn ghost" onClick={() => void mark("won't test", note.trim())}><Icon name="skip" /> Won't test</button>
+          </div>
+          <div className="hand-note">
+            <input value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} onPaste={shot.onPaste}
+              aria-label="A note for your AI" placeholder="Add a note for your AI (optional): it goes with the button you press" />
+            {shot.picker}
+          </div>
+        </>
       )}
       {error && <div className="error" role="alert">{error}</div>}
       {shot.error && <div className="error" role="alert">{shot.error}</div>}

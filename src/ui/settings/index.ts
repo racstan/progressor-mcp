@@ -16,6 +16,7 @@ import { routinesSection } from "./Routines.js";
 import { backgroundSection } from "./Background.js";
 import { claimsSection } from "./Claims.js";
 import { costSection } from "./Cost.js";
+import { checksSection, homePageSection } from "./Home.js";
 import type { SettingsSection } from "./types.js";
 
 export type { SettingsContext, SettingsSection, Theme } from "./types.js";
@@ -24,6 +25,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   themeSection,
   motionSection,
   popUpsSection,
+  homePageSection,
   finishedSection,
   tourSection,
   // Features' sections go here, one line each.
@@ -39,6 +41,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   alternativesSection,
   claimsSection,
   costSection,
+  checksSection,
   backgroundSection,
   advancedSection,
 ];

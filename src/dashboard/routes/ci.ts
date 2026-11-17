@@ -5,6 +5,7 @@
 // background, and open pages are told with a "ci" event when it brought something new.
 import { type CiDeps, type CiTask, ciCacheFile, failedGoals, goalCi, kickCiRefresh, readCiCache, realCiDeps } from "../../ci.js";
 import type { Project } from "../../project.js";
+import { readSettings } from "../../settings.js";
 import type { FeatureRoute, HubContext } from "../routes.js";
 
 /** The steps that have an ID, in the shape ci.ts reads. */
@@ -33,8 +34,18 @@ export function goalsWithSteps(project: Project): { id: string; title: string; s
 let realDeps: CiDeps | undefined;
 const depsOf = (hub: Pick<HubContext, "ci">) => hub.ci ?? (realDeps ??= realCiDeps());
 
-/** Starts a background refresh of the project's pull requests and checks, when it is due. */
-export function refreshProjectCi(project: Project, projectId: string, hub: Pick<HubContext, "ci" | "registryFile" | "send">): void {
+/** Whether pull requests and checks are looked up for this project (Settings › Pull requests and checks). */
+export function ciOn(project: Project, settingsFile: string): boolean {
+  try {
+    return readSettings(settingsFile, project.root).ci.enabled;
+  } catch {
+    return true;
+  }
+}
+
+/** Starts a background refresh of the project's pull requests and checks, when it is due and they are on. */
+export function refreshProjectCi(project: Project, projectId: string, hub: Pick<HubContext, "ci" | "registryFile" | "settingsFile" | "send">): void {
+  if (!ciOn(project, hub.settingsFile)) return;
   kickCiRefresh(
     project.root,
     () => goalsWithSteps(project).flatMap((g) => g.tasks),
@@ -45,7 +56,8 @@ export function refreshProjectCi(project: Project, projectId: string, hub: Pick<
 }
 
 /** The open goals whose latest checks failed, from the kept file only: for Needs you. */
-export function failedCheckLines(project: Project, registryFile: string): { id: string; title: string }[] {
+export function failedCheckLines(project: Project, registryFile: string, settingsFile: string): { id: string; title: string }[] {
+  if (!ciOn(project, settingsFile)) return [];
   try {
     const cache = readCiCache(ciCacheFile(registryFile, project.root));
     // Nothing kept has failed: no need to read every plan (Home asks on every load).
@@ -66,6 +78,7 @@ export const ciRoutes: FeatureRoute[] = [
       const goalId = ctx.match[2]!;
       // Only a goal on the Roadmap: the ID never becomes a path of its own.
       if (!project.roadmap().goals.some((g) => g.id === goalId)) throw new Error("No such goal in this project.");
+      if (!ciOn(project, ctx.settingsFile)) return ctx.json(200, { prs: [], steps: {}, off: true });
       const tasks = stepsOf(project.plan(goalId).tasks);
       ctx.json(200, goalCi(tasks, readCiCache(ciCacheFile(ctx.registryFile, project.root))));
       refreshProjectCi(project, ctx.match[1]!, ctx);

@@ -583,7 +583,7 @@ class Hub {
       const live = this.projects.get(entry.id)?.project;
       // Goals whose latest CI checks failed, from the kept answers; a refresh starts when they are old (ci.ts).
       if (live) refreshProjectCi(live, entry.id, this.hubContext());
-      return { ...entry, goals, seriousRisks: live ? seriousRiskLines(live) : [], failedChecks: live ? failedCheckLines(live, this.registryFile) : [], waitingOnOthers: live ? waitingOnOthersLines(live) : [], people: live ? peopleList(live) : [] };
+      return { ...entry, goals, seriousRisks: live ? seriousRiskLines(live) : [], failedChecks: live ? failedCheckLines(live, this.registryFile, this.settingsFile) : [], waitingOnOthers: live ? waitingOnOthersLines(live) : [], people: live ? peopleList(live) : [] };
     });
   }
 

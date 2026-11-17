@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { hardFirst } from "../roadmap.js";
 import { About, type NotesApi, RuleForm, RuleRow } from "./ContextPage.js";
-import { type OverviewView, type SearchView, type WorkspaceEntry, addGlobalRule, changeGlobalRule, removeGlobalRule, saveGlobalContext, useAllStats, useGlobal, useReadiness } from "./data.js";
-import { type PutOff, SHOW_FIRST, homeSections, needsByProject, needsWhy, projectFacts, untriedAcross, workingWords } from "./home.js";
+import { type OverviewView, type SearchView, type WorkspaceEntry, addGlobalRule, changeGlobalRule, removeGlobalRule, saveGlobalContext, useAllStats, useGlobal, useReadiness, useStored } from "./data.js";
+import { NEEDS_BOX_DEFAULT, NEEDS_BOX_KEY, NEEDS_BOX_PX, type NeedsBox, type PutOff, HOME_HIDDEN_KEY, hiddenParts, homeSections, isNeedsBox, needsByProject, needsWhy, projectFacts, untriedAcross, workingWords } from "./home.js";
 import { TryOneByOne, Walkthrough } from "./TryOneByOne.js";
 import { dashboardLine } from "../untried.js";
 import { Icon, Ring } from "./Icon.js";
@@ -34,8 +34,10 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
   onShowAll: () => void;
 }) {
   const [walking, setWalking] = useState(false);
-  // The projects whose whole Needs you list is open (Show all), in this visit only.
-  const [shownAll, setShownAll] = useState<ReadonlySet<string>>(new Set());
+  const [boxChoice] = useStored<NeedsBox>(NEEDS_BOX_KEY, undefined);
+  const needsBox = isNeedsBox(boxChoice) ? boxChoice : NEEDS_BOX_DEFAULT;
+  const [hiddenKept] = useStored<string>(HOME_HIDDEN_KEY, undefined);
+  const hidden = hiddenParts(hiddenKept);
   if (!overview) return <Loading size="page" label="Loading your projects" />;
   const inWorkspace = only ? overview.filter((p) => p.workspace === only) : overview;
   const s = homeSections(sortProjects(inWorkspace), putOff);
@@ -54,7 +56,7 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
         <button className="linkbtn" onClick={onShowAll}>Show all {overview.length} projects</button>
       )}
 
-      {s.inProgress.length > 0 && (
+      {s.inProgress.length > 0 && !hidden.has("working") && (
         <section className="section working-now">
           <h2>Working now</h2>
           <ul className="list">
@@ -81,9 +83,8 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
               <TryOneByOne count={untried.count} onClick={() => setWalking(true)} />
             </div>
           )}
+          <div className="needs-box" style={{ maxHeight: NEEDS_BOX_PX[needsBox] }} tabIndex={0} aria-label="Everything that needs you; scroll for more">
           {needsGroups.map(({ project, count, items }) => {
-            const all = shownAll.has(project.id);
-            const shown = all ? items : items.slice(0, SHOW_FIRST);
             return (
               <div key={project.id} className="needs-project">
                 {needsGroups.length > 1 || inWorkspace.length > 1 ? (
@@ -92,7 +93,7 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
                   </h3>
                 ) : null}
                 <ul className="list">
-                  {shown.map((item) => (
+                  {items.map((item) => (
                     <li key={item.key} className={item.canPutOff ? "with-action" : undefined}>
                       <button className="list-row" onClick={() => (item.kind === "risk" ? onOpenRisks(project.id) : onOpen(project.id, item.id))}
                         title={item.kind === "risk" ? "Open this project's Risks page" : item.kind === "checks" ? "Open this goal to see which pull request or commit failed its checks" : undefined}>
@@ -109,14 +110,10 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
                     </li>
                   ))}
                 </ul>
-                {items.length > SHOW_FIRST && (
-                  <button className="linkbtn show-all" onClick={() => setShownAll((was) => toggled(was, project.id))}>
-                    {all ? "Show fewer" : `Show all ${items.length}`}
-                  </button>
-                )}
               </div>
             );
           })}
+          </div>
         </section>
       )}
 
@@ -125,10 +122,12 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
           onClose={() => setWalking(false)} onChanged={() => undefined} />
       )}
 
-      <WaitingOnOthers showProject onOpen={onOpen}
-        blocks={inWorkspace.map((p) => ({ projectId: p.id, projectName: p.name, lines: p.waitingOnOthers ?? [], people: p.people ?? [] }))} />
+      {!hidden.has("waiting") && (
+        <WaitingOnOthers showProject onOpen={onOpen}
+          blocks={inWorkspace.map((p) => ({ projectId: p.id, projectName: p.name, lines: p.waitingOnOthers ?? [], people: p.people ?? [] }))} />
+      )}
 
-      <section className="section">
+      {(!hidden.has("projects") || query.trim()) && <section className="section">
         <h2>Projects</h2>
         {inWorkspace.length === 0 ? (
           <p className="quiet">Nothing here yet. Tell your AI what you want to build: a project shows up here as soon as it plans the first goal.</p>
@@ -141,11 +140,11 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
             ))}
           </div>
         )}
-      </section>
+      </section>}
 
-      {!query.trim() && <EveryProject />}
+      {!query.trim() && !hidden.has("rules") && <EveryProject />}
 
-      {overview.length > 0 && !query.trim() && <AllStats version={overview} onOpen={onOpen} onOpenStats={onOpenStats} />}
+      {overview.length > 0 && !query.trim() && !hidden.has("stats") && <AllStats version={overview} onOpen={onOpen} onOpenStats={onOpenStats} />}
     </div>
   );
 }
@@ -194,12 +193,6 @@ function AllStats({ version, onOpen, onOpenStats }: { version: unknown; onOpen: 
 }
 
 /** " · 2 things to try, put off", so a put-off goal still says so quietly. */
-const toggled = (set: ReadonlySet<string>, id: string): ReadonlySet<string> => {
-  const next = new Set(set);
-  if (!next.delete(id)) next.add(id);
-  return next;
-};
-
 /**
  * A project on Home: how far it is (finished goals), what the AI is on now, when it last changed
  * something, and its Ready to launch? verdict, which loads on its own so Home never waits for it.

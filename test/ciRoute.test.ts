@@ -4,6 +4,7 @@ import type { CiDeps } from "../src/ci.js";
 import { type Dashboard, startDashboard } from "../src/dashboard/http.js";
 import type { GitFacts } from "../src/gitFacts.js";
 import { Project } from "../src/project.js";
+import { writeSettings } from "../src/settings.js";
 import { tempDir } from "./tmp.js";
 
 const fakeGit: GitFacts = {
@@ -84,6 +85,19 @@ describe("pull requests and checks on the dashboard", () => {
     // The goal is open and its latest checks failed: it shows in Needs you.
     const overview = await getJson<{ id: string; failedChecks: { id: string; title: string }[] }[]>(d, "/api/overview");
     expect(overview.body.find((p) => p.id === id)?.failedChecks).toEqual([{ id: "login", title: "Login" }]);
+  });
+
+  it("asks nothing when pull requests and checks are turned off in Settings, and says they are off", async () => {
+    const settingsFile = join(tempDir("progressor-settings-"), "settings.json");
+    writeSettings(settingsFile, "ci", { enabled: false });
+    dash = await startDashboard({ project, registryFile: registry, settingsFile, port: 20000 + Math.floor(Math.random() * 20000), ciDeps: fakeCi });
+    const id = dash.project!.id;
+    const path = `/api/projects/${encodeURIComponent(id)}/goals/login/ci`;
+    expect((await getJson(dash, path)).body).toEqual({ prs: [], steps: {}, off: true });
+    const overview = await getJson<{ id: string; failedChecks: unknown[] }[]>(dash, "/api/overview");
+    expect(overview.body.find((p) => p.id === id)?.failedChecks).toEqual([]);
+    await sleep(200);
+    expect(asked).toEqual([]);
   });
 
   it("refuses a goal that is not on the plan", async () => {

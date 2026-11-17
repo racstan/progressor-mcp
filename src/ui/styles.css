@@ -128,6 +128,18 @@ h2 .inline-confirm { font-weight: 400; font-size: var(--t-s); color: var(--ink);
 .side-project-row { position: relative; display: flex; align-items: center; }
 .side-project-row .side-link { padding-right: 30px; }
 .side-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A project's letter tile: says which project at a glance; pulses gently while the AI works on it. */
+.side-tile { flex: none; width: 22px; height: 22px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; letter-spacing: -.02em; background: var(--panel2); color: var(--ink); border: 1px solid var(--line-strong); }
+.side-project-link[aria-current="true"] .side-tile, .side-project-link:hover .side-tile { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.side-project-link.working .side-tile { border: 2px solid var(--ink); animation: side-ring 2.4s var(--ease) infinite; }
+@keyframes side-ring { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 0 3px var(--line-strong); } }
+.side-working { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); animation: side-dot 1.8s var(--ease) infinite; }
+@keyframes side-dot { 0%, 100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
+[data-theme="vibrant"] .side-tile { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+[data-theme="vibrant"] .side-project-link:hover .side-tile, [data-theme="vibrant"] .side-project-link[aria-current="true"] .side-tile { background: var(--accent); color: var(--on-accent); }
+[data-theme="vibrant"] .side-project-link.working .side-tile { border-color: var(--accent); }
+[data-theme="vibrant"] .side-working { background: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .side-project-link.working .side-tile, .side-working { animation: none; } }
 .side-remove { position: absolute; right: 2px; width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; color: var(--muted); }
 .side-project-row:hover .side-remove, .side-project-row:focus-within .side-remove { opacity: 1; pointer-events: auto; }
 .side-remove:hover, .side-remove:focus-visible { color: var(--ink); background: var(--hover); }
@@ -179,7 +191,10 @@ h2 .inline-confirm { font-weight: 400; font-size: var(--t-s); color: var(--ink);
 .needs-project + .needs-project { margin-top: var(--s4); }
 .needs-project-name { display: flex; align-items: center; gap: var(--s2); margin: 0 0 var(--s2); font-size: var(--t-m, 1rem); }
 .needs-project-name .linkbtn { font-weight: 700; color: var(--ink); }
-.needs-project .show-all { margin-top: var(--s2); font-size: var(--t-s); }
+/* The whole Needs you list sits in one box of a fixed height (Settings › Home page) and scrolls inside. */
+.needs-box { overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: var(--s1); border-radius: var(--r-s); }
+.needs-box:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.needs-box .needs-project-name { position: sticky; top: 0; z-index: 1; background: var(--bg); padding: var(--s1) 0; margin-bottom: var(--s1); }
 .placeholder { margin: 15vh auto 0; text-align: center; color: var(--muted); max-width: 420px; padding: var(--s5); }
 .placeholder h2 { color: var(--ink); font-size: var(--t-l); margin: 0 0 var(--s2); }
 .placeholder .detail { display: block; margin-top: var(--s3); font-size: var(--t-s); color: var(--faint); }
@@ -363,6 +378,12 @@ button.list-row:hover { background: var(--hover); }
 .hand .undo { margin-left: auto; }
 .hand .ask { margin-top: var(--s3); display: flex; flex-direction: column; gap: var(--s2); }
 .hand .ask label { font-size: var(--t-s); color: var(--muted); }
+/* A note for the AI beside "Add a screenshot": it goes with whichever mark is pressed. */
+.hand-note { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-top: var(--s2); }
+.hand-note input { flex: 1; min-width: 200px; padding: var(--s2) var(--s3); border-radius: var(--r-s); border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; font-size: var(--t-s); }
+.hand-note input:focus { outline: none; border-color: var(--accent); }
+/* When a thing to try was added: set apart from the text by italics and weight. */
+.hand .origin, .needs-item.hand .origin { font-style: italic; font-weight: 600; color: var(--muted); }
 .hand .ask input { display: block; width: 100%; margin-top: var(--s1); height: 32px; padding: 0 var(--s3); border-radius: var(--r-s); border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
 .hand .error { margin-top: var(--s2); font-size: var(--t-s); color: var(--bad); }
 .hand.needs-item { border-color: var(--you-line); }

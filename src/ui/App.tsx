@@ -20,7 +20,7 @@ import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
 import { type Finished, type FinishedSort, type GroupBy, type Seen, FINISHED_SORT_DEFAULT, FINISHED_SORT_KEY, FINISHED_SORT_WORDS, GROUP_BY_DEFAULT, GROUP_BY_KEY, GROUP_BY_WORDS, addedOf, dayGroups, doneMark, finishedOf, groupGoals, groupOpen, hideAll, isFinishedSort, isGroupBy, seenOnFirstVisit, sortFinished } from "./goalList.js";
 import { GoalPage } from "./GoalPage.js";
 import { Home } from "./HomePage.js";
-import { type PutOff, RISK_WHY, needsWhy, sidebarSections } from "./home.js";
+import { type PutOff, RISK_WHY, homeSections, needsWhy, projectInitials, sidebarFacts, sidebarSections } from "./home.js";
 import { Icon, Ring } from "./Icon.js";
 import { GoalMenu, MenuPanel } from "./Menus.js";
 import { sortProjects } from "./projectList.js";
@@ -181,6 +181,8 @@ export function App() {
   // While the tour runs, the page shows the sample project instead of the person's (sample.ts).
   const sample = useSample();
   const overview = useOverview(true);
+  // The sidebar's counts and working marks, from the same overview Home uses.
+  const sideFacts = overview ? sidebarFacts(overview, homeSections(overview, putOff)) : undefined;
   const [popUps, setPopUps] = useStored<"on">("progressor.pop-ups", undefined);
   const lastLook = useRef<Snapshot | undefined>(undefined);
 
@@ -708,7 +710,7 @@ export function App() {
               <div className="side-group">
                 <h3>Projects</h3>
                 {sortProjects(projects ?? []).map((p) => (
-                  <SideProject key={p.id} project={p} canRemove={!sample} onPick={() => pickProject(p.id)}
+                  <SideProject key={p.id} project={p} facts={sideFacts?.get(p.id)} canRemove={!sample} onPick={() => pickProject(p.id)}
                     onRemoved={() => {
                       if (p.id === pickedProject) goHome();
                       refresh();
@@ -910,7 +912,7 @@ function ProjectList({ current, projects, onPick, onHome, onClose }: {
  * A project in Home's sidebar. Hovering it or moving to it with the keyboard shows a remove button;
  * removing takes it off the dashboard only (registry.ts): its folder and plan stay as they are.
  */
-function SideProject({ project: p, canRemove, onPick, onRemoved }: { project: ProjectEntry; canRemove: boolean; onPick: () => void; onRemoved: () => void }) {
+function SideProject({ project: p, facts, canRemove, onPick, onRemoved }: { project: ProjectEntry; facts: { needs: number; working: boolean } | undefined; canRemove: boolean; onPick: () => void; onRemoved: () => void }) {
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -930,8 +932,12 @@ function SideProject({ project: p, canRemove, onPick, onRemoved }: { project: Pr
   return (
     <div className={`side-project ${asking ? "asking" : ""}`}>
       <div className="side-project-row">
-        <button className="side-link" onClick={onPick} title={p.root}>
-          <Icon name="file" /> <span className="side-project-name">{p.name}</span>
+        <button className={`side-link side-project-link${facts?.working ? " working" : ""}`} onClick={onPick}
+          title={[p.root, facts?.working && "Your AI is working on it now", facts?.needs && `${facts.needs} ${facts.needs === 1 ? "thing needs" : "things need"} you`].filter(Boolean).join(" · ")}>
+          <span className="side-tile" aria-hidden="true">{projectInitials(p.name)}</span>
+          <span className="side-project-name">{p.name}</span>
+          {facts?.working && <span className="side-working" aria-label="Your AI is working on it now" />}
+          {facts && facts.needs > 0 && <span className="n" aria-label={`${facts.needs} need you`}>{facts.needs}</span>}
         </button>
         {canRemove && !asking && (
           <button className="iconbtn side-remove" aria-label={`Remove ${p.name} from the dashboard`} title="Remove from the dashboard (its plan stays)"

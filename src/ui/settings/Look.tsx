@@ -1,5 +1,5 @@
 // The sections of Settings for how the page looks, kept in this browser: theme, pop-ups, finished
-// goals, and Advanced (editor, things put off, running servers).
+// goals, and Advanced (editor, running servers).
 import { EDITORS } from "../../dashboard/editor.js";
 import { Choice } from "../Menus.js";
 import { clearStored, useStored } from "../data.js";
@@ -122,7 +122,7 @@ function TourChoice({ ctx }: { ctx: SettingsContext }) {
 }
 
 function Advanced({ ctx }: { ctx: SettingsContext }) {
-  const { info, editor, putOff } = ctx;
+  const { info, editor } = ctx;
   return (
     <>
       <section>
@@ -134,16 +134,6 @@ function Advanced({ ctx }: { ctx: SettingsContext }) {
             <option key={e} value={e}>{editorName(e)}</option>
           ))}
         </select>
-      </section>
-      <section>
-        <h3>Things to try you put off</h3>
-        <button className="btn ghost small" disabled={Object.keys(putOff).length === 0}
-          onClick={() => {
-            ctx.setPutOff({});
-            ctx.toast("Everything you put off is back under Needs you.");
-          }}>
-          Bring them all back
-        </button>
       </section>
       <ServersPanel servers={ctx.servers} hub={info} reload={ctx.reloadServers} toast={ctx.toast} />
     </>
@@ -165,11 +155,10 @@ export const finishedSection: SettingsSection = {
 export const tourSection: SettingsSection = { id: "tour", group: "look", title: "The walkthrough", Component: TourChoice, reset: (ctx) => ctx.setTourOnOpen(false) };
 export const advancedSection: SettingsSection = {
   id: "advanced",
-  title: "Editor, servers and things put off",
+  title: "Editor and servers",
   Component: Advanced,
   group: "advanced",
   reset: (ctx) => {
     ctx.setEditorChoice(undefined);
-    ctx.setPutOff({});
   },
 };

@@ -154,8 +154,13 @@ export function sidebarSections<G extends GoalLike>(goals: G[], putOff: PutOff =
   ].filter((s) => s.goals.length > 0);
 }
 
-/** How many of a project's Needs you items Home shows before "Show all". */
-export const SHOW_FIRST = 5;
+/** How tall Home's Needs you box is before it scrolls inside (Settings › Home page). */
+export type NeedsBox = "short" | "medium" | "tall";
+export const NEEDS_BOX_PX: Record<NeedsBox, number> = { short: 280, medium: 440, tall: 680 };
+export const NEEDS_BOX_DEFAULT: NeedsBox = "medium";
+/** Where this browser keeps the choice. */
+export const NEEDS_BOX_KEY = "progressor.needs-box";
+export const isNeedsBox = (v: unknown): v is NeedsBox => typeof v === "string" && v in NEEDS_BOX_PX;
 
 /** One thing in Needs you: a goal (with why), a goal whose checks failed, or a serious risk. */
 export interface NeedsItem {
@@ -210,3 +215,45 @@ export function projectFacts(goals: readonly (GoalLike & { currentStep?: string 
 /** "Now: Write the tests · 1 of 4 steps", or only how far it is when no step is started. */
 export const workingWords = (g: { done: number; total: number; currentStep?: string | undefined }): string =>
   g.currentStep ? `Now: ${g.currentStep} · ${progressWords(g)}` : progressWords(g);
+
+/** A project's letter tile in the sidebar: the first letters of its first two words, else its first letter. */
+export function projectInitials(name: string): string {
+  const words = name.trim().split(/[\s\-_.]+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  return words.slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
+}
+
+/** For each project in the sidebar: how many things in Needs you are its, and whether the AI is working on it. */
+export function sidebarFacts<G extends GoalLike, P extends ProjectLike<G>>(
+  projects: readonly P[],
+  sections: Parameters<typeof needsByProject<P>>[0],
+): Map<string, { needs: number; working: boolean }> {
+  const needs = new Map(needsByProject(sections).map((n) => [n.project.id, n.count]));
+  return new Map(projects.map((p) => [p.id, { needs: needs.get(p.id) ?? 0, working: p.goals.some((goal) => goal.status === "active") }]));
+}
+
+/** The parts of Home a person can hide in Settings › Home page; Needs you always shows. */
+export const HOME_PARTS = [
+  { id: "working", label: "Working now", hint: "What your AI is on right now, at the top" },
+  { id: "waiting", label: "Waiting on someone else", hint: "Goals held up by a person or another team" },
+  { id: "projects", label: "Projects", hint: "A card for each project: how far it is, what's happening, Ready to launch?" },
+  { id: "stats", label: "Dashboard for all your projects", hint: "Numbers across every project" },
+  { id: "rules", label: "Rules and context for everything", hint: "Rules your AI follows in every project" },
+] as const;
+export type HomePart = (typeof HOME_PARTS)[number]["id"];
+/** Where this browser keeps the hidden parts, as "stats,rules". */
+export const HOME_HIDDEN_KEY = "progressor.home-hidden";
+
+/** The parts hidden, from what this browser kept; anything unknown is left out. */
+export function hiddenParts(kept: string | undefined): Set<HomePart> {
+  const known = new Set<string>(HOME_PARTS.map((p) => p.id));
+  return new Set((kept ?? "").split(",").filter((id): id is HomePart => known.has(id)));
+}
+
+/** What to keep after showing or hiding one part; undefined once nothing is hidden. */
+export function showPart(kept: string | undefined, id: HomePart, show: boolean): string | undefined {
+  const hidden = hiddenParts(kept);
+  if (show) hidden.delete(id);
+  else hidden.add(id);
+  return hidden.size > 0 ? [...hidden].join(",") : undefined;
+}

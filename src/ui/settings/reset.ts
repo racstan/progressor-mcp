@@ -2,7 +2,7 @@
 // page kept in this browser, and the settings for how Progressor works kept on this computer.
 
 /** The browser keys that hold how the page looks; "Reset all settings" clears them. */
-export const BROWSER_SETTINGS = ["progressor.theme", "progressor.pop-ups", "progressor.finished", "progressor.editor", "progressor.put-off"];
+export const BROWSER_SETTINGS = ["progressor.theme", "progressor.pop-ups", "progressor.finished", "progressor.editor", "progressor.put-off", "progressor.needs-box", "progressor.home-hidden"];
 
 /** Clears the look of the page from the browser; what the person hid or has seen stays. */
 export function clearBrowserSettings(storage: { removeItem(key: string): void }): void {

@@ -8,7 +8,7 @@ import { GOAL_WORD, STEP_WORD } from "./words.js";
 export type SearchHit = SearchView[number];
 
 const KINDS: { kind: SearchHit["kind"]; label: string; icon: IconName }[] = [
-  { kind: "project", label: "Projects", icon: "file" },
+  { kind: "project", label: "Projects", icon: "folder" },
   { kind: "goal", label: "Goals", icon: "flag" },
   { kind: "task", label: "Steps", icon: "check" },
 ];

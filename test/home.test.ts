@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHECKS_WHY, RISK_WHY, SHOW_FIRST, homeSections, needsByProject, needsWords, progressWords, projectFacts, sidebarSections, untriedAcross, workingWords } from "../src/ui/home.js";
+import { CHECKS_WHY, RISK_WHY, NEEDS_BOX_DEFAULT, NEEDS_BOX_PX, homeSections, isNeedsBox, needsByProject, projectInitials, sidebarFacts, HOME_PARTS, hiddenParts, showPart, needsWords, progressWords, projectFacts, sidebarSections, untriedAcross, workingWords } from "../src/ui/home.js";
 
 const g = (id: string, status: string, extra: Partial<{ oldestUntried: string; done: number; total: number; waitingOnYou: boolean; openQuestions: number; untriedTests: number; waitingSteps: number; updatedAt: number }> = {}) => ({
   id,
@@ -202,8 +202,13 @@ describe("Needs you, by project", () => {
     ]);
   });
 
-  it("shows the first five of a project until asked for all", () => {
-    expect(SHOW_FIRST).toBe(5);
+  it("sits in a box of a fixed height, medium unless chosen, that scrolls inside", () => {
+    expect(NEEDS_BOX_DEFAULT).toBe("medium");
+    expect(NEEDS_BOX_PX.short).toBeLessThan(NEEDS_BOX_PX.medium);
+    expect(NEEDS_BOX_PX.medium).toBeLessThan(NEEDS_BOX_PX.tall);
+    expect(isNeedsBox("tall")).toBe(true);
+    expect(isNeedsBox("huge")).toBe(false);
+    expect(isNeedsBox(undefined)).toBe(false);
   });
 });
 
@@ -228,5 +233,40 @@ describe("In progress names the step", () => {
   it("says the step a goal is on, else how far it is", () => {
     expect(workingWords({ done: 1, total: 4, currentStep: "Write the tests" })).toBe("Now: Write the tests · 1 of 4 steps");
     expect(workingWords({ done: 1, total: 4 })).toBe("1 of 4 steps");
+  });
+});
+
+describe("a project in the sidebar", () => {
+  it("has a letter tile from its name: the first letters of its first two words, else its first letter", () => {
+    expect(projectInitials("Progressor")).toBe("P");
+    expect(projectInitials("bindery")).toBe("B");
+    expect(projectInitials("my-app")).toBe("MA");
+    expect(projectInitials("Recipe box web")).toBe("RB");
+    expect(projectInitials("  ")).toBe("?");
+    expect(projectInitials("2048_game")).toBe("2G");
+  });
+
+  it("says how many things need you in each project and which ones the AI is working on", () => {
+    const projects = [
+      { id: "p", name: "P", root: "/p", goals: [{ ...g("a", "active"), waitingOnYou: true, openQuestions: 1 }, g("b", "active")] },
+      { id: "q", name: "Q", root: "/q", goals: [g("c", "planned")], seriousRisks: [{ id: "r1", title: "Risk" }] },
+      { id: "z", name: "Z", root: "/z", goals: [g("d", "done")] },
+    ];
+    const facts = sidebarFacts(projects, homeSections(projects));
+    expect(facts.get("p")).toEqual({ needs: 1, working: true });
+    expect(facts.get("q")).toEqual({ needs: 1, working: false });
+    expect(facts.get("z")).toEqual({ needs: 0, working: false });
+  });
+});
+
+describe("which parts Home shows (Settings › Home page)", () => {
+  it("shows every part until one is hidden, and remembers the hidden ones as one short text", () => {
+    expect(HOME_PARTS.map((p) => p.id)).toEqual(["working", "waiting", "projects", "stats", "rules"]);
+    expect(hiddenParts(undefined).size).toBe(0);
+    expect([...hiddenParts("stats,rules,nonsense")]).toEqual(["stats", "rules"]);
+    expect(showPart(undefined, "stats", false)).toBe("stats");
+    expect(showPart("stats", "rules", false)).toBe("stats,rules");
+    expect(showPart("stats,rules", "stats", true)).toBe("rules");
+    expect(showPart("rules", "rules", true)).toBeUndefined();
   });
 });
