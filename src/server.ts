@@ -597,6 +597,7 @@ export const TOOL_EXAMPLES: Record<string, string> = {
   release_goal: "release_goal({})",
   complete_goal: "complete_goal({})",
   add_tasks: 'add_tasks({ tasks: [{ title: "Fix typo", done: true, code: ["src/a.ts"], hand_test: "Check the button text" }] })',
+  add_small_fix: 'add_small_fix({ title: "Faster dev server start", summary: "Skip the type check on start.", code: ["vite.config.ts"] })',
   start_task: 'start_task({ task: "t2" })',
   set_task_state: 'set_task_state({ task: "t2", state: "checked", evidence: "715 passed" })',
   update_tasks: 'update_tasks({ operations: [{ action: "complete", task: "t2" }, { action: "start", task: "t3" }] })',
@@ -1263,7 +1264,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Add Tasks",
       description:
-        "Append Tasks to the claimed Goal's plan, each with an estimate of how long it takes. For work that is not part of the plan, declare a Detour instead. Set done on a Task that is already finished: a small change you have made is recorded in this one call, with hand_test for what the Developer should try.",
+        "Append Tasks to the claimed Goal's plan, each with an estimate of how long it takes. For work that is not part of the plan, declare a Detour instead. Set done on a Task that is already finished: a small change you have made is recorded in this one call, with hand_test for what the Developer should try. A quick fix that belongs to no Goal goes under Small fixes with add_small_fix instead.",
       inputSchema: { goal: heldGoal, tasks: z.array(addTaskInput).min(1), project: otherProject },
     },
     ({ goal, tasks, project: wanted }) =>
@@ -1272,6 +1273,30 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const tests = tasks.flatMap((t, i) => (t.hand_test?.trim() ? [p.addHandTest(t.hand_test, goal, added[i]!.id)] : []));
         const warnings = recordEvidence(p, added.map((task) => ({ task, goal })));
         return doneIn(p, [`Added: ${added.map(taskLine).join("; ")}`, ...[calibrationLine(p)].filter((l): l is string => !!l), ...tests.map((h) => `Saved hand test ${h.id} about ${h.task}: ${h.text}`), ...warnings].join("\n"));
+      }),
+  );
+
+  server.registerTool(
+    "add_small_fix",
+    {
+      title: "Add small fix",
+      description:
+        "Record a small one-off fix you have made that belongs to no Goal (a dev-server speed-up, a typo, formatting) as a finished step of the project's standing Small fixes goal, made the first time. Nothing is claimed and the Goals you hold are untouched. hand_test adds what the Developer should try. For work that is part of a Goal, use add_tasks with done: true instead.",
+      inputSchema: {
+        title: taskInput.shape.title,
+        summary: taskInput.shape.summary,
+        code: taskInput.shape.code,
+        hand_test: addTaskInput.shape.hand_test,
+        project: otherProject,
+      },
+    },
+    ({ title, summary, code, hand_test, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        const { goal, task, handTest } = p.addSmallFix({ title, summary, code, handTest: hand_test });
+        return doneIn(
+          p,
+          [`Recorded ${goal.id}/${taskLine(task)} as done under ${goal.title}.`, ...(handTest ? [`Saved hand test ${handTest.id} about ${handTest.task}: ${handTest.text}`] : [])].join("\n"),
+        );
       }),
   );
 

@@ -302,6 +302,9 @@ export interface Picture {
 
 /** The talk with the whole project rather than one Goal; a Goal ID never starts with "_". */
 export const PROJECT_TALK = "_project";
+/** The standing goal that small one-off fixes are recorded under (addSmallFix). */
+export const SMALL_FIXES_ID = "small-fixes";
+const SMALL_FIXES_OUTCOME = "Quick fixes made outside any planned goal, each recorded as a finished step.";
 export const ROADMAP_FILE = "roadmap.md";
 /** `.progressor/.gitignore` for a new plan: git ignores the whole plan until the Developer chooses to share it. */
 export const PRIVATE_GITIGNORE = `# Progressor keeps this plan on this computer: git ignores everything in .progressor/.
@@ -1307,6 +1310,40 @@ export class Project {
   }
 
   /** Appends Tasks to the end of a claimed Goal's Task list. */
+  /**
+   * Records a small one-off fix, made outside any planned goal, as a done step of the standing "Small
+   * fixes" goal, which is made the first time. Nothing is claimed. The goal stays finished, or waits on
+   * the Developer while a fix has something to try (it finishes when they mark the last one); a goal a
+   * chat has claimed again is left as it is.
+   */
+  addSmallFix(fix: Omit<NewTask, "done"> & { handTest?: string }): { goal: Goal; task: Task; handTest?: HandTest } {
+    const roadmap = this.roadmap();
+    let plan: PlanFile;
+    if (roadmap.goal(SMALL_FIXES_ID)) plan = this.plan(SMALL_FIXES_ID);
+    else {
+      roadmap.addGoal("Small fixes", { id: SMALL_FIXES_ID, outcome: SMALL_FIXES_OUTCOME });
+      plan = newPlanFile(SMALL_FIXES_ID, "Small fixes");
+    }
+    plan.now = this.now;
+    const { handTest: tryIt, ...task } = fix;
+    const [added] = plan.addTasks([{ ...task, done: true }]);
+    const test = tryIt?.trim() ? plan.addHandTest(tryIt, added!.id) : undefined;
+    this.markItems(plan, [added!.id, test?.id]);
+    if (!roadmap.goal(SMALL_FIXES_ID)!.claim) {
+      const waiting = plan.handTests.some((h) => h.result === "pending");
+      roadmap.setGoalStatus(SMALL_FIXES_ID, waiting ? "started" : "done");
+      roadmap.setWaitingOnTests(SMALL_FIXES_ID, waiting);
+    }
+    this.markGoal(roadmap, SMALL_FIXES_ID);
+    this.saveNewGoal(roadmap, plan);
+    const saved = this.plan(SMALL_FIXES_ID);
+    return {
+      goal: this.roadmap().goal(SMALL_FIXES_ID)!,
+      task: saved.task(added!.id!)!,
+      ...(test ? { handTest: saved.handTest(test.id!)! } : {}),
+    };
+  }
+
   addTasks(tasks: NewTask[], goalId?: string): Task[] {
     const { plan } = this.requireClaim(goalId);
     const added = plan.addTasks(tasks);
