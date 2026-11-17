@@ -1326,3 +1326,6 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .walk-done p { margin: 0; }
 @media (prefers-reduced-motion: reduce) { .walk-card { animation: none; } .walk-bar > i { transition: none; } }
 [data-motion="off"] .walk-card, [data-motion="off"] .walk-bar > i { animation: none; transition: none; }
+
+/* Add a screenshot to a thing to try (AddShot.tsx): icon and words on one line */
+.add-shot { display: inline-flex; align-items: center; gap: var(--s1); white-space: nowrap; }

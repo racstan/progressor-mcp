@@ -11,7 +11,7 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Origin, latestOrigin } from "../origin.js";
 import type { Decision, HandResult, HandTest, Message, Note, Question, TaskStatus } from "../planFile.js";
-import { type EstimateSettings, MAX_ATTACHMENT_BYTES, MIN_SAMPLES, PROGRESSOR_DIR, PROJECT_TALK, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
+import { type EstimateSettings, MAX_ATTACHMENT_BYTES, MAX_PICTURE_BYTES, MIN_SAMPLES, PROGRESSOR_DIR, PROJECT_TALK, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
 import { defaultServersDir, listServers, requestStop, sessionOfProcess } from "../servers.js";
@@ -640,6 +640,52 @@ class Hub {
    * undo. It is written through the same code the Agent's tools use, holding the plan's lock, and
    * only for this page: the custom header and the page's own Origin keep other web pages out.
    */
+  /**
+   * The Developer adding a screenshot to a thing to try (pasted or picked): the bytes are the body, the
+   * name is in the x-file-name header. Kept with the goal's pictures; the AI is told only its path.
+   */
+  private async handTestPicture(req: IncomingMessage, res: ServerResponse, projectId: string, goalId: string, testId: string): Promise<void> {
+    if (!isFromDashboardPage(req, "mark")) return json(res, 403, { error: "Screenshots can only be added from the dashboard's own page." });
+    if (!this.projects.has(projectId)) this.sync();
+    const project = this.projects.get(projectId)?.project;
+    if (!project) return json(res, 404, { error: "No such project on the dashboard." });
+    if (this.uploading >= MAX_UPLOADS_AT_ONCE) {
+      res.setHeader("connection", "close");
+      res.once("finish", () => req.destroy());
+      return json(res, 429, { error: "Too many files are being added at once. Wait a moment and try again." });
+    }
+    this.uploading += 1;
+    let data: Buffer | undefined;
+    try {
+      data = await readBytes(req, MAX_PICTURE_BYTES);
+    } finally {
+      this.uploading -= 1;
+    }
+    if (!data) return answerTooBig(req, res, `That file is too big: the limit is ${MAX_PICTURE_BYTES / 1024 / 1024} MB.`);
+    let name = "screenshot.png";
+    try {
+      name = decodeURIComponent(String(req.headers["x-file-name"] ?? "")) || name;
+    } catch {
+      // keep the plain name
+    }
+    try {
+      const picture = await project.transactionAsync("Added a screenshot to something to try", () => {
+        const p = project.addHandTestPicture(goalId, testId, name, data);
+        const goal = project.roadmap().goal(goalId)!;
+        const test = project.plan(goal.id).handTest(testId)!;
+        project.sendMessage(
+          goal.id,
+          `On the dashboard I added a screenshot to the thing to try ${testId} ("${test.text}"). It is at ${PROGRESSOR_DIR}/pictures/${goal.id}/${p.file}: open it by that path if you need it.`,
+        );
+        return p;
+      });
+      return json(res, 201, picture);
+    } catch (e) {
+      const message = (e as Error).message;
+      return json(res, /^No /.test(message) ? 404 : 400, { error: message });
+    }
+  }
+
   private async markHandTest(req: IncomingMessage, res: ServerResponse, projectId: string, goalId: string, itemId: string): Promise<void> {
     if (!isFromDashboardPage(req, "mark")) return json(res, 403, { error: "Hand tests can only be marked from the dashboard's own page." });
     if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) return json(res, 415, { error: "Send the mark as JSON." });
@@ -969,6 +1015,9 @@ class Hub {
     if (req.method === "POST" && notes) return void this.notes(req, res, decodeURIComponent(notes[1]!), notes[2]!);
     const talk = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/((?:messages|questions)(?:\/[^/]+\/(?:delete|answer|more|remove))?|clear)$/.exec(path);
     if (req.method === "POST" && talk) return void this.talk(req, res, decodeURIComponent(talk[1]!), decodeURIComponent(talk[2]!), talk[3]!);
+    const shot = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/hand-tests\/([^/]+)\/pictures$/.exec(path);
+    if (req.method === "POST" && shot)
+      return void this.handTestPicture(req, res, decodeURIComponent(shot[1]!), decodeURIComponent(shot[2]!), decodeURIComponent(shot[3]!));
     const mark = /^\/api\/projects\/([^/]+)\/goals\/([^/]+)\/hand-tests\/([^/]+)$/.exec(path);
     if (req.method === "POST" && mark)
       return void this.markHandTest(req, res, decodeURIComponent(mark[1]!), decodeURIComponent(mark[2]!), decodeURIComponent(mark[3]!));

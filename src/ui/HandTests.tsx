@@ -6,6 +6,7 @@ import { type PictureItem, Pictures } from "./Pictures.js";
 import { RichText } from "./RichText.js";
 import { HAND_WORD, handTestsLine } from "./words.js";
 import { busyClass } from "./Loading.js";
+import { useAddShot } from "./AddShot.js";
 
 type Test = GoalView["handTests"][number];
 
@@ -62,6 +63,7 @@ function Item({ test, about, added, pictures, projectId, goalId, onChanged, need
   const [asking, setAsking] = useState(false);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string>();
+  const shot = useAddShot({ projectId, goalId, testId: test.id }, onChanged);
 
   const mark = async (m: HandMark, text?: string) => {
     setBusy(true);
@@ -97,11 +99,12 @@ function Item({ test, about, added, pictures, projectId, goalId, onChanged, need
         <form className="ask" onSubmit={(e) => { e.preventDefault(); void mark("doesn't work", note.trim()); }}>
           <label>
             What went wrong? <span className="quiet">(a few words; your AI reads this)</span>
-            <input autoFocus value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder="For example: it asked twice, then froze" />
+            <input autoFocus value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} onPaste={shot.onPaste} placeholder="For example: it asked twice, then froze (you can paste a screenshot)" />
           </label>
           <div className="buttons">
-            <button type="submit" disabled={busy} className={busyClass("btn", busy)}>Doesn't work, add a step</button>
+            <button type="submit" disabled={busy || shot.busy} className={busyClass("btn", busy)}>Doesn't work, add a step</button>
             <button type="button" className="btn ghost" disabled={busy} onClick={() => setAsking(false)}>Cancel</button>
+            {shot.picker}
           </div>
         </form>
       ) : (
@@ -109,9 +112,11 @@ function Item({ test, about, added, pictures, projectId, goalId, onChanged, need
           <button type="button" disabled={busy} className="btn ghost" onClick={() => void mark("works")}><Icon name="check" /> Works</button>
           <button type="button" disabled={busy} className="btn ghost" onClick={() => setAsking(true)}><Icon name="close" /> Doesn't work</button>
           <button type="button" disabled={busy} className="linkbtn" onClick={() => void mark("won't test")}>Won't test</button>
+          {shot.picker}
         </div>
       )}
       {error && <div className="error" role="alert">{error}</div>}
+      {shot.error && <div className="error" role="alert">{shot.error}</div>}
     </li>
   );
 }

@@ -5,6 +5,8 @@ import { Dates } from "./Dates.js";
 import { Icon } from "./Icon.js";
 import { type PictureItem, Pictures } from "./Pictures.js";
 import { RichText } from "./RichText.js";
+import { useAddShot } from "./AddShot.js";
+import { Loading, busyClass } from "./Loading.js";
 import { type WalkItem, type WalkState, mark, orderItems, progress, queue, skip } from "./walkthrough.js";
 
 type Test = GoalView["handTests"][number];
@@ -76,6 +78,16 @@ export function Walkthrough({ goals, showProject, onClose, onChanged }: { goals:
   const line = queue(items, state);
   const current = line[0];
   const shown = current ? loaded?.find((l) => l.item.key === current.key) : undefined;
+  // A screenshot added here shows at once: that one goal's pictures are read again.
+  const refreshPictures = () => {
+    if (!current) return;
+    void loadGoalView(current.projectId, current.goalId).then((view) => {
+      if (!view) return;
+      setLoaded((all) => all?.map((l) => (l.item.projectId === current.projectId && l.item.goalId === current.goalId ? { ...l, pictures: view.pictures.filter((p) => p.handTest === l.item.testId) } : l)));
+    });
+    onChanged();
+  };
+  const shot = useAddShot({ projectId: current?.projectId ?? "", goalId: current?.goalId ?? "", testId: current?.testId }, refreshPictures);
   const where = progress(items.length, state);
 
   // Esc closes (or, while a note is being written, goes back to the buttons).
@@ -130,7 +142,7 @@ export function Walkthrough({ goals, showProject, onClose, onChanged }: { goals:
         </div>
 
         {!loaded ? (
-          <p className="quiet">Looking for things to try…</p>
+          <Loading size="card" label="Looking for things to try" />
         ) : items.length === 0 ? (
           <div className="walk-done">
             <p><b>Nothing left to try.</b></p>
@@ -160,11 +172,12 @@ export function Walkthrough({ goals, showProject, onClose, onChanged }: { goals:
               <form className="ask" onSubmit={(e) => { e.preventDefault(); void answer("doesn't work", note.trim()); }}>
                 <label>
                   What went wrong? <span className="quiet">(a few words; your AI reads this)</span>
-                  <input autoFocus value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder="For example: it asked twice, then froze" />
+                  <input autoFocus value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} onPaste={shot.onPaste} placeholder="For example: it asked twice, then froze (you can paste a screenshot)" />
                 </label>
                 <div className="buttons">
-                  <button type="submit" disabled={busy} className="btn">Doesn't work, add a step</button>
+                  <button type="submit" disabled={busy || shot.busy} className={busyClass("btn", busy)}>Doesn't work, add a step</button>
                   <button type="button" className="btn ghost" disabled={busy} onClick={() => setAsking(false)}>Cancel</button>
+                  {shot.picker}
                 </div>
               </form>
             ) : (
@@ -173,9 +186,11 @@ export function Walkthrough({ goals, showProject, onClose, onChanged }: { goals:
                 <button type="button" disabled={busy} className="btn ghost" onClick={() => setAsking(true)}><Icon name="close" /> Doesn't work</button>
                 <button type="button" disabled={busy} className="btn ghost" onClick={() => void answer("won't test")}>Won't test</button>
                 <button type="button" disabled={busy || line.length < 2} className="linkbtn" title="Comes back at the end" onClick={() => setState((s) => skip(s, current.key))}>Skip for now</button>
+                {shot.picker}
               </div>
             )}
             {error && <div className="error" role="alert">{error}</div>}
+            {shot.error && <div className="error" role="alert">{shot.error}</div>}
           </div>
         )}
       </div>

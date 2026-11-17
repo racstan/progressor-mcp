@@ -21,6 +21,7 @@ const PATHS = {
   note: "M5 4h14v12l-4 4H5zM15 20v-4h4M8 9h8M8 13h5",
   pin: "M12 21v-6M7 4h10l-2 6 3 3H6l3-3z",
   play: "M8 5v14l11-7z",
+  image: "M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15.5 9h.01",
   flag: "M5 21V4M5 4h11l-2 4 2 4H5",
   refresh: "M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7",
   chart: "M4 20h16M7 16v-5M12 16V6M17 16v-8",

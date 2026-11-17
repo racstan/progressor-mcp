@@ -321,6 +321,17 @@ export async function markHandTest(projectId: string, goalId: string, itemId: st
   if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
 }
 
+/** Adds a screenshot (picked or pasted) to a thing to try; the AI is told where it is. */
+export async function uploadHandTestPicture(projectId: string, goalId: string, testId: string, file: File): Promise<void> {
+  const path = `/api/projects/${encodeURIComponent(projectId)}/goals/${encodeURIComponent(goalId)}/hand-tests/${encodeURIComponent(testId)}/pictures`;
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "x-progressor": "mark", "x-file-name": encodeURIComponent(file.name), "content-type": "application/octet-stream" },
+    body: file,
+  });
+  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
+}
+
 /** Opens the system's file manager at a file of the project (a plan file, or one a step changed). */
 export async function showInFolder(projectId: string, path: string): Promise<void> {
   const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/reveal`, {

@@ -297,6 +297,8 @@ export interface Picture {
   task?: string;
   /** The hand test it is about. */
   handTest?: string;
+  /** Added by the Developer on the dashboard (a screenshot on a hand test), not shown by the AI. */
+  byDeveloper?: boolean;
   kind: "image" | "video";
   addedAt: string;
 }
@@ -810,17 +812,43 @@ export class Project {
       throw new Error(`There is no file at ${from}.`);
     }
     if (size > MAX_PICTURE_BYTES) throw new Error(`That file is ${Math.ceil(size / 1024 / 1024)} MB; the limit is ${MAX_PICTURE_BYTES / 1024 / 1024} MB.`);
-    const list = this.pictures(goal.id);
+    return this.storePicture(goal.id, ext, words, about, (path) => copyFileSync(from, path));
+  }
+
+  /** Lists a goal's next picture (p1, p2, ...) and writes its file with `write`. */
+  private storePicture(goalId: string, ext: string, caption: string, about: { task?: string; handTest?: string; byDeveloper?: boolean }, write: (path: string) => void): Picture {
+    const type = PICTURE_TYPES[ext]!;
+    const list = this.pictures(goalId);
     const next = list.reduce((n, p) => Math.max(n, Number(/^p(\d+)$/.exec(p.id)?.[1] ?? 0)), 0) + 1;
-    const picture: Picture = { id: `p${next}`, file: `p${next}${ext}`, caption: words, kind: type.kind, addedAt: this.now().toISOString() };
+    const picture: Picture = { id: `p${next}`, file: `p${next}${ext}`, caption, kind: type.kind, addedAt: this.now().toISOString() };
     if (about.task) picture.task = about.task;
     if (about.handTest) picture.handTest = about.handTest;
+    if (about.byDeveloper) picture.byDeveloper = true;
     this.ignoreLocal(PICTURES_DIR, "Screenshots and recordings your AI shows you stay on this computer");
-    const dir = this.path(PICTURES_DIR, goal.id);
+    const dir = this.path(PICTURES_DIR, goalId);
     mkdirSync(dir, { recursive: true });
-    copyFileSync(from, join(dir, picture.file));
+    write(join(dir, picture.file));
     this.writeText(join(dir, "index.json"), `${JSON.stringify([...list, picture], null, 2)}\n`);
     return picture;
+  }
+
+  /**
+   * A screenshot the Developer adds on the dashboard to a hand test (pasted or picked), whether or not a
+   * chat holds the goal: kept with the goal's pictures under a safe name, tied to the hand test.
+   */
+  addHandTestPicture(goalId: string, testId: string, name: string, data: Buffer): Picture {
+    const goal = this.roadmap().goal(goalId);
+    if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
+    if (goal.status === "dropped") throw new Error(`Goal ${goal.id} is dropped; nothing can be added to it.`);
+    const plan = this.plan(goal.id);
+    plan.assignMissingIds();
+    if (!plan.handTest(testId)) throw new Error(`No hand test ${testId} in Goal ${goal.id}.`);
+    const original = name.split(/[\\/]/).pop()?.trim() || "screenshot.png";
+    const ext = extname(original).toLowerCase();
+    if (!PICTURE_TYPES[ext]) throw new Error(`${ext || "That file"} cannot be added; use ${Object.keys(PICTURE_TYPES).join(", ")}.`);
+    if (data.length === 0) throw new Error("That file is empty.");
+    if (data.length > MAX_PICTURE_BYTES) throw new Error(`That file is ${Math.ceil(data.length / 1024 / 1024)} MB; the limit is ${MAX_PICTURE_BYTES / 1024 / 1024} MB.`);
+    return this.storePicture(goal.id, ext, cutText(original.slice(0, original.length - ext.length), MAX_CAPTION) || "Screenshot", { handTest: testId, byDeveloper: true }, (path) => writeFileSync(path, data));
   }
 
   /** Takes a picture back: removes its entry and its stored file. */
