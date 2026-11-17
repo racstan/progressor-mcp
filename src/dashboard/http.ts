@@ -11,6 +11,7 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Origin, latestOrigin } from "../origin.js";
 import type { Decision, HandResult, HandTest, Message, Note, Question, TaskStatus } from "../planFile.js";
+import type { Roadmap } from "../roadmap.js";
 import { type EstimateSettings, MAX_ATTACHMENT_BYTES, MAX_PICTURE_BYTES, MIN_SAMPLES, PROGRESSOR_DIR, PROJECT_TALK, Project, ROADMAP_FILE, claimMayBeLive, processIsAlive } from "../project.js";
 import { DEFAULT_EDITOR } from "./editor.js";
 import { buildGoalGraph } from "./graph.js";
@@ -140,8 +141,9 @@ export function dashboardApi(
   lookup?: GoalLookup,
 ) {
   const roadmapFile = `${PROGRESSOR_DIR}/${ROADMAP_FILE}`;
-  const goalSummary = (goalId: string) => {
-    const goal = project.roadmap().goal(goalId);
+  // `roadmap` is passed in when the caller already read it, so a list of goals reads it once, not once per goal.
+  const goalSummary = (goalId: string, roadmap: Roadmap = project.roadmap()) => {
+    const goal = roadmap.goal(goalId);
     if (!goal) return undefined;
     let done = 0;
     let total = 0;
@@ -193,6 +195,11 @@ export function dashboardApi(
     return { ...goal, planFile, done, total, counts, waitingOnYou, openQuestions, untriedTests, ...(oldestUntried ? { oldestUntried } : {}), waitingSteps, updatedAt: changed(planFile) ?? changed(roadmapFile), fromElsewhere, waiting, blocked };
   };
   return {
+    /** Only the goals' summaries, for the overview of every project: none of the rest of the roadmap view. */
+    goals: () => {
+      const roadmap = project.roadmap();
+      return roadmap.goals.map((g) => goalSummary(g.id, roadmap)!);
+    },
     roadmap: () => {
       const roadmap = project.roadmap();
       const projectTalkMessages = (): Message[] => {
@@ -205,7 +212,7 @@ export function dashboardApi(
       return {
         root: project.root,
         file: roadmapFile,
-        goals: roadmap.goals.map((g) => goalSummary(g.id)!),
+        goals: roadmap.goals.map((g) => goalSummary(g.id, roadmap)!),
         sessions: roadmap.goals
           .filter((g) => g.claim && g.status === "active")
           .map((g) => {
@@ -551,7 +558,7 @@ class Hub {
         updatedAt: number | undefined;
       }[] = [];
       try {
-        goals = (api?.roadmap().goals ?? []).map(({ id, title, status, done, total, waitingOnYou, openQuestions, untriedTests, oldestUntried, waitingSteps, updatedAt }) => ({
+        goals = (api?.goals() ?? []).map(({ id, title, status, done, total, waitingOnYou, openQuestions, untriedTests, oldestUntried, waitingSteps, updatedAt }) => ({
           id,
           title,
           status,

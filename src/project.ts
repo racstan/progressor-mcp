@@ -14,7 +14,7 @@ import {
   type Alternative,
   type NewTask,
   type Note,
-  type PlanFile,
+  PlanFile,
   type Task,
   type TaskChanges,
   type TaskStatus,
@@ -44,7 +44,7 @@ import { type Routine, dueRoutines, formatEvery, nextAfter, nextDue, parseEvery,
 import { formatDuration, parseDuration } from "./estimate.js";
 import { type Readiness, readiness } from "./readiness.js";
 import { COST_DIR, COST_FILE, type CostBook, collectTranscript, readBook, writeBook } from "./cost.js";
-import { type Claim, type Goal, GOAL_BUNDLES, GOAL_FOR_LAUNCH, GOAL_FROM_ROUTINE, GOAL_RELEASE, GOAL_WAITS_ON, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
+import { type Claim, type Goal, GOAL_BUNDLES, GOAL_FOR_LAUNCH, GOAL_FROM_ROUTINE, GOAL_RELEASE, GOAL_WAITS_ON, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, Roadmap, type StandingInstruction, helperLimit } from "./roadmap.js";
 import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule, helperCount } from "./schedule.js";
 import { type Calibration, calibration } from "./stats.js";
@@ -476,8 +476,26 @@ export class Project {
     return `${PROGRESSOR_DIR}/goals/${goalId}.md`;
   }
 
+  /**
+   * Each file's text as last read, kept until its size or modified time changes: the dashboard reads
+   * the same plan files on every request, and a stat is much cheaper than a read. A change by another
+   * process changes the modified time, so it shows at once.
+   */
+  private readonly texts = new Map<string, { mtimeMs: number; size: number; text: string }>();
+
   private readText(path: string): string | undefined {
-    return existsSync(path) ? readFileSync(path, "utf8") : undefined;
+    const st = statSync(path, { throwIfNoEntry: false });
+    if (!st) {
+      this.texts.delete(path);
+      return undefined;
+    }
+    // Something that is not a file (a folder where the plan should be) fails to read, as it always did.
+    if (!st.isFile()) return readFileSync(path, "utf8");
+    const kept = this.texts.get(path);
+    if (kept && kept.mtimeMs === st.mtimeMs && kept.size === st.size) return kept.text;
+    const text = readFileSync(path, "utf8");
+    this.texts.set(path, { mtimeMs: st.mtimeMs, size: st.size, text });
+    return text;
   }
 
   // --- history -------------------------------------------------------------
@@ -724,7 +742,7 @@ export class Project {
     const doc = parseMarkdown(text);
     if (hasBody(doc) && ![GOALS, IDEAS, STANDING_INSTRUCTIONS].some((name) => findSection(doc, name) >= 0))
       throw this.damaged(ROADMAP_FILE, "it has no Goals section");
-    return parseRoadmap(text);
+    return new Roadmap(doc);
   }
 
   plan(goalId: string): PlanFile {
@@ -734,7 +752,7 @@ export class Project {
       const doc = parseMarkdown(text);
       if (hasBody(doc) && findSection(doc, TASKS) < 0 && !doc.blocks.some((b) => b.type === "item"))
         throw this.damaged(`goals/${goalId}.md`, "it has no Tasks section");
-      plan = parsePlanFile(text, goalId);
+      plan = new PlanFile(goalId, doc);
     } else {
       const goal = this.roadmap().goal(goalId);
       if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
@@ -751,8 +769,9 @@ export class Project {
    */
   talk(goalId: string): PlanFile {
     const text = this.readText(this.path(TALK_DIR, `${goalId}.md`));
-    const title = goalId === PROJECT_TALK ? "The whole project" : (this.roadmap().goal(goalId)?.title ?? goalId);
-    const talk = parsePlanFile(text ?? `# ${title}: talk with the Developer\n`, goalId);
+    // The roadmap is read for the title only when there is no talk file yet.
+    const title = () => (goalId === PROJECT_TALK ? "The whole project" : (this.roadmap().goal(goalId)?.title ?? goalId));
+    const talk = parsePlanFile(text ?? `# ${title()}: talk with the Developer\n`, goalId);
     talk.now = this.now;
     return talk;
   }
