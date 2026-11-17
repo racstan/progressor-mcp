@@ -46,6 +46,7 @@ import { type Claim, type Goal, GOAL_BUNDLES, GOAL_FROM_ROUTINE, GOAL_RELEASE, G
 import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule } from "./schedule.js";
 import { type Calibration, calibration } from "./stats.js";
+import { RISKS_FILE, type Risk, type RiskChanges, type Level, formatRisks, nextRiskId, parseRisks, riskLine } from "./risks.js";
 import { WISHLIST_FILE, type Attachment, type Wish, formatWishlist, isWishId, nextWishId, parseWishlist, wishText } from "./wishlist.js";
 
 /** The estimates settings the schedule needs (settings.ts); without them estimates are taken as written. */
@@ -2163,6 +2164,70 @@ export class Project {
       );
     this.writeText(this.path(CONTEXT_FILE), context ? `${CONTEXT_HEADING}\n\n${context}\n` : `${CONTEXT_HEADING}\n`);
     return context;
+  }
+
+  // --- risks ------------------------------------------------------------------
+
+  /** The project's risks (see risks.ts), in the file's order. */
+  risks(): Risk[] {
+    return parseRisks(this.readText(this.path(RISKS_FILE)) ?? "");
+  }
+
+  /** The linked goals by their real IDs, refusing any not on the Roadmap. */
+  private riskGoals(ids: string[]): string[] {
+    const roadmap = this.roadmap();
+    return [
+      ...new Set(
+        ids.map((id) => {
+          const goal = roadmap.goal(id.trim());
+          if (!goal) throw new Error(`No Goal ${id.trim()} on the Roadmap; link a risk only to goals that are on it.`);
+          return goal.id;
+        }),
+      ),
+    ];
+  }
+
+  /** Adds a risk at the end of the list, open unless a status is given. */
+  addRisk(risk: RiskChanges & { title: string; likelihood: Level; impact: Level }): Risk {
+    const title = riskLine(risk.title);
+    if (!title) throw new Error("Give the risk a title with words in it.");
+    const risks = this.risks();
+    const added: Risk = {
+      id: nextRiskId(risks),
+      title,
+      likelihood: risk.likelihood,
+      impact: risk.impact,
+      ...(risk.mitigation && riskLine(risk.mitigation) ? { mitigation: riskLine(risk.mitigation) } : {}),
+      ...(risk.owner && riskLine(risk.owner) ? { owner: riskLine(risk.owner) } : {}),
+      goals: this.riskGoals(risk.goals ?? []),
+      status: risk.status ?? "open",
+    };
+    this.writeText(this.path(RISKS_FILE), formatRisks([...risks, added]));
+    return added;
+  }
+
+  /** Changes the fields given of a risk; an empty mitigation or owner removes it. */
+  updateRisk(id: string, changes: RiskChanges): Risk {
+    const risks = this.risks();
+    const risk = risks.find((r) => r.id === id.trim().toLowerCase());
+    if (!risk) throw new Error(`No risk ${id} on the risks list.`);
+    if (changes.title !== undefined) {
+      const title = riskLine(changes.title);
+      if (!title) throw new Error("Give the risk a title with words in it.");
+      risk.title = title;
+    }
+    if (changes.likelihood) risk.likelihood = changes.likelihood;
+    if (changes.impact) risk.impact = changes.impact;
+    if (changes.status) risk.status = changes.status;
+    if (changes.goals) risk.goals = this.riskGoals(changes.goals);
+    for (const key of ["mitigation", "owner"] as const)
+      if (changes[key] !== undefined) {
+        const text = riskLine(changes[key]!);
+        if (text) risk[key] = text;
+        else delete risk[key];
+      }
+    this.writeText(this.path(RISKS_FILE), formatRisks(risks));
+    return risk;
   }
 
   // --- wishlist ---------------------------------------------------------------

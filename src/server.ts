@@ -17,6 +17,7 @@ import { handTestLines, handTestWord } from "./handTestText.js";
 import { elsewhereNewsLine, newsLines, projectTalkLine, talkLines } from "./talkText.js";
 import { type ResourceLock, holderText, resourceLine } from "./resources.js";
 import { type Goal, type StandingInstruction, hardFirst, helperLimit, hotfixLine, ruleText } from "./roadmap.js";
+import { LEVELS, RISK_STATUSES, type Risk } from "./risks.js";
 import type { GoalSchedule, Schedule } from "./schedule.js";
 import type { Wish } from "./wishlist.js";
 import { readSettings, settingsFileFor } from "./settings.js";
@@ -597,6 +598,8 @@ export const TOOL_EXAMPLES: Record<string, string> = {
   release_goal: "release_goal({})",
   complete_goal: "complete_goal({})",
   add_tasks: 'add_tasks({ tasks: [{ title: "Fix typo", done: true, code: ["src/a.ts"], hand_test: "Check the button text" }] })',
+  add_risk: 'add_risk({ title: "Windows paths break setup", likelihood: "medium", impact: "high", mitigation: "Test setup on Windows in CI", goals: ["tests-ci-deps"] })',
+  update_risk: 'update_risk({ risk: "r2", status: "reduced" })',
   add_small_fix: 'add_small_fix({ title: "Faster dev server start", summary: "Skip the type check on start.", code: ["vite.config.ts"] })',
   start_task: 'start_task({ task: "t2" })',
   set_task_state: 'set_task_state({ task: "t2", state: "checked", evidence: "715 passed" })',
@@ -1297,6 +1300,56 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           p,
           [`Recorded ${goal.id}/${taskLine(task)} as done under ${goal.title}.`, ...(handTest ? [`Saved hand test ${handTest.id} about ${handTest.task}: ${handTest.text}`] : [])].join("\n"),
         );
+      }),
+  );
+
+  const riskFields = {
+    likelihood: z.enum(LEVELS).describe("How likely it is to happen: low, medium or high."),
+    impact: z.enum(LEVELS).describe("How bad it would be: low, medium or high."),
+    mitigation: z.string().optional().describe("What would reduce it, in one line; an empty string removes it."),
+    owner: z.string().optional().describe("Who looks after it, such as 'your AI' or 'the Developer'; an empty string removes it."),
+    goals: z.array(z.string()).optional().describe("IDs of the goals whose work reduces it; replaces the ones it has."),
+    status: z.enum(RISK_STATUSES).optional().describe("open (the usual), reduced (the work that lowers it is done) or closed (it can no longer happen)."),
+  };
+  const riskSaid = (r: Risk) => `risk ${r.id} ${r.title}: ${r.status}, ${r.likelihood} likelihood, ${r.impact} impact${r.goals.length ? `, reduced by ${r.goals.join(", ")}` : ""}`;
+
+  server.registerTool(
+    "add_risk",
+    {
+      title: "Add risk",
+      description:
+        "Add a risk to the project's risks list: something that could go wrong, how likely and how bad, what would reduce it, who owns it and the goals that reduce it. Add the ones you notice as you work, without being asked; the Developer sees the list on the dashboard.",
+      inputSchema: { title: taskInput.shape.title.describe("What could go wrong, in a few words, such as 'Windows paths break setup'."), ...riskFields, project: otherProject },
+    },
+    ({ title, project: wanted, ...fields }) =>
+      respondIn(wanted, (p) => {
+        const r = p.addRisk({ title, ...fields });
+        return doneIn(p, `Added risk ${r.id} ${r.title} (${r.likelihood} likelihood, ${r.impact} impact)${r.goals.length ? `, reduced by ${r.goals.join(", ")}` : ""}.`);
+      }),
+  );
+
+  server.registerTool(
+    "update_risk",
+    {
+      title: "Update risk",
+      description:
+        "Change a risk on the risks list: any of its fields, or its status (reduced once the work that lowers it is done, closed when it can no longer happen). Keep the list true as goals finish.",
+      inputSchema: {
+        risk: z.string().describe("The risk's ID, such as 'r2'."),
+        title: taskInput.shape.title.optional(),
+        likelihood: riskFields.likelihood.optional(),
+        impact: riskFields.impact.optional(),
+        mitigation: riskFields.mitigation,
+        owner: riskFields.owner,
+        goals: riskFields.goals,
+        status: riskFields.status,
+        project: otherProject,
+      },
+    },
+    ({ risk, project: wanted, ...changes }) =>
+      respondIn(wanted, (p) => {
+        const r = p.updateRisk(risk, changes);
+        return doneIn(p, `Updated ${riskSaid(r)}.`);
       }),
   );
 
