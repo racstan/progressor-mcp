@@ -4,6 +4,7 @@ import { Dates } from "./Dates.js";
 import { RichText } from "./RichText.js";
 import { RemoveLink, useSend } from "./Talk.js";
 import { elsewhereTag, noteOrigin } from "./words.js";
+import { busyClass } from "./Loading.js";
 
 type Goals = RoadmapView["goals"];
 type Where = { projectId: string; goalId: string; onChanged: () => void };
@@ -114,7 +115,7 @@ function EditText({ start, label, save, onSaved, onCancel }: { start: string; la
           if (e.key === "Escape") onCancel();
         }} />
       <div className="form-actions">
-        <button type="submit" className="btn small" disabled={busy || !text.trim() || !changed}>Save</button>
+        <button type="submit" className={busyClass("btn small", busy)} disabled={busy || !text.trim() || !changed}>Save</button>
         <button type="button" className="btn ghost small" disabled={busy} onClick={onCancel}>Cancel</button>
         <span className="hint">{TOLD}</span>
       </div>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { type RoadmapView, addHotfix } from "./data.js";
 import { ago, exactDate } from "./words.js";
 import { useSend } from "./Talk.js";
+import { busyClass } from "./Loading.js";
 
 /** The longest report the server keeps (planFile.ts MAX_REPORT). */
 const MAX_REPORT = 8000;
@@ -57,7 +58,7 @@ export function HotfixPage({ projectId, goals, onOpen, onAdded, heading }: {
         </label>
         <div className="wish-actions">
           {long && <span className="error">The report is {report.trim().length} characters; keep it to {MAX_REPORT}.</span>}
-          <button type="submit" className="btn small" disabled={busy || !report.trim() || long}>Add hotfix</button>
+          <button type="submit" className={busyClass("btn small", busy)} disabled={busy || !report.trim() || long}>Add hotfix</button>
         </div>
         {error && <div className="error" role="alert">{error}</div>}
       </form>

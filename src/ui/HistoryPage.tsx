@@ -16,6 +16,7 @@ import {
   historyLabel,
   historyWho,
 } from "./words.js";
+import { Loading, busyClass } from "./Loading.js";
 
 
 export function HistoryPage({ projectId, roadmap, toast, heading }: { projectId: string; heading: string; roadmap: RoadmapView; toast: (text: string) => void }) {
@@ -41,7 +42,7 @@ export function HistoryPage({ projectId, roadmap, toast, heading }: { projectId:
       <p className="page-sub">{HISTORY_INTRO}</p>
       {view?.enabled === false && <p className="history-off">{HISTORY_OFF}</p>}
       {view === undefined ? (
-        <p className="quiet">Loading…</p>
+        <Loading />
       ) : view === null ? (
         <p className="quiet">The history could not be loaded. Try Refresh.</p>
       ) : view.entries.length === 0 ? (
@@ -90,7 +91,7 @@ function Entry(props: {
         <button className="linkbtn" aria-expanded={open} onClick={toggle}>
           <Icon name={open ? "chevronDown" : "chevronRight"} size={14} /> What changed
         </button>
-        <button className="btn ghost small" disabled={props.busy} onClick={props.onGoBack}
+        <button className={busyClass("btn ghost small", props.going)} disabled={props.busy} onClick={props.onGoBack}
           title={props.later > 0 ? `Undoes this change and the ${props.later} after it` : "Undoes this change"}>
           <Icon name="history" size={14} /> {props.going ? "Going back…" : HISTORY_GO_BACK}
         </button>
@@ -98,7 +99,7 @@ function Entry(props: {
       {open && (
         <div className="entry-diff">
           {changes === undefined ? (
-            <p className="quiet">Loading…</p>
+            <Loading />
           ) : changes === null ? (
             <p className="quiet">This change could not be shown.</p>
           ) : (

@@ -2,6 +2,7 @@
 // `progressor-mcp dashboard` command, plus the background dashboard), with a Stop button behind a confirm.
 import { useState } from "react";
 import { type InfoView, type ServersView, stopServer } from "./data.js";
+import { Loading } from "./Loading.js";
 
 type Server = ServersView["servers"][number];
 
@@ -63,7 +64,7 @@ export function ServersPanel({ servers, hub, reload, toast }: {
   return (
     <section>
       <h3 title="Each open AI chat that uses Progressor runs one of these">Running servers</h3>
-      {!servers && <p className="empty">Loading…</p>}
+      {!servers && <Loading size="inline" label="Looking for servers" />}
       {servers && list.length === 0 && <p className="empty">None listed.</p>}
       {list.map((s) => (
         <div key={s.pid} className={`server ${stopping.has(s.pid) ? "stopping" : ""}`}>

@@ -1,6 +1,7 @@
 // Settings: the plan's history (history.ts), kept on this computer for every project.
 import { useEffect, useState } from "react";
 import type { SettingsContext, SettingsSection } from "./types.js";
+import { Loading } from "../Loading.js";
 
 type Limit = "keepDays" | "maxEntries" | "maxMB";
 const LIMITS: { key: Limit; label: string; hint: string; min: number; step: number }[] = [
@@ -30,7 +31,7 @@ function LimitField({ ctx, limit, value, disabled }: { ctx: SettingsContext; lim
 function History({ ctx }: { ctx: SettingsContext }) {
   const history = ctx.computer?.settings.history;
   if (ctx.computer === null) return <p className="hint">This dashboard is served by an older Progressor, which keeps no history.</p>;
-  if (!history) return <p className="quiet">Loading…</p>;
+  if (!history) return <Loading />;
   return (
     <>
       <label className="option">

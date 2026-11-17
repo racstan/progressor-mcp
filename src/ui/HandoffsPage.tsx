@@ -6,6 +6,7 @@ import { parseChangelog, releaseBody } from "./changelog.js";
 import { type HandoffSummary, type RoadmapView, askForHandoff, getHandoff, useHandoffs } from "./data.js";
 import { Icon } from "./Icon.js";
 import { HANDOFFS_ASKED, HANDOFFS_EMPTY, HANDOFFS_INTRO, ago, exactDate } from "./words.js";
+import { Loading, busyClass } from "./Loading.js";
 
 
 const DAY = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" });
@@ -77,7 +78,7 @@ function Ask({ projectId, toast, onClose }: { projectId: string; toast: (text: s
         </div>
       )}
       <div className="handoff-ask-actions">
-        <button className="btn" disabled={busy} onClick={() => void ask()}>{busy ? "Asking…" : "Ask your AI"}</button>
+        <button className={busyClass("btn", busy)} disabled={busy} onClick={() => void ask()}>{busy ? "Asking…" : "Ask your AI"}</button>
         <small>Your AI writes it at its next step; it shows up here by itself.</small>
       </div>
     </section>
@@ -122,7 +123,7 @@ export function HandoffsPage({ projectId, roadmap, toast, heading }: { projectId
       </div>
       {(asking || empty) && <Ask projectId={projectId} toast={toast} onClose={empty ? undefined : () => setAsking(false)} />}
       {list === undefined ? (
-        <p className="quiet handoffs-loading">Loading…</p>
+        <Loading label="Loading handoffs" />
       ) : empty ? (
         <p className="handoffs-empty">{HANDOFFS_EMPTY}</p>
       ) : (
@@ -148,7 +149,7 @@ export function HandoffsPage({ projectId, roadmap, toast, heading }: { projectId
                 {shown.commits !== undefined && shown.commits > 0 && <li><span>Commits</span> {shown.commits}</li>}
                 {shown.written && <li title={exactDate(shown.written)}><span>Written by your AI</span> {exactDate(shown.written)}</li>}
               </ul>
-              {text === undefined ? <p className="quiet">Loading…</p> : text ? <HandoffText text={text} /> : <p className="quiet">This handoff could not be read.</p>}
+              {text === undefined ? <Loading size="inline" label="Reading it" /> : text ? <HandoffText text={text} /> : <p className="quiet">This handoff could not be read.</p>}
             </article>
           )}
         </div>

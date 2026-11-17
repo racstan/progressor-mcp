@@ -36,6 +36,7 @@ import type { TourShow } from "./tourSteps.js";
 import { onOpen, setTourOnOpen, setWhatsNewAuto, tourClosed, tourOnOpen, whatsNewAuto } from "./firstLook.js";
 import type { FileLink } from "./Steps.js";
 import { goalState, resourceWords } from "./words.js";
+import { Loading, busyClass } from "./Loading.js";
 
 type Goal = RoadmapView["goals"][number];
 
@@ -492,7 +493,7 @@ export function App() {
       <small className="detail">{error}</small>
     </div>
   ) : !projects ? (
-    <div className="placeholder">Loading…</div>
+    <Loading size="page" />
   ) : projects.length === 0 ? (
     <div className="placeholder">
       <h2>Nothing here yet</h2>
@@ -508,7 +509,7 @@ export function App() {
       <div><button className="btn ghost" onClick={goHome}>Back to Home</button></div>
     </div>
   ) : !roadmap ? (
-    <div className="placeholder">Loading…</div>
+    <Loading size="page" />
   ) : page === "dashboard" && projectId ? (
     <StatsPage heading={heading} projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} />
   ) : page === "history" && projectId ? (
@@ -541,7 +542,7 @@ export function App() {
       Tell your AI what you want to build. It plans the work as a goal with steps, and this page follows along by itself.
     </div>
   ) : !shownGoal || !projectId ? (
-    <div className="placeholder">Loading…</div>
+    <Loading size="page" />
   ) : (
     <ErrorBoundary scope="goal" key={`${projectId}:${shownGoal.goal.id}`}>
       <GoalPage projectId={projectId} view={shownGoal} goals={goals} state={stateOf(shownGoal.goal)} schedule={scheduleOf(shownGoal.goal.id)}
@@ -765,7 +766,7 @@ export function App() {
         <div className="scrim" onClick={() => setDrawer(false)} />
         <main className="main" id="main">
           <Breadcrumbs trail={trail} onHome={goHome} onProject={() => projectId && pickProject(projectId)} />
-          {main}
+          <div key={`${onHome ? "home" : projectId}:${page}`} className="page-enter">{main}</div>
         </main>
       </div>
 
@@ -866,7 +867,7 @@ function SideProject({ project: p, canRemove, onPick, onRemoved }: { project: Pr
         <div className="side-confirm" role="group" aria-label={`Remove ${p.name} from the dashboard?`}>
           <p>Remove <b>{p.name}</b> from the dashboard? Its folder and plan are not touched. It comes back if your AI uses Progressor there again.</p>
           <div className="form-actions">
-            <button className="btn small" disabled={busy} autoFocus onClick={() => void remove()}>Remove</button>
+            <button className={busyClass("btn small", busy)} disabled={busy} autoFocus onClick={() => void remove()}>Remove</button>
             <button className="btn ghost small" disabled={busy} onClick={() => setAsking(false)}>Keep it</button>
           </div>
           {error && <div className="error" role="alert">{error}</div>}

@@ -5,6 +5,7 @@ import { Pictures } from "./Pictures.js";
 import { RichText } from "./RichText.js";
 import { atTop, chosen, goAheadWords, isNotice, noticeWords } from "./talkView.js";
 import { ALT_ASKED_MORE, ALT_KIND, ALT_MORE, ALT_PICK, ALT_RECOMMENDED, ago, exactDate, messageStateWords, sentWords, talkSummary, whenWords } from "./words.js";
+import { busyClass } from "./Loading.js";
 
 type MessageView = GoalView["messages"][number];
 type QuestionView = GoalView["questions"][number];
@@ -181,7 +182,7 @@ function Ask({ question: q, about, projectId, goalId, onChanged }: { question: Q
       ) : (
         <form className="own" onSubmit={(e) => { e.preventDefault(); if (own.trim()) answer(own.trim()); }}>
           <input autoFocus value={own} maxLength={2000} onChange={(e) => setOwn(e.target.value)} placeholder="Your answer, in your own words" />
-          <button type="submit" disabled={busy || !own.trim()} className="btn">Answer</button>
+          <button type="submit" disabled={busy || !own.trim()} className={busyClass("btn", busy)}>Answer</button>
           <button type="button" className="btn ghost" disabled={busy} onClick={() => setOwn(undefined)}>Cancel</button>
         </form>
       )}
@@ -204,7 +205,7 @@ function Write({ projectId, goalId, onChanged }: Omit<Props, "view">) {
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) e.currentTarget.form?.requestSubmit();
         }} />
-      <button type="submit" className="btn" disabled={busy || !text.trim()}><Icon name="send" /> Send</button>
+      <button type="submit" className={busyClass("btn", busy)} disabled={busy || !text.trim()}><Icon name="send" /> Send</button>
       <div className="private" title="Saved in .progressor/talk/, which Progressor keeps out of git"><Icon name="lock" size={12} /> Kept on this computer only, not saved in git.</div>
       {error && <div className="error" role="alert">{error}</div>}
     </form>
@@ -221,7 +222,7 @@ export function RemoveLink({ what, onRemove, onChanged, told = "Your AI is not t
   return asking ? (
     <div className="confirm inline-confirm" role="group" aria-label={`Remove ${what}?`}>
       <span>Remove {what}? {told}</span>
-      <button type="button" className="btn small" disabled={busy} autoFocus onClick={() => void run(onRemove)}>Remove</button>
+      <button type="button" className={busyClass("btn small", busy)} disabled={busy} autoFocus onClick={() => void run(onRemove)}>Remove</button>
       <button type="button" className="btn ghost small" disabled={busy} onClick={() => setAsking(false)}>Keep it</button>
       {error && <div className="error" role="alert">{error}</div>}
     </div>
@@ -239,7 +240,7 @@ function ClearAll({ count, onClear, onChanged }: { count: number; onClear: () =>
       {asking ? (
         <div className="confirm" role="group" aria-label="Clear finished messages?">
           <span>Remove {count === 1 ? "the 1 finished message" : `all ${count} finished messages`} (ones your AI has read or answered)? Unread messages and questions waiting for you stay. Your AI is not told.</span>
-          <button type="button" className="btn small" disabled={busy} autoFocus onClick={() => void run(onClear).then((ok) => ok && setAsking(false))}>Clear all</button>
+          <button type="button" className={busyClass("btn small", busy)} disabled={busy} autoFocus onClick={() => void run(onClear).then((ok) => ok && setAsking(false))}>Clear all</button>
           <button type="button" className="btn ghost small" disabled={busy} onClick={() => setAsking(false)}>Keep them</button>
         </div>
       ) : (

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { type RoutineView, changeRoutine, useRoutines } from "./data.js";
 import { useSend } from "./Talk.js";
 import { ROUTINES_EMPTY, ROUTINES_LEAD, ROUTINES_TITLE, routineWhen } from "./words.js";
+import { busyClass } from "./Loading.js";
 
 export function RoutinesCard({ projectId, version }: { projectId: string; version: unknown }) {
   const [routines, reload] = useRoutines(projectId, version);
@@ -36,7 +37,7 @@ function RoutineRow({ projectId, routine: r, onChanged }: { projectId: string; r
         {stopping ? (
           <>
             <span className="quiet">Stop it for good?</span>
-            <button className="btn small" disabled={busy} onClick={() => act("stop")}>Stop it</button>
+            <button className={busyClass("btn small", busy)} disabled={busy} onClick={() => act("stop")}>Stop it</button>
             <button className="btn ghost small" disabled={busy} onClick={() => setStopping(false)}>Keep it</button>
           </>
         ) : (

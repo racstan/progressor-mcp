@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { addWish, attachFile, attachmentUrl, changeWish, removeAttachment, removeWish } from "./data.js";
 import { useSend } from "./Talk.js";
+import { busyClass } from "./Loading.js";
 
 type Attachment = { file: string; name: string; size: number };
 type Wish = { id: string; text: string; granted: boolean; attachments?: Attachment[] };
@@ -91,7 +92,7 @@ function AddWish({ projectId, onChanged }: { projectId: string; onChanged: () =>
         onKeyDown={(e) => (e.ctrlKey || e.metaKey) && e.key === "Enter" && (e.preventDefault(), submit())} />
       <div className="wish-actions">
         <FilePicker label="Attach files" disabled={busy} onPick={(picked) => setFiles((now) => [...now, ...picked])} />
-        <button type="submit" className="btn small" disabled={busy || !text.trim()}>Add wish</button>
+        <button type="submit" className={busyClass("btn small", busy)} disabled={busy || !text.trim()}>Add wish</button>
       </div>
       {files.length > 0 && (
         <ul className="wish-files">
@@ -143,7 +144,7 @@ function WishRow({ projectId, wish: w, onChanged }: { projectId: string; wish: W
           <textarea autoFocus value={draft} rows={3} onChange={(e) => setDraft(e.target.value)} aria-label="The wish"
             onKeyDown={(e) => e.key === "Escape" && setMode(undefined)} />
           <div className="wish-actions">
-            <button type="submit" className="btn small" disabled={busy || !draft.trim() || draft.trim() === w.text}>Save</button>
+            <button type="submit" className={busyClass("btn small", busy)} disabled={busy || !draft.trim() || draft.trim() === w.text}>Save</button>
             <button type="button" className="btn ghost small" disabled={busy} onClick={() => setMode(undefined)}>Cancel</button>
           </div>
           {error && <div className="error" role="alert">{error}</div>}
@@ -172,7 +173,7 @@ function WishRow({ projectId, wish: w, onChanged }: { projectId: string; wish: W
       {mode === "remove" && (
         <div className="confirm" role="group" aria-label="Remove this wish?">
           <span>Remove this wish{w.attachments?.length ? " and its files" : ""}? Your AI is told you don't want it any more.</span>
-          <button className="btn small" disabled={busy} onClick={() => void run(() => removeWish(projectId, w.id))}>Remove</button>
+          <button className={busyClass("btn small", busy)} disabled={busy} onClick={() => void run(() => removeWish(projectId, w.id))}>Remove</button>
           <button className="btn ghost small" disabled={busy} onClick={() => setMode(undefined)}>Keep it</button>
         </div>
       )}

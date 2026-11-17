@@ -7,6 +7,7 @@ import type { CalendarEvent, CalendarKind } from "../calendar.js";
 import { type CalendarView, KINDS, byHour, clock, monthGrid, onDay, sameDay, shownInCell, startOfDay, step, viewDays, viewTitle } from "./calendar.js";
 import { type RoadmapView, useCalendar } from "./data.js";
 import { Icon } from "./Icon.js";
+import { Loading } from "./Loading.js";
 
 
 const WEEKDAYS = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(new Date(2026, 10, 2 + i)));
@@ -243,7 +244,7 @@ export function CalendarPage({ projectId, roadmap, onOpenGoal, heading }: { proj
         ))}
       </div>
       {data === undefined ? (
-        <p className="quiet">Loading…</p>
+        <Loading label="Loading the calendar" />
       ) : data === null ? (
         <p className="quiet">The calendar could not be loaded. It tries again when the plan changes.</p>
       ) : (

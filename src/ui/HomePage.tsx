@@ -7,6 +7,7 @@ import { Ring } from "./Icon.js";
 import { sortProjects } from "./projectList.js";
 import { Bars, Tile, plural, time } from "./StatsPage.js";
 import { driftWords, estimateWords } from "./words.js";
+import { Loading } from "./Loading.js";
 
 /**
  * The page the dashboard opens on: what needs the person across every project, what is being worked
@@ -27,7 +28,7 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
   onOpenStats: (projectId: string) => void;
   onShowAll: () => void;
 }) {
-  if (!overview) return <div className="placeholder">Loading…</div>;
+  if (!overview) return <Loading size="page" label="Loading your projects" />;
   const inWorkspace = only ? overview.filter((p) => p.workspace === only) : overview;
   const s = homeSections(sortProjects(inWorkspace), putOff);
   const found = query.trim() && hits ? new Set(hits.map((h) => h.project.id)) : undefined;

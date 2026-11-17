@@ -5,6 +5,7 @@ import { addRule, changeRule, removeRule, saveContext } from "./data.js";
 import { Highlighted, RichText } from "./RichText.js";
 import { RoutinesCard } from "./RoutinesCard.js";
 import { RemoveLink, useSend } from "./Talk.js";
+import { busyClass } from "./Loading.js";
 
 type Rule = { id?: string; text: string; hard?: boolean; helpersAtOnce?: number };
 
@@ -97,7 +98,7 @@ export function RuleRow({ api, rule: r, onChanged, told = TOLD }: { api: NotesAp
       {mode === "remove" && (
         <div className="confirm" role="group" aria-label="Remove this rule?">
           <span>Remove this rule? Your AI stops following it.</span>
-          <button className="btn small" disabled={busy} onClick={() => void run(() => api.remove(r.id!))}>Remove</button>
+          <button className={busyClass("btn small", busy)} disabled={busy} onClick={() => void run(() => api.remove(r.id!))}>Remove</button>
           <button className="btn ghost small" disabled={busy} onClick={() => setMode(undefined)}>Keep it</button>
         </div>
       )}
@@ -135,7 +136,7 @@ export function RuleForm({ submit, text: start = "", hard: startHard = false, sa
         <input type="checkbox" checked={hard} onChange={(e) => setHard(e.target.checked)} /> Must never be broken
       </label>
       <div className="form-actions">
-        <button type="submit" className="btn small" disabled={busy || !text.trim() || !changed}>{submit}</button>
+        <button type="submit" className={busyClass("btn small", busy)} disabled={busy || !text.trim() || !changed}>{submit}</button>
         <button type="button" className="btn ghost small" disabled={busy} onClick={onCancel}>Cancel</button>
         <span className="hint">{told}</span>
       </div>
@@ -179,7 +180,7 @@ export function About({ api, context, onChanged, title, empty, placeholder, told
               if (e.key === "Escape") setDraft(undefined);
             }} />
           <div className="form-actions">
-            <button type="submit" className="btn small" disabled={busy || draft.trim() === context.trim()}>Save</button>
+            <button type="submit" className={busyClass("btn small", busy)} disabled={busy || draft.trim() === context.trim()}>Save</button>
             <button type="button" className="btn ghost small" disabled={busy} onClick={() => setDraft(undefined)}>Cancel</button>
             <span className="hint">{draft.length} of {MAX_CONTEXT} characters · {told}</span>
           </div>

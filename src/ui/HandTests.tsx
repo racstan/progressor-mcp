@@ -5,6 +5,7 @@ import { Icon } from "./Icon.js";
 import { type PictureItem, Pictures } from "./Pictures.js";
 import { RichText } from "./RichText.js";
 import { HAND_WORD, handTestsLine } from "./words.js";
+import { busyClass } from "./Loading.js";
 
 type Test = GoalView["handTests"][number];
 
@@ -99,7 +100,7 @@ function Item({ test, about, added, pictures, projectId, goalId, onChanged, need
             <input autoFocus value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder="For example: it asked twice, then froze" />
           </label>
           <div className="buttons">
-            <button type="submit" disabled={busy} className="btn">Doesn't work, add a step</button>
+            <button type="submit" disabled={busy} className={busyClass("btn", busy)}>Doesn't work, add a step</button>
             <button type="button" className="btn ghost" disabled={busy} onClick={() => setAsking(false)}>Cancel</button>
           </div>
         </form>

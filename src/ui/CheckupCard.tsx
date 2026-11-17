@@ -1,5 +1,6 @@
 // The plan check-up on a project's Dashboard page: what the last check-up fixed and what is left to
 // look at (checkup.ts). Your AI runs it by itself; "Check now" runs it from here.
+import { busyClass } from "./Loading.js";
 import { useEffect, useState } from "react";
 import { type CheckupView, getCheckup, runCheckup } from "./data.js";
 import { checkupSummary, CHECKUP_KIND } from "./words.js";
@@ -30,7 +31,7 @@ export function CheckupCard({ projectId }: { projectId: string }) {
     <section className="card checkup-card">
       <div className="checkup-head">
         <h2>Plan check-up</h2>
-        <button className="btn ghost small" disabled={busy} onClick={() => void run()} title="Looks over this project's plan now, and repairs what is safe to repair">
+        <button className={busyClass("btn ghost small", busy)} disabled={busy} onClick={() => void run()} title="Looks over this project's plan now, and repairs what is safe to repair">
           {busy ? "Checking…" : "Check now"}
         </button>
       </div>
