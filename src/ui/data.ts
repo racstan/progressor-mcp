@@ -5,6 +5,7 @@ import type { FeedItem } from "../feed.js";
 import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
 import type { SettingsView } from "../dashboard/routes/settings.js";
 import type { RiskView } from "../dashboard/routes/risks.js";
+import type { Readiness } from "../readiness.js";
 import type { DiffLine, FileChange, HistoryItem } from "../history.js";
 import { newestOnly, sharedEvents } from "./liveEvents.js";
 import { type Staleness, pageStaleness } from "./stale.js";
@@ -696,6 +697,22 @@ export function useRisks(projectId: string, version: unknown): RiskView[] | null
     };
   }, [path, version]);
   return state?.path === path ? state.risks : undefined;
+}
+
+/** What still stands before a launch (readiness.ts); null when it could not be loaded. */
+export function useReadiness(projectId: string, version: unknown): Readiness | null | undefined {
+  const path = `/api/projects/${encodeURIComponent(projectId)}/readiness`;
+  const [state, setState] = useState<{ path: string; r: Readiness | null }>();
+  useEffect(() => {
+    let alive = true;
+    getJson<{ readiness: Readiness }>(path)
+      .then((v) => alive && setState({ path, r: v?.readiness ?? null }))
+      .catch(() => alive && setState({ path, r: null }));
+    return () => {
+      alive = false;
+    };
+  }, [path, version]);
+  return state?.path === path ? state.r : undefined;
 }
 
 /** The last plan check-up (checkup.ts); null when none ran yet. */

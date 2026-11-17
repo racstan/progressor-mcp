@@ -10,7 +10,7 @@ The dashboard shows the plan. The one thing you do on it yourself is mark the th
 
 **Breadcrumbs** at the top of every page say where you are: *Home* on Home, *Home › Settings*, *Home › Bindery › Calendar*, or *Home › Bindery › Ship OAuth login* on a goal. Click **Home** to see every project, or the project's name to go back to its goals. On a phone the middle of the trail shortens, with *…*, instead of running off the screen.
 
-In a project, the sidebar has **Home** at the top, then the project's own pages under its name: **Dashboard** first, then Hotfixes, Message your AI, Project notes, Wishlist, Risks, Calendar, History and Handoffs. **Settings** comes after them, then the project's goals. On Home, the sidebar has Home, Settings and your projects. Point at a project there (or move to it with the keyboard) and a small **×** appears: it removes the project from the dashboard, after you confirm. Only the dashboard forgets it: its folder and its plan are not touched, and it comes back by itself if your AI uses Progressor in that project again.
+In a project, the sidebar has **Home** at the top, then the project's own pages under its name: **Dashboard** first, then Hotfixes, Message your AI, Project notes, Wishlist, Risks, Ready to launch?, Calendar, History and Handoffs. **Settings** comes after them, then the project's goals. On Home, the sidebar has Home, Settings and your projects. Point at a project there (or move to it with the keyboard) and a small **×** appears: it removes the project from the dashboard, after you confirm. Only the dashboard forgets it: its folder and its plan are not touched, and it comes back by itself if your AI uses Progressor in that project again.
 
 Each project page's heading and browser tab say which project it is about, such as *Bindery Dashboard*, *Bindery project notes* or *Message your AI about Bindery*, so you always know which project you're looking at. Settings is for every project, so it is just *Settings*.
 
@@ -190,6 +190,12 @@ Under a project's links in the sidebar, **Working now** lists the AI chats worki
 Some steps wait on someone other than you: a team member, a lawyer, a payments provider. Your AI marks such a step as waiting on that person, with what they need to do, and keeps the people in `.progressor/people.md` (you never have to set them up). On a goal's steps, that step reads *Waiting on Priya: Sign and send back the contract*, and its mark is a dotted grey ring with three dots, unlike the filled mark of a step waiting on you.
 
 A **Waiting on others** section lists these steps grouped by person, with the person's role, each step's goal (click it to open the goal) and what they need to do. It shows on Home, for every project, and on a project's **Dashboard** page, for that project, apart from Needs you. These steps do not make a goal show under Needs you, because nothing is waiting on you. The section is hidden when nobody holds anything.
+
+## Ready to launch?
+
+**Ready to launch?** in the sidebar answers *can this project ship?* It starts with one line, such as *Not ready yet: 3 steps for the AI, 2 things for you, 1 serious risk*, or *Ready to launch: nothing is left* in a filled box. Under it, it says which goals it counts, then lists what is left by who it waits on: **For you** (things to try, questions and steps waiting on you), **For your AI** (steps still to build or finish), **Waiting on others** (grouped by person) and **Serious risks** that nothing is reducing. Click a goal's name to open it.
+
+You never have to set it up. Your AI marks the goals a launch needs as it learns them. While none is marked, every open goal counts; once a release is planned, the release and the goals it ships count, with any goal marked for launch. Open hotfixes always count. Ask your AI *are we ready?* and it answers from the same summary.
 
 ## Risks
 

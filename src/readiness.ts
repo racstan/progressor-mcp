@@ -138,7 +138,8 @@ export function readiness(input: ReadinessInput): Readiness {
 
 /** Which goals count, in one line. */
 export function scopeLine(r: Readiness): string {
-  const names = r.scope.goals.map((g) => g.title).join(", ") || "none";
+  const n = r.scope.goals.length;
+  const names = n === 0 ? "none" : n > 5 ? `${n} goals` : r.scope.goals.map((g) => g.title).join(", ");
   if (r.scope.kind === "release") return `Counting: release ${r.scope.release} and the goals it ships (${names}).`;
   if (r.scope.kind === "marked") return `Counting: the goals marked for launch (${names}).`;
   return `Counting: every open goal (${names}).`;

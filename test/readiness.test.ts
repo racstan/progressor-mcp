@@ -227,3 +227,23 @@ describe("the tools", () => {
     expect(await call("launch_readiness")).toMatch(/^Not ready yet: 1 step for the AI\.\nCounting: the goals marked for launch \(Login\)\./);
   });
 });
+
+describe("on the dashboard", () => {
+  it("answers with the same summary the tool gives", async () => {
+    const { join } = await import("node:path");
+    const { Project } = await import("../src/project.js");
+    const { startDashboard } = await import("../src/dashboard/http.js");
+    const { tempDir } = await import("./tmp.js");
+    const p = new Project({ root: tempDir("progressor-ready-dash-"), session: { id: "s", pid: process.pid } });
+    p.addGoal("Login", [{ title: "Route" }]);
+    const dash = await startDashboard({ project: p, registryFile: join(tempDir("progressor-reg-"), "projects.json"), port: 20000 + Math.floor(Math.random() * 20000) });
+    try {
+      const entry = (await (await fetch(new URL("/api/projects", dash.url!))).json())[0] as { id: string };
+      const body = (await (await fetch(new URL(`/api/projects/${entry.id}/readiness`, dash.url!))).json()) as { readiness: ReturnType<typeof readiness> };
+      expect(body.readiness).toEqual(p.readiness());
+      expect(body.readiness.verdict).toBe("Not ready yet: 1 step for the AI.");
+    } finally {
+      await dash.close();
+    }
+  });
+});

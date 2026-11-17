@@ -1392,3 +1392,64 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .feed-tag { margin: 0 var(--s1) 0 var(--s2); padding: 0 var(--s2); border: 2px solid var(--accent); border-radius: var(--r-s); font-size: var(--t-s); }
 [data-motion="gentle"] .feed-new { animation: none; }
 @media (max-width: 640px) { .feed-scroll { max-height: 45vh; } }
+
+/* Ready to launch? (ReadinessPage.tsx): a verdict, then what is left by who it waits on. Greys only;
+   the verdict has a heavy border, and a ready verdict a filled one. */
+.readiness .ready-verdict {
+  font-size: 1.15rem;
+  font-weight: 700;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin: 12px 0 6px;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+.readiness .ready-verdict.ready {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.readiness .ready-group {
+  margin-top: 22px;
+}
+.readiness .ready-group h2 {
+  font-size: 1rem;
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.readiness .ready-group h3 {
+  font-size: 0.92rem;
+  margin: 10px 0 2px;
+}
+.readiness .ready-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.readiness .ready-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 7px 10px;
+  border-left: 3px solid var(--line);
+  margin-bottom: 4px;
+}
+.readiness .ready-item.hand-test,
+.readiness .ready-item.question {
+  border-left-style: double;
+}
+.readiness .ready-item.risk {
+  border-left-width: 5px;
+  border-left-color: var(--ink);
+}
+.readiness .ready-what {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+[data-theme="vibrant"] .readiness .ready-verdict.ready {
+  background: var(--done);
+  border-color: var(--done);
+  color: var(--on-accent);
+}

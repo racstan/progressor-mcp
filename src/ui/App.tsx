@@ -5,6 +5,7 @@ import { type ProjectEntry, type RoadmapView, removeProjectFromDashboard, showIn
 import { HotfixPage } from "./HotfixPage.js";
 import { LiveSessions } from "./LiveSessions.js";
 import { RisksPage } from "./RisksPage.js";
+import { ReadinessPage } from "./ReadinessPage.js";
 import { WhatsNew, changelog } from "./WhatsNew.js";
 import { ContextPage } from "./ContextPage.js";
 import { WishlistPage } from "./WishlistPage.js";
@@ -554,6 +555,8 @@ export function App() {
     <WishlistPage heading={heading} projectId={projectId} wishes={roadmap.wishes} onChanged={refresh} />
   ) : page === "risks" && projectId ? (
     <RisksPage heading={heading} projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} />
+  ) : page === "readiness" && projectId ? (
+    <ReadinessPage heading={heading} projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} onOpenRisks={() => openPage("risks")} />
   ) : page === "context" && projectId ? (
     <ContextPage heading={heading} projectId={projectId} rules={roadmap.standingInstructions} context={roadmap.context} onChanged={refresh} version={roadmap} />
   ) : page === "talk" && projectId ? (
@@ -736,6 +739,9 @@ export function App() {
                 </button>
                 <button className="side-link" aria-current={page === "risks"} onClick={() => openPage("risks")} title="What could go wrong in this project, how likely and how bad, and what is being done about it. Your AI keeps the list; you only read it">
                   <Icon name="warning" /> Risks
+                </button>
+                <button className="side-link" aria-current={page === "readiness"} onClick={() => openPage("readiness")} title="Can this project ship? What still stands before its launch or next release, by who it waits on. Your AI keeps it filled">
+                  <Icon name="check" /> Ready to launch?
                 </button>
                 <button className="side-link" aria-current={page === "calendar"} onClick={() => openPage("calendar")} title="What your AI did and what comes next, by month, week or day">
                   <Icon name="calendar" /> Calendar
