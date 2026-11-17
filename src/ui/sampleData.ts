@@ -498,7 +498,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "hard": false
     }
    ],
-   "context": "Recipe box is a small web app for saving recipes, planning meals and shopping for them. This is a sample, for the tour.\n\n- Built with React and a local database, so it works without a connection.\n- Runs on phones first; the desktop layout comes second.",
+   "context": "Recipe box is a small web app for saving recipes, planning meals and shopping for them. This is a sample, for the walkthrough.\n\n- Built with React and a local database, so it works without a connection.\n- Runs on phones first; the desktop layout comes second.",
    "wishes": [],
    "schedule": {
     "capacity": 1,

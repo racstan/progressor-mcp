@@ -127,7 +127,7 @@ export function Tour({ onClose, onShow }: { onClose: (how: TourEnd) => void; /**
           if (e.key === "ArrowRight") move("next");
           if (e.key === "ArrowLeft") move("back");
         }}>
-        <button className="iconbtn tour-x" title="Close the tour" aria-label="Close the tour" onClick={() => end("close")}>
+        <button className="iconbtn tour-x" title="Close the walkthrough" aria-label="Close the walkthrough" onClick={() => end("close")}>
           <Icon name="close" size={16} />
         </button>
         <p className="tour-count">Step {at + 1} of {TOUR_STEPS.length}</p>
@@ -143,7 +143,7 @@ export function Tour({ onClose, onShow }: { onClose: (how: TourEnd) => void; /**
           Don't show again
         </label>
         <div className="tour-actions">
-          <button className="linkbtn" onClick={() => move("skip")}>Skip the tour</button>
+          <button className="linkbtn" onClick={() => move("skip")}>Skip the walkthrough</button>
           <span className="sp" />
           {at > 0 && <button className="btn ghost small" onClick={() => move("back")}>Back</button>}
           <button className="btn small" onClick={() => move("next")}>{last ? "Done" : "Next"}</button>

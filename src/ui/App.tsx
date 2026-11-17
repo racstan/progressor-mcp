@@ -589,7 +589,7 @@ export function App() {
           </span>
         )}
         {sample && (
-          <span className="sample-tag" title="The tour shows a sample project. Your own projects come back when it ends.">Sample</span>
+          <span className="sample-tag" title="The walkthrough shows a sample project. Your own projects come back when it ends.">Sample</span>
         )}
         <span className="sp" />
         <SearchBox query={query} hits={hits} onChange={setQuery} onOpen={openHit} />
@@ -630,7 +630,7 @@ export function App() {
           <section>
             <h3>New here?</h3>
             <button className="card" onClick={startTour}>
-              Take the tour again
+              Take the walkthrough again
               <small>A short walk past the main parts of the dashboard. Skip it at any time.</small>
             </button>
           </section>

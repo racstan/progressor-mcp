@@ -58,7 +58,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     title: "Settings, if you want them",
-    body: "Settings has the theme, phone notifications and how your AI works. Everything there is optional. You can take this tour again from Help.",
+    body: "Settings has the theme, phone notifications and how your AI works. Everything there is optional. You can take this walkthrough again from Help.",
     targets: ['[data-tour="settings"]'],
     show: "dashboard",
   },

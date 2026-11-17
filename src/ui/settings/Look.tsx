@@ -68,10 +68,10 @@ function FinishedGoals({ ctx }: { ctx: SettingsContext }) {
 function TourChoice({ ctx }: { ctx: SettingsContext }) {
   return (
     <>
-      <button className="btn small" onClick={ctx.takeTour}>Take the tour</button>
+      <button className="btn small" onClick={ctx.takeTour}>Take the walkthrough</button>
       <label className="option">
         <input type="checkbox" checked={ctx.tourOnOpen} onChange={(e) => ctx.setTourOnOpen(e.target.checked)} />
-        <span><b>Show the tour when the page opens</b><small>A short walk past the main parts of the page, each time you open it, until you finish it or turn this off. It's also in ❓ Help.</small></span>
+        <span><b>Show the walkthrough when the page opens</b><small>A short walk past the main parts of the page, each time you open it, until you finish it or turn this off. It's also in ❓ Help.</small></span>
       </label>
     </>
   );
@@ -109,7 +109,7 @@ function Advanced({ ctx }: { ctx: SettingsContext }) {
 export const themeSection: SettingsSection = { id: "theme", group: "look", title: "Theme", Component: Theme, reset: (ctx) => ctx.setTheme(undefined) };
 export const popUpsSection: SettingsSection = { id: "pop-ups", group: "notifications", title: "Pop-ups", Component: PopUps, reset: (ctx) => ctx.setPopUps(undefined) };
 export const finishedSection: SettingsSection = { id: "finished", group: "look", title: "Finished goals", Component: FinishedGoals, reset: (ctx) => ctx.setFinished(undefined) };
-export const tourSection: SettingsSection = { id: "tour", group: "look", title: "The tour", Component: TourChoice, reset: (ctx) => ctx.setTourOnOpen(false) };
+export const tourSection: SettingsSection = { id: "tour", group: "look", title: "The walkthrough", Component: TourChoice, reset: (ctx) => ctx.setTourOnOpen(false) };
 export const advancedSection: SettingsSection = {
   id: "advanced",
   title: "Editor, servers and things put off",

@@ -238,7 +238,7 @@ Open **http://localhost:4747** while your AI's app is open (your AI gives you th
 - **Breadcrumbs** at the top of every page say where you are, such as *Home › Bindery › Dashboard*; click Home or the project to go back.
 - **Search** in the top bar (press `/`) finds projects, goals and steps across all your projects as you type.
 - **Settings** has its own page, from the gear at the top or the sidebar, grouped into Look, Notifications, AI & plan, History & releases and Advanced, with a menu that folds away. Nothing there is required: Progressor works fully with the defaults.
-- **A short tour** the first time you open the dashboard: a welcome that says Progressor is free (anyone selling it is not us), then the main parts of the page. Close it with Skip or ×, tick Don't show again, or take it again from ❓ Help or Settings › Look, where **Show the tour when the page opens** turns it on or off. If you're updating from an earlier Progressor, you get What's new instead.
+- **A short walkthrough** the first time you open the dashboard: a welcome that says Progressor is free (anyone selling it is not us), then the main parts of the page. Close it with Skip or ×, tick Don't show again, or take it again from ❓ Help or Settings › Look, where **Show the walkthrough when the page opens** turns it on or off. If you're updating from an earlier Progressor, you get What's new instead.
 - **Light, Dark, System or Vibrant.** Vibrant, the colourful one with black text, is the default; Light, Dark and System keep to black, white and greys.
 
 **Each goal**
