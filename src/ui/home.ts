@@ -31,6 +31,9 @@ export interface RiskLine {
 /** What Needs you says under a risk. */
 export const RISK_WHY = "A serious risk has nothing reducing it";
 
+/** What Needs you says under a goal whose latest CI checks failed (ci.ts). */
+export const CHECKS_WHY = "Checks failed on its latest work";
+
 interface ProjectLike<G extends GoalLike> {
   id: string;
   name: string;
@@ -38,6 +41,8 @@ interface ProjectLike<G extends GoalLike> {
   goals: G[];
   /** Missing from a server older than the Risks page. */
   seriousRisks?: RiskLine[] | undefined;
+  /** Open goals whose latest CI checks failed (ci.ts); missing from a server older than that. */
+  failedChecks?: { id: string; title: string }[] | undefined;
 }
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -97,13 +102,23 @@ export function homeSections<G extends GoalLike, P extends ProjectLike<G>>(proje
   const all = projects.flatMap((project) =>
     project.goals.map((goal) => ({ project, goal, left: stillNeeds(goal, putOff[`${project.id}/${goal.id}`]) })),
   );
+  const failed = new Set(projects.flatMap((p) => (p.failedChecks ?? []).map((f) => `${p.id}/${f.id}`)));
   const needsYou = all
     .filter(({ left }) => left.needs)
     // In each project's plan order: the AI puts what to check first at the top (move_goal).
-    .map(({ project, goal, left }) => ({ project, goal, why: needsWords(left) || "Waiting on you", canPutOff: (left.untriedTests ?? 0) > 0 }));
+    .map(({ project, goal, left }) => ({
+      project,
+      goal,
+      why: [needsWords(left) || "Waiting on you", failed.has(`${project.id}/${goal.id}`) ? CHECKS_WHY : ""].filter(Boolean).join(" · "),
+      canPutOff: (left.untriedTests ?? 0) > 0,
+    }));
+  // A goal already in Needs you for something else says it there instead.
+  const failedChecks = all
+    .filter(({ project, goal, left }) => !left.needs && failed.has(`${project.id}/${goal.id}`))
+    .map(({ project, goal }) => ({ project, goal }));
   const seriousRisks = projects.flatMap((project) => (project.seriousRisks ?? []).map((risk) => ({ project, risk })));
   const inProgress = all
-    .filter(({ goal, left }) => goal.status === "active" && !left.needs)
+    .filter(({ project, goal, left }) => goal.status === "active" && !left.needs && !failed.has(`${project.id}/${goal.id}`))
     .map(({ project, goal }) => ({ project, goal }))
     .sort(newestFirst);
   const summary =
@@ -112,6 +127,7 @@ export function homeSections<G extends GoalLike, P extends ProjectLike<G>>(proje
       : [
           needsYou.length > 0 ? count(needsYou.length, "goal needs you", "goals need you") : "",
           seriousRisks.length > 0 ? count(seriousRisks.length, "serious risk", "serious risks") : "",
+          failedChecks.length > 0 ? count(failedChecks.length, "goal with failed checks", "goals with failed checks") : "",
           inProgress.length > 0 ? `${inProgress.length} in progress` : "",
           count(projects.length, "project", "projects"),
         ]
@@ -121,6 +137,7 @@ export function homeSections<G extends GoalLike, P extends ProjectLike<G>>(proje
     summary,
     needsYou,
     seriousRisks,
+    failedChecks,
     inProgress,
     projects: projects.map((p) => ({ ...p, open: p.goals.filter(open).length, finished: p.goals.filter((g) => g.status === "done").length })),
   };

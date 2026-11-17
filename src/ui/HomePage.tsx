@@ -2,7 +2,7 @@ import { useState } from "react";
 import { hardFirst } from "../roadmap.js";
 import { About, type NotesApi, RuleForm, RuleRow } from "./ContextPage.js";
 import { type OverviewView, type SearchView, type WorkspaceEntry, addGlobalRule, changeGlobalRule, removeGlobalRule, saveGlobalContext, useAllStats, useGlobal } from "./data.js";
-import { type PutOff, RISK_WHY, homeSections, needsWhy, progressWords, untriedAcross } from "./home.js";
+import { CHECKS_WHY, type PutOff, RISK_WHY, homeSections, needsWhy, progressWords, untriedAcross } from "./home.js";
 import { TryOneByOne, Walkthrough } from "./TryOneByOne.js";
 import { dashboardLine } from "../untried.js";
 import { Icon, Ring } from "./Icon.js";
@@ -51,7 +51,7 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
         <button className="linkbtn" onClick={onShowAll}>Show all {overview.length} projects</button>
       )}
 
-      {(s.needsYou.length > 0 || s.seriousRisks.length > 0) && (
+      {(s.needsYou.length > 0 || s.seriousRisks.length > 0 || s.failedChecks.length > 0) && (
         <section className="section needs">
           <h2>Needs you</h2>
           {untried.count > 0 && (
@@ -75,6 +75,16 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
                     Not now
                   </button>
                 )}
+              </li>
+            ))}
+            {s.failedChecks.map(({ project, goal }) => (
+              <li key={`checks/${project.id}/${goal.id}`}>
+                <button className="list-row" onClick={() => onOpen(project.id, goal.id)} title="Open this goal to see which pull request or commit failed its checks">
+                  <Ring done={goal.done} total={goal.total} />
+                  <span className="t">{goal.title}</span>
+                  <span className="end">{project.name}</span>
+                  <span className="sub you">{CHECKS_WHY}</span>
+                </button>
               </li>
             ))}
             {s.seriousRisks.map(({ project, risk }) => (

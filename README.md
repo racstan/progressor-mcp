@@ -246,6 +246,7 @@ Open **http://localhost:4747** while your AI's app is open (your AI gives you th
 - **What the AI is doing:** *AI working*, *Waiting on you*, or *AI stopped* when its chat has closed, with how far along each goal is. What it's working on right now is highlighted and gently moves.
 - **Every step, as a list or a map,** with side trips (where the AI stepped off the plan, and why), decisions and notes. Each says when it was added, by whom, and when it changed.
 - **Commits and tests on each step:** a finished step shows the commits made for it and the test run behind it, linked when your project is on GitHub, GitLab or Gitea.
+- **Pull requests and checks on each goal:** on GitHub and Gitea, each goal and step shows its pull requests and whether the automatic checks passed, failed or are still running; a goal whose latest checks failed shows in Needs you.
 - **How long it will take:** your AI estimates each step and each goal shows a rough finish, *done in about 2 h*. The estimates learn: Progressor compares how long steps really took with the guesses and corrects the finish times.
 - **Goals that wait on other goals** say *Waits on …*, even on a goal in another project, and their finish starts after that one's.
 - **Needs you:** a question, a step to check or something to try by hand waits in one place, and you answer with a click. **Ways to go** shows 2 to 4 options as cards, with your AI's pick marked; if you don't choose, it goes ahead with its pick, and you can still change course later.
