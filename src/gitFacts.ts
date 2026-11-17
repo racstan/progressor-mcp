@@ -52,6 +52,12 @@ function run(root: string, args: string[]): string | undefined {
   }
 }
 
+/** How many of the plan's files git tracks in the project's repository; undefined outside one or without git. */
+export function trackedPlanFiles(root: string): number | undefined {
+  const out = run(root, ["ls-files", "--", ".progressor"]);
+  return out === undefined ? undefined : out.split(/\r?\n/).filter(Boolean).length;
+}
+
 /** A step's files as git pathspecs: `src/a.ts:12` → `src/a.ts`; the plan folder itself never counts. */
 function pathspecs(files: string[]): string[] {
   return files

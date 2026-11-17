@@ -5,13 +5,15 @@
 //
 // Repaired: a file with mixed line endings (it can't be read until it has one kind), temporary files a
 // crash left behind, and goals held by a chat that has ended. Reported only: finished steps that list
-// files but have no commits or tests, goals waiting on a goal that is gone, and pictures whose file is missing.
+// files but have no commits or tests, goals waiting on a goal that is gone, pictures whose file is missing, and
+// a plan meant to stay on this computer that git still tracks (each plan change then shows as unsaved work).
 import { type Dirent, existsSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { PICTURES_DIR, PROGRESSOR_DIR, type Project } from "./project.js";
 import { parseWaitRef } from "./dependencies.js";
+import { trackedPlanFiles } from "./gitFacts.js";
 
-export type FindingKind = "line endings" | "leftover file" | "stale claim" | "no evidence" | "missing goal" | "missing picture" | "damaged";
+export type FindingKind = "line endings" | "leftover file" | "stale claim" | "no evidence" | "missing goal" | "missing picture" | "damaged" | "tracked by git";
 
 export interface Finding {
   kind: FindingKind;
@@ -31,6 +33,17 @@ export interface CheckupResult {
 const LEFTOVER_AGE_MS = 60_000;
 /** The folders of the plan's markdown files (talk is read the same way). */
 const MARKDOWN_DIRS = ["", "goals", "talk", "handoffs"];
+
+/** Whether the plan is meant to stay on this computer: its .gitignore ignores everything, or it has none (older plans). */
+function meantPrivate(base: string): boolean {
+  let text: string;
+  try {
+    text = readFileSync(join(base, ".gitignore"), "utf8");
+  } catch {
+    return true;
+  }
+  return text.split(/\r?\n/).some((line) => line.trim() === "*");
+}
 
 function filesIn(dir: string, ext: string): string[] {
   try {
@@ -94,6 +107,21 @@ export function checkUp(project: Project, { repair, now = Date.now() }: { repair
       }
       if (repair) rmSync(path, { force: true });
       findings.push({ kind: "leftover file", file: rel, text: `${rel} was left behind by a save that didn't finish`, fixed: repair });
+    }
+
+    // Git keeps tracking files it was given before they were ignored, so every plan change shows as unsaved
+    // work and can be swept into an unrelated commit. Left for the AI: it changes git, not the plan.
+    if (meantPrivate(base)) {
+      const n = trackedPlanFiles(project.root) ?? 0;
+      if (n > 0)
+        findings.push({
+          kind: "tracked by git",
+          file: ".gitignore",
+          text:
+            `git still tracks ${n} of the plan's files, so every plan change shows as unsaved work and can end up in an unrelated commit. ` +
+            "To keep the plan on this computer, run git rm -r --cached .progressor (the files stay) and commit that on its own.",
+          fixed: false,
+        });
     }
 
     let roadmap;

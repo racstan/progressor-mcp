@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { checkUp, lastCheckup } from "../src/checkup.js";
@@ -138,5 +139,43 @@ describe("the check-up on the dashboard", () => {
     } finally {
       await dash.close();
     }
+  });
+});
+
+describe("a plan that git still tracks", () => {
+  const git = (args: string[]) =>
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", ...args], { cwd: root, stdio: "pipe" });
+  const commitPlan = () => {
+    git(["init", "-q", "-b", "main"]);
+    git(["add", "-f", ".progressor"]);
+    git(["commit", "-q", "-m", "plan"]);
+  };
+  const tracked = (r: ReturnType<typeof checkUp>) => r.findings.filter((f) => f.kind === "tracked by git");
+
+  it("is reported, with how to stop it, when the plan is meant to stay on this computer", { timeout: 30_000 }, () => {
+    commitPlan(); // committed before the plan was kept out of git; the * line doesn't untrack it
+    const found = tracked(checkUp(agent(), { repair: true }));
+    expect(found).toHaveLength(1);
+    expect(found[0]!.fixed).toBe(false);
+    expect(found[0]!.text).toMatch(/git rm -r --cached \.progressor/);
+    expect(found[0]!.text).toMatch(/unsaved/);
+  });
+
+  it("is reported for an older plan with no .gitignore of its own", { timeout: 30_000 }, () => {
+    rmSync(join(dir(), ".gitignore"));
+    commitPlan();
+    expect(tracked(checkUp(agent(), { repair: false }))).toHaveLength(1);
+  });
+
+  it("is left alone when the plan is shared through git on purpose", { timeout: 30_000 }, () => {
+    writeFileSync(join(dir(), ".gitignore"), "# shared with the team\nhistory/\n");
+    commitPlan();
+    expect(tracked(checkUp(agent(), { repair: false }))).toEqual([]);
+  });
+
+  it("is quiet once git no longer tracks the plan", { timeout: 30_000 }, () => {
+    commitPlan();
+    git(["rm", "-r", "-q", "--cached", ".progressor"]);
+    expect(tracked(checkUp(agent(), { repair: false }))).toEqual([]);
   });
 });
