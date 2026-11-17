@@ -99,9 +99,9 @@ describe("the rules and context for everything", () => {
     const text = serverInstructions(readGlobal(file));
     expect(text.startsWith(`${INSTRUCTIONS}\n\nRules for everything`)).toBe(true);
     expect(text).toContain("- HARD RULE g14: Never push\n- HARD RULE g15: Never delete notes\n- g1 Preference 1");
-    expect(text).toContain("- g10 Preference 10\n- and 3 more; get_rules lists them all.");
+    expect(text).toContain("- g10 Preference 10\n- and 3 more; get_status with for_helper lists them all.");
     expect(text).not.toContain("Preference 11");
-    expect(text).toContain(`About this computer (for everything):\n${"x".repeat(INSTRUCTION_CONTEXT)}… (get_rules has all of it)`);
+    expect(text).toContain(`About this computer (for everything):\n${"x".repeat(INSTRUCTION_CONTEXT)}… (get_status with for_helper has all of it)`);
     expect(text).toContain("About me and how I work (for everything):\nPlain words.");
   });
 });
@@ -144,7 +144,7 @@ describe("what the AI is given", () => {
     addGlobalRule(file, "Never push without asking", true);
     expect(existsSync(join(project.root, ".progressor"))).toBe(false);
     expect((await call("get_status")).text).toContain("- HARD RULE g1: Never push without asking");
-    expect((await call("get_rules")).text).toContain("- HARD RULE, never break it: Never push without asking");
+    expect((await call("get_status", { for_helper: true })).text).toContain("- HARD RULE, never break it: Never push without asking");
   });
 
   it("are in the instructions the app gets when it connects", async () => {
@@ -160,7 +160,7 @@ describe("what the AI is given", () => {
     addGlobalRule(file, "Prefer small commits");
     addGlobalRule(file, "Never push without asking", true);
     setGlobalContext(file, "me", "I use Windows.");
-    expect((await call("get_rules")).text).toBe(
+    expect((await call("get_status", { for_helper: true })).text).toBe(
       [
         "Rules from the Developer for everything (they apply in every project and anywhere Progressor is used on this computer):",
         "- HARD RULE, never break it: Never push without asking",
@@ -172,7 +172,7 @@ describe("what the AI is given", () => {
       ].join("\n"),
     );
     project.addStandingInstruction("Write tests first");
-    const both = (await call("get_rules")).text;
+    const both = (await call("get_status", { for_helper: true })).text;
     expect(both.indexOf("Prefer small commits")).toBeLessThan(both.indexOf("Project rules from the Developer."));
     expect(both).toContain("- Write tests first");
   });
@@ -183,27 +183,27 @@ describe("what the AI is given", () => {
   });
 
   it("add_standing_instruction with global: true saves a rule for everything, not in this one", async () => {
-    const res = await call("add_standing_instruction", { text: "Answer in plain English", hard: true, global: true });
+    const res = await call("save_standing_instruction", { text: "Answer in plain English", hard: true, global: true });
     expect(res.isError).toBe(false);
     expect(res.text).toMatch(/^Saved HARD RULE g1 for everything: Answer in plain English/);
     expect(readGlobal(file).rules).toEqual([{ id: "g1", text: "Answer in plain English", hard: true }]);
     expect(project.roadmap().standingInstructions).toEqual([]);
-    expect((await call("add_standing_instruction", { text: "x", global: true, helpers_at_once: 2 })).isError).toBe(true);
+    expect((await call("save_standing_instruction", { text: "x", global: true, helpers_at_once: 2 })).isError).toBe(true);
   });
 
   it("update_standing_instruction with global: true rewords and removes one", async () => {
     addGlobalRule(file, "Answer in English");
-    expect((await call("update_standing_instruction", { id: "g1", text: "Answer in plain English", global: true })).text).toBe(
+    expect((await call("save_standing_instruction", { id: "g1", text: "Answer in plain English", global: true })).text).toBe(
       "Changed rule g1 for everything: Answer in plain English",
     );
-    expect((await call("update_standing_instruction", { id: "g1", hard: true })).text).toBe("Changed HARD RULE g1 for everything: Answer in plain English");
-    expect((await call("update_standing_instruction", { id: "g1", text: "", global: true })).text).toBe("Removed rule g1 for everything.");
+    expect((await call("save_standing_instruction", { id: "g1", hard: true })).text).toBe("Changed HARD RULE g1 for everything: Answer in plain English");
+    expect((await call("save_standing_instruction", { id: "g1", text: "", global: true })).text).toBe("Removed rule g1 for everything.");
     expect(readGlobal(file).rules).toEqual([]);
-    expect((await call("update_standing_instruction", { id: "g4", text: "x", global: true })).isError).toBe(true);
+    expect((await call("save_standing_instruction", { id: "g4", text: "x", global: true })).isError).toBe(true);
   });
 
   it("project rules are unchanged without global", async () => {
-    await call("add_standing_instruction", { text: "Write tests first" });
+    await call("save_standing_instruction", { text: "Write tests first" });
     expect(project.roadmap().standingInstructions.map((s) => s.id)).toEqual(["s1"]);
     expect(readGlobal(file).rules).toEqual([]);
   });

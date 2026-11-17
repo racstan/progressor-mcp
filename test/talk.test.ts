@@ -224,12 +224,12 @@ describe("the Agent's tools", () => {
   });
 
   it("any tool reply ends with what the Developer just sent", async () => {
-    const { text: first } = await call("start_task", { task: "t1" });
+    const { text: first } = await call("update_tasks", { operations: [{ action: "start", task: "t1" }] });
     expect(first).not.toContain("New from the Developer");
     page.sendMessage("dark-mode", "Stop: wait for me");
-    const { text } = await call("add_decision", { text: "Blue it is" });
+    const { text } = await call("save_decision", { text: "Blue it is" });
     expect(text).toMatch(/Saved decision[^]*\nNew from the Developer on the dashboard[^]*- Message m1 on goal dark-mode: Stop: wait for me/);
-    expect((await call("start_task", { task: "t2" })).text).not.toContain("New from the Developer");
+    expect((await call("update_tasks", { operations: [{ action: "start", task: "t2" }] })).text).not.toContain("New from the Developer");
   });
 
   it("asks a question, lists it while open, and shows the answer once with its decision", async () => {
@@ -369,7 +369,7 @@ describe("messages to the whole project", () => {
 
   it("end any tool reply, and a reply to a missing one is refused", async () => {
     page.sendMessage(PROJECT_TALK, "Stop everything");
-    expect((await call("get_rules")).text).toContain("- Message m1 to the whole project: Stop everything");
+    expect((await call("get_status", { for_helper: true })).text).toContain("- Message m1 to the whole project: Stop everything");
     expect((await call("reply_to_developer", { message: "m9", whole_project: true, reply: "ok" })).isError).toBe(true);
   });
 

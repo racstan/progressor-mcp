@@ -996,7 +996,7 @@ export class Project {
     if (this.claimIsLive(goal))
       throw new Error(
         `Goal ${goalId} is being worked on by an AI chat in that project (Session ${goal.claim!.session}, still running), so it cannot be changed from here. ` +
-          "Add a note to it with add_note instead, or make the change from that project.",
+          "Add a note to it with save_note instead, or make the change from that project.",
       );
     return goal;
   }
@@ -1480,8 +1480,8 @@ export class Project {
   }
 
   /**
-   * Moves a Task to any state but dropped (drop_task, which wants a reason). In progress follows
-   * start_task's rule; several Tasks may be with a helper, waiting on the Developer or checked.
+   * Moves a Task to any state but dropped (dropping wants a reason). In progress follows
+   * startTask's rule; several Tasks may be with a helper, waiting on the Developer or checked.
    */
   setTaskState(id: string, state: Exclude<TaskStatus, "dropped">, goalId?: string, extras: StateExtras = {}): Task {
     return this.change(goalId, (plan) => this.setState(plan, id, state, extras));

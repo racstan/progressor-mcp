@@ -32,7 +32,7 @@ describe("notices", () => {
   });
   it("says a notice from the person's side", () => {
     expect(noticeWords('On the dashboard I added wish w1 to the wishlist: "Stable".')).toBe('You added wish w1 to the wishlist: "Stable".');
-    expect(noticeWords("On the dashboard I changed the Important context. Read it again with get_rules before your next step.")).toBe(
+    expect(noticeWords("On the dashboard I changed the Important context. Read it again with get_status before your next step.")).toBe(
       "You changed the Important context.",
     );
     expect(noticeWords("On the dashboard I removed the Important context. Fill it in again with update_context only if I ask.")).toBe("You removed the Important context.");

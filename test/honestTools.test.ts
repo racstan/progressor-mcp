@@ -26,10 +26,10 @@ async function call(name: string, args: Record<string, unknown> = {}) {
 describe("fields a tool doesn't take", () => {
   it("are refused, with the fields it does take, and nothing changes", async () => {
     await call("add_goal", { title: "Login", claim: true, tasks: [{ title: "Route" }] });
-    const r = await call("start_task", { task: "t1", goall: "login" });
+    const r = await call("update_task", { task: "t1", summary: "Changed", goall: "login" });
     expect(r.isError).toBe(true);
     expect(r.text).toMatch(/goall/);
-    expect(r.text).toMatch(/start_task takes:/);
+    expect(r.text).toMatch(/update_task takes:/);
     expect(agent().roadmap().goals[0]).toBeDefined();
     const plan = await call("get_item", { ref: "progressor://login/t1" });
     expect(plan.text).toMatch(/pending/);
@@ -37,7 +37,7 @@ describe("fields a tool doesn't take", () => {
 
   it("say plainly when project is given to a tool that only works on this plan", async () => {
     await call("add_goal", { title: "Login", claim: true, tasks: [{ title: "Route" }] });
-    const r = await call("start_task", { task: "t1", project: "elsewhere" });
+    const r = await call("save_hand_test", { text: "Try it", project: "elsewhere" });
     expect(r.isError).toBe(true);
     expect(r.text).toMatch(/only works on this project's plan/);
   });
@@ -46,9 +46,9 @@ describe("fields a tool doesn't take", () => {
 describe("finishing a step twice", () => {
   it("says it was already done, and keeps its files", async () => {
     await call("add_goal", { title: "Login", claim: true, tasks: [{ title: "Route", code: ["src/a.ts"] }] });
-    const first = await call("complete_task", { task: "t1" });
+    const first = await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] });
     expect(first.text).toMatch(/^Done/);
-    const second = await call("complete_task", { task: "t1", code: ["src/b.ts"] });
+    const second = await call("update_tasks", { operations: [{ action: "complete", task: "t1", code: ["src/b.ts"] }] });
     expect(second.isError).toBe(false);
     expect(second.text).toMatch(/already done/i);
     const item = await call("get_item", { ref: "progressor://login/t1" });

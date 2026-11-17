@@ -81,7 +81,7 @@ describe("a hotfix in the plan", () => {
 describe("telling Sessions about a hotfix", () => {
   it("says it first in get_status and after every tool call until a Session claims it", async () => {
     await call("add_goal", { title: "Login", tasks: [{ title: "Form" }], claim: true });
-    await call("start_task", { task: "t1" });
+    await call("update_tasks", { operations: [{ action: "start", task: "t1" }] });
     const added = await call("add_hotfix", { report: REPORT });
     expect(added.text).toContain("at the top of the Roadmap. Finish the step you are on, then claim it with claim_goal.");
     const id = mine.roadmap().goals[0]!.id;
@@ -90,7 +90,7 @@ describe("telling Sessions about a hotfix", () => {
     expect(status.text.split("\n")[0]).toBe(
       `HOTFIX waiting: ${id} "Checkout fails with a 500 when the cart has a coupon". Finish the step you are on, then claim it (claim_goal) and fix it test first: a test that shows the bug, then the fix.`,
     );
-    expect((await call("complete_task", { task: "t1" })).text).toContain(`HOTFIX waiting: ${id}`);
+    expect((await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] })).text).toContain(`HOTFIX waiting: ${id}`);
 
     // Claimed, it is this Session's: no more "waiting", and its report is shown with it.
     const claimed = await call("claim_goal", { goal: id });

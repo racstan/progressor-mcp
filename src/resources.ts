@@ -71,7 +71,7 @@ const ago = (iso: string, now: Date) => sayDuration(Math.max(1, Math.round(minut
 /** Who holds it, for a sentence: "helper: media run (Session s-a)", or "Session s-a". */
 export const holderText = (l: Pick<ResourceLock, "label" | "session">) => (l.label ? `${l.label} (Session ${l.session})` : `Session ${l.session}`);
 
-/** One lock in get_status and list_resources. */
+/** One lock in get_status and the resource tool's list. */
 export function resourceLine(l: ResourceLock, now: Date): string {
   const why = `${l.reason}${l.task ? ` (task ${l.task})` : ""}`;
   return `${l.resource}: ${holderText(l)} for ${ago(l.since, now)}: ${why}; free again in ${sayDuration(Math.max(1, Math.round(left(l, now))))} unless refreshed`;

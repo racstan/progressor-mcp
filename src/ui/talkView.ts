@@ -8,11 +8,11 @@ export const isNotice = (text: string) => text.startsWith(NOTICE);
 
 /**
  * A notice as the person reads it: "You added wish w1 …". Sentences meant only for the AI, such as
- * "Read it again with get_rules …", are left out.
+ * "Read it again with get_status …", are left out.
  */
 export function noticeWords(text: string): string {
   return `You ${text.slice(NOTICE.length)}`
-    .replace(/\s+Read it again with get_rules[^.]*\./, "")
+    .replace(/\s+Read it again with get_(?:rules|status)[^.]*\./, "")
     .replace(/\s+You may suggest a goal for it; don't change the wishlist yourself\./, "")
     .replace(/\s+Offer new ones with ask_developer\./, "")
     .replace(/\s+Fill it in again with update_context only if I ask\./, "")

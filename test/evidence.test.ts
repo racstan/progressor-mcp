@@ -48,8 +48,8 @@ async function connect() {
 describe("a finished step records its commits, branch and tests", () => {
   it("finds the commits since the step started, for its files", async () => {
     const { call } = await connect();
-    await call("start_task", { task: "t1" });
-    const r = await call("complete_task", { task: "t1", tests: "715 passed" });
+    await call("update_tasks", { operations: [{ action: "start", task: "t1" }] });
+    const r = await call("update_tasks", { operations: [{ action: "complete", task: "t1", tests: "715 passed" }] });
     expect(r.isError).toBe(false);
     expect(r.text).not.toContain("Warning");
     expect(facts.asked.at(-1)!.files).toEqual(["src/route.ts:12"]);
@@ -66,7 +66,7 @@ describe("a finished step records its commits, branch and tests", () => {
   it("warns in one line when the step's files have changes not saved in git", async () => {
     facts.dirty = true;
     const { call } = await connect();
-    const r = await call("complete_task", { task: "t1" });
+    const r = await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] });
     expect(r.text).toContain("Warning: t1 is done but its files have changes not saved in git.");
     expect(plan()).toContain("  - uncommitted: yes\n");
   });
@@ -74,9 +74,9 @@ describe("a finished step records its commits, branch and tests", () => {
   it("warns only for the first unsaved step of a goal, and again when the goal is finished", async () => {
     facts.dirty = true;
     const { call } = await connect();
-    const first = await call("complete_task", { task: "t1" });
+    const first = await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] });
     expect(first.text).toContain("Warning: t1 is done");
-    const second = await call("complete_task", { task: "t2", code: ["src/cb.ts"] });
+    const second = await call("update_tasks", { operations: [{ action: "complete", task: "t2", code: ["src/cb.ts"] }] });
     expect(second.text).not.toContain("Warning");
     expect(plan()).toContain("  - uncommitted: yes\n");
     const end = await call("complete_goal", {});
@@ -85,8 +85,8 @@ describe("a finished step records its commits, branch and tests", () => {
 
   it("does not warn at the end of a goal whose files are saved", async () => {
     const { call } = await connect();
-    await call("complete_task", { task: "t1" });
-    await call("complete_task", { task: "t2" });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t2" }] });
     expect((await call("complete_goal", {})).text).not.toContain("Warning");
   });
 
@@ -94,8 +94,8 @@ describe("a finished step records its commits, branch and tests", () => {
     writeSettings(settings, "evidence", { record: true, warnUncommitted: false });
     facts.dirty = true;
     const { call } = await connect();
-    await call("complete_task", { task: "t1" });
-    await call("complete_task", { task: "t2" });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t2" }] });
     expect((await call("complete_goal", {})).text).not.toContain("Warning");
   });
 
@@ -108,7 +108,7 @@ describe("a finished step records its commits, branch and tests", () => {
   it("takes them away again when the step is reopened", async () => {
     facts.dirty = true;
     const { call } = await connect();
-    await call("complete_task", { task: "t1", tests: "1 passed" });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t1", tests: "1 passed" }] });
     await call("set_task_state", { task: "t1", state: "pending" });
     expect(plan()).not.toMatch(/commits:|branch:|tests:|uncommitted:/);
   });
@@ -117,25 +117,25 @@ describe("a finished step records its commits, branch and tests", () => {
     writeSettings(settings, "evidence", { record: false });
     facts.dirty = true;
     const { call } = await connect();
-    const r = await call("complete_task", { task: "t1", tests: "1 passed" });
+    const r = await call("update_tasks", { operations: [{ action: "complete", task: "t1", tests: "1 passed" }] });
     expect(plan()).not.toMatch(/commits:|branch:|tests:|uncommitted:/);
     expect(r.text).not.toContain("Warning");
     writeSettings(settings, "evidence", { record: true, warnUncommitted: false });
-    const again = await call("complete_task", { task: "t2" });
+    const again = await call("update_tasks", { operations: [{ action: "complete", task: "t2" }] });
     expect(again.text).not.toContain("Warning");
   });
 
   it("says nothing extra when git knows nothing", async () => {
     facts = { commits: undefined, dirty: undefined, branch: undefined, asked: [] };
     const { call } = await connect();
-    const r = await call("complete_task", { task: "t1" });
+    const r = await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] });
     expect(r.text).not.toContain("Warning");
     expect(plan()).not.toMatch(/commits:|branch:|uncommitted:/);
   });
 
   it("gives the page the step's evidence and the commit link", async () => {
     const { p, call } = await connect();
-    await call("complete_task", { task: "t1", tests: "715 passed" });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t1", tests: "715 passed" }] });
     const t = p.plan("login").task("t1")!;
     expect(t.commits).toEqual(["b2c3d4e", "a1b2c3d"]);
     expect(t.branch).toBe("main");

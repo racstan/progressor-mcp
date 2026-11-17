@@ -57,9 +57,9 @@ describe("keeping the risks list current", () => {
     p.addRisk({ title: "Old one", likelihood: "low", impact: "low", goals: ["login"], status: "closed" });
     const call = await connect();
     await call("claim_goal", { goal: "login" });
-    await call("complete_task", { task: "t1" });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] });
     const done = await call("complete_goal");
-    expect(done).toMatch(/Risk r1 Token leaks is linked to this goal: now that it is finished, mark it reduced or closed with update_risk, or say why it is still open\./);
+    expect(done).toMatch(/Risk r1 Token leaks is linked to this goal: now that it is finished, mark it reduced or closed with save_risk, or say why it is still open\./);
     expect(done).not.toContain("Old one");
   });
 });

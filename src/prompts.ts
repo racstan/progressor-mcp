@@ -105,8 +105,8 @@ function goalStep(status: Status): string {
   const goal = status.goal!;
   if (status.openDetour)
     return `The Detour "${status.openDetour.title}" is still open. Finish its work first, then end it with end_detour (merge back, return or recalibrate), and tell me in a line.`;
-  if (status.currentTask) return `Carry on with the Task in progress, ${task(status.currentTask)}, and complete_task when it is done.`;
-  if (status.nextTask) return `Call start_task for the next Task, ${task(status.nextTask)}, then work on it and complete_task when it is done.`;
+  if (status.currentTask) return `Carry on with the Task in progress, ${task(status.currentTask)}, and complete it with update_tasks when it is done.`;
+  if (status.nextTask) return `Start the next Task, ${task(status.nextTask)}, with update_tasks, then work on it and complete it there when it is done.`;
   if (status.waitingOnYou.length > 0)
     return `"${goal.title}" is waiting on me for ${status.waitingOnYou.map(task).join(", ")}. Remind me in a line what you need from me.`;
   if (status.withHelper.length > 0 || status.checked.length > 0)
@@ -132,7 +132,7 @@ export function nextPrompt(session: SessionStatus, statusText: string): string {
       open.length === 0
         ? ["There is no Goal to pick up. Tell me so, and suggest /progressor:plan followed by what I want to build."]
         : open.length === 1
-          ? [`Call claim_goal for ${open[0]!.id} ("${open[0]!.title}"), then start_task for its next Task and work on it.`]
+          ? [`Call claim_goal for ${open[0]!.id} ("${open[0]!.title}"), then start its next Task with update_tasks and work on it.`]
           : ["Several Goals could be picked up. Ask me which one, then claim_goal it and start its next Task:", ...list];
   }
   return ["Pick up the Progressor work where it was left:", "", ...steps, "", statusText].join("\n");

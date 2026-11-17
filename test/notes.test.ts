@@ -90,7 +90,7 @@ describe("editing the project notes on the dashboard", () => {
     const res = await post("context", { text: "A shop for socks.\n\n- Runs on Linux" });
     expect(res.status).toBe(200);
     expect(agent.context()).toBe("A shop for socks.\n\n- Runs on Linux");
-    expect(told()).toEqual(["On the dashboard I changed the Important context. Read it again with get_rules before your next step."]);
+    expect(told()).toEqual(["On the dashboard I changed the Important context. Read it again with get_status before your next step."]);
     expect((await post("context", { text: "" })).status).toBe(200);
     expect(agent.context()).toBe("");
   });

@@ -22,28 +22,28 @@ async function call(name: string, args: Record<string, unknown> = {}) {
 
 describe("short answers for the step tools", () => {
   beforeEach(async () => {
-    await call("add_standing_instruction", { text: "Always write tests first." });
+    await call("save_standing_instruction", { text: "Always write tests first." });
     await call("update_context", { text: "A long background page about the project." });
     await call("add_goal", { title: "Login", tasks: [{ title: "Route", estimate: "30m" }, { title: "Logout" }], claim: true });
   });
 
   it("start_task confirms, then says where the work stands, without the whole status", async () => {
-    const { text } = await call("start_task", { task: "t1" });
+    const { text } = await call("update_tasks", { operations: [{ action: "start", task: "t1" }] });
     expect(text).toBe("Started t1 Route.\nNow: t1 Route · Next: t2 Logout");
     expect(text).not.toContain("Standing Instructions");
     expect(text).not.toContain("Important context");
   });
 
   it("complete_task confirms, and ends with the Now line", async () => {
-    await call("start_task", { task: "t1" });
-    const { text } = await call("complete_task", { task: "t1", code: ["a.ts"] });
+    await call("update_tasks", { operations: [{ action: "start", task: "t1" }] });
+    const { text } = await call("update_tasks", { operations: [{ action: "complete", task: "t1", code: ["a.ts"] }] });
     expect(text.split("\n")[0]).toBe("Done: t1 Route.");
-    expect(text.split("\n").at(-1)).toBe("Now: no Task in progress · Next: t2 Logout (start_task, or complete_task if it is already built; update_tasks finishes several in one call)");
+    expect(text.split("\n").at(-1)).toBe("Now: no Task in progress · Next: t2 Logout (start it with update_tasks, or complete it there if it is already built)");
     expect(text).not.toContain("Standing Instructions");
   });
 
   it("drop_task and end_detour answer briefly too", async () => {
-    const dropped = (await call("drop_task", { task: "t2", reason: "not needed" })).text;
+    const dropped = (await call("update_tasks", { operations: [{ action: "drop", task: "t2", reason: "not needed" }] })).text;
     expect(dropped).not.toContain("Standing Instructions");
     expect(dropped.split("\n").at(-1)).toMatch(/^Now: /);
     await call("start_detour", { title: "Fix build", reason: "red" });
@@ -84,9 +84,9 @@ describe("the instructions", () => {
   it("are short but keep every rule", () => {
     expect(INSTRUCTIONS.length).toBeLessThanOrEqual(3600);
     for (const word of [
-      "get_status", "add_goal", "start_task", "complete_task", "set_task_state", "update_tasks", "claim_goal", "start_detour", "end_detour",
-      "complete_goal", "add_standing_instruction", "hard: true", "update_context", "add_decision", "add_note", "add_hand_test",
-      "ask_developer", "reply_to_developer", "New from the Developer", "get_rules", "claim_resource", "project", "dashboard", "everyday words",
+      "get_status", "add_goal", "set_task_state", "update_tasks", "claim_goal", "start_detour", "end_detour",
+      "complete_goal", "save_standing_instruction", "hard: true", "update_context", "save_decision", "save_note", "save_hand_test",
+      "ask_developer", "reply_to_developer", "New from the Developer", "for_helper", "resource", "project", "dashboard", "everyday words",
     ])
       expect(INSTRUCTIONS).toContain(word);
   });

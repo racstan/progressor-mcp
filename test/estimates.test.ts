@@ -178,7 +178,7 @@ describe("estimates through the tools", () => {
   });
 
   it("warns, but still hands out the Task, when one more helper would pass the limit", async () => {
-    await call("add_standing_instruction", { text: "At most 2 helpers in parallel", hard: true, helpers_at_once: 2 });
+    await call("save_standing_instruction", { text: "At most 2 helpers in parallel", hard: true, helpers_at_once: 2 });
     expect(read("roadmap.md")).toContain("- At most 2 helpers in parallel ^s1\n  - hard: yes\n  - helpers at once: 2");
     await call("add_goal", { title: "Login", claim: true, tasks: [{ title: "A" }, { title: "B" }, { title: "C" }] });
     const two = await call("update_tasks", { operations: [{ action: "state", task: "t1", state: "with a helper" }, { action: "state", task: "t2", state: "with a helper" }] });
@@ -190,27 +190,27 @@ describe("estimates through the tools", () => {
   });
 
   it("shows the limit in get_status and get_rules", async () => {
-    await call("add_standing_instruction", { text: "At most 2 helpers in parallel", helpers_at_once: 2 });
+    await call("save_standing_instruction", { text: "At most 2 helpers in parallel", helpers_at_once: 2 });
     await call("add_goal", { title: "Login", claim: true, tasks: [{ title: "A", estimate: "1h" }, { title: "B" }] });
     await call("set_task_state", { task: "t1", state: "with a helper" });
     const status = (await call("get_status")).text;
     expect(status).toContain("Helper limit: at most 2 Tasks with a helper at once; 1 now.");
     expect(status).toContain("Schedule: next login/t2 B · login done in about 1 h (1 Task not estimated).");
     expect(status).toContain("- s1 At most 2 helpers in parallel (limit: at most 2 Tasks with a helper at once)");
-    const rules = (await call("get_rules")).text;
+    const rules = (await call("get_status", { for_helper: true })).text;
     expect(rules).toContain("Parallel limit: at most 2 helper agents work on this project at once");
     // Moving the limit to another rule takes it off the first.
-    await call("add_standing_instruction", { text: "One helper at a time for now", helpers_at_once: 1 });
+    await call("save_standing_instruction", { text: "One helper at a time for now", helpers_at_once: 1 });
     expect(read("roadmap.md")).not.toContain("helpers at once: 2");
-    expect((await call("update_standing_instruction", { id: "s2", helpers_at_once: 0 })).text).toBe("Changed Standing Instruction s2: One helper at a time for now");
+    expect((await call("save_standing_instruction", { id: "s2", helpers_at_once: 0 })).text).toBe("Changed Standing Instruction s2: One helper at a time for now");
     expect((await call("get_status")).text).not.toContain("Helper limit");
   });
 
   it("says how long a completed Task took against its estimate", async () => {
     await call("add_goal", { title: "Login", claim: true, tasks: [{ title: "Route", estimate: "45m" }] });
-    await call("start_task", { task: "t1" });
+    await call("update_tasks", { operations: [{ action: "start", task: "t1" }] });
     at("2026-10-26T11:10:00.000Z");
-    expect((await call("complete_task", { task: "t1" })).text.split("\n").slice(0, 2)).toEqual(["Done: t1 Route.", "Time: t1 took 1 h 10 m, estimated 45 m."]);
+    expect((await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] })).text.split("\n").slice(0, 2)).toEqual(["Done: t1 Route.", "Time: t1 took 1 h 10 m, estimated 45 m."]);
     expect((await call("get_item", { ref: "progressor://login/t1" })).text).toContain("Time: took 1 h 10 m, estimated 45 m");
   });
 });
@@ -252,17 +252,17 @@ describe("learning from how long steps took", () => {
   async function finishFive(minutes: number) {
     await call("add_goal", { title: "Past", claim: true, tasks: [1, 2, 3, 4, 5].map((n) => ({ title: `Step ${n}`, estimate: "30m" })) });
     for (let n = 1; n <= 5; n++) {
-      await call("start_task", { task: `t${n}` });
+      await call("update_tasks", { operations: [{ action: "start", task: `t${n}` }] });
       at(new Date(clock.getTime() + minutes * 60_000).toISOString());
-      await call("complete_task", { task: `t${n}`, code: ["a.ts"] });
+      await call("update_tasks", { operations: [{ action: "complete", task: `t${n}`, code: ["a.ts"] }] });
     }
   }
 
   it("says nothing with too few finished steps", async () => {
     await call("add_goal", { title: "Past", claim: true, tasks: [{ title: "One", estimate: "30m" }] });
-    await call("start_task", { task: "t1" });
+    await call("update_tasks", { operations: [{ action: "start", task: "t1" }] });
     at("2026-10-26T12:00:00.000Z");
-    await call("complete_task", { task: "t1", code: ["a.ts"] });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t1", code: ["a.ts"] }] });
     expect((await call("add_tasks", { tasks: [{ title: "Two", estimate: "30m" }] })).text).not.toContain("as long as estimated");
     expect((await call("get_status")).text).not.toContain("as long as estimated");
   });

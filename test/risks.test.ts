@@ -146,8 +146,8 @@ describe("the add_risk and update_risk tools", () => {
     await client.connect(b);
     const call = async (name: string, args: Record<string, unknown>) =>
       ((await client.callTool({ name, arguments: args })) as { content: { text: string }[] }).content[0]!.text;
-    expect(await call("add_risk", { title: "Token leaks", likelihood: "low", impact: "high", goals: ["login"] })).toMatch(/^Added risk r1 Token leaks \(low likelihood, high impact\)/);
-    expect(await call("update_risk", { risk: "r1", status: "closed" })).toMatch(/^Updated risk r1 Token leaks: closed/);
+    expect(await call("save_risk", { title: "Token leaks", likelihood: "low", impact: "high", goals: ["login"] })).toMatch(/^Added risk r1 Token leaks \(low likelihood, high impact\)/);
+    expect(await call("save_risk", { risk: "r1", status: "closed" })).toMatch(/^Updated risk r1 Token leaks: closed/);
     expect(p.risks()[0]!.status).toBe("closed");
   });
 });

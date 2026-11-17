@@ -37,15 +37,15 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 
 1. At the start of every conversation and after context compression, call get_status and follow the Standing Instructions it lists. If it says one Goal is paused, claim it (claim_goal) and carry on.
 2. When the Developer asks for work no Goal covers, plan it as a Goal: a short title, an Outcome (one sentence) and Tasks, each with the files it touches, a one-line summary and an estimate ("45m", "2h"). Tell the Developer the plan in a few plain lines, then add_goal with claim: true. A quick question needs no Goal.
-3. Before code for a Task longer than a few minutes, call start_task; when done, complete_task with the files touched. Record a small finished change in one call: add_tasks with done: true (and hand_test if the Developer should try it). Keep summaries and estimates true with update_task, or give complete_task the new summary if the work differs; drop_task what is not needed. set_task_state records Tasks in other hands (with a helper, waiting on you, checked, released); keep to any helper limit get_status shows.
-4. To change several Tasks at once, make one update_tasks call (applied in order, all or nothing). move_task moves a Task to another Goal. To hold several Goals, claim each one and pass goal (its ID) to the tools that change a Goal.
+3. Before code for a Task longer than a few minutes, start it with update_tasks; when done, complete it there with the files touched, and the new summary if the work differs; drop what is not needed. Record a small finished change in one call: add_tasks with done: true (and hand_test if the Developer should try it). Keep summaries and estimates true with update_task. set_task_state records Tasks in other hands (with a helper, waiting on you, checked, released); keep to any helper limit get_status shows.
+4. To change several Tasks at once, give update_tasks several operations (applied in order, all or nothing). move_task moves a Task to another Goal. To hold several Goals, claim each one and pass goal (its ID) to the tools that change a Goal.
 5. About to change code for something that is not the current Task? Call start_detour with the reason first; afterwards end_detour ("merge back", "return" or "recalibrate").
 6. When every Task is done, released or dropped and the Outcome is true, call complete_goal and tell the Developer in one sentence.
 7. Talk to the Developer in everyday words: say "step" for Task and "side trip" for Detour, and leave out tool names, IDs and the files in .progressor/. Give them the dashboard link from get_status at the start and when a Goal is finished.
-8. A lasting rule ("always...", "never...") is saved with add_standing_instruction (update_standing_instruction changes or removes one); one that must never be broken ("never", "hard rule") with hard: true; one for all their projects ("in all my projects") with global: true. update_context keeps the project's Important context page; add_decision records a choice that is not a project rule; add_note records something that belongs to a Goal instead of fixing it now.
-9. Anything only the Developer can try by hand goes in add_hand_test, not in your chat summary. Show a screenshot or recording with attach_picture instead of naming a file.
+8. A lasting rule ("always...", "never...") is saved with save_standing_instruction (with its id, changes or removes one); one that must never be broken ("never", "hard rule") with hard: true; one for all their projects ("in all my projects") with global: true. update_context keeps the project's Important context page; save_decision records a choice that is not a project rule; save_note records something that belongs to a Goal instead of fixing it now.
+9. Anything only the Developer can try by hand goes in save_hand_test, not in your chat summary. Show a screenshot or recording with attach_picture instead of naming a file.
 10. The Developer can write to you on the dashboard: their messages and answers arrive at the end of your next Progressor reply under "New from the Developer". Act on each one and answer with reply_to_developer (whole_project: true to message the whole project). For a product or UX choice, use ask_developer with 2 to 4 short choices instead of stopping in the chat.
-11. When you brief a helper agent, paste in the block from get_rules: helpers don't see the Standing Instructions. Before starting something only one can use at a time (a dev window, a port), call claim_resource; release_resource when done.
+11. When you brief a helper agent, paste in get_status with for_helper: true; helpers don't see the Standing Instructions. Before starting something only one can use at a time (a dev window, a port), claim it with resource; release it there when done.
 12. Work that belongs to another project using Progressor goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it.
 13. A * line in .progressor/.gitignore keeps the plan out of git; delete it to keep it in git.`;
 
@@ -97,7 +97,7 @@ const addTaskInput = newTaskInput.extend({
   hand_test: z
     .string()
     .optional()
-    .describe("Something only the Developer can try by hand for this Task; added as a hand test about it, as with add_hand_test."),
+    .describe("Something only the Developer can try by hand for this Task; added as a hand test about it, as with save_hand_test."),
 });
 
 const goalId = z.string().describe("The Goal ID, such as 'ship-oauth-login'.");
@@ -137,7 +137,7 @@ const helpersAtOnce = z
 const hardFlag = z
   .boolean()
   .optional()
-  .describe("true for a rule that must never be broken (not just a preference); get_status, the session start and get_rules list those first as HARD RULE.");
+  .describe("true for a rule that must never be broken (not just a preference); get_status and the session start list those first as HARD RULE.");
 const globalFlag = z
   .boolean()
   .optional()
@@ -149,7 +149,7 @@ const outcome = z
 /** The locks held now, for get_status; nothing when none is. */
 export function resourceLines(locks: ResourceLock[], now: Date): string[] {
   return locks.length > 0
-    ? ["In use now (claim_resource before using one, release_resource after):", ...locks.map((l) => `- ${resourceLine(l, now)}`)]
+    ? ["In use now (claim with resource before using one, release after):", ...locks.map((l) => `- ${resourceLine(l, now)}`)]
     : [];
 }
 
@@ -229,7 +229,7 @@ function plainNowLine(session: SessionStatus): string {
   if (s.openDetour) return `Now: side trip "${s.openDetour.title}" (end it with end_detour) · then ${next ? taskLine(next) : "complete_goal"}`;
   if (s.currentTask) return `Now: ${taskLine(s.currentTask)} · Next: ${s.nextTask ? taskLine(s.nextTask) : "complete_goal"}`;
   if (s.nextTask)
-    return `Now: no Task in progress · Next: ${taskLine(s.nextTask)} (start_task, or complete_task if it is already built; update_tasks finishes several in one call)`;
+    return `Now: no Task in progress · Next: ${taskLine(s.nextTask)} (start it with update_tasks, or complete it there if it is already built)`;
   const waiting = elsewhere(s);
   return waiting.length > 0
     ? `Now: no Task in progress · Waiting: ${waiting.map(([t, state]) => `${taskLine(t)} (${state})`).join(", ")}`
@@ -395,7 +395,7 @@ export function formatStatus(
     `Progress: ${s.done} of ${s.total} Tasks done`,
     s.currentTask
       ? `Current Task: ${taskLine(s.currentTask)} (${s.planFile}:${s.currentTask.line})`
-      : "Current Task: none (start one with start_task)",
+      : "Current Task: none (start one with update_tasks)",
     ...summaryLine(s.currentTask),
     ...(d
       ? [`Open Detour: ${d.id} ${d.title}${d.branchedFrom ? `, branched from ${d.branchedFrom}` : ""}. Reason: ${d.reason ?? "none given"}`]
@@ -590,44 +590,32 @@ function helperOf(branch?: string, folder?: string, label?: string): HelperInfo 
 export const TOOL_EXAMPLES: Record<string, string> = {
   get_status: "get_status({})",
   get_item: 'get_item({ ref: "progressor://login/t2" })',
-  get_rules: "get_rules({})",
   add_hotfix: 'add_hotfix({ report: "Checkout fails with a 500 when the cart has a coupon" })',
   add_goal: 'add_goal({ title: "Ship login", outcome: "Users can sign in", tasks: [{ title: "Add form", estimate: "45m" }], claim: true })',
   update_goal: 'update_goal({ goal: "login", outcome: "Users can sign in with Google" })',
   move_goal: 'move_goal({ goal: "login", before: "billing" })',
   drop_goal: 'drop_goal({ goal: "login", reason: "Not needed any more" })',
   claim_goal: 'claim_goal({ goal: "login" })',
-  claim_resource: 'claim_resource({ resource: "dev-window", reason: "running the UI test" })',
-  release_resource: 'release_resource({ resource: "dev-window" })',
-  list_resources: "list_resources({})",
+  resource: 'resource({ action: "claim", resource: "dev-window", reason: "running the UI test" })',
   release_goal: "release_goal({})",
   complete_goal: "complete_goal({})",
   add_tasks: 'add_tasks({ tasks: [{ title: "Fix typo", done: true, code: ["src/a.ts"], hand_test: "Check the button text" }] })',
-  add_person: 'add_person({ name: "Priya", role: "payments lawyer" })',
   launch_readiness: "launch_readiness()",
-  add_risk: 'add_risk({ title: "Windows paths break setup", likelihood: "medium", impact: "high", mitigation: "Test setup on Windows in CI", goals: ["tests-ci-deps"] })',
-  update_risk: 'update_risk({ risk: "r2", status: "reduced" })',
+  save_risk: 'save_risk({ title: "Windows paths break setup", likelihood: "medium", impact: "high", mitigation: "Test setup on Windows in CI", goals: ["tests-ci-deps"] })',
   add_small_fix: 'add_small_fix({ title: "Faster dev server start", summary: "Skip the type check on start.", code: ["vite.config.ts"] })',
-  start_task: 'start_task({ task: "t2" })',
   set_task_state: 'set_task_state({ task: "t2", state: "checked", evidence: "715 passed" })',
   update_tasks: 'update_tasks({ operations: [{ action: "complete", task: "t2" }, { action: "start", task: "t3" }] })',
   move_task: 'move_task({ task: "t2", to_goal: "billing" })',
-  complete_task: 'complete_task({ task: "t2", code: ["src/a.ts"] })',
   update_task: 'update_task({ task: "t2", estimate: "2h" })',
-  drop_task: 'drop_task({ task: "t2", reason: "Covered by t3" })',
   start_detour: 'start_detour({ title: "Fix flaky test", reason: "It blocks the build" })',
   end_detour: 'end_detour({ ending: "merge back" })',
-  add_decision: 'add_decision({ text: "Keep the old API for a release" })',
-  update_decision: 'update_decision({ id: "c2", text: "" })',
-  add_note: 'add_note({ goal: "login", text: "The logout link is broken" })',
-  update_note: 'update_note({ goal: "login", id: "n2", resolved: true })',
+  save_decision: 'save_decision({ text: "Keep the old API for a release" })',
+  save_note: 'save_note({ goal: "login", text: "The logout link is broken" })',
   ask_developer: 'ask_developer({ question: "Dark mode by default?", choices: ["Yes", "Follow the computer"] })',
   reply_to_developer: 'reply_to_developer({ message: "m2", reply: "Done: the button is bigger now." })',
-  add_hand_test: 'add_hand_test({ text: "Open the login page and sign in", task: "t2" })',
+  save_hand_test: 'save_hand_test({ text: "Open the login page and sign in", task: "t2" })',
   attach_picture: 'attach_picture({ path: "shot.png", caption: "The new login page" })',
-  update_hand_test: 'update_hand_test({ id: "h2", text: "" })',
-  add_standing_instruction: 'add_standing_instruction({ text: "Ask me before changing the plan" })',
-  update_standing_instruction: 'update_standing_instruction({ id: "s2", hard: true })',
+  save_standing_instruction: 'save_standing_instruction({ text: "Ask me before changing the plan" })',
   update_context: 'update_context({ text: "What the project is, in a few lines" })',
   plan_history: 'plan_history({ restore: "20261107T101500123Z-1" })',
   handoff: 'handoff({ since: "2026-11-01", title: "Week of 2 November", text: "# Week of 2 November ..." })',
@@ -698,7 +686,7 @@ const isClaudeCode = (server: McpServer) => /^claude[- ]?code/i.test(server.serv
 export function formatOtherProject(other: Project, name: string): string {
   const roadmap = other.roadmap();
   const lines = roadmap.goals.map((g) => {
-    if (other.heldElsewhere(g)) return `- ${g.id}: ${g.title} (${g.status}; an AI chat in that project is working on it, so only add_note can change it)`;
+    if (other.heldElsewhere(g)) return `- ${g.id}: ${g.title} (${g.status}; an AI chat in that project is working on it, so only save_note can change it)`;
     if (g.status === "done" || g.status === "dropped") return goalLine(g);
     let tasks: Task[] = [];
     try {
@@ -903,12 +891,12 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       if (risks.length === 0) {
         if (riskNudged) return undefined;
         riskNudged = true;
-        return "This project has no risks list yet: add the risks you notice as you work (what could go wrong, how likely, how bad, what would reduce it) with add_risk. Nobody has to ask.";
+        return "This project has no risks list yet: add the risks you notice as you work (what could go wrong, how likely, how bad, what would reduce it) with save_risk. Nobody has to ask.";
       }
       const goals = new Map(project.roadmap().goals.map((g) => [g.id, g.status]));
       const serious = unreducedSeriousRisks(risks, (id) => goals.get(id));
       return serious.length > 0
-        ? `Serious risks nothing is reducing: ${serious.map((r) => `${r.id} ${r.title}`).join("; ")}. Link a goal that reduces each (update_risk with goals), plan one, or update the risk if it has changed.`
+        ? `Serious risks nothing is reducing: ${serious.map((r) => `${r.id} ${r.title}`).join("; ")}. Link a goal that reduces each (save_risk with goals), plan one, or update the risk if it has changed.`
         : undefined;
     } catch {
       return undefined; // a reminder never fails the status
@@ -920,7 +908,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       return p
         .risks()
         .filter((r) => r.status === "open" && r.goals.includes(goalId))
-        .map((r) => ` Risk ${r.id} ${r.title} is linked to this goal: now that it is finished, mark it reduced or closed with update_risk, or say why it is still open.`)
+        .map((r) => ` Risk ${r.id} ${r.title} is linked to this goal: now that it is finished, mark it reduced or closed with save_risk, or say why it is still open.`)
         .join("");
     } catch {
       return "";
@@ -959,11 +947,16 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Get status",
       description:
-        "Compact summary of every Goal this Session holds (current Task, open Detour, Tasks with a helper or waiting on the Developer, next Task, decisions and open notes) and the Developer's Standing Instructions. Call it at the start of every conversation and after context compression. With project, another project's Goals and Tasks instead, to change them from here.",
-      inputSchema: { project: otherProject, check: z.boolean().optional().describe("Also run the plan check-up and list everything it found.") },
+        "Compact summary of every Goal this Session holds (current Task, open Detour, Tasks with a helper or waiting on the Developer, next Task, decisions and open notes) and the Developer's Standing Instructions. Call it at the start of every conversation and after context compression. With project, another project's Goals and Tasks instead, to change them from here. With for_helper, only the Developer's rules as a block to paste into the brief of a helper agent you start (helpers don't see the Standing Instructions, so include it whenever you brief one).",
+      inputSchema: {
+        project: otherProject,
+        check: z.boolean().optional().describe("Also run the plan check-up and list everything it found."),
+        for_helper: z.boolean().optional().describe("Only the rules, as a block for a helper agent's brief: the rules and context for everything, then this project's Standing Instructions, hard rules first."),
+      },
       annotations: { readOnlyHint: true },
     },
-    async ({ project: wanted, check }) => {
+    async ({ project: wanted, check, for_helper }) => {
+      if (for_helper) return respondIn(undefined, () => formatRules(project.roadmap().standingInstructions, readGlobal(globalFile)));
       // The Session serving the dashboard may have ended; if so, this one takes over.
       await dashboard?.refresh().catch(() => undefined);
       const routined = wanted?.trim() ? [] : routineLines(project);
@@ -1017,17 +1010,6 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       annotations: { readOnlyHint: true },
     },
     ({ ref, project: wanted }) => respondIn(wanted, (p) => formatItem(p.getItem(ref), p.schedule(estimatesOf(p)))),
-  );
-
-  server.registerTool(
-    "get_rules",
-    {
-      title: "Get rules",
-      description:
-        "The Developer's rules as a block to paste into the brief of a helper agent you start: the rules and context for everything first, then this project's Standing Instructions, hard rules first. Helpers don't see the Standing Instructions, so include this block whenever you brief one.",
-      annotations: { readOnlyHint: true },
-    },
-    () => respondIn(undefined, () => formatRules(project.roadmap().standingInstructions, readGlobal(globalFile))),
   );
 
   server.registerTool(
@@ -1128,7 +1110,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Update Goal",
       description:
-        "Rename a Goal, set its Outcome or its estimate, or mark it needed for the launch (for_launch). Its ID, refs and Plan File stay the same, and it needs no Claim. To change a Goal's Tasks, claim it and use add_tasks, update_task or drop_task.",
+        "Rename a Goal, set its Outcome or its estimate, or mark it needed for the launch (for_launch). Its ID, refs and Plan File stay the same, and it needs no Claim. To change a Goal's Tasks, claim it and use add_tasks, update_task or update_tasks.",
       inputSchema: {
         goal: goalId,
         title: z.string().trim().min(1).optional().describe("The new title."),
@@ -1190,7 +1172,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Drop Goal",
       description:
-        "Drop a Goal that will not be done, with the reason; its Plan File stays as a record. Releases this Session's Claim on it. A Goal another running Session holds, or one already done, cannot be dropped. To drop a single Task, use drop_task.",
+        "Drop a Goal that will not be done, with the reason; its Plan File stays as a record. Releases this Session's Claim on it. A Goal another running Session holds, or one already done, cannot be dropped. To drop a single Task, use update_tasks (action drop).",
       inputSchema: {
         goal: goalId,
         reason: z.string().min(1).describe("Why the Goal will not be done."),
@@ -1231,55 +1213,39 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   );
 
   server.registerTool(
-    "claim_resource",
+    "resource",
     {
-      title: "Claim resource",
+      title: "Shared resource",
       description:
-        "Claim a named shared resource that only one session or helper can use at a time (a dev window that allows a single instance, plasmashell, a port), before you or a helper start something that needs it. Refused, saying who holds it, since when and why, when someone else has it: then do not start it; do other work and try again later (nothing waits for you). Claiming your own resource again refreshes its time. It frees itself after `minutes` (30 unless given, at most 240) from the last claim, when its Session ends, or when you release it. A helper usually cannot call Progressor: claim on its behalf before you start it, with label such as 'helper: media run', and call release_resource when it hands back.",
+        "A named shared resource that only one session or helper can use at a time (a dev window that allows a single instance, plasmashell, a port). " +
+        "claim it before you or a helper start something that needs it: refused, saying who holds it, since when and why, when someone else has it; then do not start it, do other work and try again later (nothing waits for you). Claiming your own again refreshes its time. It frees itself after `minutes` (30 unless given, at most 240) from the last claim, when its Session ends, or when you release it. A helper usually cannot call Progressor: claim on its behalf with label such as 'helper: media run'. " +
+        "release it as soon as the work that needed it ends (a helper's too), with the same label; another holder's is refused unless force, only when the Developer says the holder is gone. " +
+        "list says who holds what (get_status shows the same).",
       inputSchema: {
-        resource: resourceName,
-        reason: z.string().max(300).describe("Why you need it, in a few words, such as 'running the UI test'. Shown to whoever is refused."),
+        action: z.enum(["claim", "release", "list"]).describe("claim, release or list."),
+        resource: resourceName.optional(),
+        reason: z.string().max(300).optional().describe("To claim: why you need it, in a few words, such as 'running the UI test'. Shown to whoever is refused."),
         label: resourceLabel,
-        task: z.string().max(40).optional().describe("The Task ID it is for, such as 't3'."),
-        minutes: z.number().min(1).max(240).optional().describe("How long to keep it before it frees itself, from now. 30 if omitted; claim again to extend."),
+        task: z.string().max(40).optional().describe("To claim: the Task ID it is for, such as 't3'."),
+        minutes: z.number().min(1).max(240).optional().describe("To claim: how long to keep it before it frees itself, from now. 30 if omitted; claim again to extend."),
+        force: z.boolean().optional().describe("To release: even though someone else holds it. Only when the Developer asks."),
       },
     },
-    ({ resource, reason, label, task, minutes }) =>
+    ({ action, resource, reason, label, task, minutes, force }) =>
       respondIn(undefined, () => {
+        if (action === "list") {
+          const held = project.resources().list();
+          return held.length > 0 ? resourceLines(held, project.now()).join("\n") : "Nothing is in use.";
+        }
+        if (!resource?.trim()) throw new Error(`Name the resource to ${action}.`);
+        if (action === "release")
+          return project.resources().release(resource, { label, force })
+            ? `Released ${resource.trim().toLowerCase().replace(/\s+/g, "-")}.`
+            : `${resource} was not held, so there is nothing to release.`;
+        if (!reason?.trim()) throw new Error("Say why you need it (reason).");
         const { lock, refreshed } = project.resources().claim(resource, { reason, label, task, minutes });
-        return `${refreshed ? "Refreshed" : "Claimed"} ${lock.resource} for ${holderText(lock)}; it frees itself in ${lock.minutes} m. Call release_resource when the work that needs it ends.`;
+        return `${refreshed ? "Refreshed" : "Claimed"} ${lock.resource} for ${holderText(lock)}; it frees itself in ${lock.minutes} m. Call resource with action release when the work that needs it ends.`;
       }),
-  );
-
-  server.registerTool(
-    "release_resource",
-    {
-      title: "Release resource",
-      description:
-        "Release a shared resource you claimed with claim_resource, as soon as the work that needed it ends (including a helper's: release it when the helper hands back). Pass the same label you claimed it with. Another holder's resource is refused, unless force is given, which is only for when the Developer says the holder is gone.",
-      inputSchema: {
-        resource: resourceName,
-        label: resourceLabel,
-        force: z.boolean().optional().describe("Release it even though someone else holds it. Only when the Developer asks."),
-      },
-    },
-    ({ resource, label, force }) =>
-      respondIn(undefined, () =>
-        project.resources().release(resource, { label, force })
-          ? `Released ${resource.trim().toLowerCase().replace(/\s+/g, "-")}.`
-          : `${resource} was not held, so there is nothing to release.`,
-      ),
-  );
-
-  server.registerTool(
-    "list_resources",
-    {
-      title: "List resources",
-      description: "Who holds which shared resource now, for how long, and why. get_status shows the same. Resources whose time is up or whose Session has ended are free and not listed.",
-      inputSchema: {},
-      annotations: { readOnlyHint: true },
-    },
-    () => respondIn(undefined, () => (project.resources().list().length > 0 ? resourceLines(project.resources().list(), project.now()).join("\n") : "Nothing is in use.")),
   );
 
   server.registerTool(
@@ -1301,7 +1267,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Complete Goal",
       description:
-        "Mark the claimed Goal done and release it, once its Outcome is true and its Tasks are done, released or dropped (not with a helper, waiting on the Developer or only checked). While the Developer still has hand tests (add_hand_test) to mark, the Goal is released as built and waiting on their tests instead: it finishes by itself when they mark the last one, and a failure reopens it with a new Task. unmarked_hand_tests_ok finishes it now, only when the Developer says to finish anyway. If more work turns up later, claim_goal reopens it.",
+        "Mark the claimed Goal done and release it, once its Outcome is true and its Tasks are done, released or dropped (not with a helper, waiting on the Developer or only checked). While the Developer still has hand tests (save_hand_test) to mark, the Goal is released as built and waiting on their tests instead: it finishes by itself when they mark the last one, and a failure reopens it with a new Task. unmarked_hand_tests_ok finishes it now, only when the Developer says to finish anyway. If more work turns up later, claim_goal reopens it.",
       inputSchema: {
         goal: heldGoal,
         unmarked_hand_tests_ok: z
@@ -1387,48 +1353,15 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   const riskSaid = (r: Risk) => `risk ${r.id} ${r.title}: ${r.status}, ${r.likelihood} likelihood, ${r.impact} impact${r.goals.length ? `, reduced by ${r.goals.join(", ")}` : ""}`;
 
   server.registerTool(
-    "add_person",
+    "save_risk",
     {
-      title: "Add person",
+      title: "Save risk",
       description:
-        "Add someone the project's steps can wait on, other than the Developer (a team member, a lawyer, a payments provider), with their role, or set the role of someone already listed (an empty role removes it). Setting a step to 'waiting on someone' adds a new person by itself; use this to say who they are.",
+        "Add a risk to the project's risks list: something that could go wrong, how likely and how bad, what would reduce it, who owns it and the goals that reduce it. Add the ones you notice as you work, without being asked; the Developer sees the list on the dashboard. " +
+        "With risk (its ID): change any of its fields, or its status (reduced once the work that lowers it is done, closed when it can no longer happen). Keep the list true as goals finish.",
       inputSchema: {
-        name: z.string().trim().min(1).describe("Their name, or their ID such as 'p2', such as 'Priya' or 'Stripe support'."),
-        role: z.string().optional().describe("What they are to the project, such as 'payments lawyer'."),
-        project: otherProject,
-      },
-    },
-    ({ name, role, project: wanted }) =>
-      respondIn(wanted, (p) => {
-        const person = p.addPerson(name, role);
-        return doneIn(p, person.role ? `${person.name} (${person.id}) is now: ${person.role}.` : `${person.name} (${person.id}) is on the project's people.`);
-      }),
-  );
-
-  server.registerTool(
-    "add_risk",
-    {
-      title: "Add risk",
-      description:
-        "Add a risk to the project's risks list: something that could go wrong, how likely and how bad, what would reduce it, who owns it and the goals that reduce it. Add the ones you notice as you work, without being asked; the Developer sees the list on the dashboard.",
-      inputSchema: { title: taskInput.shape.title.describe("What could go wrong, in a few words, such as 'Windows paths break setup'."), ...riskFields, project: otherProject },
-    },
-    ({ title, project: wanted, ...fields }) =>
-      respondIn(wanted, (p) => {
-        const r = p.addRisk({ title, ...fields });
-        return doneIn(p, `Added risk ${r.id} ${r.title} (${r.likelihood} likelihood, ${r.impact} impact)${r.goals.length ? `, reduced by ${r.goals.join(", ")}` : ""}.`);
-      }),
-  );
-
-  server.registerTool(
-    "update_risk",
-    {
-      title: "Update risk",
-      description:
-        "Change a risk on the risks list: any of its fields, or its status (reduced once the work that lowers it is done, closed when it can no longer happen). Keep the list true as goals finish.",
-      inputSchema: {
-        risk: z.string().describe("The risk's ID, such as 'r2'."),
-        title: taskInput.shape.title.optional(),
+        risk: z.string().optional().describe("A risk's ID, such as 'r2', to change it; leave out to add one (then title, likelihood and impact are needed)."),
+        title: taskInput.shape.title.optional().describe("What could go wrong, in a few words, such as 'Windows paths break setup'."),
         likelihood: riskFields.likelihood.optional(),
         impact: riskFields.impact.optional(),
         mitigation: riskFields.mitigation,
@@ -1438,25 +1371,15 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         project: otherProject,
       },
     },
-    ({ risk, project: wanted, ...changes }) =>
+    ({ risk, title, likelihood, impact, project: wanted, ...rest }) =>
       respondIn(wanted, (p) => {
-        const r = p.updateRisk(risk, changes);
-        return doneIn(p, `Updated ${riskSaid(r)}.`);
-      }),
-  );
-
-  server.registerTool(
-    "start_task",
-    {
-      title: "Start Task",
-      description:
-        "Mark a Task in progress: you are working on it yourself; call it before you change code for the Task. Answers briefly, with where the work stands. Only one Task of a Goal can be in progress at a time; for Tasks in other hands, use set_task_state.",
-      inputSchema: { goal: heldGoal, task: taskId },
-    },
-    ({ goal, task }) =>
-      respondIn(undefined, () => {
-        const t = project.startTask(task, goal);
-        return withNow(`Started ${taskLine(t)}.`);
+        if (risk) {
+          const r = p.updateRisk(risk, { title, likelihood, impact, ...rest });
+          return doneIn(p, `Updated ${riskSaid(r)}.`);
+        }
+        if (!title || !likelihood || !impact) throw new Error("A new risk needs a title, a likelihood and an impact.");
+        const r = p.addRisk({ title, likelihood, impact, ...rest });
+        return doneIn(p, `Added risk ${r.id} ${r.title} (${r.likelihood} likelihood, ${r.impact} impact)${r.goals.length ? `, reduced by ${r.goals.join(", ")}` : ""}.`);
       }),
   );
 
@@ -1465,7 +1388,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Set Task state",
       description:
-        "Set a Task's state. 'with a helper': handed to a helper agent that is working on it (several Tasks can be). 'waiting on you': you are waiting on the Developer, such as for them to test something by hand; the dashboard shows the Goal as waiting on them, so tell them what you need. 'waiting on someone': waiting on a person other than the Developer (a team member, a lawyer, a provider): give person and need; it is shown apart from what waits on the Developer. 'checked': you checked a helper's work (tests, review) but it is not merged or released yet; give evidence, one short line on what you checked (\"715 passed, live send OK\"), which the Developer sees on the step. With 'with a helper', give helper_branch, helper_folder (the worktree path) and helper_label: they are recorded with the Task and shown in get_status and on the dashboard, and get_status warns when a finished Task's helper branch still has unmerged work. 'released': merged and out (shipped, installed or published); counts as done. 'pending', 'in progress' and 'done' work too (in progress follows start_task's one-at-a-time rule). Set a state as soon as it changes, such as 'checked' right after you check a helper's work, so the Developer's dashboard keeps moving. If the project has a helper limit (get_status shows it), keep at most that many Tasks with a helper: one more is still set, with a warning. To drop a Task, use drop_task.",
+        "Set a Task's state. 'with a helper': handed to a helper agent that is working on it (several Tasks can be). 'waiting on you': you are waiting on the Developer, such as for them to test something by hand; the dashboard shows the Goal as waiting on them, so tell them what you need. 'waiting on someone': waiting on a person other than the Developer (a team member, a lawyer, a provider): give person and need; it is shown apart from what waits on the Developer. 'checked': you checked a helper's work (tests, review) but it is not merged or released yet; give evidence, one short line on what you checked (\"715 passed, live send OK\"), which the Developer sees on the step. With 'with a helper', give helper_branch, helper_folder (the worktree path) and helper_label: they are recorded with the Task and shown in get_status and on the dashboard, and get_status warns when a finished Task's helper branch still has unmerged work. 'released': merged and out (shipped, installed or published); counts as done. 'pending', 'in progress' and 'done' work too (in progress allows one Task of a Goal at a time). Set a state as soon as it changes, such as 'checked' right after you check a helper's work, so the Developer's dashboard keeps moving. If the project has a helper limit (get_status shows it), keep at most that many Tasks with a helper: one more is still set, with a warning. To drop a Task, use update_tasks (action drop).",
       inputSchema: {
         goal: heldGoal,
         task: taskId,
@@ -1476,14 +1399,17 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         evidence,
         person: personInput,
         need: needInput,
+        role: z.string().optional().describe("With person: what they are to the project, such as 'payments lawyer'; kept on the project's people (an empty role removes it)."),
         project: otherProject,
       },
     },
-    ({ goal, task, state, helper_branch, helper_folder, helper_label, evidence: proof, person, need, project: wanted }) =>
+    ({ goal, task, state, helper_branch, helper_folder, helper_label, evidence: proof, person, need, role, project: wanted }) =>
       respondIn(wanted, (p) => {
+        if (role !== undefined && !person) throw new Error("role goes with person: say whose role it is.");
         const t = p.setTaskState(task, state, goal, { helper: helperOf(helper_branch, helper_folder, helper_label), evidence: proof, person, need });
         const waits = t.status === "waiting on someone" ? `, waiting on ${t.waitingFor}${t.need ? `: ${t.need}` : ""}` : "";
-        const said = [`Task ${taskLine(t)} is now ${t.status}${waits}.`, ...tookLine([t], new Date()), ...(state === "with a helper" ? helperWarning(p) : []), ...recordEvidence(p, [{ task: t, goal }])];
+        const who = role !== undefined && person ? p.addPerson(person, role) : undefined;
+        const said = [`Task ${taskLine(t)} is now ${t.status}${waits}.`, ...(who ? [who.role ? `${who.name} (${who.id}) is now: ${who.role}.` : `${who.name} (${who.id}) has no role now.`] : []), ...tookLine([t], new Date()), ...(state === "with a helper" ? helperWarning(p) : []), ...recordEvidence(p, [{ task: t, goal }])];
         return doneIn(p, said.join("\n"));
       }),
   );
@@ -1507,18 +1433,28 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     tests: testsInput,
     summary: taskInput.shape.summary,
     estimate: estimateText.optional().describe("The Task's new estimate, such as '45m' or '2h' (any action; needed for 'estimate'); an empty string removes it."),
-  });
+  }).strict();
   server.registerTool(
     "update_tasks",
     {
       title: "Update Tasks",
       description:
-        "Change several Tasks in one call, such as completing two and starting the next, or setting the estimates of several, instead of one call each. The operations are applied in order, so a start can follow the complete of the Task that was in progress; if any one fails, none is applied. A 'state' operation takes the same helper_branch, helper_folder, helper_label (with 'with a helper') and evidence (with 'checked') as set_task_state. Each operation can name its own claimed Goal with goal, else the call's goal (or the only Goal held) is used. The recommended way to change more than one Task. Answers with one line per call, not the whole status.",
+        "Start, complete or drop Tasks, one or several in one call: start one before you change code for it (only one Task of a Goal is in progress at a time); complete it when done, with the files it touched (code), and the new summary when what you built differs from it; drop one that is no longer needed, with the reason. Also sets states and estimates. The operations are applied in order, so a start can follow the complete of the Task that was in progress; if any one fails, none is applied. A 'state' operation takes the same helper_branch, helper_folder, helper_label (with 'with a helper') and evidence (with 'checked') as set_task_state. Each operation can name its own claimed Goal with goal, else the call's goal (or the only Goal held) is used. Answers briefly, with the time a completed Task took and where the work stands, not the whole status.",
       inputSchema: { goal: heldGoal, operations: z.array(operation).min(1).max(25), project: otherProject },
     },
     ({ goal, operations, project: wanted }) =>
       respondIn(wanted, (p) => {
         const held = p !== project || project.claimedGoals().length > 1;
+        // A Task completed again changes only its files and summary, and says so.
+        const was = operations.map((op) => {
+          if (op.action !== "complete") return undefined;
+          try {
+            const status = p.taskStatus(op.task, op.goal ?? goal);
+            return status === "done" || status === "released" ? status : undefined;
+          } catch {
+            return undefined;
+          }
+        });
         const ops: TaskOperation[] = operations.map(({ estimate, helper_branch, helper_folder, helper_label, commits: _commits, tests: _tests, ...op }) => {
           const helper = helperOf(helper_branch, helper_folder, helper_label);
           return { ...op, ...(helper ? { helper } : {}), estimate: readEstimate(estimate) };
@@ -1527,18 +1463,28 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const finished = changed.flatMap((c, i) => {
           const op = operations[i]!;
           const finishing = op.action === "complete" || (op.action === "state" && (op.state === "done" || op.state === "released"));
-          return finishing ? [{ task: c.task, goal: c.goal, commits: op.commits, tests: op.tests }] : [];
+          return finishing && !was[i] ? [{ task: c.task, goal: c.goal, commits: op.commits, tests: op.tests }] : [];
         });
         const warnings = recordEvidence(p, finished);
         const now = new Date();
         // An estimate set in this call is said back; the others are left out, to keep the answer short.
         const est = (t: Task, i: number) => (operations[i]!.estimate !== undefined ? `, estimated ${t.estimate !== undefined ? sayDuration(t.estimate) : "none"}` : "");
+        const name = (c: (typeof changed)[number]) => `${held ? `${c.goal}/` : ""}${taskLine(c.task)}`;
+        // One Task: a short line in words ("Started", "Done", "Dropped"); several: one list.
+        const one = (c: (typeof changed)[number], i: number) => {
+          const op = operations[i]!;
+          if (was[i]) return `Task ${name(c)} was already ${was[i]}; nothing else changed.${op.code?.length || op.summary?.trim() ? " Its files and summary were updated." : ""}`;
+          if (op.action === "start") return `Started ${name(c)}${est(c.task, i)}.`;
+          if (op.action === "complete") return `Done: ${name(c)}${est(c.task, i)}.`;
+          if (op.action === "drop") return `Dropped ${name(c)}: ${op.reason ?? ""}`.trimEnd();
+          return `${name(c)} is ${c.task.status}${est(c.task, i)}.`;
+        };
         return doneIn(
           p,
           [
-            `Updated: ${changed.map((c, i) => `${held ? `${c.goal}/` : ""}${taskLine(c.task)} is ${c.task.status}${est(c.task, i)}`).join("; ")}.`,
+            changed.length === 1 ? one(changed[0]!, 0) : `Updated: ${changed.map((c, i) => `${name(c)} is ${c.task.status}${est(c.task, i)}`).join("; ")}.`,
             ...tookLine(
-              changed.filter((c, i) => operations[i]!.action === "complete").map((c) => c.task),
+              changed.filter((c, i) => operations[i]!.action === "complete" && !was[i]).map((c) => c.task),
               now,
             ),
             ...(operations.some((o) => o.state === "with a helper") ? helperWarning(p) : []),
@@ -1573,37 +1519,6 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   );
 
   server.registerTool(
-    "complete_task",
-    {
-      title: "Complete Task",
-      description:
-        "Mark a Task of the claimed Goal done, recording the files it touched. When what you built differs from the summary (a part left out, done another way, put somewhere else), pass the new summary so the plan matches the work. Works whether or not the Task was started; to finish several, use update_tasks. Answers briefly, with the time it took and where the work stands. For a Task that turned out unnecessary, use drop_task instead; to change a Task without finishing it, use update_task.",
-      inputSchema: {
-        goal: heldGoal,
-        task: taskId,
-        code: z.array(z.string()).optional().describe("Files the Task touched, optionally with :line; added to the ones it has."),
-        summary: taskInput.shape.summary,
-        commits: commitsInput,
-        tests: testsInput,
-        project: otherProject,
-      },
-    },
-    ({ goal, task, code, summary, commits, tests, project: wanted }) =>
-      respondIn(wanted, (p) => {
-        const was = p.taskStatus(task, goal);
-        const t = p.completeTask(task, code ?? [], summary, goal);
-        if (was === "done" || was === "released") {
-          const added = code?.length || summary?.trim() ? " Its files and summary were updated." : "";
-          const line = `Task ${taskLine(t)} was already ${was}; nothing else changed.${added}`;
-          return p === project ? withNow(line) : doneIn(p, line);
-        }
-        const warnings = recordEvidence(p, [{ task: t, goal, commits, tests }]);
-        if (p !== project) return doneIn(p, [`Task ${taskLine(t)} is now ${t.status}.`, ...tookLine([t], new Date()), ...warnings].join("\n"));
-        return withNow([`Done: ${taskLine(t)}.`, ...tookLine([t], new Date()), ...warnings].join("\n"));
-      }),
-  );
-
-  server.registerTool(
     "update_task",
     {
       title: "Update Task",
@@ -1624,25 +1539,6 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const t = p.updateTask(task, { title, summary, code, estimate: readEstimate(estimate) }, goal);
         const item = formatItem(p.getItem(t.ref!));
         return p === project ? item : doneIn(p, item);
-      }),
-  );
-
-  server.registerTool(
-    "drop_task",
-    {
-      title: "Drop Task",
-      description:
-        "Drop one Task of the claimed Goal that is no longer needed, with the reason; it stays in the Plan File, struck through. To replace the whole remaining plan, end a Detour with 'recalibrate' instead; to drop the whole Goal, use drop_goal.",
-      inputSchema: {
-        goal: heldGoal,
-        task: taskId,
-        reason: z.string().min(1).describe("Why the Task is no longer needed."),
-      },
-    },
-    ({ goal, task, reason }) =>
-      respondIn(undefined, () => {
-        const t = project.dropTask(task, reason, goal);
-        return withNow(`Dropped ${taskLine(t)}: ${reason}`);
       }),
   );
 
@@ -1691,76 +1587,56 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   );
 
   server.registerTool(
-    "add_decision",
+    "save_decision",
     {
-      title: "Add decision",
+      title: "Save decision",
       description:
-        "Record a choice made for a claimed Goal along the way, such as 'old models get thinking on/off only', so it survives context compression; get_status shows it. Not for lasting project rules (add_standing_instruction) or project-wide background (update_context).",
-      inputSchema: { goal: heldGoal, text: z.string().min(1).describe("The decision, in one line."), project: otherProject },
-    },
-    ({ goal, text, project: wanted }) =>
-      respondIn(wanted, (p) => {
-        const d = p.addDecision(text, goal);
-        return doneIn(p, `Saved decision ${d.id} in Goal ${goal ?? project.claimedGoal()?.id}: ${d.text}`);
-      }),
-  );
-
-  server.registerTool(
-    "update_decision",
-    {
-      title: "Update decision",
-      description: "Reword a decision of a claimed Goal, or remove it with an empty text. The IDs (c1, c2...) are in get_status.",
+        "Record a choice made for a claimed Goal along the way, such as 'old models get thinking on/off only', so it survives context compression; get_status shows it with its ID (c1, c2...). With id: reword it, or remove it with an empty text. Not for lasting project rules (save_standing_instruction) or project-wide background (update_context).",
       inputSchema: {
         goal: heldGoal,
-        id: z.string().describe("The decision ID, such as 'c2'."),
-        text: z.string().describe("The new wording; empty to remove the decision."),
-      },
-    },
-    ({ goal, id, text }) =>
-      respondIn(undefined, () => {
-        const d = project.updateDecision(id, text, goal);
-        return d ? `Changed decision ${d.id}: ${d.text}` : `Removed decision ${id}.`;
-      }),
-  );
-
-  server.registerTool(
-    "add_note",
-    {
-      title: "Add note",
-      description:
-        "Note something you spotted that belongs to a Goal, such as a bug found during cleanup that belongs to the Voice Goal, instead of dealing with it now. Any Goal on the Roadmap that is not dropped, claimed or not. get_status shows the open notes of the Goals this Session holds.",
-      inputSchema: {
-        goal: goalId.describe("The ID of the Goal the note belongs to."),
-        text: z.string().min(1).describe("What you spotted, in one line."),
+        id: z.string().optional().describe("A decision's ID, such as 'c2', to change it; leave out to add one."),
+        text: z.string().describe("The decision, in one line; with id, empty removes it."),
         project: otherProject,
       },
     },
-    ({ goal, text, project: wanted }) =>
+    ({ goal, id, text, project: wanted }) =>
       respondIn(wanted, (p) => {
-        const n = p.addNote(goal, text);
-        return doneIn(p, `Saved note ${n.id} in Goal ${goal}: ${n.text}`);
+        if (id) {
+          const d = p.updateDecision(id, text, goal);
+          const said = d ? `Changed decision ${d.id}: ${d.text}` : `Removed decision ${id}.`;
+          return p === project ? said : doneIn(p, said);
+        }
+        if (!text.trim()) throw new Error("Write the decision first.");
+        const d = p.addDecision(text, goal);
+        return doneIn(p, `Saved decision ${d.id} in Goal ${goal ?? p.claimedGoal()?.id}: ${d.text}`);
       }),
   );
 
   server.registerTool(
-    "update_note",
+    "save_note",
     {
-      title: "Update note",
+      title: "Save note",
       description:
-        "Resolve a note once it is dealt with (resolved: true), reopen it (false), reword it, or remove it with an empty text.",
+        "Note something you spotted that belongs to a Goal, such as a bug found during cleanup that belongs to the Voice Goal, instead of dealing with it now. Any Goal on the Roadmap that is not dropped, claimed or not. get_status shows the open notes of the Goals this Session holds. With id: resolve it once dealt with (resolved: true), reopen it (false), reword it, or remove it with an empty text.",
       inputSchema: {
         goal: goalId.describe("The ID of the Goal the note belongs to."),
-        id: z.string().describe("The note ID, such as 'n2'."),
-        text: z.string().optional().describe("The new wording; empty to remove the note."),
-        resolved: z.boolean().optional().describe("true once the note is dealt with; false to reopen it."),
+        id: z.string().optional().describe("A note's ID, such as 'n2', to change it; leave out to add one."),
+        text: z.string().optional().describe("What you spotted, in one line; with id, the new wording, and empty removes the note."),
+        resolved: z.boolean().optional().describe("With id: true once the note is dealt with; false to reopen it."),
         project: otherProject,
       },
     },
     ({ goal, id, text, resolved, project: wanted }) =>
       respondIn(wanted, (p) => {
-        const n = p.updateNote(goal, id, { text, resolved });
-        const said = n ? `${resolved === true ? "Resolved" : resolved === false ? "Reopened" : "Changed"} note ${n.id}: ${n.text}` : `Removed note ${id}.`;
-        return p === project ? said : doneIn(p, said);
+        if (id) {
+          const n = p.updateNote(goal, id, { text, resolved });
+          const said = n ? `${resolved === true ? "Resolved" : resolved === false ? "Reopened" : "Changed"} note ${n.id}: ${n.text}` : `Removed note ${id}.`;
+          return p === project ? said : doneIn(p, said);
+        }
+        if (!text?.trim()) throw new Error("Write the note first.");
+        if (resolved !== undefined) throw new Error("A new note is open; resolve it later with its id.");
+        const n = p.addNote(goal, text);
+        return doneIn(p, `Saved note ${n.id} in Goal ${goal}: ${n.text}`);
       }),
   );
 
@@ -1834,20 +1710,27 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   );
 
   server.registerTool(
-    "add_hand_test",
+    "save_hand_test",
     {
-      title: "Add hand test",
+      title: "Save hand test",
       description:
-        "Add something only the Developer can try by hand to a claimed Goal, such as 'OpenCode may ask permission to read an attached file: allow it and check the reply'. Put it here instead of in your chat summary: the Developer sees the Goal's hand-test list on the dashboard and marks each one there as works, doesn't work (with a note) or won't test. A failure adds a Task to the Goal by itself; get_status shows what is still open and the new marks. complete_goal with tests unmarked leaves the Goal waiting on them, and it finishes when the last is marked.",
+        "Add something only the Developer can try by hand to a claimed Goal, such as 'OpenCode may ask permission to read an attached file: allow it and check the reply'. Put it here instead of in your chat summary: the Developer sees the Goal's hand-test list on the dashboard and marks each one there as works, doesn't work (with a note) or won't test. A failure adds a Task to the Goal by itself; get_status shows what is still open and the new marks. complete_goal with tests unmarked leaves the Goal waiting on them, and it finishes when the last is marked. " +
+        "With id: reword it, change which Task it is about, or remove it with an empty text (for one that turned out not to need testing); its mark stays, and only the Developer marks tests.",
       inputSchema: {
         goal: heldGoal,
-        text: z.string().min(1).describe("What to try and what to look for, in one or two short plain sentences."),
-        task: z.string().optional().describe("The ID of the Task it is about, such as 't3'."),
+        id: z.string().optional().describe("A hand test's ID, such as 'h2', to change it; leave out to add one."),
+        text: z.string().optional().describe("What to try and what to look for, in one or two short plain sentences; with id, empty removes it."),
+        task: z.string().optional().describe("The ID of the Task it is about, such as 't3'; with id, an empty string removes the link."),
       },
     },
-    ({ goal, text, task }) =>
+    ({ goal, id, text, task }) =>
       respondIn(undefined, () => {
-        const h = project.addHandTest(text, goal, task);
+        if (id) {
+          const h = project.updateHandTest(id, { text, task }, goal);
+          return withNow(h ? `Changed hand test ${h.id}: ${h.text}` : `Removed hand test ${id}.`);
+        }
+        if (!text?.trim()) throw new Error("Say what to try first.");
+        const h = project.addHandTest(text, goal, task || undefined);
         return withNow(`Saved hand test ${h.id}: ${h.text}\nThe Developer marks it on the dashboard.`);
       }),
   );
@@ -1878,41 +1761,33 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   );
 
   server.registerTool(
-    "update_hand_test",
+    "save_standing_instruction",
     {
-      title: "Update hand test",
-      description:
-        "Reword a hand test of the claimed Goal, change which Task it is about, or remove it with an empty text (for one that turned out not to need testing). Its mark from the Developer stays; only the Developer marks tests.",
-      inputSchema: {
-        goal: heldGoal,
-        id: z.string().describe("The hand test ID, such as 'h2'."),
-        text: z.string().optional().describe("The new wording; empty to remove the hand test."),
-        task: z.string().optional().describe("The ID of the Task it is about; an empty string removes the link."),
-      },
-    },
-    ({ goal, id, text, task }) =>
-      respondIn(undefined, () => {
-        const h = project.updateHandTest(id, { text, task }, goal);
-        return withNow(h ? `Changed hand test ${h.id}: ${h.text}` : `Removed hand test ${id}.`);
-      }),
-  );
-
-  server.registerTool(
-    "add_standing_instruction",
-    {
-      title: "Add Standing Instruction",
+      title: "Save Standing Instruction",
       description:
         "Save a lasting rule from the Developer about how you should work in this project, such as 'ask me before changing the plan'. get_status lists it from then on. Use it only for rules meant to last; a one-off request is just done. " +
-        "A rule the Developer says holds in every project ('in all my projects...', 'always, everywhere...') goes in with global: true: it is saved once for this computer and every project's get_status shows it.",
+        "A rule the Developer says holds in every project ('in all my projects...', 'always, everywhere...') goes in with global: true: it is saved once for this computer and every project's get_status shows it. " +
+        "With id (s1, s2... in get_status; g1, g2... for a rule for everything): reword it when the Developer changes it, make it hard (hard: true) or ordinary again (false), set the helper limit it holds, or remove it with an empty text. What you leave out stays.",
       inputSchema: {
-        text: z.string().min(1).describe("The rule, in the Developer's words where possible."),
+        id: z.string().optional().describe("A rule's ID, such as 's2', or 'g1' for a rule for everything, to change it; leave out to add one."),
+        text: z.string().optional().describe("The rule, in the Developer's words where possible; with id, empty removes it and left out keeps the wording."),
         hard: hardFlag,
         helpers_at_once: helpersAtOnce,
         global: globalFlag,
       },
     },
-    ({ text, hard, helpers_at_once, global }) =>
+    ({ id, text, hard, helpers_at_once, global }) =>
       respondIn(undefined, () => {
+        if (id) {
+          if (global || /^g\d+$/i.test(id.trim())) {
+            if (helpers_at_once !== undefined) throw new Error("A helper limit belongs to one project: set it on a project rule, without global.");
+            const g = updateGlobalRule(globalFile, id, { text, hard });
+            return g ? `Changed ${g.hard ? "HARD RULE" : "rule"} ${g.id} for everything: ${g.text}` : `Removed rule ${id} for everything.`;
+          }
+          const s = project.updateStandingInstruction(id, { text, hard, helpersAtOnce: helpers_at_once });
+          return s ? `Changed ${s.hard ? "HARD RULE" : "Standing Instruction"} ${s.id}: ${s.text}${limitText(s)}` : `Removed Standing Instruction ${id}.`;
+        }
+        if (!text?.trim()) throw new Error("Write the rule first.");
         if (global) {
           if (helpers_at_once) throw new Error("A helper limit belongs to one project: add it without global.");
           const g = addGlobalRule(globalFile, text, hard ?? false);
@@ -1924,39 +1799,12 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   );
 
   server.registerTool(
-    "update_standing_instruction",
-    {
-      title: "Update Standing Instruction",
-      description:
-        "Reword a Standing Instruction when the Developer changes a rule, make it a hard rule (hard: true) or an ordinary one again (hard: false), set or change the helper limit it holds (helpers_at_once), or remove it with an empty text when they drop it. Give any of text, hard and helpers_at_once; what you leave out stays. The IDs (s1, s2...) are in get_status. " +
-        "For a rule for everything (IDs g1, g2...), pass global: true.",
-      inputSchema: {
-        id: z.string().describe("The Standing Instruction ID, such as 's2', or the ID of a rule for everything, such as 'g1', with global: true."),
-        text: z.string().optional().describe("The new wording; empty to remove the rule. Left out, the wording stays."),
-        hard: hardFlag,
-        helpers_at_once: helpersAtOnce,
-        global: globalFlag,
-      },
-    },
-    ({ id, text, hard, helpers_at_once, global }) =>
-      respondIn(undefined, () => {
-        if (global || /^g\d+$/i.test(id.trim())) {
-          if (helpers_at_once !== undefined) throw new Error("A helper limit belongs to one project: set it on a project rule, without global.");
-          const g = updateGlobalRule(globalFile, id, { text, hard });
-          return g ? `Changed ${g.hard ? "HARD RULE" : "rule"} ${g.id} for everything: ${g.text}` : `Removed rule ${id} for everything.`;
-        }
-        const s = project.updateStandingInstruction(id, { text, hard, helpersAtOnce: helpers_at_once });
-        return s ? `Changed ${s.hard ? "HARD RULE" : "Standing Instruction"} ${s.id}: ${s.text}${limitText(s)}` : `Removed Standing Instruction ${id}.`;
-      }),
-  );
-
-  server.registerTool(
     "update_context",
     {
       title: "Update Important context",
       description:
         "Replace the project's Important context: lasting background you and the Developer need in every conversation, such as what the project is, key facts, where things live and choices that hold for the whole project. " +
-        "Not for rules (add_standing_instruction) or for one Goal's details. get_status shows the current text: send the whole new text, or an empty text to clear it. " +
+        "Not for rules (save_standing_instruction) or for one Goal's details. get_status shows the current text: send the whole new text, or an empty text to clear it. " +
         `At most ${MAX_CONTEXT_LENGTH} characters.`,
       inputSchema: {
         text: z.string().describe("The whole Important context, in plain words; short paragraphs or a list."),

@@ -63,7 +63,7 @@ describe("replies that don't repeat the same blocks", () => {
   it("sends them again in full when they change", async () => {
     const call = await connect();
     await call("claim_goal", { goal: "login" });
-    await call("add_standing_instruction", { text: "Use British English" });
+    await call("save_standing_instruction", { text: "Use British English" });
     const after = await call("claim_goal", { goal: "billing" });
     expect(after).toContain("Use British English");
     expect(after).toContain("- s1 Write tests first");
@@ -72,7 +72,7 @@ describe("replies that don't repeat the same blocks", () => {
   it("lists a rule for everything once when a project rule says the same", async () => {
     addGlobalRule(globalFileFor(registry), "Only one helper at a time", true);
     const call = await connect();
-    await call("add_standing_instruction", { text: "only one helper at a time.", hard: true });
+    await call("save_standing_instruction", { text: "only one helper at a time.", hard: true });
     const status = await call("get_status");
     expect(status.match(/one helper at a time/gi)).toHaveLength(1);
   });

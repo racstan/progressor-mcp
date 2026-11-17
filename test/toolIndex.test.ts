@@ -14,7 +14,8 @@ function registeredTools(dir: string): string[] {
   return names;
 }
 
-const indexed = () => [...readFileSync("docs/tools.md", "utf8").matchAll(/^\| `([a-z_]+)` \| (.+) \|$/gm)].map((m) => ({ name: m[1]!, about: m[2]! }));
+// The index proper: the list of merged tools at the end names old ones.
+const indexed = () => [...readFileSync("docs/tools.md", "utf8").split("## Tools that were merged")[0]!.matchAll(/^\| `([a-z_]+)` \| (.+) \|$/gm)].map((m) => ({ name: m[1]!, about: m[2]! }));
 
 describe("the tool index", () => {
   it("lists every tool once, and only real ones", () => {

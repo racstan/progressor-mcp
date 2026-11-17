@@ -297,8 +297,8 @@ describe("the tools", () => {
     const withProject = tools.filter((t) => "project" in ((t.inputSchema as { properties?: object }).properties ?? {})).map((t) => t.name);
     expect(withProject.sort()).toEqual(
       [
-        "add_decision", "add_goal", "add_hotfix", "add_note", "add_person", "add_risk", "add_small_fix", "add_tasks", "complete_goal", "complete_task", "get_item", "get_status",
-        "launch_readiness", "move_goal", "set_task_state", "update_goal", "update_note", "update_risk", "update_task", "update_tasks",
+        "add_goal", "add_hotfix", "add_small_fix", "add_tasks", "complete_goal", "get_item", "get_status", "launch_readiness", "move_goal",
+        "save_decision", "save_note", "save_risk", "set_task_state", "update_goal", "update_task", "update_tasks",
       ].sort(),
     );
   });
@@ -333,7 +333,7 @@ describe("the tools", () => {
   });
 
   it("say clearly when the project is not known", async () => {
-    const r = await call("add_note", { project: "nowhere-at-all", goal: "x", text: "y" });
+    const r = await call("save_note", { project: "nowhere-at-all", goal: "x", text: "y" });
     expect(r.isError).toBe(true);
     expect(r.text).toMatch(/No project called nowhere-at-all/);
   });

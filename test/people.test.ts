@@ -70,7 +70,7 @@ describe("a step waiting on someone", () => {
 });
 
 describe("through the tools", () => {
-  it("set_task_state takes person and need, and add_person sets a role", async () => {
+  it("set_task_state takes person, need and their role", async () => {
     const server = createServer(p, { registryFile: join(tempDir("progressor-reg-"), "registry.json"), settingsFile: join(tempDir("progressor-settings-"), "settings.json") });
     const [a, b] = InMemoryTransport.createLinkedPair();
     await server.connect(a);
@@ -79,7 +79,7 @@ describe("through the tools", () => {
     const call = async (name: string, args: Record<string, unknown>) =>
       ((await client.callTool({ name, arguments: args })) as { content: { text: string }[] }).content.map((c) => c.text).join("\n");
     expect(await call("set_task_state", { task: "t1", state: "waiting on someone", person: "Priya", need: "Sign the contract" })).toMatch(/waiting on Priya: Sign the contract/);
-    expect(await call("add_person", { name: "Priya", role: "payments lawyer" })).toMatch(/^Priya \(p1\) is now: payments lawyer\./);
+    expect(await call("set_task_state", { task: "t1", state: "waiting on someone", person: "Priya", role: "payments lawyer" })).toMatch(/Priya \(p1\) is now: payments lawyer\./);
     expect(await call("set_task_state", { task: "t2", state: "in progress", person: "Priya" })).toMatch(/person and need go only with 'waiting on someone'/);
   });
 });

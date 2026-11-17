@@ -3,7 +3,7 @@
 // of background: about this computer (setup facts) and about the Developer and how they work. They
 // live in one file for the user beside the project list (`~/.progressor/global.json`, or next to the
 // file PROGRESSOR_REGISTRY names), not in any project's .progressor/, so the same ones hold
-// everywhere. The server's instructions (sent when an app connects), get_status and get_rules show
+// everywhere. The server's instructions (sent when an app connects), get_status (and get_status with for_helper) show
 // them before a project's own rules, even in a folder with no plan yet.
 //
 // Global rules have IDs g1, g2... (project rules are s1, s2...) and a hard flag like a project's
@@ -143,7 +143,7 @@ export function contextLines(notes: GlobalNotes, cut?: number): string[] {
   return CONTEXT_PARTS.flatMap((part) => {
     const text = notes[part];
     if (!text) return [];
-    const shown = cut !== undefined && text.length > cut ? `${text.slice(0, cut).trimEnd()}… (get_rules has all of it)` : text;
+    const shown = cut !== undefined && text.length > cut ? `${text.slice(0, cut).trimEnd()}… (get_status with for_helper has all of it)` : text;
     return [`${PART_TITLE[part]} (for everything):`, shown];
   });
 }
@@ -184,7 +184,7 @@ export function globalInstructions(notes: GlobalNotes): string {
   const more = other.length - shown.length;
   const lines = [
     ...(notes.rules.length > 0 ? [RULES_HEADING(hard.length > 0), ...[...hard, ...shown].map((r) => `- ${globalRuleText(r)}`)] : []),
-    ...(more > 0 ? [`- and ${more} more; get_rules lists them all.`] : []),
+    ...(more > 0 ? [`- and ${more} more; get_status with for_helper lists them all.`] : []),
     ...contextLines(notes, INSTRUCTION_CONTEXT),
   ];
   return lines.join("\n");

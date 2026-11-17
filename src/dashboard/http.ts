@@ -831,7 +831,7 @@ class Hub {
           project.sendMessage(
             PROJECT_TALK,
             context
-              ? "On the dashboard I changed the Important context. Read it again with get_rules before your next step."
+              ? "On the dashboard I changed the Important context. Read it again with get_status before your next step."
               : "On the dashboard I removed the Important context. Fill it in again with update_context only if I ask.",
           );
           return { status: 200, body: { context } };

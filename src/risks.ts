@@ -12,7 +12,7 @@
  *   - goals: login, tests-ci-deps
  *   - status: open
  *
- * The AI fills it and keeps it current (add_risk, update_risk); the Developer only reads it.
+ * The AI fills it and keeps it current (save_risk); the Developer only reads it.
  */
 
 export const RISKS_FILE = "risks.md";

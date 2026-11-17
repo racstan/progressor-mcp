@@ -1,6 +1,6 @@
 // Cost per goal: how many tokens each goal and step used. Claude Code gives its hooks the chat's
 // transcript (a JSONL file): every AI reply there carries its token use, and the chat's own Progressor
-// tool calls (claim_goal, start_task, complete_task...) say which goal and step it was on. The hooks
+// tool calls (claim_goal, update_tasks...; older chats used start_task and complete_task) say which goal and step it was on. The hooks
 // read what is new in the transcript on each message (collectTranscript) and add it up in
 // .progressor/cost/tokens.json. Nothing needs setting up; a price in Settings turns tokens into money.
 import { closeSync, existsSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, writeFileSync } from "node:fs";

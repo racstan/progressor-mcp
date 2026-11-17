@@ -294,7 +294,7 @@ The dashboard writes messages and answers; the Agent's tools write questions and
 
 ## Hard rules
 
-A Standing Instruction is a preference unless it has a `hard: yes` line, which makes it a hard rule: one that must never be broken. Any other value, or no line, reads as a preference, so Roadmaps from before the flag keep working and an older Progressor keeps the line as an unknown detail. Progressor lists hard rules first, marked `HARD RULE`, in `get_status`, at session start and in the rules block of `get_rules`, and the dashboard marks them with a **Must** label. Their order in the file is not changed.
+A Standing Instruction is a preference unless it has a `hard: yes` line, which makes it a hard rule: one that must never be broken. Any other value, or no line, reads as a preference, so Roadmaps from before the flag keep working and an older Progressor keeps the line as an unknown detail. Progressor lists hard rules first, marked `HARD RULE`, in `get_status`, at session start and in the rules block of `get_status` with `for_helper`, and the dashboard marks them with a **Must** label. Their order in the file is not changed.
 
 ## Estimates and time spent
 
@@ -365,4 +365,4 @@ Goals that come back are routines, in their own `## Routines` section of `roadma
 
 ## What is not in the files
 
-Locks on shared resources (`claim_resource`) are runtime state and are kept outside `.progressor/`, in the system's temp folder, so the plan's files and your git history never carry them. See [Locks on shared resources](reference.md#locks-on-shared-resources).
+Locks on shared resources (the `resource` tool) are runtime state and are kept outside `.progressor/`, in the system's temp folder, so the plan's files and your git history never carry them. See [Locks on shared resources](reference.md#locks-on-shared-resources).

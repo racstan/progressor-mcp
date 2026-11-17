@@ -219,16 +219,16 @@ describe("the Agent's tools", () => {
   };
 
   it("adds, rewords and removes items", async () => {
-    expect((await call("add_hand_test", { text: "Try the mic", task: "t2" })).text).toContain("Saved hand test h1: Try the mic");
-    expect((await call("update_hand_test", { id: "h1", text: "Try the mic twice" })).text).toContain("Changed hand test h1: Try the mic twice");
-    expect((await call("update_hand_test", { id: "h1", text: "" })).text).toContain("Removed hand test h1.");
-    expect((await call("update_hand_test", { id: "h1", text: "x" })).isError).toBe(true);
+    expect((await call("save_hand_test", { text: "Try the mic", task: "t2" })).text).toContain("Saved hand test h1: Try the mic");
+    expect((await call("save_hand_test", { id: "h1", text: "Try the mic twice" })).text).toContain("Changed hand test h1: Try the mic twice");
+    expect((await call("save_hand_test", { id: "h1", text: "" })).text).toContain("Removed hand test h1.");
+    expect((await call("save_hand_test", { id: "h1", text: "x" })).isError).toBe(true);
   });
 
   it("shows open items, then each new mark exactly once", async () => {
-    await call("add_hand_test", { text: "Try the mic" });
-    await call("add_hand_test", { text: "Allow the file prompt" });
-    await call("add_hand_test", { text: "Skim the settings page" });
+    await call("save_hand_test", { text: "Try the mic" });
+    await call("save_hand_test", { text: "Allow the file prompt" });
+    await call("save_hand_test", { text: "Skim the settings page" });
     let { text } = await call("get_status");
     expect(text).toContain("Hand tests (for the Developer to try; they mark them on the dashboard): 3 not tried yet.");
     expect(text).toContain("- h2 Allow the file prompt");
@@ -252,9 +252,9 @@ describe("the Agent's tools", () => {
   });
 
   it("parks complete_goal on the Developer's tests while items are unmarked, and the override finishes it", async () => {
-    await call("complete_task", { task: "t1" });
-    await call("complete_task", { task: "t2" });
-    await call("add_hand_test", { text: "Look at the reply" });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t2" }] });
+    await call("save_hand_test", { text: "Look at the reply" });
     const parked = await call("complete_goal");
     expect(parked.isError).toBe(false);
     expect(parked.text).toMatch(/built and waiting on the Developer's hand tests[^]*finishes by itself/);
@@ -263,9 +263,9 @@ describe("the Agent's tools", () => {
   });
 
   it("lists a goal waiting on tests as such, not as paused to claim", async () => {
-    await call("complete_task", { task: "t1" });
-    await call("complete_task", { task: "t2" });
-    await call("add_hand_test", { text: "Look at the reply" });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t2" }] });
+    await call("save_hand_test", { text: "Look at the reply" });
     await call("complete_goal");
     const { text } = await call("get_status");
     expect(text).toContain("attachments: Attachments (built, waiting on the Developer's hand tests)");
@@ -284,7 +284,7 @@ describe("the Agent's tools", () => {
   });
 
   it("looks a hand test up by its ref", async () => {
-    await call("add_hand_test", { text: "Look at the reply", task: "t1" });
+    await call("save_hand_test", { text: "Look at the reply", task: "t1" });
     agent.markHandTest("attachments", "h1", "doesn't work", "blank");
     const { text } = await call("get_item", { ref: "progressor://attachments/h1" });
     expect(text).toContain("Hand test h1: Look at the reply (DOESN'T WORK)");

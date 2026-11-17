@@ -1,5 +1,5 @@
 // The Risks page: what could go wrong in the project, how likely and how bad, what would reduce it and
-// the goals that do. Your AI keeps the list (add_risk, update_risk); this page only reads it.
+// the goals that do. Your AI keeps the list (save_risk); this page only reads it.
 import { type RiskView, type RoadmapView, useRisks } from "./data.js";
 import { RISK_WHY } from "./home.js";
 import { Loading } from "./Loading.js";

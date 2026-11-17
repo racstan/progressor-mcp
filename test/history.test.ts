@@ -203,18 +203,18 @@ describe("the plan_history tool", () => {
   it("records each tool call under its name, lists them and goes back", async () => {
     const { p, call } = await connect();
     await call("add_goal", { title: "Login", tasks: [{ title: "Route" }], claim: true });
-    await call("start_task", { task: "t1" });
+    await call("update_tasks", { operations: [{ action: "start", task: "t1" }] });
     await call("get_status");
-    expect(entries(p).map((e) => e.label)).toEqual(["add_goal", "start_task"]);
+    expect(entries(p).map((e) => e.label)).toEqual(["add_goal", "update_tasks"]);
     const list = await call("plan_history");
     expect(list.text).toMatch(/last 2 changes, newest first/);
-    expect(list.text).toMatch(new RegExp(`- ${entries(p)[1]!.id} · .* · AI · start_task · goals/login.md`));
+    expect(list.text).toMatch(new RegExp(`- ${entries(p)[1]!.id} · .* · AI · update_tasks · goals/login.md`));
     const back = await call("plan_history", { restore: entries(p)[1]!.id });
     expect(back.isError).toBe(false);
-    expect(back.text).toMatch(/^Went back to before .* \(start_task, by AI\): undid 1 change\.\nPut back: goals\/login\.md\./);
+    expect(back.text).toMatch(/^Went back to before .* \(update_tasks, by AI\): undid 1 change\.\nPut back: goals\/login\.md\./);
     expect(back.text).toMatch(/To undo this: plan_history restore: \S+\./);
     expect(p.plan("login").task("t1")?.status).toBe("pending");
-    expect(entries(p).at(-1)!.label).toBe("Went back to before: start_task");
+    expect(entries(p).at(-1)!.label).toBe("Went back to before: update_tasks");
     expect((await call("plan_history", { restore: "nope" })).isError).toBe(true);
   });
 

@@ -30,54 +30,42 @@ async function call(name: string, args: Record<string, unknown> = {}) {
 
 /** The once-per-chat nudge to start a risks list (server.ts), in a project without one. */
 const NO_RISKS =
-  "This project has no risks list yet: add the risks you notice as you work (what could go wrong, how likely, how bad, what would reduce it) with add_risk. Nobody has to ask.";
+  "This project has no risks list yet: add the risks you notice as you work (what could go wrong, how likely, how bad, what would reduce it) with save_risk. Nobody has to ask.";
 
 describe("the MCP server", () => {
   it("lists its tools and tells the Agent how to use them", async () => {
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
-        "add_decision",
         "add_goal",
-        "add_hand_test",
         "add_hotfix",
-        "add_note",
-        "add_person",
-        "add_risk",
         "add_small_fix",
-        "add_standing_instruction",
         "add_tasks",
         "ask_developer",
         "attach_picture",
         "claim_goal",
-        "claim_resource",
         "complete_goal",
-        "complete_task",
         "drop_goal",
-        "drop_task",
         "end_detour",
         "get_item",
-        "get_rules",
         "get_status",
         "handoff",
         "launch_readiness",
-        "list_resources",
         "move_goal",
         "move_task",
         "plan_history",
         "release_goal",
-        "release_resource",
         "reply_to_developer",
+        "resource",
+        "save_decision",
+        "save_hand_test",
+        "save_note",
+        "save_risk",
+        "save_standing_instruction",
         "set_task_state",
         "start_detour",
-        "start_task",
         "update_context",
-        "update_decision",
         "update_goal",
-        "update_hand_test",
-        "update_note",
-        "update_risk",
-        "update_standing_instruction",
         "update_task",
         "update_tasks",
       ].sort(),
@@ -107,10 +95,10 @@ describe("the MCP server", () => {
       tasks: [{ title: "Add route" }, { title: "Handle callback" }, { title: "Cookies" }],
     });
     await call("claim_goal", { goal: "login" });
-    await call("complete_task", { task: "t1" });
-    await call("start_task", { task: "t2" });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] });
+    await call("update_tasks", { operations: [{ action: "start", task: "t2" }] });
     await call("start_detour", { title: "Fix flaky refresh", reason: "callback tests fail randomly" });
-    await call("add_standing_instruction", { text: "Ask me before recalibrating" });
+    await call("save_standing_instruction", { text: "Ask me before recalibrating" });
 
     const { text } = await call("get_status");
     expect(text).toBe(
@@ -160,7 +148,7 @@ describe("the MCP server", () => {
       ],
     });
     await call("claim_goal", { goal: "login" });
-    await call("start_task", { task: "t1" });
+    await call("update_tasks", { operations: [{ action: "start", task: "t1" }] });
     const updated = await call("update_task", {
       task: "t1",
       summary: "Callback re-sets the session cookie on every hit; only set it after token exchange.",
@@ -179,7 +167,7 @@ describe("the MCP server", () => {
     expect(item).toContain("Summary: Callback re-sets the session cookie on every hit; only set it after token exchange.");
     expect(item).toContain("Code: src/auth/callback.ts, src/auth/session.ts:42");
 
-    await call("complete_task", { task: "t1", summary: "Only set the cookie after token exchange." });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t1", summary: "Only set the cookie after token exchange." }] });
     expect((await call("get_item", { ref: "progressor://login/t1" })).text).toContain(
       "Summary: Only set the cookie after token exchange.",
     );
@@ -187,7 +175,7 @@ describe("the MCP server", () => {
   });
 
   it("reports domain errors as tool errors", async () => {
-    const result = await call("start_task", { task: "t1" });
+    const result = await call("update_tasks", { operations: [{ action: "start", task: "t1" }] });
     expect(result.isError).toBe(true);
     expect(result.text).toMatch(/claim a Goal first/);
   });
@@ -288,14 +276,14 @@ describe("slash commands", () => {
     await call("add_goal", { title: "Login", tasks: [{ title: "Route", done: true }, { title: "Callback" }] });
     await call("claim_goal", { goal: "login" });
     const t = await text("next");
-    expect(t).toContain("start_task");
+    expect(t).toContain("update_tasks");
     expect(t).toContain("t2 Callback");
   });
 
   it("next carries on with the Task in progress", async () => {
     await call("add_goal", { title: "Login", tasks: [{ title: "Route" }, { title: "Callback" }] });
     await call("claim_goal", { goal: "login" });
-    await call("start_task", { task: "t1" });
+    await call("update_tasks", { operations: [{ action: "start", task: "t1" }] });
     const t = await text("next");
     expect(t).toContain("t1 Route");
     expect(t).not.toContain("start_task");
@@ -304,7 +292,7 @@ describe("slash commands", () => {
   it("next finishes an open Detour before anything else", async () => {
     await call("add_goal", { title: "Login", tasks: [{ title: "Route" }] });
     await call("claim_goal", { goal: "login" });
-    await call("start_task", { task: "t1" });
+    await call("update_tasks", { operations: [{ action: "start", task: "t1" }] });
     await call("start_detour", { title: "Fix the build", reason: "It is red" });
     const t = await text("next");
     expect(t).toContain("Fix the build");
@@ -418,12 +406,12 @@ describe("get_status", () => {
 
 describe("update_standing_instruction", () => {
   it("changes a rule, and removes it when the text is empty", async () => {
-    await call("add_standing_instruction", { text: "Ask before pushing" });
-    await call("add_standing_instruction", { text: "Write tests first" });
-    expect((await call("update_standing_instruction", { id: "s1", text: "Ask before pushing or publishing" })).text).toBe(
+    await call("save_standing_instruction", { text: "Ask before pushing" });
+    await call("save_standing_instruction", { text: "Write tests first" });
+    expect((await call("save_standing_instruction", { id: "s1", text: "Ask before pushing or publishing" })).text).toBe(
       "Changed Standing Instruction s1: Ask before pushing or publishing",
     );
-    expect((await call("update_standing_instruction", { id: "s2", text: "" })).text).toBe("Removed Standing Instruction s2.");
+    expect((await call("save_standing_instruction", { id: "s2", text: "" })).text).toBe("Removed Standing Instruction s2.");
     const { text } = await call("get_status");
     expect(text).toContain("- s1 Ask before pushing or publishing");
     expect(text).not.toContain("Write tests first");
@@ -462,7 +450,7 @@ describe("the wishlist", () => {
 
 describe("update_context", () => {
   it("replaces the Important context, which get_status then shows after the rules", async () => {
-    await call("add_standing_instruction", { text: "Write tests first" });
+    await call("save_standing_instruction", { text: "Write tests first" });
     expect((await call("update_context", { text: "Progressor is an MCP server.\nReleases go out by pushing a tag." })).text).toMatch(
       /^Saved the Important context \(\d+ of 4000 characters\)\./,
     );
@@ -488,7 +476,7 @@ describe("the Agent runs the loop itself", () => {
     const instructions = client.getInstructions() ?? "";
     expect(instructions).toContain("claim: true");
     expect(instructions).toContain("complete_goal");
-    expect(instructions).toContain("update_standing_instruction");
+    expect(instructions).toContain("save_standing_instruction");
     expect(instructions).toMatch(/everyday words/);
     expect(instructions).toMatch(/dashboard/i);
     expect(instructions).not.toMatch(/record_idea|Idea/);
@@ -514,7 +502,7 @@ describe("the Agent runs the loop itself", () => {
 
   it("ends results that don't show the status with a Now line", async () => {
     await call("add_goal", { title: "Login", tasks: [{ title: "Route" }], claim: true });
-    await call("start_task", { task: "t1" });
+    await call("update_tasks", { operations: [{ action: "start", task: "t1" }] });
     const added = (await call("add_tasks", { tasks: [{ title: "Logout" }] })).text;
     expect(added.split("\n").at(-1)).toBe("Now: t1 Route · Next: t2 Logout");
     const detour = (await call("start_detour", { title: "Fix the build", reason: "It is red" })).text;
@@ -527,16 +515,16 @@ describe("several Goals in one Session", () => {
     await call("add_goal", { title: "Login", tasks: [{ title: "Route" }, { title: "Callback" }] });
     await call("add_goal", { title: "Voice", tasks: [{ title: "Try on phone" }, { title: "Ship" }] });
     await call("claim_goal", { goal: "login" });
-    await call("complete_task", { task: "t1" });
-    await call("start_task", { task: "t2" });
-    await call("add_note", { goal: "voice", text: "The mic stays on" });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] });
+    await call("update_tasks", { operations: [{ action: "start", task: "t2" }] });
+    await call("save_note", { goal: "voice", text: "The mic stays on" });
     await call("claim_goal", { goal: "voice" });
   });
 
   it("describes every Goal the Session holds, compactly", async () => {
     await call("set_task_state", { goal: "voice", task: "t1", state: "waiting on you" });
-    await call("add_decision", { goal: "voice", text: "Old models get thinking on/off only" });
-    await call("add_standing_instruction", { text: "Write tests first" });
+    await call("save_decision", { goal: "voice", text: "Old models get thinking on/off only" });
+    await call("save_standing_instruction", { text: "Write tests first" });
     expect((await call("get_status")).text).toBe(
       [
         "This Session holds 2 Goals; pass goal (the Goal ID) to the tools that change one.",
@@ -559,7 +547,7 @@ describe("several Goals in one Session", () => {
   });
 
   it("asks which Goal a change is for, and ends other results with each Goal's Now", async () => {
-    const r = await call("start_task", { task: "t2" });
+    const r = await call("update_tasks", { operations: [{ action: "start", task: "t2" }] });
     expect(r.isError).toBe(true);
     expect(r.text).toMatch(/several Goals \(login, voice\)/);
     const added = (await call("add_tasks", { goal: "voice", tasks: [{ title: "Docs" }] })).text;
@@ -570,7 +558,7 @@ describe("several Goals in one Session", () => {
 
   it("refuses a Goal the Session has not claimed", async () => {
     await call("add_goal", { title: "Billing" });
-    const r = await call("add_decision", { goal: "billing", text: "x" });
+    const r = await call("save_decision", { goal: "billing", text: "x" });
     expect(r.isError).toBe(true);
     expect(r.text).toMatch(/not claimed by this Session/);
   });
@@ -593,7 +581,7 @@ describe("Task states, decisions and notes through the tools", () => {
     const status = (await call("get_status")).text.split("\n");
     expect(status.slice(2, 8)).toEqual([
       "Progress: 0 of 4 Tasks done",
-      "Current Task: none (start one with start_task)",
+      "Current Task: none (start one with update_tasks)",
       "With a helper: t1 Record",
       "Waiting on the Developer: t3 Try on phone",
       "Checked, not yet released: t2 Transcribe",
@@ -607,8 +595,8 @@ describe("Task states, decisions and notes through the tools", () => {
   });
 
   it("says what is left when only other hands hold the remaining Tasks", async () => {
-    await call("complete_task", { task: "t1" });
-    await call("complete_task", { task: "t2" });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t2" }] });
     await call("set_task_state", { task: "t3", state: "with a helper" });
     const r = await call("set_task_state", { task: "t4", state: "waiting on you" });
     expect(r.text.split("\n").at(-1)).toBe("Now: no Task in progress · Waiting: t3 Try on phone (with a helper), t4 Ship (waiting on you)");
@@ -616,49 +604,49 @@ describe("Task states, decisions and notes through the tools", () => {
 
   it("records decisions and notes, shows them in the status, and changes them", async () => {
     await call("add_goal", { title: "Cleanup" });
-    expect((await call("add_decision", { text: "Old models get thinking on/off only" })).text.split("\n")[0]).toBe(
+    expect((await call("save_decision", { text: "Old models get thinking on/off only" })).text.split("\n")[0]).toBe(
       "Saved decision c1 in Goal voice: Old models get thinking on/off only",
     );
-    expect((await call("add_note", { goal: "cleanup", text: "Two loggers" })).text.split("\n")[0]).toBe("Saved note n1 in Goal cleanup: Two loggers");
-    await call("add_note", { goal: "voice", text: "Mic stays on" });
+    expect((await call("save_note", { goal: "cleanup", text: "Two loggers" })).text.split("\n")[0]).toBe("Saved note n1 in Goal cleanup: Two loggers");
+    await call("save_note", { goal: "voice", text: "Mic stays on" });
     const status = (await call("get_status")).text;
     expect(status).toContain(["Next Task: t1 Record", "Decisions:", "- c1 Old models get thinking on/off only", "Notes:", "- n1 Mic stays on"].join("\n"));
     expect(status).not.toContain("Two loggers");
 
-    expect((await call("update_decision", { id: "c1", text: "Old models: on/off only" })).text).toBe("Changed decision c1: Old models: on/off only");
-    expect((await call("update_decision", { id: "c1", text: "" })).text).toBe("Removed decision c1.");
-    expect((await call("update_note", { goal: "voice", id: "n1", resolved: true })).text).toBe("Resolved note n1: Mic stays on");
-    expect((await call("update_note", { goal: "cleanup", id: "n1", text: "" })).text).toBe("Removed note n1.");
+    expect((await call("save_decision", { id: "c1", text: "Old models: on/off only" })).text).toBe("Changed decision c1: Old models: on/off only");
+    expect((await call("save_decision", { id: "c1", text: "" })).text).toBe("Removed decision c1.");
+    expect((await call("save_note", { goal: "voice", id: "n1", resolved: true })).text).toBe("Resolved note n1: Mic stays on");
+    expect((await call("save_note", { goal: "cleanup", id: "n1", text: "" })).text).toBe("Removed note n1.");
     expect((await call("get_status")).text).not.toMatch(/Decisions|Notes/);
     expect((await call("get_item", { ref: "progressor://voice/n1" })).text).toContain("Note n1: Mic stays on (resolved)");
   });
 
   it("tells the Agent when to use them", () => {
     const instructions = client.getInstructions() ?? "";
-    for (const tool of ["set_task_state", "add_decision", "add_note", "goal"]) expect(instructions).toContain(tool);
+    for (const tool of ["set_task_state", "save_decision", "save_note", "goal"]) expect(instructions).toContain(tool);
   });
 });
 
 describe("hard rules and the rules block for helper agents", () => {
   it("saves a hard rule, lists hard rules first in the status, and changes the flag alone", async () => {
-    await call("add_standing_instruction", { text: "Prefer small commits" });
-    expect((await call("add_standing_instruction", { text: "Never commit secrets", hard: true })).text.split("\n")[0]).toBe(
+    await call("save_standing_instruction", { text: "Prefer small commits" });
+    expect((await call("save_standing_instruction", { text: "Never commit secrets", hard: true })).text.split("\n")[0]).toBe(
       "Saved HARD RULE s2: Never commit secrets",
     );
     await call("add_goal", { title: "Login", claim: true });
     expect((await call("get_status")).text).toContain(
       ["Standing Instructions (a HARD RULE must never be broken):", "- HARD RULE s2: Never commit secrets", "- s1 Prefer small commits"].join("\n"),
     );
-    expect((await call("update_standing_instruction", { id: "s1", hard: true })).text).toBe("Changed HARD RULE s1: Prefer small commits");
-    expect((await call("update_standing_instruction", { id: "s2", hard: false })).text).toBe("Changed Standing Instruction s2: Never commit secrets");
-    expect((await call("update_standing_instruction", { id: "s2" })).isError).toBe(true);
+    expect((await call("save_standing_instruction", { id: "s1", hard: true })).text).toBe("Changed HARD RULE s1: Prefer small commits");
+    expect((await call("save_standing_instruction", { id: "s2", hard: false })).text).toBe("Changed Standing Instruction s2: Never commit secrets");
+    expect((await call("save_standing_instruction", { id: "s2" })).isError).toBe(true);
   });
 
   it("gives a ready-to-paste block for a helper's brief, hard rules first", async () => {
-    expect((await call("get_rules")).text).toMatch(/^No Standing Instructions/);
-    await call("add_standing_instruction", { text: "Ask me before recalibrating" });
-    await call("add_standing_instruction", { text: "Never commit secrets", hard: true });
-    expect((await call("get_rules")).text).toBe(
+    expect((await call("get_status", { for_helper: true })).text).toMatch(/^No Standing Instructions/);
+    await call("save_standing_instruction", { text: "Ask me before recalibrating" });
+    await call("save_standing_instruction", { text: "Never commit secrets", hard: true });
+    expect((await call("get_status", { for_helper: true })).text).toBe(
       [
         "Project rules from the Developer. Follow all of them in this work.",
         "HARD RULES: never break these. If the work seems to need breaking one, stop and report back instead.",
@@ -671,8 +659,8 @@ describe("hard rules and the rules block for helper agents", () => {
   });
 
   it("leaves out the heading of a kind of rule there is none of", async () => {
-    await call("add_standing_instruction", { text: "Ask me before recalibrating" });
-    const soft = (await call("get_rules")).text;
+    await call("save_standing_instruction", { text: "Ask me before recalibrating" });
+    const soft = (await call("get_status", { for_helper: true })).text;
     expect(soft).not.toContain("HARD RULES");
     expect(soft).not.toContain("Other rules:");
     expect(soft).toContain("- Ask me before recalibrating");
@@ -680,7 +668,7 @@ describe("hard rules and the rules block for helper agents", () => {
 
   it("is in the instructions, for briefing helpers", () => {
     const instructions = client.getInstructions() ?? "";
-    expect(instructions).toMatch(/get_rules/);
+    expect(instructions).toMatch(/for_helper/);
     expect(instructions).toMatch(/brief a helper/);
     expect(instructions).toMatch(/hard: true/);
   });
@@ -689,7 +677,7 @@ describe("hard rules and the rules block for helper agents", () => {
 describe("update_tasks", () => {
   beforeEach(async () => {
     await call("add_goal", { title: "Voice", tasks: [{ title: "Record" }, { title: "Transcribe" }, { title: "Ship" }], claim: true });
-    await call("start_task", { task: "t1" });
+    await call("update_tasks", { operations: [{ action: "start", task: "t1" }] });
   });
 
   it("completes and starts Tasks in one call and answers with one compact status", async () => {
@@ -789,15 +777,15 @@ describe("small finished work in one call", () => {
     expect(text).toContain("- h1 Open the login page and read the button");
   });
 
-  it("asks for start_task only for work longer than a few minutes", async () => {
-    expect(client.getInstructions()).toMatch(/longer than a few minutes, call start_task/);
+  it("asks to start a Task only for work longer than a few minutes", async () => {
+    expect(client.getInstructions()).toMatch(/longer than a few minutes, start it with update_tasks/);
   });
 
   it("asks for a new summary when what was built differs from the plan", async () => {
-    expect(client.getInstructions()).toMatch(/give complete_task the new summary if the work differs/);
-    expect(client.getInstructions()).toMatch(/change several Tasks at once, make one update_tasks call/);
+    expect(client.getInstructions()).toMatch(/and the new summary if the work differs/);
+    expect(client.getInstructions()).toMatch(/change several Tasks at once, give update_tasks several operations/);
     const { tools } = await client.listTools();
-    expect(tools.find((t) => t.name === "complete_task")?.description).toMatch(/differs from the summary/);
+    expect(tools.find((t) => t.name === "update_tasks")?.description).toMatch(/new summary when what you built differs from it/);
   });
 });
 
@@ -814,8 +802,8 @@ describe("a call with the wrong shape", () => {
     const r = await call("get_item", { id: "login" });
     expect(r.isError).toBe(true);
     expect(r.text).toContain("get_item takes: ref (required), project.");
-    const h = await call("add_hand_test", { title: "Try it", steps: "Open the page" });
-    expect(h.text).toContain("add_hand_test takes: text (required), goal, task.");
+    const h = await call("save_hand_test", { title: "Try it", steps: "Open the page" });
+    expect(h.text).toContain("save_hand_test takes: goal, id, text, task.");
   });
 
   it("has an example for every tool", async () => {
@@ -839,9 +827,9 @@ describe("get_item", () => {
       claim: true,
       tasks: [{ title: "Form", summary: "The sign-in form" }, { title: "Route", summary: "POST /login" }, { title: "Logout" }, { title: "Old idea" }],
     });
-    await call("complete_task", { task: "t1" });
-    await call("start_task", { task: "t2" });
-    await call("drop_task", { task: "t4", reason: "Not needed" });
+    await call("update_tasks", { operations: [{ action: "complete", task: "t1" }] });
+    await call("update_tasks", { operations: [{ action: "start", task: "t2" }] });
+    await call("update_tasks", { operations: [{ action: "drop", task: "t4", reason: "Not needed" }] });
     const { text } = await call("get_item", { ref: "login" });
     expect(text).toContain(
       ["Tasks (1 of 3 done):", "- t2 Route (in progress): POST /login", "- t3 Logout (pending)", "Done: t1 Form", "Dropped: t4 Old idea"].join("\n"),
