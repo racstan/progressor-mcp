@@ -300,6 +300,10 @@ export async function stopServer(pid: number): Promise<void> {
   if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `${res.status}`);
 }
 
+/** One goal's page data, for views that read goals other than the one shown (the walkthrough). */
+export const loadGoalView = (projectId: string, goalId: string): Promise<GoalView | undefined> =>
+  getJson<GoalView>(`/api/projects/${encodeURIComponent(projectId)}/goals/${encodeURIComponent(goalId)}`);
+
 /** What the Developer can mark a thing to try by hand as; "clear" undoes the mark. */
 export type HandMark = "works" | "doesn't work" | "won't test" | "clear";
 

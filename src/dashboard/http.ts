@@ -32,6 +32,7 @@ import { runRoutinesIn } from "./routes/routines.js";
 import { type FetchFn, lookAtProject, sendNew } from "../ntfy.js";
 import { type Look, eventsBetween } from "../events.js";
 import { readSettings, settingsFileFor } from "../settings.js";
+import { summarizeUntried } from "../untried.js";
 import { globalFileFor, readGlobal } from "../globalRules.js";
 import type { GoalLookup } from "../dependencies.js";
 import { watchProgress } from "./watch.js";
@@ -153,10 +154,13 @@ export function dashboardApi(
     let fromElsewhere: Origin | undefined = goal.updatedFrom;
     let openQuestions = 0;
     let untriedTests = 0;
+    let oldestUntried: string | undefined;
     try {
       const plan = project.plan(goalId);
       for (const t of plan.tasks) counts[t.status]++;
-      untriedTests = plan.handTests.filter((h) => h.result === "pending").length;
+      const untried = plan.handTests.filter((h) => h.result === "pending");
+      untriedTests = untried.length;
+      oldestUntried = summarizeUntried(untried.map((h) => ({ goal: goalId, at: h.added?.at }))).oldestAt;
       openQuestions = project.talk(goalId).questions.filter((q) => q.state === "open").length;
       fromElsewhere = latestOrigin([goal.updatedFrom, ...[...plan.tasks, ...plan.decisions, ...plan.notes].map((i) => i.updatedFrom)]);
       done = counts.done + counts.released;
@@ -179,7 +183,7 @@ export function dashboardApi(
     // The goals it waits on (dependencies.ts): blocked while one of them is not finished.
     const waiting = goal.waitsOn?.length ? project.waitingOn(goalId, lookup).map((w) => ({ raw: w.ref.raw, state: w.state, ...(w.title ? { title: w.title } : {}), ...(w.ref.project ? {} : { here: w.ref.goal }) })) : [];
     const blocked = waiting.some((w) => w.state === "open");
-    return { ...goal, planFile, done, total, counts, waitingOnYou, openQuestions, untriedTests, waitingSteps, updatedAt: changed(planFile) ?? changed(roadmapFile), fromElsewhere, waiting, blocked };
+    return { ...goal, planFile, done, total, counts, waitingOnYou, openQuestions, untriedTests, ...(oldestUntried ? { oldestUntried } : {}), waitingSteps, updatedAt: changed(planFile) ?? changed(roadmapFile), fromElsewhere, waiting, blocked };
   };
   return {
     roadmap: () => {
@@ -528,11 +532,13 @@ class Hub {
         waitingOnYou: boolean;
         openQuestions: number;
         untriedTests: number;
+        /** When the oldest untried thing to try was added. */
+        oldestUntried?: string;
         waitingSteps: number;
         updatedAt: number | undefined;
       }[] = [];
       try {
-        goals = (api?.roadmap().goals ?? []).map(({ id, title, status, done, total, waitingOnYou, openQuestions, untriedTests, waitingSteps, updatedAt }) => ({
+        goals = (api?.roadmap().goals ?? []).map(({ id, title, status, done, total, waitingOnYou, openQuestions, untriedTests, oldestUntried, waitingSteps, updatedAt }) => ({
           id,
           title,
           status,
@@ -541,6 +547,7 @@ class Hub {
           waitingOnYou,
           openQuestions,
           untriedTests,
+          ...(oldestUntried ? { oldestUntried } : {}),
           waitingSteps,
           updatedAt,
         }));

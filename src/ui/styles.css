@@ -1295,3 +1295,34 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .steps-day { padding: 0; margin: var(--s4) 0 var(--s1); color: var(--muted); }
 .steps-view { display: flex; gap: var(--s3); flex-wrap: wrap; margin-bottom: var(--s2); }
 .steps-view .linkbtn[aria-pressed="true"] { color: var(--ink); font-weight: 600; text-decoration: underline; }
+
+/* ---------- Try them one by one (TryOneByOne.tsx): one untried thing at a time ---------- */
+.try-card { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); padding: var(--s2) var(--s3); border: var(--heavy); border-radius: var(--r-s); background: var(--panel); }
+.try-card .try-line { font-weight: 600; font-size: var(--t-s); }
+.try-one { margin-left: auto; }
+.side-group .try-one { margin: 0 0 var(--s2); }
+[data-theme="vibrant"] .try-card { border: 1px solid var(--you-line); }
+.walk-backdrop { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: var(--s4); background: rgba(0, 0, 0, .45); }
+.walk-card { width: min(640px, 100%); max-height: calc(100vh - 2 * var(--s4)); overflow: auto; background: var(--panel); color: var(--ink); border: var(--heavy); border-radius: var(--r); box-shadow: var(--shadow); padding: var(--s5); display: flex; flex-direction: column; gap: var(--s3); animation: pop .16s var(--ease) both; }
+.walk-card:focus { outline: none; }
+.walk-card:focus-visible { box-shadow: var(--shadow), 0 0 0 3px var(--line-strong); }
+.walk-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); }
+.walk-head h2 { margin: 0; font-size: var(--t-l); margin-right: auto; }
+.walk-progress { display: inline-flex; align-items: center; gap: var(--s2); font-weight: 700; font-size: var(--t-s); }
+.walk-bar { display: inline-block; width: 72px; height: 8px; border: 2px solid var(--ink); border-radius: 4px; overflow: hidden; }
+.walk-bar > i { display: block; height: 100%; background: var(--ink); transition: width .25s var(--ease); }
+[data-theme="vibrant"] .walk-bar { border-color: var(--line); }
+[data-theme="vibrant"] .walk-bar > i { background: var(--done); }
+.walk-where { font-size: var(--t-s); font-weight: 600; color: var(--muted); overflow-wrap: anywhere; }
+.walk-item { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s4); border: 2px solid var(--line-strong); border-radius: var(--r); }
+.walk-item .about { font-size: var(--t-s); color: var(--muted); }
+.walk-item .walk-text { margin: 0; font-size: var(--t-m); overflow-wrap: anywhere; }
+.walk-item .buttons { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-top: var(--s2); }
+.walk-item .ask { display: flex; flex-direction: column; gap: var(--s2); margin-top: var(--s2); }
+.walk-item .ask label { font-size: var(--t-s); color: var(--muted); }
+.walk-item .ask input { display: block; width: 100%; margin-top: var(--s1); height: 32px; padding: 0 var(--s3); border-radius: var(--r-s); border: 2px solid var(--line-strong); background: var(--panel); color: var(--ink); }
+.walk-item .error { font-size: var(--t-s); color: var(--bad); }
+.walk-done { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); padding: var(--s4); border: var(--heavy); border-radius: var(--r); }
+.walk-done p { margin: 0; }
+@media (prefers-reduced-motion: reduce) { .walk-card { animation: none; } .walk-bar > i { transition: none; } }
+[data-motion="off"] .walk-card, [data-motion="off"] .walk-bar > i { animation: none; transition: none; }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { homeSections, needsWords, progressWords, sidebarSections } from "../src/ui/home.js";
+import { homeSections, needsWords, progressWords, sidebarSections, untriedAcross } from "../src/ui/home.js";
 
-const g = (id: string, status: string, extra: Partial<{ done: number; total: number; waitingOnYou: boolean; openQuestions: number; untriedTests: number; waitingSteps: number; updatedAt: number }> = {}) => ({
+const g = (id: string, status: string, extra: Partial<{ oldestUntried: string; done: number; total: number; waitingOnYou: boolean; openQuestions: number; untriedTests: number; waitingSteps: number; updatedAt: number }> = {}) => ({
   id,
   title: id.toUpperCase(),
   status,
@@ -12,6 +12,14 @@ const g = (id: string, status: string, extra: Partial<{ done: number; total: num
   untriedTests: 0,
   waitingSteps: 0,
   ...extra,
+});
+
+describe("untried things across goals", () => {
+  it("adds them up with the oldest, leaving out goals with none", () => {
+    const goals = [g("a", "active", { untriedTests: 2, oldestUntried: "2026-11-05T00:00:00Z" }), g("b", "active"), g("c", "active", { untriedTests: 1, oldestUntried: "2026-11-02T00:00:00Z" })];
+    expect(untriedAcross(goals)).toEqual({ count: 3, goals: 2, oldestAt: "2026-11-02T00:00:00Z" });
+    expect(untriedAcross([g("b", "active")])).toEqual({ count: 0, goals: 0 });
+  });
 });
 
 describe("why a goal needs you", () => {

@@ -2,7 +2,9 @@ import { useState } from "react";
 import { hardFirst } from "../roadmap.js";
 import { About, type NotesApi, RuleForm, RuleRow } from "./ContextPage.js";
 import { type OverviewView, type SearchView, type WorkspaceEntry, addGlobalRule, changeGlobalRule, removeGlobalRule, saveGlobalContext, useAllStats, useGlobal } from "./data.js";
-import { type PutOff, homeSections, needsWhy, progressWords } from "./home.js";
+import { type PutOff, homeSections, needsWhy, progressWords, untriedAcross } from "./home.js";
+import { TryOneByOne, Walkthrough } from "./TryOneByOne.js";
+import { dashboardLine } from "../untried.js";
 import { Ring } from "./Icon.js";
 import { sortProjects } from "./projectList.js";
 import { Bars, Tile, plural, time } from "./StatsPage.js";
@@ -28,9 +30,13 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
   onOpenStats: (projectId: string) => void;
   onShowAll: () => void;
 }) {
+  const [walking, setWalking] = useState(false);
   if (!overview) return <Loading size="page" label="Loading your projects" />;
   const inWorkspace = only ? overview.filter((p) => p.workspace === only) : overview;
   const s = homeSections(sortProjects(inWorkspace), putOff);
+  // The goals in Needs you with something untried (not the ones put off with "Not now").
+  const tryGoals = s.needsYou.filter((x) => x.canPutOff);
+  const untried = untriedAcross(tryGoals.map((x) => ({ id: `${x.project.id}/${x.goal.id}`, untriedTests: x.goal.untriedTests, oldestUntried: x.goal.oldestUntried })));
   const found = query.trim() && hits ? new Set(hits.map((h) => h.project.id)) : undefined;
   const projects = found ? s.projects.filter((p) => found.has(p.id)) : s.projects;
   const workspace = only ? workspaces.find((w) => w.id === only) : undefined;
@@ -45,6 +51,12 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
       {s.needsYou.length > 0 && (
         <section className="section needs">
           <h2>Needs you</h2>
+          {untried.count > 0 && (
+            <div className="try-card">
+              <span className="try-line">{dashboardLine(untried, new Date())}</span>
+              <TryOneByOne count={untried.count} onClick={() => setWalking(true)} />
+            </div>
+          )}
           <ul className="list">
             {s.needsYou.map(({ project, goal, why, canPutOff }) => (
               <li key={`${project.id}/${goal.id}`} className={canPutOff ? "with-action" : undefined}>
@@ -64,6 +76,11 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
             ))}
           </ul>
         </section>
+      )}
+
+      {walking && (
+        <Walkthrough showProject goals={tryGoals.map((x) => ({ projectId: x.project.id, projectName: x.project.name, goalId: x.goal.id, goalTitle: x.goal.title }))}
+          onClose={() => setWalking(false)} onChanged={() => undefined} />
       )}
 
       {s.inProgress.length > 0 && (
