@@ -199,11 +199,13 @@ function planReminder(o: ProjectOverview, now: Date, told: (updatedAt: number) =
 export const MAX_CONTEXT = 9_500;
 const CUT = "\n[Progressor: cut short; call get_status for the rest]";
 
-const EVENTS: Record<string, "session-start" | "prompt"> = {
+const EVENTS: Record<string, "session-start" | "prompt" | "stop"> = {
   "session-start": "session-start",
   SessionStart: "session-start",
   prompt: "prompt",
   UserPromptSubmit: "prompt",
+  stop: "stop",
+  Stop: "stop",
 };
 
 export interface HookRun {
@@ -226,12 +228,16 @@ export interface HookRun {
  */
 export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, env, process.platform), now = () => new Date() }: HookRun): string {
   try {
-    const data = JSON.parse(input) as { cwd?: unknown; hook_event_name?: unknown };
+    const data = JSON.parse(input) as { cwd?: unknown; hook_event_name?: unknown; transcript_path?: unknown };
     const kind = EVENTS[event ?? String(data.hook_event_name)];
     const root = env.PROGRESSOR_ROOT ?? env.CLAUDE_PROJECT_DIR ?? (typeof data.cwd === "string" ? data.cwd : undefined);
     if (!kind || !root || !existsSync(join(root, PROGRESSOR_DIR))) return "";
     // The hook only reads: tidying claims of chats that look closed is the server's job, under its lock.
     const project = new Project({ root, session: { id: "hook", pid: process.pid }, isAlive, now, clearStaleClaims: false });
+    // Token use since the last message, added to the goal and step the chat was on (cost.ts).
+    if (typeof data.transcript_path === "string" && data.transcript_path) project.collectCost(data.transcript_path);
+    // The end of a reply only counts: Claude Code shows nothing a Stop hook prints.
+    if (kind === "stop") return "";
     let overview: ReturnType<Project["overview"]>;
     try {
       overview = project.overview();

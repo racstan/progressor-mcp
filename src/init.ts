@@ -120,7 +120,9 @@ const LOCAL_SETTINGS_FILE = join(".claude", "settings.local.json");
 // Claude Code reads CLAUDE.md; most other apps (Cursor, Copilot, Windsurf, Codex) read AGENTS.md.
 const NOTE_FILES = ["CLAUDE.md", "AGENTS.md"];
 const SERVER_NAME = "progressor";
-const HOOKS = { SessionStart: "session-start", UserPromptSubmit: "prompt" } as const;
+const HOOKS = { SessionStart: "session-start", UserPromptSubmit: "prompt", Stop: "stop" } as const;
+/** The hooks a setup needs; the Stop hook only counts a chat's last reply sooner (cost.ts), so an older setup without it is fine. */
+const NEEDED_HOOKS = { SessionStart: HOOKS.SessionStart, UserPromptSubmit: HOOKS.UserPromptSubmit };
 const NOTE_START = "<!-- progressor:start -->";
 const NOTE_END = "<!-- progressor:end -->";
 const NOTE = `${NOTE_START}
@@ -228,7 +230,7 @@ function hasHooks(dir: string, file: string): boolean | "unreadable" {
   const settings = readSettings(dir, file);
   if (settings === "unreadable") return settings;
   const hooks = settings?.hooks;
-  return Object.entries(HOOKS).every(([event, name]) =>
+  return Object.entries(NEEDED_HOOKS).every(([event, name]) =>
     (Array.isArray(hooks?.[event]) ? hooks[event] : []).some((e: any) => Array.isArray(e?.hooks) && e.hooks.some((h: any) => isProgressorHook(h, name))),
   );
 }

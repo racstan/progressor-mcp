@@ -108,6 +108,7 @@ describe("init", () => {
       hooks: {
         SessionStart: [{ hooks: [{ type: "command", command: "progressor-mcp hook session-start" }] }],
         UserPromptSubmit: [{ hooks: [{ type: "command", command: "progressor-mcp hook prompt" }] }],
+        Stop: [{ hooks: [{ type: "command", command: "progressor-mcp hook stop" }] }],
       },
     });
     expect(read("CLAUDE.md")).toMatch(/^<!-- progressor:start -->\n## Progressor\n[\s\S]*get_status[\s\S]*<!-- progressor:end -->\n$/);

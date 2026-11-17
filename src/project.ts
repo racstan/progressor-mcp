@@ -43,6 +43,7 @@ import { unsafeRoot } from "./root.js";
 import { type Routine, dueRoutines, formatEvery, nextAfter, nextDue, parseEvery, splitStep } from "./routines.js";
 import { formatDuration, parseDuration } from "./estimate.js";
 import { type Readiness, readiness } from "./readiness.js";
+import { COST_DIR, COST_FILE, type CostBook, collectTranscript, readBook, writeBook } from "./cost.js";
 import { type Claim, type Goal, GOAL_BUNDLES, GOAL_FOR_LAUNCH, GOAL_FROM_ROUTINE, GOAL_RELEASE, GOAL_WAITS_ON, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
 import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule, helperCount } from "./schedule.js";
@@ -760,6 +761,34 @@ export class Project {
     talk.assignMissingIds();
     this.ignoreLocal(TALK_DIR, "What you and your AI say on the dashboard stays on this computer");
     this.writeText(this.path(TALK_DIR, `${talk.goalId}.md`), talk.toString());
+  }
+
+  // --- cost ---------------------------------------------------------------------
+
+  /** How many tokens each goal and step used (cost.ts); empty until a hook has read a transcript. */
+  costBook(): CostBook {
+    return readBook(this.path(COST_DIR, COST_FILE));
+  }
+
+  /**
+   * Adds what is new in a chat's transcript to the cost book (the hooks call it on each message). Under
+   * the plan's lock but not a plan change: no history entry. Never throws: counting must not get in the way.
+   */
+  collectCost(transcript: string): void {
+    try {
+      withLock(
+        this.root,
+        () => {
+          const book = this.costBook();
+          collectTranscript(book, transcript);
+          writeBook(this.path(COST_DIR, COST_FILE), book);
+          this.ignoreLocal(COST_DIR, "How many tokens each goal used, counted on this computer");
+        },
+        { timeoutMs: 1000 },
+      );
+    } catch {
+      // a busy plan skips this count; the next message reads the same lines
+    }
   }
 
   /** Makes sure `.progressor/.gitignore` keeps a folder out of git (each added once, to whatever is there). */
