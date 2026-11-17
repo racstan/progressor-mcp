@@ -42,7 +42,7 @@ Progressor offers these as MCP prompts. Claude Code lists them in the `/` menu a
 
 ## Tools
 
-The AI calls these; the server's instructions tell it when.
+The AI calls these; the server's instructions tell it when. For a short list by purpose, one line each, see the [Tool index](tools.md).
 
 | Tool | What it does |
 | --- | --- |

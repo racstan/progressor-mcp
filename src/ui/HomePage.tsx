@@ -1,3 +1,4 @@
+import { type ProjectLayout, arrange } from "../projectLayout.js";
 import { useState } from "react";
 import { hardFirst } from "../roadmap.js";
 import { About, type NotesApi, RuleForm, RuleRow } from "./ContextPage.js";
@@ -16,7 +17,7 @@ import { WaitingOnOthers } from "./WaitingOnOthers.js";
  * The page the dashboard opens on: what needs the person across every project, what is being worked
  * on, and the projects themselves. "Not now" puts off things to try on one goal, in this browser only.
  */
-export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff, onOpen, onOpenStats, onOpenRisks, onShowAll }: {
+export function Home({ overview, layout, workspaces, only, query, hits, putOff, onPutOff, onOpen, onOpenStats, onOpenRisks, onShowAll }: {
   overview: OverviewView | undefined;
   workspaces: WorkspaceEntry[];
   /** The Workspace the page was opened on, if any. */
@@ -25,6 +26,8 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
   query: string;
   hits: SearchView | undefined;
   putOff: PutOff;
+  /** The groups and order the person chose for their projects (projectLayout.ts). */
+  layout: ProjectLayout;
   onPutOff: (key: string, untried: number) => void;
   onOpen: (projectId: string, goalId?: string) => void;
   /** Opens a project's Dashboard page. */
@@ -134,11 +137,16 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
         ) : projects.length === 0 ? (
           <p className="quiet">No project matches “{query.trim()}”.</p>
         ) : (
-          <div className="project-grid">
-            {projects.map((p) => (
-              <ProjectCard key={p.id} project={p} you={s.needsYou.filter((x) => x.project.id === p.id).length} onOpen={onOpen} />
-            ))}
-          </div>
+          arrange(projects, layout).filter((sec) => sec.projects.length > 0).map((sec) => (
+            <div key={sec.group?.id ?? "-"} className="project-group">
+              {sec.group && <h3 className="project-group-name">{sec.group.name} <span className="n">{sec.projects.length}</span></h3>}
+              <div className="project-grid">
+                {sec.projects.map((p) => (
+                  <ProjectCard key={p.id} project={p} you={s.needsYou.filter((x) => x.project.id === p.id).length} onOpen={onOpen} />
+                ))}
+              </div>
+            </div>
+          ))
         )}
       </section>}
 

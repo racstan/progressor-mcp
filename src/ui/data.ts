@@ -6,6 +6,7 @@ import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
 import type { SettingsView } from "../dashboard/routes/settings.js";
 import type { RiskView } from "../dashboard/routes/risks.js";
 import type { Readiness } from "../readiness.js";
+import { EMPTY_LAYOUT, type ProjectLayout, cleanLayout } from "../projectLayout.js";
 import type { CostView } from "../dashboard/routes/cost.js";
 import type { DiffLine, FileChange, HistoryItem } from "../history.js";
 import { newestOnly, sharedEvents } from "./liveEvents.js";
@@ -888,4 +889,42 @@ export function useCalendar(projectId: string, version: unknown): { now: string;
     };
   }, [path, version]);
   return view?.path === path ? view.data : undefined;
+}
+
+// --- how the projects are arranged: groups and a dragged order (projectLayout.ts) ---
+
+/** The saved layout, followed live ("layout" event); empty while loading or on an older hub. */
+export function useProjectLayout(): [ProjectLayout, (next: ProjectLayout) => Promise<void>] {
+  const [layout, setLayout] = useState<ProjectLayout>(EMPTY_LAYOUT);
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      if (sampleOn()) return void setLayout(EMPTY_LAYOUT);
+      getJson<ProjectLayout>("/api/project-layout")
+        .then((v) => alive && setLayout(v ? cleanLayout(v) : EMPTY_LAYOUT))
+        .catch(() => undefined);
+    };
+    load();
+    const stop = live.on({ layout: () => load() });
+    const unswitch = onSampleSwitch(load);
+    return () => {
+      alive = false;
+      stop();
+      unswitch();
+    };
+  }, []);
+  const save = async (next: ProjectLayout) => {
+    const before = layout;
+    setLayout(next); // shown at once; put back if the server says no
+    const res = await fetch("/api/project-layout", {
+      method: "POST",
+      headers: { "x-progressor": "layout", "content-type": "application/json" },
+      body: JSON.stringify({ layout: next }),
+    });
+    if (!res.ok) {
+      setLayout(before);
+      throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
+    }
+  };
+  return [layout, save];
 }

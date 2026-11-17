@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DEFAULT_EDITOR, editorUrl } from "../dashboard/editor.js";
 import type { GoalSchedule } from "../schedule.js";
-import { type ProjectEntry, type RoadmapView, removeProjectFromDashboard, showInFolder, useDashboard, useOverview, useSearch, useServers, usePageStaleness, useSettings, useStored, useStoredJson, renewPhoneTopic, resetComputerSettings, saveSettings } from "./data.js";
+import { type ProjectEntry, type RoadmapView, removeProjectFromDashboard, showInFolder, useDashboard, useOverview, useSearch, useProjectLayout, useServers, usePageStaleness, useSettings, useStored, useStoredJson, renewPhoneTopic, resetComputerSettings, saveSettings } from "./data.js";
 import { HotfixPage } from "./HotfixPage.js";
 import { LiveSessions } from "./LiveSessions.js";
 import { RisksPage } from "./RisksPage.js";
@@ -24,6 +24,7 @@ import { type PutOff, RISK_WHY, homeSections, needsWhy, projectInitials, sidebar
 import { Icon, Ring } from "./Icon.js";
 import { GoalMenu, MenuPanel } from "./Menus.js";
 import { sortProjects } from "./projectList.js";
+import { SideProjects } from "./SideProjects.js";
 import { TryOneByOne, Walkthrough, type WalkGoal } from "./TryOneByOne.js";
 import { type SearchHit, SearchBox } from "./Search.js";
 import { Conversation } from "./Talk.js";
@@ -181,6 +182,7 @@ export function App() {
   // While the tour runs, the page shows the sample project instead of the person's (sample.ts).
   const sample = useSample();
   const overview = useOverview(true);
+  const [layout, saveLayout] = useProjectLayout();
   // The sidebar's counts and working marks, from the same overview Home uses.
   const sideFacts = overview ? sidebarFacts(overview, homeSections(overview, putOff)) : undefined;
   const [popUps, setPopUps] = useStored<"on">("progressor.pop-ups", undefined);
@@ -533,7 +535,7 @@ export function App() {
       Tell your AI what you want to build. Your project shows up here as soon as it plans the first goal, and this page follows along by itself.
     </div>
   ) : onHome ? (
-    <Home overview={overview} workspaces={workspaces ?? []} only={pickedWorkspace} query={query} hits={hits}
+    <Home overview={overview} layout={layout} workspaces={workspaces ?? []} only={pickedWorkspace} query={query} hits={hits}
       putOff={putOff} onPutOff={onPutOff} onOpen={pickProject} onOpenStats={(id) => { pickProject(id); openPage("dashboard"); }} onOpenRisks={(id) => { pickProject(id); openPage("risks"); }} onShowAll={goHome} />
   ) : roadmap === null || (roadmap === undefined && !project) ? (
     <div className="placeholder">
@@ -707,17 +709,13 @@ export function App() {
               <button className="side-link" aria-current={page === "settings"} onClick={() => openPage("settings")} title="How the page looks, notifications, and how your AI plans. All optional">
                 <Icon name="settings" /> Settings
               </button>
-              <div className="side-group">
-                <h3>Projects</h3>
-                {sortProjects(projects ?? []).map((p) => (
-                  <SideProject key={p.id} project={p} facts={sideFacts?.get(p.id)} canRemove={!sample} onPick={() => pickProject(p.id)}
-                    onRemoved={() => {
-                      if (p.id === pickedProject) goHome();
-                      refresh();
-                      toast(`${p.name} is off the dashboard. Its plan is unchanged.`);
-                    }} />
-                ))}
-              </div>
+              <SideProjects projects={sortProjects(projects ?? [])} facts={sideFacts} layout={layout} saveLayout={saveLayout} canRemove={!sample}
+                onPick={pickProject} toast={toast}
+                onRemoved={(p) => {
+                  if (p.id === pickedProject) goHome();
+                  refresh();
+                  toast(`${p.name} is off the dashboard. Its plan is unchanged.`);
+                }} />
             </>
           ) : (
             <>
@@ -770,8 +768,15 @@ export function App() {
                         onClick={() => setSideWalk(tryGoals.map((g) => ({ projectId, projectName: project?.name ?? "", goalId: g.id, goalTitle: g.title })))} />
                     );
                   })()}
-                  {s.goals.map((g) => goalRow(g, s.label === "Needs you" ? needsWhy(g, putOffHere[g.id]).why : undefined))}
-                  {s.label === "Needs you" && seriousRisks.map(riskRow)}
+                  {s.label === "Needs you" ? (
+                    // A fixed height that scrolls inside, so the rest of the sidebar stays close.
+                    <div className="side-scroll" tabIndex={0} aria-label="Goals that need you; scroll for more">
+                      {s.goals.map((g) => goalRow(g, needsWhy(g, putOffHere[g.id]).why))}
+                      {seriousRisks.map(riskRow)}
+                    </div>
+                  ) : (
+                    s.goals.map((g) => goalRow(g))
+                  )}
                 </div>
               ))}
               {seriousRisks.length > 0 && !sidebarSections(grouped.open.filter((g) => !grouped.fresh.has(g.id)), putOffHere).some((s) => s.label === "Needs you") && (
@@ -908,54 +913,3 @@ function ProjectList({ current, projects, onPick, onHome, onClose }: {
   );
 }
 
-/**
- * A project in Home's sidebar. Hovering it or moving to it with the keyboard shows a remove button;
- * removing takes it off the dashboard only (registry.ts): its folder and plan stay as they are.
- */
-function SideProject({ project: p, facts, canRemove, onPick, onRemoved }: { project: ProjectEntry; facts: { needs: number; working: boolean } | undefined; canRemove: boolean; onPick: () => void; onRemoved: () => void }) {
-  const [asking, setAsking] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
-  const remove = async () => {
-    setBusy(true);
-    setError(undefined);
-    try {
-      await removeProjectFromDashboard(p.id);
-      setAsking(false);
-      onRemoved();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div className={`side-project ${asking ? "asking" : ""}`}>
-      <div className="side-project-row">
-        <button className={`side-link side-project-link${facts?.working ? " working" : ""}`} onClick={onPick}
-          title={[p.root, facts?.working && "Your AI is working on it now", facts?.needs && `${facts.needs} ${facts.needs === 1 ? "thing needs" : "things need"} you`].filter(Boolean).join(" · ")}>
-          <span className="side-tile" aria-hidden="true">{projectInitials(p.name)}</span>
-          <span className="side-project-name">{p.name}</span>
-          {facts?.working && <span className="side-working" aria-label="Your AI is working on it now" />}
-          {facts && facts.needs > 0 && <span className="n" aria-label={`${facts.needs} need you`}>{facts.needs}</span>}
-        </button>
-        {canRemove && !asking && (
-          <button className="iconbtn side-remove" aria-label={`Remove ${p.name} from the dashboard`} title="Remove from the dashboard (its plan stays)"
-            onClick={() => setAsking(true)}>
-            <Icon name="close" size={14} />
-          </button>
-        )}
-      </div>
-      {asking && (
-        <div className="side-confirm" role="group" aria-label={`Remove ${p.name} from the dashboard?`}>
-          <p>Remove <b>{p.name}</b> from the dashboard? Its folder and plan are not touched. It comes back if your AI uses Progressor there again.</p>
-          <div className="form-actions">
-            <button className={busyClass("btn small", busy)} disabled={busy} autoFocus onClick={() => void remove()}>Remove</button>
-            <button className="btn ghost small" disabled={busy} onClick={() => setAsking(false)}>Keep it</button>
-          </div>
-          {error && <div className="error" role="alert">{error}</div>}
-        </div>
-      )}
-    </div>
-  );
-}

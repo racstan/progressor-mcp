@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { hardFirst } from "../roadmap.js";
-import { contextBlocks } from "./context.js";
-import { addRule, changeRule, removeRule, saveContext } from "./data.js";
+import { contextBlocks, contextWithCopied, rulesToCopy } from "./context.js";
+import { addRule, changeRule, removeRule, saveContext, useGlobal } from "./data.js";
 import { Highlighted, RichText } from "./RichText.js";
 import { RoutinesCard } from "./RoutinesCard.js";
 import { RemoveLink, useSend } from "./Talk.js";
@@ -58,6 +58,7 @@ export function ContextPage({ projectId, rules, context, onChanged, version, hea
           <button className="btn ghost small add-rule" onClick={() => setAdding(true)}>+ Add a rule</button>
         )}
       </section>
+      <CopyFromEverything api={api} rules={rules} context={context} onChanged={onChanged} />
       <About api={api} context={context} onChanged={onChanged} title="About this project" told={TOLD}
         empty="Nothing here yet. This is the project's background: what it is, key facts and choices that hold for the whole project. Your AI fills it in, or press Edit to write it yourself."
         placeholder="What the project is, key facts and choices that hold for all of it. Start a line with - for a list, and put code in `backticks`." />
@@ -146,6 +147,82 @@ export function RuleForm({ submit, text: start = "", hard: startHard = false, sa
 }
 
 /** The background text: shown with its lists and code, and edited in place. */
+/**
+ * Copies chosen rules and parts of the context for everything (Home) into this project's own notes.
+ * They already apply here; a copy keeps them with this project's plan and can be changed for it alone.
+ */
+function CopyFromEverything({ api, rules, context, onChanged }: { api: NotesApi; rules: Rule[]; context: string; onChanged: () => void }) {
+  const [global] = useGlobal();
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const [done, setDone] = useState<string>();
+  const { busy, error, run } = useSend(onChanged);
+  if (!global) return null;
+  const toCopy = rulesToCopy(global.rules, rules);
+  const parts = [
+    { id: "computer", title: "About this computer", text: global.computer },
+    { id: "me", title: "About me and how I work", text: global.me },
+  ].filter((p) => p.text.trim() && !context.includes(p.text.trim()));
+  if (toCopy.length === 0 && parts.length === 0 && !done) return null;
+  const flip = (id: string) => setPicked((was) => {
+    const next = new Set(was);
+    if (!next.delete(id)) next.add(id);
+    return next;
+  });
+  const copy = () =>
+    void run(async () => {
+      const rulesPicked = toCopy.filter((r) => picked.has(`rule:${r.id}`));
+      const partsPicked = parts.filter((p) => picked.has(`part:${p.id}`));
+      const merged = contextWithCopied(context, partsPicked, MAX_CONTEXT);
+      if (!merged.fits) throw new Error(`This project's background would be over ${MAX_CONTEXT} characters. Shorten it first, or copy less.`);
+      for (const r of rulesPicked) await api.add(r.text, r.hard);
+      if (merged.added > 0) await api.saveContext(merged.text);
+      const said = [rulesPicked.length > 0 && `${rulesPicked.length} ${rulesPicked.length === 1 ? "rule" : "rules"}`, merged.added > 0 && `${merged.added} ${merged.added === 1 ? "part" : "parts"} of the background`].filter(Boolean).join(" and ");
+      setDone(`Copied ${said}. ${TOLD}`);
+    }).then((ok) => {
+      if (ok) {
+        setPicked(new Set());
+        setOpen(false);
+      }
+    });
+  return (
+    <section className="section copy-everything">
+      {!open ? (
+        <>
+          {(toCopy.length > 0 || parts.length > 0) && (
+            <button className="btn ghost small" onClick={() => { setOpen(true); setDone(undefined); }}>Copy from Rules and context for everything…</button>
+          )}
+          {done && <p className="hint" role="status">{done}</p>}
+        </>
+      ) : (
+        <div className="copy-panel">
+          <h2>Copy from Rules and context for everything</h2>
+          <p className="hint">These already apply in every project. Copy one here to keep it with this project's plan, or to change it for this project only.</p>
+          {toCopy.map((r) => (
+            <label key={r.id} className="option">
+              <input type="checkbox" checked={picked.has(`rule:${r.id}`)} onChange={() => flip(`rule:${r.id}`)} />
+              <span><b>{r.hard ? "Must: " : ""}{r.text}</b><small>A rule</small></span>
+            </label>
+          ))}
+          {parts.map((p) => (
+            <label key={p.id} className="option">
+              <input type="checkbox" checked={picked.has(`part:${p.id}`)} onChange={() => flip(`part:${p.id}`)} />
+              <span><b>{p.title}</b><small>{p.text.length > 140 ? `${p.text.slice(0, 140)}…` : p.text}. Added to About this project.</small></span>
+            </label>
+          ))}
+          <div className="form-actions">
+            <button className={busyClass("btn small", busy)} disabled={busy || picked.size === 0} onClick={copy}>
+              {picked.size === 0 ? "Pick what to copy" : `Copy ${picked.size} into this project`}
+            </button>
+            <button className="btn ghost small" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+          {error && <div className="error" role="alert">{error}</div>}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function About({ api, context, onChanged, title, empty, placeholder, told }: {
   api: NotesApi;
   context: string;

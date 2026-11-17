@@ -298,6 +298,7 @@ Most problems can be fixed by asking your AI. [Troubleshooting](docs/troubleshoo
 - [The dashboard](docs/dashboard.md): everything on the page
 - [Questions](docs/faq.md) and [Troubleshooting](docs/troubleshooting.md)
 - [Updating and removing](docs/updating-and-removing.md)
+- [Tool index](docs/tools.md): every tool your AI has, in one line each
 - [Reference](docs/reference.md): commands, the AI's tools, settings and the file format, for the technically curious
 - [Contributing](CONTRIBUTING.md): working on Progressor itself
 

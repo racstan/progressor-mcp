@@ -26,3 +26,29 @@ export function contextBlocks(text: string): ContextBlock[] {
   }
   return blocks;
 }
+
+// --- copying the rules and context for everything into one project (Project notes) ---
+
+const sameWords = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+/** The rules for everything this project does not have in its own rules yet. */
+export function rulesToCopy<R extends { text: string }>(global: readonly R[], project: readonly { text: string }[]): R[] {
+  const have = new Set(project.map((r) => sameWords(r.text)));
+  return global.filter((r) => !have.has(sameWords(r.text)));
+}
+
+/**
+ * The project's context with parts of the context for everything added at the end, each under its
+ * title; a part already in it, or empty, is skipped. `fits` is false when the result is over `max`.
+ */
+export function contextWithCopied(context: string, parts: readonly { title: string; text: string }[], max: number): { text: string; added: number; fits: boolean } {
+  let text = context.trim();
+  let added = 0;
+  for (const p of parts) {
+    const body = p.text.trim();
+    if (!body || text.includes(body)) continue;
+    text = `${text ? `${text}\n\n` : ""}${p.title}:\n${body}`;
+    added += 1;
+  }
+  return { text, added, fits: text.length <= max };
+}
