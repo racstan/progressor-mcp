@@ -103,6 +103,40 @@ export function lastSeen(root: string, file = seenFile()): number {
   return Number.isNaN(t) ? 0 : t;
 }
 
+/** Where the prompt hook remembers which plan times it already said "may be out of date" about. */
+export const staleFile = (registryFile = defaultRegistryFile()) => join(dirname(registryFile), "stale-told.json");
+
+/** The plan times already called out of date for this project. */
+export function toldStale(root: string, file = staleFile()): number[] {
+  try {
+    const data = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+    const v = data[pathKey(real(root) ?? root)];
+    return Array.isArray(v) ? v.filter((n): n is number => typeof n === "number") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Remembers that these plan times were called out of date; only the latest ones are kept. */
+export function markToldStale(root: string, times: number[], file = staleFile()): void {
+  try {
+    let data: Record<string, unknown> = {};
+    try {
+      const read = JSON.parse(readFileSync(file, "utf8")) as unknown;
+      if (read && typeof read === "object" && !Array.isArray(read)) data = read as Record<string, unknown>;
+    } catch {
+      // nothing remembered yet
+    }
+    data[pathKey(real(root) ?? root)] = times.slice(0, 20);
+    mkdirSync(dirname(file), { recursive: true });
+    const tmp = `${file}.${process.pid}.tmp`;
+    writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`);
+    renameSync(tmp, file);
+  } catch {
+    // remembering is only to keep the reminder quiet
+  }
+}
+
 /** Remembers that the project's Session has seen the changes made from elsewhere up to `at`. */
 export function markSeen(root: string, at: Date, file = seenFile()): void {
   try {

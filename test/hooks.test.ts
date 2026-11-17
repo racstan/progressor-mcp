@@ -119,6 +119,12 @@ describe("sessionStatus", () => {
     expect(text).toContain("Planned: Rate limiting");
     expect(text).toContain("claim_goal");
   });
+
+  it("says a paused Goal with a step under way was most likely left by this chat before a restart", () => {
+    oauthInProgress().releaseGoal();
+    const text = sessionStatus(reader().overview()) ?? "";
+    expect(text).toContain("A Goal paused with a step under way was most likely left by this chat before a restart or by one that ended: claim it (claim_goal) and carry on.");
+  });
 });
 
 describe("one Session holding several Goals", () => {
@@ -195,6 +201,17 @@ describe("promptReminder", () => {
     expect(remind(125)!.split("\n")).toHaveLength(1);
   });
 
+  it("says a plan may be out of date only once for each change, then just how old it is", () => {
+    oauthInProgress();
+    touch(125);
+    const overview = reader().overview();
+    const told = new Set<number>();
+    const first = promptReminder(overview, NOW, (at) => told.has(at));
+    expect(first).toMatch(/updated 2 h ago, may be out of date; call get_status$/);
+    told.add(overview.active[0]!.updatedAt!);
+    expect(promptReminder(overview, NOW, (at) => told.has(at))).toMatch(/· updated 2 h ago$/);
+  });
+
   it("leaves the age out when the plan has no time, and counts a time in the future as just now", () => {
     oauthInProgress();
     const overview = reader().overview();
@@ -236,6 +253,17 @@ describe("runHook", () => {
   const mcp = (command: string) =>
     writeFileSync(join(root, ".mcp.json"), JSON.stringify({ mcpServers: { progressor: { command, args: ["/c", "progressor-mcp"] } } }));
   const noCmd = (command: string) => command !== "cmd";
+
+  it("adds the out-of-date warning to one prompt, not every one, until the plan changes again", () => {
+    oauthInProgress();
+    touch(125);
+    const env = { PROGRESSOR_REGISTRY: join(tempDir("progressor-reg-"), "registry.json") };
+    expect(run("prompt", prompt(), env)).toContain("may be out of date");
+    expect(run("prompt", prompt(), env)).not.toContain("may be out of date");
+    expect(run("prompt", prompt(), env)).toContain("updated 2 h ago");
+    touch(90); // the plan changed, and has gone quiet again since
+    expect(run("prompt", prompt(), env)).toContain("may be out of date");
+  });
 
   it("warns at session start when .mcp.json starts Progressor with a command this computer doesn't have", () => {
     oauthInProgress();

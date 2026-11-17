@@ -4,7 +4,7 @@
 import type { Task } from "./planFile.js";
 import { PROGRESSOR_DIR, Project, type ProjectOverview, type Status } from "./project.js";
 import { launcherWarning, onPath } from "./init.js";
-import { seenFile, takeElsewhereLine } from "./elsewhere.js";
+import { markToldStale, seenFile, staleFile, takeElsewhereLine, toldStale } from "./elsewhere.js";
 import { hardFirst, hotfixLine, ruleText } from "./roadmap.js";
 import { type GlobalNotes, contextLines, defaultGlobalFile, globalFileFor, globalRuleText, readGlobal } from "./globalRules.js";
 import { handTestLines } from "./handTestText.js";
@@ -111,6 +111,9 @@ function sessionText(o: ProjectOverview, global?: GlobalNotes): string {
     `${PREFIX} No Goal is being worked on in this project right now.`,
     ...(o.paused.length > 0 ? [`Paused: ${o.paused.map((s) => `${s.goal?.title} (${at(s)})`).join("; ")}`] : []),
     ...(o.planned.length > 0 ? [`Planned: ${o.planned.map((g) => g.title).join("; ")}`] : []),
+    ...(o.paused.some((s) => s.currentTask)
+      ? ["A Goal paused with a step under way was most likely left by this chat before a restart or by one that ended: claim it (claim_goal) and carry on."]
+      : []),
     ...instructions(o, global),
     "Before starting work, call get_status, then claim the Goal the Developer wants to work on (claim_goal) or add one (add_goal).",
   ].join("\n");
@@ -135,10 +138,10 @@ const STALE = "may be out of date";
  * The one-line reminder added to every prompt; silent when no Goal is being worked on. It says when
  * the plan last changed, since a reminder naming a step a helper finished long ago misleads.
  */
-export function promptReminder(o: ProjectOverview, now = new Date()): string | undefined {
+export function promptReminder(o: ProjectOverview, now = new Date(), told: (updatedAt: number) => boolean = () => false): string | undefined {
   // A waiting hotfix is said in every Session, even one with no Goal in progress, until one claims it.
   const hotfix = hotfixOf(o);
-  const plan = planReminder(o, now);
+  const plan = planReminder(o, now, told);
   const reminder = hotfix ? [`${PREFIX} ${hotfix}`, ...(plan ? [plan] : [])].join("\n") : plan;
   // What the Developer wrote on the dashboard for the Goals in progress; get_status marks it seen.
   // Messages to the whole project show even when no Goal is in progress: they can say what to start.
@@ -151,14 +154,27 @@ export function promptReminder(o: ProjectOverview, now = new Date()): string | u
   return reminder ? `${reminder}\n${PREFIX} ${news}` : `${PREFIX} ${news}`;
 }
 
-function planReminder(o: ProjectOverview, now: Date): string | undefined {
+/** Whether a plan's age is past the point where the reminder may no longer match the work, and not said yet. */
+const staleUntold = (s: Status, now: Date, told: (updatedAt: number) => boolean) => {
+  const minutes = age(s, now);
+  return minutes !== undefined && minutes > STALE_AFTER_MINUTES && !told(s.updatedAt!);
+};
+
+/** The plan times the reminder warns are out of date (so the hook can say each one once). */
+export function staleTimes(o: ProjectOverview, now = new Date()): number[] {
+  return o.active.flatMap((s) => {
+    const minutes = age(s, now);
+    return minutes !== undefined && minutes > STALE_AFTER_MINUTES ? [s.updatedAt!] : [];
+  });
+}
+
+function planReminder(o: ProjectOverview, now: Date, told: (updatedAt: number) => boolean): string | undefined {
   const [only] = o.active;
   if (!only) return undefined;
   if (o.active.length > 1) {
     const each = o.active.map((s) => {
       const here = s.currentTask ? task(s.currentTask) : "no Task started";
-      const minutes = age(s, now);
-      const stale = minutes !== undefined && minutes > STALE_AFTER_MINUTES ? `; updated ${ago(minutes)}, ${STALE}` : "";
+      const stale = staleUntold(s, now, told) ? `; updated ${ago(age(s, now)!)}, ${STALE}` : "";
       return `${s.goal?.title} (${here}${s.waitingOnYou.length > 0 ? "; waiting on the Developer" : ""}${stale})`;
     });
     return `${PREFIX} Goals in progress: ${each.join(", ")}. Call get_status if unsure which is yours.`;
@@ -174,7 +190,7 @@ function planReminder(o: ProjectOverview, now: Date): string | undefined {
     ...(only.nextTask ? [`Next: ${task(only.nextTask)}`] : []),
     ...(only.withHelper.length > 0 ? [`With a helper: ${ids(only.withHelper)} (mark each checked once you check its work)`] : []),
     ...(only.waitingOnYou.length > 0 ? [`Waiting on the Developer: ${ids(only.waitingOnYou)}`] : []),
-    ...(minutes === undefined ? [] : [`updated ${ago(minutes)}${minutes > STALE_AFTER_MINUTES ? `, ${STALE}; call get_status` : ""}`]),
+    ...(minutes === undefined ? [] : [`updated ${ago(minutes)}${staleUntold(only, now, told) ? `, ${STALE}; call get_status` : ""}`]),
   ].join(" · ");
 }
 
@@ -223,7 +239,14 @@ export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, 
     }
     const warning = kind === "session-start" ? launcherWarning(root, canRun) : undefined;
     const global = readGlobal(env.PROGRESSOR_REGISTRY ? globalFileFor(env.PROGRESSOR_REGISTRY) : defaultGlobalFile());
-    const status = kind === "session-start" ? sessionStatus(overview, global) : promptReminder(overview, now());
+    // "May be out of date" is said once for each plan change, not on every prompt (staleFile).
+    const staleAt = env.PROGRESSOR_REGISTRY ? staleFile(env.PROGRESSOR_REGISTRY) : staleFile();
+    const told = kind === "prompt" ? toldStale(root, staleAt) : [];
+    const status = kind === "session-start" ? sessionStatus(overview, global) : promptReminder(overview, now(), (at) => told.includes(at));
+    if (kind === "prompt") {
+      const stale = staleTimes(overview, now());
+      if (stale.some((at) => !told.includes(at))) markToldStale(root, stale, staleAt);
+    }
     // Changes an AI chat in another project made to this plan, told once (elsewhere.ts).
     const elsewhere = takeElsewhereLine(project, env.PROGRESSOR_REGISTRY ? seenFile(env.PROGRESSOR_REGISTRY) : seenFile());
     const text = [
