@@ -2,6 +2,61 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own plan, which is kept on the maintainer's computer; from 0.2.0 on, one release bundles several finished Goals.
 
+## 1.4.0 · A clearer Home, Ready to launch?, and fewer tools
+
+Plans made with earlier versions keep working as they are. Your AI's tools have new names in a few places (see **Fewer, clearer tools** below); your AI picks them up by itself when it restarts.
+
+### Home
+
+- **Working now comes first.** The top of Home lists what your AI is working on, with the step it is on right now.
+- **Needs you, by project.** Everything waiting on you is grouped under each project, with a count, in a box of a fixed height that scrolls inside, so the rest of Home stays close by. **Not now** shows when you point at a row. Choose how tall the box is in Settings › Look › Home page.
+- **A card for each project:** a progress bar of finished goals, what your AI is doing, how many things need you, its **Ready to launch?** answer and when it last changed. The card of a project your AI is working on is highlighted and gently moves.
+- **Groups, and your own order.** Press **+ Group** beside Projects in the sidebar, then drag projects into groups and into any order (or press Alt+Up / Alt+Down). Home's cards follow the same groups, and every browser on your computer shows the same.
+- **A clearer sidebar.** Each project has a letter tile instead of a file icon, a count of what needs you and a pulsing dot while your AI works on it. Inside a project, its **Needs you** list scrolls in its own box too.
+- **The live dot** in the top bar is green while the page is live and red when it has lost touch, in every theme.
+
+### Knowing where things stand
+
+- **Ready to launch?** A page for each project, and a question you can ask your AI, that answers *"can we ship?"* in one line, then lists what is left for your AI, for you and for other people, and the serious risks nothing is reducing. Your AI can mark the goals a launch needs.
+- **Risks.** Each project keeps a list of what could go wrong, how likely and how bad, and the goals that reduce each risk. Your AI starts and updates it by itself; a serious risk nothing is reducing shows in Needs you.
+- **Pull requests and checks.** On GitHub and Gitea, each goal and step shows its pull requests and whether their checks passed, failed or are still running. A goal whose latest checks failed shows in Needs you. Turn it off in Settings › AI & plan › Pull requests and checks.
+- **What goals cost.** Each goal and step shows the tokens your AI used on it, counted by itself as it works, and money too if you put your AI's prices in Settings.
+- **Since you last looked.** A project's Dashboard page starts with what your AI did while you were away.
+- **Waiting on someone else.** A step can wait on a person other than you, such as a lawyer or a teammate, with what they need to do. Those show apart from what waits on you, on Home and on the project's Dashboard page.
+- **Finished goals and steps by day.** Sort the Finished list and group it by the day goals were added or finished, and show a goal's steps by the day they were done.
+
+### Things to try
+
+- **A note with any mark.** Each thing to try has a note box beside **Add a screenshot**: write what you saw, then press **Works**, **Doesn't work** or **Won't test** (now a button like the other two). Your AI gets the note at its next step.
+- **Screenshots.** Paste a screenshot into the note, or pick a file; it is kept with the goal's pictures.
+- **Try them one by one.** Go through everything waiting to be tried, one at a time, across all your goals. Your AI is reminded once a day when things wait untried.
+
+### Notes and settings
+
+- **Copy rules for everything into a project.** A project's **Project notes** can copy in rules and the About texts from **Rules and context for everything**, to keep them with that project or change them there only.
+- **More in Settings.** New sections for **Home page** (how tall Needs you is, which parts Home shows, bringing back what you put off), **Motion**, **What goals cost** and **Pull requests and checks**.
+
+### Fewer, clearer tools
+
+Your AI has 31 tools instead of 43, each with one job. [The tool index](docs/tools.md) lists them in one line each. What changed, for anyone who named the old ones in their own instructions or scripts:
+
+- `start_task`, `complete_task` and `drop_task` are now `update_tasks` with the action `start`, `complete` or `drop`.
+- Each add and update pair is one `save_` tool: `save_decision`, `save_note`, `save_risk`, `save_hand_test` and `save_standing_instruction`. Without an ID it adds; with one it changes, and an empty text removes.
+- `claim_resource`, `release_resource` and `list_resources` are now `resource`, with the action `claim`, `release` or `list`.
+- `get_rules` is now `get_status` with `for_helper: true`.
+- `add_person` is gone: `set_task_state` takes the person's `role`.
+
+### Steadier
+
+- **A home for small fixes.** Quick fixes that belong to no goal go in a standing **Small fixes** goal instead of an unrelated one.
+- **Shorter replies.** Your AI is sent the rules and context once per chat instead of after every step, and estimate advice says what steps really took.
+- **Faster on big projects.** Home and a project's pages load in a fraction of a second, even on big projects with many goals.
+- **Safer saving.** Two chats writing the same plan at once on Windows never overlap, a failed save never leaves a half-made goal, and nothing typed into the plan can add fake steps or make it unreadable.
+- **Tools that say what really happened.** A tool refuses fields it doesn't take, says when a step was already done, and frees a closed chat's goal even when its process number was reused.
+- **A safer dashboard.** Only the dashboard's own page can change a plan, and no request reaches files outside the project.
+- **The walkthrough** (the first-run guide, called the tour before) covers Ready to launch?, Working now, pull requests and checks, tokens, Try them one by one and Since you last looked. Loading shows a short animation, and buttons say when they are busy.
+- **A new video** of all of it, and new pictures in the README.
+
 ## 1.3.1 · Rules for everything, and tidying up
 
 Plans made with earlier versions keep working as they are.
