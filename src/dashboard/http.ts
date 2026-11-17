@@ -26,7 +26,7 @@ import {
   projectEntry,
   registerProject,
 } from "./registry.js";
-import { isFromDashboardPage, json, readBody, readBytes } from "./respond.js";
+import { answerTooBig, dashboardToken, isCrossSite, isFromDashboardPage, json, readBody, readBytes } from "./respond.js";
 import { type HubContext, featureRoutes, runFeatureRoute } from "./routes.js";
 import { runRoutinesIn } from "./routes/routines.js";
 import { type FetchFn, lookAtProject, sendNew } from "../ntfy.js";
@@ -265,6 +265,8 @@ const MAX_TALK_BODY = 16_384;
 const MAX_WISH_BODY = 8 * 1024 * 1024;
 /** How much of a long wish is quoted to the AI in the message that tells it of the wish. */
 const WISH_QUOTE = 200;
+/** How many files may be on their way in at once; more are told to wait. */
+const MAX_UPLOADS_AT_ONCE = 3;
 
 /** What a change to the project notes is called in the plan's history. */
 function notesLabel(action: string): string {
@@ -305,7 +307,15 @@ function serveStatic(res: ServerResponse, uiDir: string | undefined, path: strin
   const base = resolve(uiDir);
   let file = resolve(base, `.${normalize(decodeURIComponent(path))}`);
   if (!file.startsWith(base + sep) || !existsSync(file) || !statSync(file).isFile()) file = join(base, "index.html");
-  res.writeHead(200, { "content-type": MIME[extname(file)] ?? "application/octet-stream", "cache-control": "no-cache" });
+  const type = MIME[extname(file)] ?? "application/octet-stream";
+  if (extname(file) === ".html") {
+    // The page gets this dashboard's token, which it sends back with every change (respond.ts).
+    const page = readFileSync(file, "utf8").replace("</head>", `<meta name="progressor-token" content="${dashboardToken}">\n</head>`);
+    res.writeHead(200, { "content-type": type, "cache-control": "no-store" });
+    res.end(page);
+    return;
+  }
+  res.writeHead(200, { "content-type": type, "cache-control": "no-cache" });
   res.end(readFileSync(file));
 }
 
@@ -843,13 +853,26 @@ class Hub {
    * The Developer attaching a file to a wish: the file's bytes are the body, its name is in the
    * x-file-name header. Kept under .progressor/attachments/; the AI is told only its path.
    */
+  private uploading = 0;
+
   private async attach(req: IncomingMessage, res: ServerResponse, projectId: string, wishId: string): Promise<void> {
     if (!isFromDashboardPage(req, "notes")) return json(res, 403, { error: "This can only be sent from the dashboard's own page." });
     if (!this.projects.has(projectId)) this.sync();
     const project = this.projects.get(projectId)?.project;
     if (!project) return json(res, 404, { error: "No such project on the dashboard." });
-    const data = await readBytes(req, MAX_ATTACHMENT_BYTES);
-    if (!data) return json(res, 413, { error: `That file is too big: the limit is ${MAX_ATTACHMENT_BYTES / 1024 / 1024} MB.` });
+    if (this.uploading >= MAX_UPLOADS_AT_ONCE) {
+      res.setHeader("connection", "close");
+      res.once("finish", () => req.destroy());
+      return json(res, 429, { error: "Too many files are being added at once. Wait a moment and try again." });
+    }
+    this.uploading += 1;
+    let data: Buffer | undefined;
+    try {
+      data = await readBytes(req, MAX_ATTACHMENT_BYTES);
+    } finally {
+      this.uploading -= 1;
+    }
+    if (!data) return answerTooBig(req, res, `That file is too big: the limit is ${MAX_ATTACHMENT_BYTES / 1024 / 1024} MB.`);
     let name = "file";
     try {
       name = decodeURIComponent(String(req.headers["x-file-name"] ?? "")) || name;
@@ -918,6 +941,17 @@ class Hub {
   }
 
   handle = (req: IncomingMessage, res: ServerResponse): void => {
+    try {
+      this.route(req, res);
+    } catch (e) {
+      // An address that is not valid (a broken % in it) is refused; nothing a request holds may stop the server.
+      if (res.headersSent) return void res.destroy();
+      if (e instanceof URIError || (e as { code?: string }).code === "ERR_INVALID_URL") return json(res, 400, { error: "That address is not valid." });
+      return json(res, 500, { error: "Something went wrong with that request." });
+    }
+  };
+
+  private route(req: IncomingMessage, res: ServerResponse): void {
     if (!isLocalHost(req)) return json(res, 403, { error: "The dashboard only answers on localhost." });
     const url = new URL(`http://localhost${req.url ?? "/"}`);
     const path = url.pathname;
@@ -939,10 +973,11 @@ class Hub {
     if (req.method !== "GET" && req.method !== "HEAD") return json(res, 405, { error: "The dashboard only shows the plan; it changes nothing else." });
     try {
       if (path === "/api/servers") return json(res, 200, this.servers());
-      if (path === "/api/search") return json(res, 200, this.search(url.searchParams.get("q") ?? ""));
+      // Another site's page may not make the dashboard do work: its searches and rescans are not carried out.
+      if (path === "/api/search") return json(res, 200, isCrossSite(req) ? [] : this.search(url.searchParams.get("q") ?? ""));
       if (path === "/api/info")
         return json(res, 200, { app: "progressor", hub: HUB_VERSION, version: VERSION, build: uiBuild(this.uiDir), editor: this.editor, pid: process.pid, stepDown: true, cli: CLI, background: this.background });
-      if (path === "/api/projects") return json(res, 200, this.sync(url.searchParams.has("rescan")));
+      if (path === "/api/projects") return json(res, 200, this.sync(url.searchParams.has("rescan") && !isCrossSite(req)));
       if (path === "/api/workspaces") return json(res, 200, listWorkspaces(this.registryFile));
       if (path === "/api/overview") return json(res, 200, this.overview());
       if (path === "/api/stats") return json(res, 200, this.allStats());
@@ -999,9 +1034,10 @@ class Hub {
       if (path.startsWith("/api/")) return json(res, 404, { error: "No such endpoint." });
       return serveStatic(res, this.uiDir, path);
     } catch (e) {
+      if (e instanceof URIError) throw e; // answered 400 by handle
       return json(res, 500, { error: (e as Error).message });
     }
-  };
+  }
 
   close(): void {
     clearInterval(this.timer);

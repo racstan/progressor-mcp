@@ -1,6 +1,26 @@
 // What every dashboard route uses to answer and to read what it was sent: shared by the built-in
 // routes in http.ts and the feature routes in routes.ts.
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
+
+/**
+ * Made when the dashboard starts, put into the page it serves, and sent back by the page with every
+ * change (the x-progressor-token header). A program on this computer that has not been given the
+ * page cannot know it, so it cannot fake a change just by copying the other headers.
+ */
+export const dashboardToken = randomBytes(24).toString("hex");
+
+/** Whether a request carries this dashboard's token. */
+export function hasDashboardToken(req: IncomingMessage): boolean {
+  const sent = Buffer.from(String(req.headers["x-progressor-token"] ?? ""));
+  const want = Buffer.from(dashboardToken);
+  return sent.length === want.length && timingSafeEqual(sent, want);
+}
+
+/** Whether the browser says another site made this request (it sends Sec-Fetch-Site, which a page cannot change). */
+export function isCrossSite(req: IncomingMessage): boolean {
+  return req.headers["sec-fetch-site"] === "cross-site";
+}
 
 export function json(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
@@ -12,9 +32,10 @@ export function json(res: ServerResponse, status: number, body: unknown): void {
  * Origin on a POST, and a custom header cannot be sent from another site without a CORS preflight,
  * which the dashboard never answers, so other web pages cannot stop servers. Each kind of change has
  * its own header value ("stop", "mark", "talk", "reveal", "notes", "settings", and one per feature).
+ * It must also carry the dashboard's token, which only the page the dashboard served has.
  */
 export function isFromDashboardPage(req: IncomingMessage, header: string): boolean {
-  if (req.headers["x-progressor"] !== header) return false;
+  if (req.headers["x-progressor"] !== header || !hasDashboardToken(req)) return false;
   try {
     const origin = new URL(String(req.headers.origin ?? ""));
     const port = (req.headers.host ?? "").match(/:(\d+)$/)?.[1] ?? "80";
@@ -24,15 +45,22 @@ export function isFromDashboardPage(req: IncomingMessage, header: string): boole
   }
 }
 
-/** Reads a request body as bytes, or undefined when it is bigger than the limit. */
+/**
+ * Reads a request body as bytes, or undefined when it is bigger than the limit. After undefined the
+ * caller answers and closes the connection (answerTooBig), so the rest of the body is never read.
+ */
 export function readBytes(req: IncomingMessage, limit: number): Promise<Buffer | undefined> {
   return new Promise((done) => {
     const chunks: Buffer[] = [];
     let size = 0;
+    if (Number(req.headers["content-length"]) > limit) return done(undefined); // it says so up front: not read at all
     req.on("data", (c: Buffer) => {
       size += c.length;
-      if (size > limit) done(undefined); // the rest is read and dropped
-      else chunks.push(c);
+      if (size > limit) {
+        chunks.length = 0; // nothing more is kept
+        done(undefined);
+        req.pause();
+      } else chunks.push(c);
     });
     req.on("end", () => done(Buffer.concat(chunks)));
     req.on("error", () => done(undefined));
@@ -62,4 +90,14 @@ export async function readJsonBody(req: IncomingMessage, res: ServerResponse, li
     // answered below
   }
   return void json(res, 400, { error: "That is not valid JSON." });
+}
+
+/**
+ * Answers 413 and then closes the connection, so what is still being sent is not read. The body is
+ * left unread, so the sender stalls and can see the answer; a moment later the connection is cut.
+ */
+export function answerTooBig(req: IncomingMessage, res: ServerResponse, error: string): void {
+  res.once("finish", () => setTimeout(() => req.destroy(), 1000).unref());
+  res.setHeader("connection", "close");
+  json(res, 413, { error });
 }

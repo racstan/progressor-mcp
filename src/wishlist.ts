@@ -69,9 +69,16 @@ export function nextWishId(wishes: Wish[]): string {
   return `w${Math.max(0, ...wishes.map((w) => idNumber(w.id))) + 1}`;
 }
 
+/** Whether this is a wish's ID (w1, w2, ...): the only kind that may be used to build a path. */
+export const isWishId = (id: string): boolean => /^w\d+$/.test(id);
+
+/** The most characters a wish may have: far more than anyone writes, so a runaway request cannot fill the plan. */
+export const MAX_WISH_CHARS = 500_000;
+
 /** A wish's words as one trimmed line, however long, or an error a person can act on. */
 export function wishText(text: string): string {
   const one = text.replace(/\s+/g, " ").trim();
   if (!one) throw new Error("Write the wish first.");
+  if (one.length > MAX_WISH_CHARS) throw new Error(`That wish is too long: keep it under ${MAX_WISH_CHARS.toLocaleString("en-US")} characters.`);
   return one;
 }

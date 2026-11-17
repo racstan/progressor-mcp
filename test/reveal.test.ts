@@ -1,11 +1,18 @@
+import * as fs from "node:fs";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Dashboard, startDashboard } from "../src/dashboard/http.js";
 import { projectEntry } from "../src/dashboard/registry.js";
 import { insideProject, revealCommand } from "../src/dashboard/reveal.js";
 import { Project } from "../src/project.js";
 import { tempDir } from "./tmp.js";
+
+// Spies on the disk lookups, so a test can show a path was refused before any was made.
+vi.mock("node:fs", async (original) => {
+  const real = await original<typeof import("node:fs")>();
+  return { ...real, realpathSync: Object.assign(vi.fn(real.realpathSync), { native: real.realpathSync.native }) };
+});
 
 describe("the command that shows a file in the file manager", () => {
   it("selects the file on Windows and macOS, and opens its folder on Linux", () => {
@@ -40,6 +47,15 @@ describe("what may be shown", () => {
     expect(insideProject(root, "/etc/passwd")).toBeUndefined();
     expect(insideProject(root, ".progressor/goals/nope.md")).toBeUndefined();
     expect(insideProject(root, "")).toBeUndefined();
+  });
+
+  it("refuses network and absolute paths before it looks at the disk at all", () => {
+    const lookups = vi.mocked(fs.realpathSync);
+    lookups.mockClear();
+    for (const wanted of ["\\\\server\\share\\x", "//server/share/x", "\\\\?\\C:\\x", "C:\\Windows", "c:/x", "/etc/passwd", "\\rooted"]) {
+      expect([wanted, insideProject(root, wanted)]).toEqual([wanted, undefined]);
+    }
+    expect(lookups).not.toHaveBeenCalled();
   });
 });
 

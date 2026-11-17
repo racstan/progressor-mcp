@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, extname, isAbsolute, join, resolve } from "node:path";
+import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import {
   type Decision,
   type Detour,
@@ -46,7 +46,7 @@ import { type Claim, type Goal, GOAL_BUNDLES, GOAL_FROM_ROUTINE, GOAL_RELEASE, G
 import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule } from "./schedule.js";
 import { type Calibration, calibration } from "./stats.js";
-import { WISHLIST_FILE, type Attachment, type Wish,formatWishlist, nextWishId, parseWishlist, wishText } from "./wishlist.js";
+import { WISHLIST_FILE, type Attachment, type Wish, formatWishlist, isWishId, nextWishId, parseWishlist, wishText } from "./wishlist.js";
 
 /** The estimates settings the schedule needs (settings.ts); without them estimates are taken as written. */
 export interface EstimateSettings {
@@ -2123,6 +2123,7 @@ export class Project {
 
   /** Stored name -> the name the file came with, for one wish. */
   private attachmentIndex(wishId: string): Record<string, string> {
+    if (!isWishId(wishId)) return {};
     try {
       const index: unknown = JSON.parse(this.readText(this.path(ATTACHMENTS_DIR, wishId, "index.json")) ?? "{}");
       return index && typeof index === "object" && !Array.isArray(index) ? (index as Record<string, string>) : {};
@@ -2154,8 +2155,12 @@ export class Project {
 
   /** The stored file of an attachment the wish lists, found by its stored name; undefined for anything else. */
   attachmentFile(wishId: string, file: string): { path: string; name: string; mime: string; inline: boolean } | undefined {
+    // Only a wish that exists (w1, w2, ...) has a folder; nothing else builds a path, and it must stay inside the attachments folder.
+    if (!isWishId(wishId) || !this.wishes().some((w) => w.id === wishId)) return undefined;
     const index = this.attachmentIndex(wishId);
     const path = this.path(ATTACHMENTS_DIR, wishId, file);
+    const inside = relative(this.path(ATTACHMENTS_DIR), path);
+    if (inside.startsWith("..") || isAbsolute(inside)) return undefined;
     if (!Object.hasOwn(index, file) || !existsSync(path)) return undefined;
     const name = index[file]!;
     const shown = SHOWN_ATTACHMENTS[extname(file)];

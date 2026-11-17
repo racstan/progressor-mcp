@@ -27,6 +27,8 @@ export function revealCommand(platform: NodeJS.Platform, path: string, isDir: bo
 export function insideProject(root: string, wanted: string): { path: string; isDir: boolean } | undefined {
   const plain = wanted.replace(/:\d+$/, "").trim();
   if (!plain) return undefined;
+  // Looked at before the disk is touched: a network path (\\server\share) would open a connection to that computer.
+  if (isAbsolute(plain) || /^[\\/]/.test(plain) || /^[a-zA-Z]:/.test(plain)) return undefined;
   try {
     const top = realpathSync(root);
     const path = realpathSync(resolve(root, plain));
