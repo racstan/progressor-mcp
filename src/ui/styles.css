@@ -871,6 +871,13 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 :is(.menu-panel, .settings-page) .reset-all { border-top: 1px solid var(--line); padding-top: var(--s4); }
 .free-notice { margin: var(--s4) 0 0; padding: var(--s2) var(--s3); border: 1px solid var(--line-strong); border-radius: var(--r-s); font-size: var(--t-s); font-weight: 700; color: var(--ink); }
 .free-notice strong { font-weight: 800; }
+/* A newer Progressor is out (UpdateNotice.tsx): greys and a heavy border, no colour (s7). */
+.update-notice { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); margin: var(--s3) 0; padding: var(--s2) var(--s3); border: 2px solid var(--ink); border-radius: var(--r-s); background: var(--panel); }
+.update-text { flex: 1 1 18rem; display: flex; flex-direction: column; gap: 2px; font-size: var(--t-s); }
+.update-text b { font-size: var(--t-m); font-weight: 800; }
+.update-current { font-weight: 400; color: var(--muted); }
+.update-command { font-weight: 700; word-break: break-all; }
+.update-actions { display: flex; align-items: center; gap: var(--s2); }
 /* the Settings page: a menu of its groups on the left on a wide window, everything stacked on a phone */
 .settings-layout { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: var(--s6); margin-top: var(--s5); align-items: start; transition: grid-template-columns .2s var(--ease); }
 .settings-layout.folded { grid-template-columns: 40px minmax(0, 1fr); gap: var(--s4); }

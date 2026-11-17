@@ -32,6 +32,7 @@ import { latestReply, unreadReplies } from "./talkView.js";
 import { type Snapshot, finishedNote, newlyFinished, snapshot } from "./notify.js";
 import { Settings } from "./Settings.js";
 import { FreeNotice } from "./FreeNotice.js";
+import { UpdateNotice } from "./UpdateNotice.js";
 import { canPopUp, editorName } from "./settings/Look.js";
 import type { SettingsContext, Theme } from "./settings/index.js";
 import { StepKey } from "./StepKey.js";
@@ -848,6 +849,7 @@ export function App() {
         </aside>
         <div className="scrim" onClick={() => setDrawer(false)} />
         <main className="main" id="main">
+          <UpdateNotice toast={toast} />
           <Breadcrumbs trail={trail} onHome={goHome} onProject={() => projectId && pickProject(projectId)} />
           <div key={`${onHome ? "home" : projectId}:${page}`} className="page-enter">{main}</div>
         </main>

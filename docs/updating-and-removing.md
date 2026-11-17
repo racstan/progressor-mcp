@@ -2,6 +2,8 @@
 
 ## Updating
 
+**You'll be told.** When a newer version is out, a notice at the top of the dashboard says so, with the command to update for how you installed it, and your AI is told once so it can offer to do it. Close the notice to hide it until the next version, or turn it off in Settings › Notifications › New versions (then Progressor asks npm nothing).
+
 ```bash
 npm install -g progressor-mcp@latest
 ```

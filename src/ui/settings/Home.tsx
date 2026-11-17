@@ -67,6 +67,31 @@ function Checks({ ctx }: { ctx: SettingsContext }) {
   );
 }
 
+function Updates({ ctx }: { ctx: SettingsContext }) {
+  const updates = ctx.computer?.settings.updates;
+  if (!updates) return <p className="quiet">This setting needs a newer dashboard server. Restart Progressor to use it.</p>;
+  return (
+    <label className="option">
+      <input type="checkbox" checked={updates.check} onChange={(e) => void ctx.save("updates", { check: e.target.checked }).catch((err: Error) => ctx.toast(err.message))} />
+      <span>
+        <b>Tell me when a newer Progressor is out</b>
+        <small>
+          Once a day, Progressor asks npm for the latest version number, and nothing else. When a newer one is out, a notice at the top of the dashboard
+          says how to update, and your AI is told once. Close the notice to hide it until the next version. Turn this off and it asks nothing.
+        </small>
+      </span>
+    </label>
+  );
+}
+
+export const updatesSection: SettingsSection = {
+  id: "updates",
+  group: "notifications",
+  title: "New versions",
+  Component: Updates,
+  reset: (ctx) => ctx.resetComputer("updates"),
+};
+
 export const homePageSection: SettingsSection = {
   id: "home-page",
   group: "look",

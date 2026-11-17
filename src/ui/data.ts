@@ -18,7 +18,7 @@ export type { AllStatsView, GoalView, InfoView, OverviewView, ProjectEntry, Road
 export type Connection = "connecting" | "live" | "reconnecting";
 
 /** The page's one live connection to the server (liveEvents.ts). */
-const live = sharedEvents("/api/events");
+export const live = sharedEvents("/api/events");
 // A tab in the background lets go of its connection, so many open tabs cannot use up the browser's
 // few connections to the dashboard; shown again, it reconnects and catches up.
 if (typeof document !== "undefined")

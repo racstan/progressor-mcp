@@ -25,6 +25,7 @@ import { readinessRoutes } from "./routes/readiness.js";
 import { costRoutes } from "./routes/cost.js";
 import { ciRoutes } from "./routes/ci.js";
 import { layoutRoutes } from "./routes/layout.js";
+import { updateRoutes } from "./routes/update.js";
 import type { CiDeps } from "../ci.js";
 
 /** What the hub gives every feature route. */
@@ -80,6 +81,7 @@ export const featureRoutes: FeatureRoute[] = [
   ...goalNoteRoutes,
   ...riskRoutes,
   ...layoutRoutes,
+  ...updateRoutes,
   ...sessionRoutes,
   ...readinessRoutes,
   ...costRoutes,

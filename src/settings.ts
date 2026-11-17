@@ -44,6 +44,8 @@ const SCHEMA = {
   cost: z.object({ inputPrice: z.number().min(0).max(1000), outputPrice: z.number().min(0).max(1000) }),
   // Looking up pull requests and CI checks for goals and steps (ci.ts); off asks git, gh and the network nothing.
   ci: z.object({ enabled: flag }),
+  // Asking npm once a day whether a newer Progressor is out (updateCheck.ts); off asks nothing.
+  updates: z.object({ check: flag }),
 };
 
 export type SettingsSection = keyof typeof SCHEMA;
@@ -70,6 +72,7 @@ export const SETTINGS_DEFAULTS: Settings = {
   claims: { idleHours: 24 },
   cost: { inputPrice: 0, outputPrice: 0 },
   ci: { enabled: true },
+  updates: { check: true },
 };
 
 export const SETTINGS_SECTIONS = Object.keys(SCHEMA) as SettingsSection[];

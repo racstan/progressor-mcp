@@ -193,6 +193,7 @@ Then restart your AI app. That's all: your plans, settings and projects stay as 
 Update Progressor with `npm install -g progressor-mcp@latest`, then tell me to restart the app.
 ```
 
+- **You'll be told:** when a newer version is out, the dashboard shows a notice with the command for your setup, and your AI is told once. Close it to hide it until the next version.
 - **Check your version:** `progressor-mcp --version`, or ❓ Help on the dashboard. **What's new** opens on the dashboard by itself after an update.
 - **Chats that were already open** keep the old version until they restart; the dashboard says so if one of them is serving the page.
 - **The background dashboard** (`progressor-mcp daemon install`) moves to the new version by itself; nothing to do.

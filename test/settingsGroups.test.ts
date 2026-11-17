@@ -14,7 +14,7 @@ describe("the Settings page's sections", () => {
     const groups = groupSections(SETTINGS_SECTIONS);
     expect(groups[0]!.title).toBe("Look");
     expect(groups[0]!.sections.map((s) => s.id)).toContain("theme");
-    expect(groups.find((g) => g.id === "notifications")!.sections.map((s) => s.id)).toEqual(["pop-ups", "phone"]);
+    expect(groups.find((g) => g.id === "notifications")!.sections.map((s) => s.id)).toEqual(["pop-ups", "phone", "updates"]);
     expect(groups.at(-1)!.id).toBe("advanced");
   });
 

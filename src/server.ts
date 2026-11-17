@@ -23,6 +23,7 @@ import { LEVELS, RISK_STATUSES, type Risk, unreducedSeriousRisks } from "./risks
 import type { GoalSchedule, Schedule } from "./schedule.js";
 import type { Wish } from "./wishlist.js";
 import { readSettings, settingsFileFor } from "./settings.js";
+import { howInstalled, refreshUpdate, takeUpdateLine, updateFileFor } from "./updateCheck.js";
 import { everyWords, parseEvery } from "./routines.js";
 import { releaseFacts } from "./facts.js";
 import { offerHint, parseWait } from "./alternatives.js";
@@ -677,6 +678,8 @@ export interface ServerOptions {
   settingsFile?: string;
   /** Where Claude Code keeps the user's settings (`.claude/settings.json` in it), for the hooks check; the home folder unless set. */
   claudeHome?: string;
+  /** Where the answer to "is a newer Progressor out?" is kept (updateCheck.ts); beside the registry unless set, and not used under the tests unless set. */
+  updateFile?: string;
 }
 
 /** Whether the app is Claude Code, the one app with hooks; it names itself "claude-code". */
@@ -798,6 +801,14 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   // don't show the whole status end with where the work stands.
   const settingsFile = options.settingsFile ?? settingsFileFor(options.registryFile ?? defaultRegistryFile());
   const estimatesOf = (p: Project) => readSettings(settingsFile, p.root).estimates;
+  const updateFile = options.updateFile ?? (process.env.VITEST ? undefined : updateFileFor(options.registryFile ?? defaultRegistryFile()));
+  /** Once per newer version: the line telling the AI it is out; asks npm in the background when the answer is a day old. */
+  const updateLine = (): string | undefined => {
+    if (!updateFile) return undefined;
+    const enabled = readSettings(settingsFile).updates.check;
+    void refreshUpdate(updateFile, { enabled }).catch(() => undefined);
+    return takeUpdateLine(updateFile, VERSION, howInstalled(), enabled);
+  };
   // Release goals (facts.ts): the facts the AI writes the changelog entry and version bump from.
   const releaseFor = (p: Project, g: Goal, bundles?: string[]) => {
     const r = readSettings(settingsFile, p.root).release;
@@ -984,6 +995,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const hooks = hooksLine();
         const reminder = untriedReminder();
         const risky = riskReminder();
+        const update = updateLine();
         return [
           now,
           ...routined,
@@ -992,6 +1004,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           ...(risky ? [risky] : []),
           ...(elsewhere ? [elsewhere] : []),
           ...(hooks ? [hooks] : []),
+          ...(update ? [update] : []),
           `Project folder: ${project.root}`,
           ...(dashboard?.url ? [`Dashboard: ${dashboard.url}`] : []),
           ...(dashboard?.url && dashboard.notice ? [`Dashboard note: ${dashboard.notice}`] : []),
