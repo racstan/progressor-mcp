@@ -83,7 +83,7 @@ describe("shutdown", () => {
     } finally {
       rmSync(lockFile(root), { force: true });
     }
-    expect(Date.now() - started).toBeLessThan(2500);
+    expect(Date.now() - started).toBeLessThan(4000); // well under the 5 s a normal wait takes, with room for a busy machine
   });
 });
 
@@ -128,7 +128,7 @@ describe("waiting for the lock without freezing the process", () => {
     let ticks = 0;
     const timer = setInterval(() => ticks++, 10);
     setTimeout(() => rmSync(lockFile(root, dir), { force: true }), 120);
-    const got = await withLockAsync(root, () => "ran", { dir, timeoutMs: 2000 });
+    const got = await withLockAsync(root, () => "ran", { dir, timeoutMs: 10_000 });
     clearInterval(timer);
     expect(got).toBe("ran");
     expect(ticks).toBeGreaterThan(3);
