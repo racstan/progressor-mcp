@@ -9,6 +9,7 @@ import type { Project } from "../project.js";
 import { isFromDashboardPage, json, readJsonBody } from "./respond.js";
 import { ntfyRoutes } from "./routes/ntfy.js";
 import { historyRoutes } from "./routes/history.js";
+import { feedRoutes } from "./routes/feed.js";
 import { checkupRoutes } from "./routes/checkup.js";
 import { handoffRoutes } from "./routes/handoffs.js";
 import { settingsRoutes } from "./routes/settings.js";
@@ -60,6 +61,7 @@ export const featureRoutes: FeatureRoute[] = [
   ...settingsRoutes,
   ...ntfyRoutes,
   ...historyRoutes,
+  ...feedRoutes,
   ...checkupRoutes,
   ...handoffRoutes,
   ...routinesRoutes,
