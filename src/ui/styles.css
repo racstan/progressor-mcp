@@ -1368,3 +1368,15 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 @keyframes pulse-edge { 50% { border-left-color: var(--line); } }
 [data-motion="off"] .live-sessions li.working { animation: none; }
 @media (prefers-reduced-motion: reduce) { .live-sessions li.working { animation: none; } }
+
+/* Since you last looked: the digest and the feed of what happened */
+.feed-scroll { max-height: 50vh; overflow-y: auto; margin-top: var(--s3); border: 1px solid var(--line); border-radius: var(--r-s); padding: var(--s2) var(--s4) var(--s3); }
+.feed-day h3 { margin: var(--s3) 0 var(--s1); font-size: var(--t-s); font-weight: 700; }
+.feed-day ul { list-style: none; margin: 0; padding: 0; }
+.feed-day li { padding: var(--s1) var(--s2); border-left: 4px solid transparent; overflow-wrap: anywhere; }
+.feed-day li .who { font-weight: 600; }
+.feed-day li time { margin-left: var(--s2); color: var(--muted); font-size: var(--t-s); }
+.feed-day li.feed-new { border-left-color: var(--accent); background: var(--accent-soft); font-weight: 600; animation: rise .3s var(--ease) backwards; }
+.feed-tag { margin: 0 var(--s1) 0 var(--s2); padding: 0 var(--s2); border: 2px solid var(--accent); border-radius: var(--r-s); font-size: var(--t-s); }
+[data-motion="gentle"] .feed-new { animation: none; }
+@media (max-width: 640px) { .feed-scroll { max-height: 45vh; } }

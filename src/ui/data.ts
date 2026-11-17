@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AllStatsView, GoalView, InfoView, OverviewView, RoadmapView, SearchView, ServersView, StatsView } from "../dashboard/http.js";
 import type { CalendarEvent } from "../calendar.js";
+import type { FeedItem } from "../feed.js";
 import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
 import type { SettingsView } from "../dashboard/routes/settings.js";
 import type { RiskView } from "../dashboard/routes/risks.js";
@@ -507,6 +508,12 @@ export function usePageStaleness(info: InfoView | undefined, connection: Connect
  */
 export function useStats(projectId: string, version: unknown): StatsView | null | undefined {
   return useStatsAt<StatsView>(`/api/projects/${encodeURIComponent(projectId)}/stats`, version);
+}
+
+/** What happened in a project, newest first (feed.ts); fetched again whenever `version` changes. undefined while loading, null when it failed. */
+export function useFeed(projectId: string, version: unknown): FeedItem[] | null | undefined {
+  const answer = useStatsAt<{ items: FeedItem[] }>(`/api/projects/${encodeURIComponent(projectId)}/feed`, version);
+  return answer === undefined ? undefined : answer === null ? null : (answer.items ?? []);
 }
 
 /** Every project's statistics added up, for Home; fetched again whenever `version` (the overview Home shows) changes. */

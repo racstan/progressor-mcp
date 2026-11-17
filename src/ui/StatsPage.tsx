@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { sayDuration } from "../estimate.js";
 import { CheckupCard } from "./CheckupCard.js";
+import { SinceLook } from "./SinceLook.js";
 import { type RoadmapView, type StatsView, useStats } from "./data.js";
 import { GOAL_SORTS, type GoalSort, readGoalSort, sortGoals } from "./goalSort.js";
 import { SIDE_TRIP_HINT, driftWords, estimateQuality, estimateWords } from "./words.js";
@@ -27,6 +28,7 @@ export function StatsPage({ projectId, roadmap, onOpenGoal, heading }: { project
     <div className="page stats">
       <h1 className="page-title">{heading}</h1>
       <p className="page-sub">Worked out from this project's plan: how long steps take, how often the work stepped off the plan, and what was finished each day.</p>
+      <SinceLook key={projectId} projectId={projectId} version={roadmap} onOpenGoal={onOpenGoal} />
       {stats === undefined ? (
         <p className="quiet">Working them out…</p>
       ) : stats === null ? (
