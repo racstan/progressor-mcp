@@ -1,6 +1,8 @@
 // What the home page and the sidebar group together, and the few words that say why. Pure, so it is
 // tested; the components only lay it out.
 
+import { type UntriedSummary, summarizeUntried } from "../untried.js";
+
 /** What a goal waits on the person for: a question from the AI, steps to check, things to try. */
 export interface Needs {
   openQuestions?: number;
@@ -9,6 +11,8 @@ export interface Needs {
 }
 
 interface GoalLike extends Needs {
+  /** When the goal's oldest untried thing to try was added (an ISO time). */
+  oldestUntried?: string | undefined;
   id: string;
   title: string;
   status: string;
@@ -45,6 +49,14 @@ export function needsWords(n: Needs): string {
   ]
     .filter(Boolean)
     .join(" · ");
+}
+
+/** The untried things to try across these goals: how many, in how many goals, and when the oldest was added. */
+export function untriedAcross(goals: readonly Pick<GoalLike, "id" | "untriedTests" | "oldestUntried">[]): UntriedSummary {
+  const mine = goals.filter((g) => (g.untriedTests ?? 0) > 0);
+  const summary = summarizeUntried(mine.flatMap((g) => Array.from({ length: g.untriedTests! }, () => ({ goal: g.id }))));
+  const dates = mine.flatMap((g) => (g.oldestUntried ? [g.oldestUntried] : [])).sort((a, b) => Date.parse(a) - Date.parse(b));
+  return { ...summary, ...(dates[0] ? { oldestAt: dates[0] } : {}) };
 }
 
 /** "3 of 7 steps", or "No steps yet". */

@@ -16,6 +16,7 @@ import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, sta
 import { handTestLines, handTestWord } from "./handTestText.js";
 import { elsewhereNewsLine, newsLines, projectTalkLine, talkLines } from "./talkText.js";
 import { type ResourceLock, holderText, resourceLine } from "./resources.js";
+import { oncePerDay, reminderLine, summarizeUntried } from "./untried.js";
 import { type Goal, type StandingInstruction, hardFirst, helperLimit, hotfixLine, ruleText } from "./roadmap.js";
 import type { GoalSchedule, Schedule } from "./schedule.js";
 import type { Wish } from "./wishlist.js";
@@ -825,6 +826,19 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   let hooksChecked = false;
   // The plan check-up runs by itself once per Session (see get_status).
   let checkedUp = false;
+  // The reminder about untried things to try: at most one line a day (untried.ts), by the project's clock.
+  const remindOnce = oncePerDay(() => project.now());
+  const untriedReminder = (): string | undefined => {
+    try {
+      const untried = project
+        .roadmap()
+        .goals.filter((g) => g.status !== "dropped")
+        .flatMap((g) => project.plan(g.id).handTests.filter((h) => h.result === "pending").map((h) => ({ goal: g.id, at: h.added?.at })));
+      return remindOnce(reminderLine(summarizeUntried(untried), project.now()));
+    } catch {
+      return undefined; // a reminder never fails the status
+    }
+  };
   const hooksLine = (): string | undefined => {
     if (hooksChecked || !isClaudeCode(server)) return undefined;
     hooksChecked = true;
@@ -888,10 +902,12 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         }
         const elsewhere = takeElsewhereLine(project, seenFile(registryFile));
         const hooks = hooksLine();
+        const reminder = untriedReminder();
         return [
           now,
           ...routined,
           ...checked,
+          ...(reminder ? [reminder] : []),
           ...(elsewhere ? [elsewhere] : []),
           ...(hooks ? [hooks] : []),
           `Project folder: ${project.root}`,

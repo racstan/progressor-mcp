@@ -21,6 +21,7 @@ import { type PutOff, needsWhy, sidebarSections } from "./home.js";
 import { Icon, Ring } from "./Icon.js";
 import { GoalMenu, MenuPanel } from "./Menus.js";
 import { sortProjects } from "./projectList.js";
+import { TryOneByOne, Walkthrough, type WalkGoal } from "./TryOneByOne.js";
 import { type SearchHit, SearchBox } from "./Search.js";
 import { Conversation } from "./Talk.js";
 import { latestReply, unreadReplies } from "./talkView.js";
@@ -120,6 +121,8 @@ export function App() {
   /** The finished goal on screen when the Developer closed Finished, so it stays closed for that goal. */
   const [doneClosedFor, setDoneClosedFor] = useStored<string>("progressor.done-closed-for", undefined);
   const [putOff, setPutOff] = useStoredJson<PutOff>("progressor.put-off", {});
+  // "Try them one by one" from the sidebar: the goals it was opened over.
+  const [sideWalk, setSideWalk] = useState<WalkGoal[]>();
   const [editorChoice, setEditorChoice] = useStored<string>("progressor.editor", undefined);
   const [panel, setPanel] = useState<"help">();
   const [showChanges, setShowChanges] = useState(false);
@@ -718,6 +721,13 @@ export function App() {
               {sidebarSections(grouped.open.filter((g) => !grouped.fresh.has(g.id)), putOffHere).map((s) => (
                 <div key={s.label} className={`side-group ${s.label === "Needs you" ? "needs" : ""}`}>
                   <h3>{s.label}</h3>
+                  {s.label === "Needs you" && projectId && (() => {
+                    const tryGoals = s.goals.filter((g) => needsWhy(g, putOffHere[g.id]).canPutOff);
+                    return (
+                      <TryOneByOne count={tryGoals.reduce((n, g) => n + (g.untriedTests ?? 0), 0)}
+                        onClick={() => setSideWalk(tryGoals.map((g) => ({ projectId, projectName: project?.name ?? "", goalId: g.id, goalTitle: g.title })))} />
+                    );
+                  })()}
                   {s.goals.map((g) => goalRow(g, s.label === "Needs you" ? needsWhy(g, putOffHere[g.id]).why : undefined))}
                 </div>
               ))}
@@ -789,6 +799,7 @@ export function App() {
         </GoalMenu>
       )}
       {toastNode}
+      {sideWalk && <Walkthrough showProject={false} goals={sideWalk} onClose={() => setSideWalk(undefined)} onChanged={refresh} />}
     </>
   );
 }

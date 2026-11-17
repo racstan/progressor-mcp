@@ -17,6 +17,8 @@ import { StepKey } from "./StepKey.js";
 import { type FileLink, Steps, StepIcon } from "./Steps.js";
 import { Conversation, OpenQuestions, questionsAtTop } from "./Talk.js";
 import { plainText } from "./text.js";
+import { TryOneByOne, Walkthrough } from "./TryOneByOne.js";
+import { dashboardLine, summarizeUntried } from "../untried.js";
 import { SIDE_TRIP_HINT, ago, datesLine, datesTitle, elsewhereTag, exactDate, finishWords, goalState, releaseChip, RELEASE_HINT, waitsChip, whenWords, WAITING_ON_GOAL_HINT } from "./words.js";
 
 type Goal = RoadmapView["goals"][number];
@@ -52,6 +54,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
   const [storedTab, setTab] = useStored<Tab>("progressor.tab", undefined);
   const tab: Tab = storedTab ?? "steps";
   const [across, setAcross] = useStored<"down">("progressor.map", undefined);
+  const [walking, setWalking] = useState(false);
   const [selected, setSelected] = useState<{ key: string; at: { x: number; y: number } }>();
   const tasks = tasksOf(graph);
   const live = tasks.filter((t) => t.status !== "dropped");
@@ -144,6 +147,12 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
       {(questions.length > 0 || waiting.length > 0 || untried.length > 0) && goal.status !== "dropped" && (
         <section className="needs-panel" aria-label="Needs you">
           <h2>Needs you</h2>
+          {untried.length > 0 && (
+            <div className="try-card">
+              <span className="try-line">{dashboardLine(summarizeUntried(untried.map((t) => ({ goal: goal.id, at: t.added?.at }))), new Date())}</span>
+              <TryOneByOne count={untried.length} onClick={() => setWalking(true)} />
+            </div>
+          )}
           <ul className="hand-list">
             <OpenQuestions {...props} finished={goal.status === "done"} />
             {waiting.map((t) => (
@@ -203,6 +212,9 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
           )
         )}
       </div>
+      {walking && (
+        <Walkthrough showProject={false} goals={[{ projectId, projectName: "", goalId: goal.id, goalTitle: goal.title }]} onClose={() => setWalking(false)} onChanged={onChanged} />
+      )}
       {selected && selectedNode && (
         <Popover subject={{ kind: "node", node: selectedNode, goal, graph }} at={selected.at} onClose={() => setSelected(undefined)} fileLink={fileLink} files onCopy={onCopy} onReveal={onReveal} />
       )}
