@@ -108,6 +108,12 @@ You cross each one off yourself, with its buttons:
 
 Press **Undo** on a marked item to take the mark back. If it had added a step that your AI hasn't started, that step is cancelled. Your AI sees your marks the next time it looks at the plan, with the new ones that failed first, and it can't finish the goal while something is still to try, unless you tell it to finish anyway.
 
+**Add a screenshot**, next to the buttons, adds a picture or short recording to a thing to try; in the *What went wrong?* box you can also just paste a screenshot. It shows under that thing to try, and your AI is told where it is.
+
+### Try them one by one
+
+When things to try pile up, **Needs you** on Home says how many there are and how old the oldest is (*6 things to try across 5 goals · the oldest was added 16 days ago*). **Try them one by one**, there, in the sidebar's Needs you and on a goal, shows them one at a time, oldest first across goals: what to try, the goal and step it belongs to, and the same buttons, plus **Skip for now**, which moves it to the end. It says how far you are (*3 of 7*) and sums up what you marked at the end; **Esc** closes it. Your AI is also reminded about untried things once a day, so it can mention them when it next reports, without bringing them up in every reply.
+
 ## Decisions and notes
 
 Under the map, or under the list, a goal shows what your AI decided and what it noticed while working. Your AI writes them as it goes. You can change them too: **Edit** rewords one, **Remove** deletes it after you confirm, and **Dealt with** (or **Open again**) settles a note. Your AI is told at its next step, and each change is in History, so it can be undone.
@@ -261,7 +267,7 @@ The dashboard listens only on your own computer (`127.0.0.1`, and `::1` where th
 
 ### What the dashboard can change
 
-Only a few things, all from the dashboard's own page: stopping a Progressor server, marking a hand test, talking with your AI (sending or taking back a message, answering a question), editing the project notes (adding, rewording or removing a rule, and rewriting About this project), editing the rules and context for everything on Home, removing a project from the dashboard (never its files), changing the wishlist (adding, rewording, ticking off or removing a wish), and reporting a bug as a hotfix; your AI is told about each change. Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark, message, answer or note is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
+Only a few things, all from the dashboard's own page: stopping a Progressor server, marking a hand test or adding a screenshot to it, talking with your AI (sending or taking back a message, answering a question), editing the project notes (adding, rewording or removing a rule, and rewriting About this project), editing the rules and context for everything on Home, removing a project from the dashboard (never its files), changing the wishlist (adding, rewording, ticking off or removing a wish), and reporting a bug as a hotfix; your AI is told about each change. Each is a `POST` that needs a custom header and the page's own `Origin`, which another website cannot send, and the dashboard answers only requests addressed to localhost. A mark, message, answer or note is written through the same code as your AI's tools, while holding the plan's lock, so it can't collide with your AI writing at the same time. The request format is in the [reference](reference.md#the-dashboards-write-endpoint).
 
 ### The dashboard in the background
 
