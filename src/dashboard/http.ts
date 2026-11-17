@@ -29,6 +29,7 @@ import {
 import { answerTooBig, dashboardToken, isCrossSite, isFromDashboardPage, json, readBody, readBytes } from "./respond.js";
 import { type HubContext, featureRoutes, runFeatureRoute } from "./routes.js";
 import { runRoutinesIn } from "./routes/routines.js";
+import { seriousRiskLines } from "./routes/risks.js";
 import { type FetchFn, lookAtProject, sendNew } from "../ntfy.js";
 import { type Look, eventsBetween } from "../events.js";
 import { readSettings, settingsFileFor } from "../settings.js";
@@ -212,6 +213,8 @@ export function dashboardApi(
         context: project.context(),
         // The Developer's wishlist (wishlist.ts), which they edit on the Wishlist page.
         wishes: project.wishes(),
+        // Serious risks nothing is reducing, for Needs you (risks.ts); the Risks page has the whole list.
+        seriousRisks: seriousRiskLines(project),
         // What runs now, what comes next and when each open Goal should be done (schedule.ts).
         schedule: project.schedule(estimates()),
         // Shared resources in use right now (resources.ts); runtime state, not part of the plan.
@@ -554,7 +557,7 @@ class Hub {
       } catch {
         // a Roadmap that cannot be read shows as a project with no Goals
       }
-      return { ...entry, goals };
+      return { ...entry, goals, seriousRisks: this.projects.get(entry.id) ? seriousRiskLines(this.projects.get(entry.id)!.project) : [] };
     });
   }
 

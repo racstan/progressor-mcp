@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { homeSections, needsWords, progressWords, sidebarSections, untriedAcross } from "../src/ui/home.js";
+import { RISK_WHY, homeSections, needsWords, progressWords, sidebarSections, untriedAcross } from "../src/ui/home.js";
 
 const g = (id: string, status: string, extra: Partial<{ oldestUntried: string; done: number; total: number; waitingOnYou: boolean; openQuestions: number; untriedTests: number; waitingSteps: number; updatedAt: number }> = {}) => ({
   id,
@@ -69,6 +69,31 @@ describe("the home page", () => {
       { id: "b", name: "Blog", root: "/b", goals: [g("third", "active", { waitingOnYou: true, openQuestions: 1, updatedAt: 5 })] },
     ]);
     expect(s.needsYou.map((x) => x.goal.id)).toEqual(["first", "second", "third"]);
+  });
+});
+
+describe("serious risks in Needs you", () => {
+  const risk = (id: string) => ({ id, title: `Risk ${id}` });
+  const projects = [
+    { id: "a", name: "Shop", root: "/a", goals: [], seriousRisks: [risk("r1"), risk("r2")] },
+    { id: "b", name: "Blog", root: "/b", goals: [g("post", "active", { waitingOnYou: true, openQuestions: 1 })] },
+    { id: "c", name: "Old", root: "/c", goals: [] },
+  ];
+
+  it("lists each project's serious risks apart from its goals, in plain words", () => {
+    const s = homeSections(projects);
+    expect(s.seriousRisks.map((x) => [x.project.name, x.risk.id])).toEqual([["Shop", "r1"], ["Shop", "r2"]]);
+    expect(RISK_WHY).toBe("A serious risk has nothing reducing it");
+    expect(s.needsYou.map((x) => x.goal.id)).toEqual(["post"]);
+  });
+
+  it("counts them in the line at the top", () => {
+    expect(homeSections(projects).summary).toBe("1 goal needs you · 2 serious risks · 3 projects");
+    expect(homeSections([{ ...projects[0]!, seriousRisks: [risk("r1")] }]).summary).toBe("1 serious risk · 1 project");
+  });
+
+  it("works for an older server that sends no risks", () => {
+    expect(homeSections([projects[2]!]).seriousRisks).toEqual([]);
   });
 });
 

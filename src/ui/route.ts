@@ -1,7 +1,7 @@
 // Which page the address shows: `#/goal/<id>` for a goal, or one hash per page. The project is in
 // the address's ?project= part, so each page works on Home and in any project alike.
 
-export type Page = "goal" | "context" | "talk" | "dashboard" | "wishlist" | "hotfix" | "history" | "handoffs" | "calendar" | "settings";
+export type Page = "goal" | "context" | "talk" | "dashboard" | "wishlist" | "risks" | "hotfix" | "history" | "handoffs" | "calendar" | "settings";
 
 /** The hash of every page other than a goal's. */
 export const PAGE_HASH: Record<Exclude<Page, "goal">, string> = {
@@ -9,6 +9,7 @@ export const PAGE_HASH: Record<Exclude<Page, "goal">, string> = {
   talk: "#/talk",
   dashboard: "#/dashboard",
   wishlist: "#/wishlist",
+  risks: "#/risks",
   hotfix: "#/hotfix",
   history: "#/history",
   handoffs: "#/handoffs",
@@ -22,6 +23,7 @@ export const PAGE_TITLE: Record<Exclude<Page, "goal">, string> = {
   talk: "Message your AI",
   dashboard: "Dashboard",
   wishlist: "Wishlist",
+  risks: "Risks",
   hotfix: "Hotfixes",
   history: "History",
   handoffs: "Handoffs",

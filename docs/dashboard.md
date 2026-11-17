@@ -10,7 +10,7 @@ The dashboard shows the plan. The one thing you do on it yourself is mark the th
 
 **Breadcrumbs** at the top of every page say where you are: *Home* on Home, *Home › Settings*, *Home › Bindery › Calendar*, or *Home › Bindery › Ship OAuth login* on a goal. Click **Home** to see every project, or the project's name to go back to its goals. On a phone the middle of the trail shortens, with *…*, instead of running off the screen.
 
-In a project, the sidebar has **Home** at the top, then the project's own pages under its name: **Dashboard** first, then Hotfixes, Message your AI, Project notes, Wishlist, Calendar, History and Handoffs. **Settings** comes after them, then the project's goals. On Home, the sidebar has Home, Settings and your projects. Point at a project there (or move to it with the keyboard) and a small **×** appears: it removes the project from the dashboard, after you confirm. Only the dashboard forgets it: its folder and its plan are not touched, and it comes back by itself if your AI uses Progressor in that project again.
+In a project, the sidebar has **Home** at the top, then the project's own pages under its name: **Dashboard** first, then Hotfixes, Message your AI, Project notes, Wishlist, Risks, Calendar, History and Handoffs. **Settings** comes after them, then the project's goals. On Home, the sidebar has Home, Settings and your projects. Point at a project there (or move to it with the keyboard) and a small **×** appears: it removes the project from the dashboard, after you confirm. Only the dashboard forgets it: its folder and its plan are not touched, and it comes back by itself if your AI uses Progressor in that project again.
 
 Each project page's heading and browser tab say which project it is about, such as *Bindery Dashboard*, *Bindery project notes* or *Message your AI about Bindery*, so you always know which project you're looking at. Settings is for every project, so it is just *Settings*.
 
@@ -174,6 +174,12 @@ Wherever the dashboard shows your AI's words, such as things to try by hand, ste
 ## Wishlist
 
 **Wishlist** in the sidebar is for what you want from the project as a whole, in your own words: not goals or steps, just wishes, such as *People can use it on their phone*. Type one in the box at the top and press **Add wish**. Each wish has **Edit** and **Remove**, and a tick box for when you have what you wished for; ticked-off wishes move down to **You have these**, and unticking puts one back. Only you change the wishlist. Your AI reads it at every status check, is told about each change, and may suggest goals from it, but it never edits it.
+
+## Risks
+
+**Risks** in the sidebar lists what could go wrong in this project, such as *Plan files swept into commits*. Your AI adds risks as it notices them while it works and keeps each one up to date; you only read the page, you never have to fill it in. Each risk shows how likely it is (Unlikely, Possible or Likely) and how bad it would be (Minor, Serious or Severe), in words and as a small three-by-three grid with one square filled in: further right is likelier, higher up is worse. It also shows what would reduce it, who looks after it, and the goals that reduce it, each one a link to that goal with its state (such as *Finished*). Open risks come first, the worst at the top; risks your AI has reduced or closed are folded away under **Reduced and closed**.
+
+When a risk is serious (likely and severe enough to score 6 or more out of 9) and no goal that reduces it is still going (none linked, or every linked goal is finished or cancelled), it also shows in **Needs you**, on Home and in the sidebar, as *A serious risk has nothing reducing it*. Open it to see the Risks page; it leaves Needs you once your AI links a goal that is still open, or marks the risk reduced or closed.
 
 ## Dashboard
 

@@ -68,6 +68,7 @@ describe("a page's heading", () => {
     expect(pageHeading("dashboard", p)).toBe("Bindery Dashboard");
     expect(pageHeading("wishlist", p)).toBe("Bindery Wishlist");
     expect(pageHeading("hotfix", p)).toBe("Bindery Hotfixes");
+    expect(pageHeading("risks", p)).toBe("Bindery Risks");
     expect(pageHeading("calendar", p)).toBe("Bindery Calendar");
     expect(pageHeading("history", p)).toBe("Bindery History");
     expect(pageHeading("handoffs", p)).toBe("Bindery Handoffs");

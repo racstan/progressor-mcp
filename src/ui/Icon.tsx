@@ -22,6 +22,7 @@ const PATHS = {
   pin: "M12 21v-6M7 4h10l-2 6 3 3H6l3-3z",
   play: "M8 5v14l11-7z",
   flag: "M5 21V4M5 4h11l-2 4 2 4H5",
+  warning: "M12 4l9 16H3zM12 10v4.5M12 17.3v.4",
   refresh: "M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7",
   chart: "M4 20h16M7 16v-5M12 16V6M17 16v-8",
   history: "M3.5 12a8.5 8.5 0 1 0 2.5-6M3.5 3.5V8H8M12 7.5V12l3 2",
