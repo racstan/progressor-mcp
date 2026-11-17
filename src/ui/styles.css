@@ -265,6 +265,18 @@ button.list-row:hover { background: var(--hover); }
 .step-icon.with-a-helper { border-color: var(--accent); background: linear-gradient(90deg, var(--accent) 50%, transparent 50%); }
 .step-icon.waiting-on-you { border-color: var(--you); background: var(--you); color: var(--on-you); font-size: var(--t-s); font-weight: 800; }
 .step-icon.dropped { border-style: dashed; }
+/* Waiting on someone else is not a needs-you state: a dotted grey ring with three dots, no fill. */
+.step-icon.waiting-on-someone { border-style: dotted; border-color: var(--muted); background: none; color: var(--muted); font-size: var(--t-s); font-weight: 800; line-height: 1; padding-bottom: 5px; }
+.step-row .holder { grid-column: 2 / -1; font-size: var(--t-s); color: var(--muted); overflow-wrap: anywhere; }
+.step.waiting-on-someone .step-row .end { color: var(--muted); }
+/* Waiting on others: apart from Needs you, grouped by person; greys only. */
+.section.others > .page-sub { margin: 0 0 var(--s3); font-size: var(--t-s); }
+.others-person { margin-top: var(--s3); }
+.others-person > h3, .others-proj { margin: 0 0 var(--s2); font-size: var(--t-m); font-weight: 600; color: var(--ink); }
+.others-proj { margin-top: var(--s4); font-size: var(--t-s); text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.others-person .role { font-weight: 400; color: var(--muted); }
+.section.others .list { border-style: dashed; }
+.section.others .list-row .step-icon { grid-row: 1 / span 2; align-self: start; margin-top: 2px; }
 .step-icon.side { border-radius: 3px; transform: rotate(45deg) scale(.7); border-color: var(--faint); }
 .step-icon.side.open { border-color: var(--you); }
 .steps-foot { margin-top: var(--s3); display: flex; gap: var(--s4); }

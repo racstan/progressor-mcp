@@ -185,6 +185,12 @@ Wherever the dashboard shows your AI's words, such as things to try by hand, ste
 
 Under a project's links in the sidebar, **Working now** lists the AI chats working on that project at this moment: since when, the goals each holds (click one to open it) and the step it is on, which is gently highlighted. It also says how many helpers are at work, against the project's helper limit when it has one (*1 helper at work of at most 1*). Steps a helper works on together count as one helper. When more helpers work than the limit allows, the box gets a heavy border and your AI is reminded on every message until one comes back. A chat drops off the list about a minute after it closes. The box is hidden while nothing is working.
 
+## Waiting on others
+
+Some steps wait on someone other than you: a team member, a lawyer, a payments provider. Your AI marks such a step as waiting on that person, with what they need to do, and keeps the people in `.progressor/people.md` (you never have to set them up). On a goal's steps, that step reads *Waiting on Priya: Sign and send back the contract*, and its mark is a dotted grey ring with three dots, unlike the filled mark of a step waiting on you.
+
+A **Waiting on others** section lists these steps grouped by person, with the person's role, each step's goal (click it to open the goal) and what they need to do. It shows on Home, for every project, and on a project's **Dashboard** page, for that project, apart from Needs you. These steps do not make a goal show under Needs you, because nothing is waiting on you. The section is hidden when nobody holds anything.
+
 ## Risks
 
 **Risks** in the sidebar lists what could go wrong in this project, such as *Plan files swept into commits*. Your AI adds risks as it notices them while it works and keeps each one up to date; you only read the page, you never have to fill it in. Each risk shows how likely it is (Unlikely, Possible or Likely) and how bad it would be (Minor, Serious or Severe), in words and as a small three-by-three grid with one square filled in: further right is likelier, higher up is worse. It also shows what would reduce it, who looks after it, and the goals that reduce it, each one a link to that goal with its state (such as *Finished*). Open risks come first, the worst at the top; risks your AI has reduced or closed are folded away under **Reduced and closed**.

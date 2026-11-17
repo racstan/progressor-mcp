@@ -29,6 +29,7 @@ import {
 import { answerTooBig, dashboardToken, isCrossSite, isFromDashboardPage, json, readBody, readBytes } from "./respond.js";
 import { type HubContext, featureRoutes, runFeatureRoute } from "./routes.js";
 import { runRoutinesIn } from "./routes/routines.js";
+import { peopleList, waitingOnOthersLines } from "./routes/others.js";
 import { seriousRiskLines } from "./routes/risks.js";
 import { type FetchFn, lookAtProject, sendNew } from "../ntfy.js";
 import { type Look, eventsBetween } from "../events.js";
@@ -216,6 +217,9 @@ export function dashboardApi(
         wishes: project.wishes(),
         // Serious risks nothing is reducing, for Needs you (risks.ts); the Risks page has the whole list.
         seriousRisks: seriousRiskLines(project),
+        // Steps waiting on someone other than the Developer, and the people file (people.ts).
+        waitingOnOthers: waitingOnOthersLines(project),
+        people: peopleList(project),
         // What runs now, what comes next and when each open Goal should be done (schedule.ts).
         schedule: project.schedule(estimates()),
         // Shared resources in use right now (resources.ts); runtime state, not part of the plan.
@@ -558,7 +562,8 @@ class Hub {
       } catch {
         // a Roadmap that cannot be read shows as a project with no Goals
       }
-      return { ...entry, goals, seriousRisks: this.projects.get(entry.id) ? seriousRiskLines(this.projects.get(entry.id)!.project) : [] };
+      const live = this.projects.get(entry.id)?.project;
+      return { ...entry, goals, seriousRisks: live ? seriousRiskLines(live) : [], waitingOnOthers: live ? waitingOnOthersLines(live) : [], people: live ? peopleList(live) : [] };
     });
   }
 
