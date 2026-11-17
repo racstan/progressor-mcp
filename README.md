@@ -14,6 +14,8 @@
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue" alt="License: PolyForm Noncommercial 1.0.0"></a>
 </p>
 
+<p align="center"><b>Free for personal use.</b> Using it in a business, or selling, hosting or building a product on it, needs a license from the author: <a href="https://github.com/racstan/progressor-mcp/issues/new?template=commercial_license.yml">ask for one</a>.</p>
+
 <p align="center">
   <a href="https://youtu.be/Nf22yrT9Dwo"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail.png" alt="Watch the 5-minute video on YouTube" width="640"></a>
   <br>
@@ -356,4 +358,9 @@ Progressor is free for personal and other noncommercial use. If it helps you, yo
 
 Copyright (C) 2026 Rachit Asthana
 
-Progressor is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). You may use, change and share it for noncommercial purposes as that license defines them: personal use with no commercial application (study, research, hobby projects and the like) and use by charities, schools, public research bodies and government institutions. Any other use, including use by a business, needs a separate license from the author. See [LICENSE.md](LICENSE.md) for the full terms. Versions up to 1.2.2 were released under GPL-3.0-or-later, and copies of those versions keep that license.
+Progressor is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE.md).
+
+- **Free, no need to ask:** personal use with no commercial application (your own projects, study, research, hobbies), and use by charities, schools, public research bodies and government institutions. You may use, change and share it for these.
+- **Needs a commercial license from the author:** any other use. That includes using it in or for a company, for paid client work, and selling it, hosting it for others, or building a product or service on it, changed or not. **[Ask for a commercial license](https://github.com/racstan/progressor-mcp/issues/new?template=commercial_license.yml).**
+
+Without that license, commercial use is not allowed. See [LICENSE.md](LICENSE.md) for the full terms. Versions up to 1.2.2 were released under GPL-3.0-or-later, and copies of those versions keep that license.

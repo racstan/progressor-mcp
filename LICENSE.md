@@ -1,5 +1,7 @@
 Required Notice: Copyright Rachit Asthana (https://github.com/racstan)
 
+Required Notice: Any use other than noncommercial use, including use by or for a business and selling, hosting or building a product on this software, needs a separate commercial license from the author. Ask for one at https://github.com/racstan/progressor-mcp/issues/new?template=commercial_license.yml
+
 # PolyForm Noncommercial License 1.0.0
 
 <https://polyformproject.org/licenses/noncommercial/1.0.0>

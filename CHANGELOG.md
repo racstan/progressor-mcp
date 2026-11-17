@@ -36,6 +36,10 @@ Plans made with earlier versions keep working as they are. Your AI's tools have 
 - **Copy rules for everything into a project.** A project's **Project notes** can copy in rules and the About texts from **Rules and context for everything**, to keep them with that project or change them there only.
 - **More in Settings.** New sections for **Home page** (how tall Needs you is, which parts Home shows, bringing back what you put off), **Motion**, **What goals cost** and **Pull requests and checks**.
 
+### License
+
+The license is unchanged: PolyForm Noncommercial 1.0.0, free for personal and other noncommercial use. It now says plainly, in LICENSE.md, the README and the dashboard's About section, that any other use (in or for a business, or selling, hosting or building a product on Progressor) needs a commercial license from the author, with a form to [ask for one](https://github.com/racstan/progressor-mcp/issues/new?template=commercial_license.yml).
+
 ### Fewer, clearer tools
 
 Your AI has 31 tools instead of 43, each with one job. [The tool index](docs/tools.md) lists them in one line each. What changed, for anyone who named the old ones in their own instructions or scripts:

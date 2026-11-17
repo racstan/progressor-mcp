@@ -11,6 +11,8 @@ import { RESET_ALL, RESET_ALL_CONFIRM, RESET_ALL_DONE, RESET_SECTION, SETTINGS_W
 
 /** The Developer's Buy Me a Coffee page, shown in Settings. */
 const SUPPORT_URL = "https://buymeacoffee.com/rachitasthana";
+/** Where a business asks for a commercial license (LICENSE.md). */
+const COMMERCIAL_URL = "https://github.com/racstan/progressor-mcp/issues/new?template=commercial_license.yml";
 
 function storage(): { removeItem(key: string): void } {
   try {
@@ -157,6 +159,10 @@ export function Settings({ ctx }: { ctx: SettingsContext }) {
               <a className="card" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
                 Buy me a coffee
                 <small>Progressor is free for personal and noncommercial use. If it keeps you on track, a coffee keeps it going.</small>
+              </a>
+              <a className="card" href={COMMERCIAL_URL} target="_blank" rel="noopener noreferrer">
+                Using it for a business?
+                <small>Using Progressor in or for a company, or selling, hosting or building a product on it, needs a commercial license. Ask for one here.</small>
               </a>
             </section>
             <section className="settings-section reset-all">

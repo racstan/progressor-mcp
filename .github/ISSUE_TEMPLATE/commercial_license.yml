@@ -1,0 +1,42 @@
+name: Ask for a commercial license
+description: Using Progressor in or for a business, or selling, hosting or building a product on it, needs a license from the author.
+title: "Commercial license: "
+labels: [commercial-license]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Progressor is free for personal and other noncommercial use under the [PolyForm Noncommercial License](https://github.com/racstan/progressor-mcp/blob/main/LICENSE.md). Any other use, such as in a company, for paid work, or in a product or service you sell or host, needs a separate license from the author. Tell us what you have in mind and we'll get back to you.
+
+        **This form is public.** Don't write anything confidential here: we'll continue privately once we're in touch.
+  - type: input
+    id: organisation
+    attributes:
+      label: Company or organisation
+    validations:
+      required: true
+  - type: dropdown
+    id: use
+    attributes:
+      label: How would you use Progressor?
+      multiple: true
+      options:
+        - Inside our company, for our own work
+        - For paid work for clients
+        - In a product or service we sell
+        - Hosted for others, or as part of a hosted service
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: A few words about it
+      description: What you'd like to do with Progressor, and roughly how many people would use it.
+    validations:
+      required: true
+  - type: input
+    id: contact
+    attributes:
+      label: How to reach you privately
+      description: Optional. Leave it empty and we'll reply here first.
