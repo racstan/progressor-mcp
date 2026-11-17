@@ -12,6 +12,8 @@ Then restart your AI app. Chats that were already open keep running the old vers
 
 If you set Progressor up with `npx` instead of installing it, it updates itself the next time the app starts it.
 
+To see which version you have: `progressor-mcp --version`, or ❓ Help on the dashboard. The background dashboard (`progressor-mcp daemon install`) moves to the new version by itself. With Docker, `docker pull ghcr.io/racstan/progressor-mcp` and restart the app; for the always-running dashboard container, `docker rm -f progressor` and run its command again.
+
 Running `progressor-mcp init` again in a project changes nothing unless something is missing or out of date, so it's safe to run after an update.
 
 ## Removing Progressor from a project
