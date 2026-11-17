@@ -39,6 +39,7 @@ const SCHEMA = {
   }),
   alternatives: z.object({ wait: z.string().regex(/^\d+(?:\.\d+)?\s*(?:m|min|h|d)$/), offer: z.enum(["off", "big choices", "always"]) }),
   handoffs: z.object({ afterRelease: flag, keep: count }),
+  claims: z.object({ idleHours: count }),
 };
 
 export type SettingsSection = keyof typeof SCHEMA;
@@ -62,6 +63,7 @@ export const SETTINGS_DEFAULTS: Settings = {
   },
   alternatives: { wait: "0m", offer: "big choices" },
   handoffs: { afterRelease: true, keep: 50 },
+  claims: { idleHours: 24 },
 };
 
 export const SETTINGS_SECTIONS = Object.keys(SCHEMA) as SettingsSection[];

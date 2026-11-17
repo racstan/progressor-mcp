@@ -97,6 +97,8 @@ export interface ProjectOptions {
   rename?: (from: string, to: string) => void;
   /** The history settings for a project folder (settings.ts); the defaults unless set. */
   history?: (root: string) => HistorySettings;
+  /** How long a claim whose Session can't be told apart from a reused process lasts with no change (Settings › Claims). */
+  claims?: (root: string) => { idleHours: number };
 }
 
 /** What going back in the plan's history did (Project.restoreHistory). */
@@ -333,6 +335,8 @@ export function claimMayBeLive(
     /** When the claimed Goal's plan last changed, and the time now: see CLAIM_IDLE_MS. */
     lastActive?: number;
     now?: number;
+    /** How long such a claim lasts with no change; CLAIM_IDLE_MS unless set. */
+    idleMs?: number;
   },
 ): boolean {
   if (claim.pid === undefined) return true;
@@ -342,7 +346,7 @@ export function claimMayBeLive(
   if (running !== undefined) return running === claim.session;
   // Some process has that number, but nothing says it is this Session: the number may have been
   // reused after the chat closed. A claim on a plan nobody has changed for a day is taken as ended.
-  if (options.lastActive !== undefined && options.now !== undefined && options.now - options.lastActive > CLAIM_IDLE_MS) return false;
+  if (options.lastActive !== undefined && options.now !== undefined && options.now - options.lastActive > (options.idleMs ?? CLAIM_IDLE_MS)) return false;
   return true;
 }
 
@@ -392,6 +396,7 @@ export class Project {
   readonly from: string | undefined;
   /** The history settings for this project (see ProjectOptions.history); read when a change is recorded. */
   history: (root: string) => HistorySettings;
+  claims: (root: string) => { idleHours: number };
   /** While a transaction runs: what it is, and each plan file's text before its first write in it. */
   private journal: { label: string; files: Map<string, string | null> } | undefined;
   private swept = false;
@@ -410,6 +415,7 @@ export class Project {
     this.rename = options.rename ?? renameSync;
     this.git = options.git ?? realGit;
     this.history = options.history ?? (() => SETTINGS_DEFAULTS.history);
+    this.claims = options.claims ?? (() => SETTINGS_DEFAULTS.claims);
   }
 
   /**
@@ -600,6 +606,7 @@ export class Project {
           ...(self ? { self } : {}),
           lastActive: this.lastActive(g, g.claim),
           now: this.now().getTime(),
+          idleMs: this.idleMs(),
         }),
     );
     if (ended.length === 0) return [];
@@ -913,8 +920,17 @@ export class Project {
       isAlive: this.isAlive,
       sessionOf: this.sessionOf,
       self: this.session,
-      ...(goal ? { lastActive: this.lastActive(goal, claim), now: this.now().getTime() } : {}),
+      ...(goal ? { lastActive: this.lastActive(goal, claim), now: this.now().getTime(), idleMs: this.idleMs() } : {}),
     });
+  }
+
+  /** How long a claim that may be a reused process lasts with no change, from Settings. */
+  private idleMs(): number {
+    try {
+      return this.claims(this.root).idleHours * 3_600_000;
+    } catch {
+      return CLAIM_IDLE_MS;
+    }
   }
 
   /** The latest of when a claimed Goal was claimed, last changed on the Roadmap, and its plan file last saved. */

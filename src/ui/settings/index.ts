@@ -2,6 +2,7 @@
 // src/ui/settings/<Feature>.tsx and one line here (with its group, groups.ts); Settings.tsx shows it with "Reset this section",
 // and "Reset all settings to defaults" resets it too.
 import { advancedSection, finishedSection, popUpsSection, themeSection, tourSection } from "./Look.js";
+import { motionSection } from "./Motion.js";
 import { phoneSection } from "./Phone.js";
 import { estimatesSection } from "./Estimates.js";
 import { evidenceSection } from "./Evidence.js";
@@ -13,12 +14,14 @@ import { handoffsSection } from "./Handoffs.js";
 import { alternativesSection } from "./Alternatives.js";
 import { routinesSection } from "./Routines.js";
 import { backgroundSection } from "./Background.js";
+import { claimsSection } from "./Claims.js";
 import type { SettingsSection } from "./types.js";
 
 export type { SettingsContext, SettingsSection, Theme } from "./types.js";
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
   themeSection,
+  motionSection,
   popUpsSection,
   finishedSection,
   tourSection,
@@ -33,6 +36,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   handoffsSection,
   routinesSection,
   alternativesSection,
+  claimsSection,
   backgroundSection,
   advancedSection,
 ];

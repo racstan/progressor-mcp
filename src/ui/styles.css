@@ -1278,3 +1278,12 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 @media (prefers-reduced-motion: reduce) {
   .btn.busy::before { border-right-color: currentColor; opacity: .5; }
 }
+
+/* Settings › Motion: Gentle keeps what says something is happening (dots, spinners, the step being
+   worked on) but slower, and drops shimmering and gliding; Off stills everything. */
+[data-motion="off"] *, [data-motion="off"] *::before, [data-motion="off"] *::after { animation: none !important; transition: none !important; }
+[data-motion="gentle"] .page-enter, [data-motion="gentle"] .loaded, [data-motion="gentle"] .loading,
+[data-motion="gentle"] .tab-body, [data-motion="gentle"] .needs-item, [data-motion="gentle"] .talk li { animation: none; }
+[data-motion="gentle"] .skeleton i { animation: none; }
+[data-motion="gentle"] .loading-dots i { animation-duration: 2.2s; }
+[data-motion="gentle"] .btn.busy::before { animation-duration: 1.6s; }

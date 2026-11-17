@@ -835,6 +835,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   const withNow = (text: string) => `${text}\n${nowLine(project.sessionStatus())}`;
   const { dashboard, registryFile } = options;
   project.history = (root) => readSettings(settingsFile, root).history;
+  project.claims = (root) => readSettings(settingsFile, root).claims;
   // Told once per Session: each get_status after that would only repeat it.
   let hooksChecked = false;
   // The plan check-up runs by itself once per Session (see get_status).

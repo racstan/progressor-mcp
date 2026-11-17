@@ -465,6 +465,7 @@ class Hub {
           session: { id: "dashboard", pid: process.pid },
           clearStaleClaims: false,
           history: (root) => readSettings(this.settingsFile, root).history,
+          claims: (root) => readSettings(this.settingsFile, root).claims,
         });
         const stop = watchProgress(entry.root, (files) => {
           this.searchIndex.drop(entry.id);

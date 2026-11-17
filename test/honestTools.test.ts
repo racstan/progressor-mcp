@@ -94,3 +94,19 @@ describe("goal IDs and other projects", () => {
     expect(claim.description).toMatch(/another project/i);
   });
 });
+
+describe("how long a closed-looking chat keeps its claim (Settings)", () => {
+  it("follows the setting instead of a day", () => {
+    const start = Date.now();
+    const at = (hours: number) => () => new Date(start + hours * 3_600_000);
+    const holder = new Project({ root, session: { id: "old", pid: 4242 }, isAlive: () => true, now: at(0) });
+    holder.addGoal("Login", [{ title: "Route" }]);
+    holder.claimGoal("login");
+    const reader = (hours: number, idleHours: number) =>
+      new Project({ root, session: { id: "new", pid: 5555 }, isAlive: () => true, now: at(hours), claims: () => ({ idleHours }) });
+    const r1 = reader(3, 2);
+    expect(r1.heldElsewhere(r1.roadmap().goal("login")!)).toBe(false);
+    const r2 = reader(3, 48);
+    expect(r2.heldElsewhere(r2.roadmap().goal("login")!)).toBe(true);
+  });
+});
