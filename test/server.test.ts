@@ -42,6 +42,7 @@ describe("the MCP server", () => {
         "add_hand_test",
         "add_hotfix",
         "add_note",
+        "add_person",
         "add_risk",
         "add_small_fix",
         "add_standing_instruction",

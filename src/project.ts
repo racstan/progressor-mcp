@@ -46,6 +46,7 @@ import { type Claim, type Goal, GOAL_BUNDLES, GOAL_FROM_ROUTINE, GOAL_RELEASE, G
 import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule, helperCount } from "./schedule.js";
 import { type Calibration, calibration } from "./stats.js";
+import { PEOPLE_FILE, type Person, findPerson, formatPeople, nextPersonId, parsePeople, personName } from "./people.js";
 import { RISKS_FILE, type Risk, type RiskChanges, type Level, formatRisks, nextRiskId, parseRisks, riskLine } from "./risks.js";
 import { WISHLIST_FILE, type Attachment, type Wish, formatWishlist, isWishId, nextWishId, parseWishlist, wishText } from "./wishlist.js";
 
@@ -143,6 +144,9 @@ export interface TaskOperation {
   helper?: HelperInfo;
   /** For "state" checked: a short note on what was checked. */
   evidence?: string;
+  /** For "state" waiting on someone: who, and what they need to do. */
+  person?: string;
+  need?: string;
   reason?: string;
   /** For "complete": files the Task touched. */
   code?: string[];
@@ -162,6 +166,8 @@ export interface Status {
   withHelper: Task[];
   /** Tasks the Agent is waiting on the Developer for; while there are any, so is the Goal. */
   waitingOnYou: Task[];
+  /** Steps waiting on someone other than the Developer (people.ts). */
+  waitingOnOthers: Task[];
   /** Tasks whose helper's work the Agent has checked, not yet released. */
   checked: Task[];
   /** Done and released Tasks. */
@@ -1503,7 +1509,7 @@ export class Project {
         return this.complete(plan, op.task, op.code ?? [], op.summary);
       case "state":
         if (!op.state) throw new Error("The state action needs a state.");
-        return this.setState(plan, op.task, op.state, { helper: op.helper, evidence: op.evidence });
+        return this.setState(plan, op.task, op.state, { helper: op.helper, evidence: op.evidence, person: op.person, need: op.need });
       case "drop":
         if (!op.reason?.trim()) throw new Error("The drop action needs a reason.");
         return this.drop(plan, op.task, op.reason);
@@ -1524,6 +1530,13 @@ export class Project {
     const hasHelper = !!(extras.helper?.branch?.trim() || extras.helper?.folder?.trim() || extras.helper?.label?.trim());
     if (hasHelper && state !== "with a helper") throw new Error(`Helper info (branch, folder, label) goes with the state "with a helper", not "${state}".`);
     if (extras.evidence?.trim() && state !== "checked") throw new Error(`Evidence goes with the state "checked", not "${state}".`);
+    if ((extras.person?.trim() || extras.need?.trim()) && state !== "waiting on someone")
+      throw new Error(`A person and need go only with 'waiting on someone', not "${state}".`);
+    if (state === "waiting on someone") {
+      if (!extras.person?.trim()) throw new Error("Say who the step waits on (person), such as 'Priya' or 'Stripe support'.");
+      this.taskIn(plan, id);
+      extras = { ...extras, person: this.ensurePerson(extras.person).name };
+    }
     if (state === "in progress") return this.start(plan, id);
     const task = this.taskIn(plan, id);
     if (task.status === "dropped") throw new Error(`Task ${id} is dropped; add a new Task instead.`);
@@ -2194,6 +2207,38 @@ export class Project {
     return context;
   }
 
+  // --- people -----------------------------------------------------------------
+
+  /** The people the project's steps can wait on (see people.ts), in the file's order. */
+  people(): Person[] {
+    return parsePeople(this.readText(this.path(PEOPLE_FILE)) ?? "");
+  }
+
+  /** The person with this name or ID, added (without a role) when new. */
+  private ensurePerson(nameOrId: string): Person {
+    const people = this.people();
+    const known = findPerson(people, nameOrId);
+    if (known) return known;
+    const name = personName(nameOrId);
+    if (!name) throw new Error("Give the person a name.");
+    const added: Person = { id: nextPersonId(people), name };
+    this.writeText(this.path(PEOPLE_FILE), formatPeople([...people, added]));
+    return added;
+  }
+
+  /** Adds a person, or sets the role of one already known (an empty role removes it). */
+  addPerson(nameOrId: string, role?: string): Person {
+    const person = this.ensurePerson(nameOrId);
+    if (role === undefined) return person;
+    const people = this.people();
+    const p = people.find((x) => x.id === person.id)!;
+    const text = role.replace(/\s+/g, " ").trim();
+    if (text) p.role = text;
+    else delete p.role;
+    this.writeText(this.path(PEOPLE_FILE), formatPeople(people));
+    return p;
+  }
+
   // --- risks ------------------------------------------------------------------
 
   /** The project's risks (see risks.ts), in the file's order. */
@@ -2463,6 +2508,7 @@ export class Project {
         nextTask: undefined,
         withHelper: [],
         waitingOnYou: [],
+        waitingOnOthers: [],
         checked: [],
         done: 0,
         total: 0,
@@ -2486,6 +2532,7 @@ export class Project {
       nextTask: plan.nextTask,
       withHelper: inState("with a helper"),
       waitingOnYou: inState("waiting on you"),
+      waitingOnOthers: inState("waiting on someone"),
       checked: inState("checked"),
       done: live.filter((t) => t.status === "done" || t.status === "released").length,
       total: live.length,

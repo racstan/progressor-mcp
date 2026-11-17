@@ -144,6 +144,7 @@ export function dashboardApi(
     const counts: Record<TaskStatus, number> = {
       pending: 0,
       "in progress": 0,
+      "waiting on someone": 0,
       "with a helper": 0,
       "waiting on you": 0,
       checked: 0,

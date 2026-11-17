@@ -121,7 +121,10 @@ const evidence = z
   .optional()
   .describe("With state 'checked': one short line on what you checked, such as '715 passed, live send OK'. Give it: the Developer sees it on the dashboard step.");
 const taskId = z.string().describe("The Task ID, such as 't3'.");
-const states = ["pending", "in progress", "with a helper", "waiting on you", "checked", "done", "released"] as const satisfies readonly TaskStatus[];
+const states = ["pending", "in progress", "with a helper", "waiting on you", "waiting on someone", "checked", "done", "released"] as const satisfies readonly TaskStatus[];
+/** Who a step waits on, and what they need to do, with the state 'waiting on someone'. */
+const personInput = z.string().optional().describe("With state 'waiting on someone': who it waits on, by name (or ID, such as 'p2'), such as 'Priya' or 'Stripe support'. Someone new is added to the project's people.");
+const needInput = z.string().optional().describe("With state 'waiting on someone': what they need to do, in one line, such as 'Sign and send back the contract'.");
 const helpersAtOnce = z
   .number()
   .int()
@@ -599,6 +602,7 @@ export const TOOL_EXAMPLES: Record<string, string> = {
   release_goal: "release_goal({})",
   complete_goal: "complete_goal({})",
   add_tasks: 'add_tasks({ tasks: [{ title: "Fix typo", done: true, code: ["src/a.ts"], hand_test: "Check the button text" }] })',
+  add_person: 'add_person({ name: "Priya", role: "payments lawyer" })',
   add_risk: 'add_risk({ title: "Windows paths break setup", likelihood: "medium", impact: "high", mitigation: "Test setup on Windows in CI", goals: ["tests-ci-deps"] })',
   update_risk: 'update_risk({ risk: "r2", status: "reduced" })',
   add_small_fix: 'add_small_fix({ title: "Faster dev server start", summary: "Skip the type check on start.", code: ["vite.config.ts"] })',
@@ -1365,6 +1369,25 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   const riskSaid = (r: Risk) => `risk ${r.id} ${r.title}: ${r.status}, ${r.likelihood} likelihood, ${r.impact} impact${r.goals.length ? `, reduced by ${r.goals.join(", ")}` : ""}`;
 
   server.registerTool(
+    "add_person",
+    {
+      title: "Add person",
+      description:
+        "Add someone the project's steps can wait on, other than the Developer (a team member, a lawyer, a payments provider), with their role, or set the role of someone already listed (an empty role removes it). Setting a step to 'waiting on someone' adds a new person by itself; use this to say who they are.",
+      inputSchema: {
+        name: z.string().trim().min(1).describe("Their name, or their ID such as 'p2', such as 'Priya' or 'Stripe support'."),
+        role: z.string().optional().describe("What they are to the project, such as 'payments lawyer'."),
+        project: otherProject,
+      },
+    },
+    ({ name, role, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        const person = p.addPerson(name, role);
+        return doneIn(p, person.role ? `${person.name} (${person.id}) is now: ${person.role}.` : `${person.name} (${person.id}) is on the project's people.`);
+      }),
+  );
+
+  server.registerTool(
     "add_risk",
     {
       title: "Add risk",
@@ -1424,7 +1447,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Set Task state",
       description:
-        "Set a Task's state. 'with a helper': handed to a helper agent that is working on it (several Tasks can be). 'waiting on you': you are waiting on the Developer, such as for them to test something by hand; the dashboard shows the Goal as waiting on them, so tell them what you need. 'checked': you checked a helper's work (tests, review) but it is not merged or released yet; give evidence, one short line on what you checked (\"715 passed, live send OK\"), which the Developer sees on the step. With 'with a helper', give helper_branch, helper_folder (the worktree path) and helper_label: they are recorded with the Task and shown in get_status and on the dashboard, and get_status warns when a finished Task's helper branch still has unmerged work. 'released': merged and out (shipped, installed or published); counts as done. 'pending', 'in progress' and 'done' work too (in progress follows start_task's one-at-a-time rule). Set a state as soon as it changes, such as 'checked' right after you check a helper's work, so the Developer's dashboard keeps moving. If the project has a helper limit (get_status shows it), keep at most that many Tasks with a helper: one more is still set, with a warning. To drop a Task, use drop_task.",
+        "Set a Task's state. 'with a helper': handed to a helper agent that is working on it (several Tasks can be). 'waiting on you': you are waiting on the Developer, such as for them to test something by hand; the dashboard shows the Goal as waiting on them, so tell them what you need. 'waiting on someone': waiting on a person other than the Developer (a team member, a lawyer, a provider): give person and need; it is shown apart from what waits on the Developer. 'checked': you checked a helper's work (tests, review) but it is not merged or released yet; give evidence, one short line on what you checked (\"715 passed, live send OK\"), which the Developer sees on the step. With 'with a helper', give helper_branch, helper_folder (the worktree path) and helper_label: they are recorded with the Task and shown in get_status and on the dashboard, and get_status warns when a finished Task's helper branch still has unmerged work. 'released': merged and out (shipped, installed or published); counts as done. 'pending', 'in progress' and 'done' work too (in progress follows start_task's one-at-a-time rule). Set a state as soon as it changes, such as 'checked' right after you check a helper's work, so the Developer's dashboard keeps moving. If the project has a helper limit (get_status shows it), keep at most that many Tasks with a helper: one more is still set, with a warning. To drop a Task, use drop_task.",
       inputSchema: {
         goal: heldGoal,
         task: taskId,
@@ -1433,13 +1456,16 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         helper_folder: helperFolder,
         helper_label: helperLabel,
         evidence,
+        person: personInput,
+        need: needInput,
         project: otherProject,
       },
     },
-    ({ goal, task, state, helper_branch, helper_folder, helper_label, evidence: proof, project: wanted }) =>
+    ({ goal, task, state, helper_branch, helper_folder, helper_label, evidence: proof, person, need, project: wanted }) =>
       respondIn(wanted, (p) => {
-        const t = p.setTaskState(task, state, goal, { helper: helperOf(helper_branch, helper_folder, helper_label), evidence: proof });
-        const said = [`Task ${taskLine(t)} is now ${t.status}.`, ...tookLine([t], new Date()), ...(state === "with a helper" ? helperWarning(p) : []), ...recordEvidence(p, [{ task: t, goal }])];
+        const t = p.setTaskState(task, state, goal, { helper: helperOf(helper_branch, helper_folder, helper_label), evidence: proof, person, need });
+        const waits = t.status === "waiting on someone" ? `, waiting on ${t.waitingFor}${t.need ? `: ${t.need}` : ""}` : "";
+        const said = [`Task ${taskLine(t)} is now ${t.status}${waits}.`, ...tookLine([t], new Date()), ...(state === "with a helper" ? helperWarning(p) : []), ...recordEvidence(p, [{ task: t, goal }])];
         return doneIn(p, said.join("\n"));
       }),
   );
@@ -1449,6 +1475,8 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     helper_folder: helperFolder,
     helper_label: helperLabel,
     evidence,
+    person: personInput,
+    need: needInput,
     action: z
       .enum(["start", "complete", "state", "drop", "estimate"])
       .describe("start: mark in progress. complete: mark done. state: set the state given in state. drop: drop it, with reason. estimate: only set its estimate."),

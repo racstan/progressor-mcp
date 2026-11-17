@@ -44,6 +44,9 @@ export interface TaskNode extends NodeBase {
   helper?: HelperInfo;
   /** What was checked, when the Task was checked with evidence. */
   evidence?: string;
+  /** Who it waits on and what they need to do, while it waits on someone other than the Developer. */
+  waitingFor?: string;
+  need?: string;
   /** What git said when it was finished: its commits (short hashes), branch, test run, and unsaved changes. */
   commits?: string[];
   branch?: string;
@@ -120,6 +123,8 @@ export function buildGoalGraph(plan: { tasks: Task[]; detours: Detour[] }): Goal
     ...(t.timingSince ? { timingSince: t.timingSince } : {}),
     ...(t.helper ? { helper: t.helper } : {}),
     ...(t.evidence ? { evidence: t.evidence } : {}),
+    ...(t.waitingFor ? { waitingFor: t.waitingFor } : {}),
+    ...(t.need ? { need: t.need } : {}),
     ...(t.startedAt ? { startedAt: t.startedAt } : {}),
     ...(t.finishedAt ? { finishedAt: t.finishedAt } : {}),
     ...(t.commits?.length ? { commits: t.commits } : {}),

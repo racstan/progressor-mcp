@@ -30,6 +30,7 @@ export type TaskStatus =
   | "in progress"
   | "with a helper"
   | "waiting on you"
+  | "waiting on someone"
   | "checked"
   | "done"
   | "released"
@@ -70,6 +71,10 @@ export interface Task {
   evidence?: string;
   /** When the Task became checked (an ISO time), while it still is. */
   checkedSince?: string;
+  /** Who it waits on, while it is waiting on someone other than the Developer (people.ts). */
+  waitingFor?: string;
+  /** What that person needs to do, while it waits on them. */
+  need?: string;
   /** When work on it first began (an ISO time); unknown in older plans. */
   startedAt?: string;
   /** When it was done, released or cancelled (an ISO time), while it still is; unknown in older plans. */
@@ -90,10 +95,12 @@ export interface HelperInfo {
   label?: string;
 }
 
-/** What can go with a state change: helper info with "with a helper", evidence with "checked". */
+/** What can go with a state change: helper info with "with a helper", evidence with "checked", who and what with "waiting on someone". */
 export interface StateExtras {
   helper?: HelperInfo;
   evidence?: string;
+  person?: string;
+  need?: string;
 }
 
 export interface Detour {
@@ -251,6 +258,7 @@ export const TASK_MARKER: Record<TaskStatus, Marker> = {
   "in progress": "/",
   "with a helper": "/",
   "waiting on you": "/",
+  "waiting on someone": "/",
   checked: "/",
   done: "x",
   released: "x",
@@ -268,16 +276,16 @@ const QUESTION_ORDER = [
   "choice", ...[1, 2, 3, 4].flatMap((n) => [`about ${n}`, `picture ${n}`]), "recommended", "proceeds", "more",
   "task", "asked", "answer", "answered", "went ahead", "decision", "seen",
 ];
-const STATE_LINE: TaskStatus[] = ["with a helper", "waiting on you", "checked", "released"];
+const STATE_LINE: TaskStatus[] = ["with a helper", "waiting on you", "waiting on someone", "checked", "released"];
 /** Tasks in these states are over: a Goal can be completed once all its Tasks are. */
 export const FINISHED: readonly TaskStatus[] = ["done", "released", "dropped"];
-/** Started, but in other hands than the Agent's: a helper's, or the Developer's. */
-export const ELSEWHERE: readonly TaskStatus[] = ["with a helper", "waiting on you", "checked"];
+/** Started, but in other hands than the Agent's: a helper's, the Developer's or someone else's. */
+export const ELSEWHERE: readonly TaskStatus[] = ["with a helper", "waiting on you", "waiting on someone", "checked"];
 /**
  * The states whose time counts as worked: from when a Task is started or handed to a helper until it
  * is done, released or dropped. A Task set back to pending is paused, and its clock stops.
  */
-export const TIMED: readonly TaskStatus[] = ["in progress", "with a helper", "waiting on you", "checked"];
+export const TIMED: readonly TaskStatus[] = ["in progress", "with a helper", "waiting on you", "waiting on someone", "checked"];
 
 /** The time worked on a Task so far, in minutes, counting a stretch still running up to now. */
 export function timeSpent(t: Pick<Task, "spent" | "timingSince">, now: Date): number {
@@ -292,6 +300,8 @@ const HELPER_BRANCH = "helper branch";
 const HELPER_FOLDER = "helper folder";
 const EVIDENCE = "evidence";
 const CHECKED_SINCE = "checked since";
+const WAITING_FOR = "waiting for";
+const NEED = "they need to";
 const STARTED = "started";
 const FINISHED_AT = "finished";
 /** Task details later features write (step evidence): the commits, branch, test result, and whether its files have unsaved changes. */
@@ -352,7 +362,11 @@ function withHelper(b: ItemBlock): { helper?: HelperInfo; evidence?: string; che
   const folder = getDetail(b, HELPER_FOLDER);
   const evidence = getDetail(b, EVIDENCE);
   const since = getDetail(b, CHECKED_SINCE);
+  const waitingFor = getDetail(b, WAITING_FOR);
+  const need = getDetail(b, NEED);
   return {
+    ...(waitingFor ? { waitingFor } : {}),
+    ...(need ? { need } : {}),
     ...(label || branch || folder ? { helper: { ...(branch ? { branch } : {}), ...(folder ? { folder } : {}), ...(label ? { label } : {}) } } : {}),
     ...(evidence ? { evidence } : {}),
     ...(since ? { checkedSince: since } : {}),
@@ -385,7 +399,7 @@ export interface TaskChanges {
 }
 
 /** Known Task details come first, in this order, when a Task is rewritten; unknown ones follow as they were. */
-const DETAIL_ORDER = ["state", "summary", "code", HELPER, HELPER_BRANCH, HELPER_FOLDER, EVIDENCE, CHECKED_SINCE, TASK_COMMITS, TASK_BRANCH, TASK_TESTS, TASK_UNCOMMITTED, ESTIMATE, SPENT, SINCE, "moved from", "added by", "from hand test", "dropped by", "reason", ORIGIN_KEY, STARTED, FINISHED_AT, ADDED, UPDATED];
+const DETAIL_ORDER = ["state", "summary", "code", WAITING_FOR, NEED, HELPER, HELPER_BRANCH, HELPER_FOLDER, EVIDENCE, CHECKED_SINCE, TASK_COMMITS, TASK_BRANCH, TASK_TESTS, TASK_UNCOMMITTED, ESTIMATE, SPENT, SINCE, "moved from", "added by", "from hand test", "dropped by", "reason", ORIGIN_KEY, STARTED, FINISHED_AT, ADDED, UPDATED];
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 /** A file a step touches, as its plan line writes it: one line, in backticks it can't close early. */
 const codeEntry = (c: string) => `\`${oneLine(c.replace(/`/g, ""))}\``;
@@ -658,6 +672,14 @@ export class PlanFile {
     if (extras.evidence?.trim()) setDetail(b, EVIDENCE, oneLine(extras.evidence));
     else if (!["checked", "done", "released"].includes(status)) setDetail(b, EVIDENCE, undefined);
     setDetail(b, CHECKED_SINCE, status === "checked" ? (getDetail(b, CHECKED_SINCE) ?? this.now().toISOString()) : undefined);
+    // Who it waits on, and what they need to do, only while it waits on them.
+    if (status === "waiting on someone") {
+      if (extras.person?.trim()) setDetail(b, WAITING_FOR, oneLine(extras.person));
+      if (extras.need !== undefined) setDetail(b, NEED, extras.need.trim() ? oneLine(extras.need) : undefined);
+    } else {
+      setDetail(b, WAITING_FOR, undefined);
+      setDetail(b, NEED, undefined);
+    }
     // The first start is kept for good; the finish only while the Task stays finished.
     if (status !== "pending" && !FINISHED.includes(status) && !getDetail(b, STARTED)) setDetail(b, STARTED, this.now().toISOString());
     setDetail(b, FINISHED_AT, FINISHED.includes(status) ? (getDetail(b, FINISHED_AT) ?? this.now().toISOString()) : undefined);

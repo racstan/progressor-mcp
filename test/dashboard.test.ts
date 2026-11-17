@@ -216,6 +216,7 @@ describe("one dashboard for every project", () => {
       "in progress": 1,
       "with a helper": 0,
       "waiting on you": 1,
+      "waiting on someone": 0,
       checked: 0,
       done: 1,
       released: 0,

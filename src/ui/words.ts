@@ -19,6 +19,7 @@ export const STEP_WORD: Record<string, string> = {
   "in progress": "Working on it",
   "with a helper": "With a helper",
   "waiting on you": "Waiting on you",
+  "waiting on someone": "Waiting on someone",
   checked: "Checked",
   done: "Done",
   released: "Released",
@@ -33,6 +34,7 @@ export const STEP_WORD: Record<string, string> = {
 export const STEP_HINT: Record<string, string> = {
   "with a helper": "The AI handed this step to a helper, another AI that works on it on the side.",
   "waiting on you": "The AI needs you for this step, for example to try something out by hand.",
+  "waiting on someone": "The step waits on someone other than you, such as a team member or a provider, to do their part.",
   checked: "The AI looked over the helper's work and it holds up. It is not merged or released yet.",
   released: "Done and out: merged, shipped, installed or published.",
 };
@@ -48,6 +50,7 @@ export const STEP_MARK: Record<string, string> = {
   dropped: "✕",
   "with a helper": "",
   "waiting on you": "!",
+  "waiting on someone": "…",
   checked: "✓",
   released: "✓",
 };
@@ -59,7 +62,7 @@ export const isBadge = (status: string) => status === "with a helper" || status 
 export const statusClass = (status: string) => status.replace(/ /g, "-");
 
 /** The steps that are under way in some way, rather than waiting to start or over. */
-const UNDER_WAY = ["in progress", "with a helper", "waiting on you", "checked"];
+const UNDER_WAY = ["in progress", "with a helper", "waiting on you", "waiting on someone", "checked"];
 
 /** What a side trip's ending means, for its hover. */
 export const SIDE_TRIP_HINT: Record<string, string> = {
@@ -161,6 +164,7 @@ const STEP_END: Record<string, string> = {
   "in progress": "Working on it",
   "with a helper": "With a helper",
   "waiting on you": "Needs you",
+  "waiting on someone": "Waiting on someone",
   checked: "Checked",
   dropped: "Cancelled",
 };
