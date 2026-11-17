@@ -740,7 +740,7 @@ export function App() {
                 <button className="side-link" aria-current={page === "risks"} onClick={() => openPage("risks")} title="What could go wrong in this project, how likely and how bad, and what is being done about it. Your AI keeps the list; you only read it">
                   <Icon name="warning" /> Risks
                 </button>
-                <button className="side-link" aria-current={page === "readiness"} onClick={() => openPage("readiness")} title="Can this project ship? What still stands before its launch or next release, by who it waits on. Your AI keeps it filled">
+                <button className="side-link" data-tour="ready" aria-current={page === "readiness"} onClick={() => openPage("readiness")} title="Can this project ship? What still stands before its launch or next release, by who it waits on. Your AI keeps it filled">
                   <Icon name="check" /> Ready to launch?
                 </button>
                 <button className="side-link" aria-current={page === "calendar"} onClick={() => openPage("calendar")} title="What your AI did and what comes next, by month, week or day">

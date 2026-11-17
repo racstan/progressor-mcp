@@ -75,8 +75,10 @@ code { font: .92em ui-monospace, "Cascadia Code", Consolas, monospace; backgroun
 .crumb .project-btn:hover { background: var(--hover); }
 .crumb .project-btn .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topbar .sp { flex: 1; }
-.live { width: 8px; height: 8px; border-radius: 50%; background: var(--done); flex: none; margin: 0 var(--s1); }
-.live.off { background: var(--you); }
+/* The live dot is the one coloured mark in every theme, at the Developer's wish: green while the page
+   updates live, red while it has lost touch with Progressor. */
+.live { width: 10px; height: 10px; border-radius: 50%; background: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18); flex: none; margin: 0 var(--s1); transition: background-color 0.3s ease, box-shadow 0.3s ease; }
+.live.off { background: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18); }
 .menu-btn-phone { display: none; }
 
 /* ---------- search ---------- */
@@ -524,7 +526,6 @@ pre { font: var(--t-s)/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; b
 .step-icon { border-width: 2px; border-color: var(--ink); }
 .step-icon.dropped, .step-icon.pending { border-color: var(--line-strong); }
 .ring .ring-track { stroke: var(--line); }
-.live.off { background: var(--panel); box-shadow: inset 0 0 0 2px var(--ink); }
 .toast { border: var(--heavy); background: var(--panel); color: var(--ink); box-shadow: var(--lift); font-weight: 600; }
 
 /* ---------- what is being done now, and motion ---------- */
@@ -670,9 +671,8 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 [data-theme="vibrant"] .list-row .sub.you, [data-theme="vibrant"] .goal-row .why, [data-theme="vibrant"] .project-card .you,
 [data-theme="vibrant"] .state.you { color: var(--you); }
 [data-theme="vibrant"] .state.you .dot { background: var(--you); }
-[data-theme="vibrant"] .state.working .dot, [data-theme="vibrant"] .working-dot, [data-theme="vibrant"] .live { background: var(--done); }
+[data-theme="vibrant"] .state.working .dot, [data-theme="vibrant"] .working-dot { background: var(--done); }
 [data-theme="vibrant"] .goal-row.working .t::after, [data-theme="vibrant"] .list-row.working .t::after { background: var(--accent); }
-[data-theme="vibrant"] .live.off { background: var(--you); box-shadow: none; }
 [data-theme="vibrant"] .side-link .n, [data-theme="vibrant"] .picture .play { background: var(--accent); color: var(--on-accent); }
 [data-theme="vibrant"] .rules li.must { border-color: var(--you-line); background: var(--you-soft); }
 [data-theme="vibrant"] .toast { background: var(--ink); color: var(--bg); border: none; box-shadow: var(--shadow); }

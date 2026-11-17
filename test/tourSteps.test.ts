@@ -11,10 +11,10 @@ describe("the tour's steps", () => {
     expect(TOUR_STEPS.slice(1).every((s) => s.notice === undefined)).toBe(true);
   });
 
-  it("then has 4 to 6 short steps, each with a title, words and somewhere to point", () => {
+  it("then has 4 to 7 short steps, each with a title, words and somewhere to point", () => {
     const rest = TOUR_STEPS.slice(1);
     expect(rest.length).toBeGreaterThanOrEqual(4);
-    expect(rest.length).toBeLessThanOrEqual(6);
+    expect(rest.length).toBeLessThanOrEqual(7);
     for (const s of TOUR_STEPS) {
       expect(s.title).toMatch(/^[A-Z]/);
       expect(s.body.length).toBeGreaterThan(20);
@@ -22,18 +22,22 @@ describe("the tour's steps", () => {
     for (const s of rest) expect(s.targets.length).toBeGreaterThan(0);
   });
 
-  it("covers Home, a goal, Needs you, Message your AI, the Dashboard and Calendar, and Settings, in that order", () => {
+  it("covers Home, a goal, Needs you, Message your AI, Ready to launch?, the Dashboard and Calendar, and Settings, in that order", () => {
     expect(TOUR_STEPS.map((s) => s.title)).toEqual([
       "Welcome to Progressor",
       "Home and your projects",
       "A goal and its steps",
       "Needs you",
       "Message your AI",
+      "Ready to launch?",
       "Dashboard and Calendar",
       "Settings, if you want them",
     ]);
     const words = TOUR_STEPS.map((s) => `${s.title} ${s.body}`).join(" ");
     for (const w of ["Home", "goal", "Needs you", "Message your AI", "Dashboard", "Calendar", "Settings"]) expect(words).toContain(w);
+    // the features added since: each is named where it lives
+    for (const w of ["Working now", "pull request", "tokens", "Try them one by one", "Ready to launch?", "Risks", "waiting on someone else", "Since you last looked", "What goals cost"])
+      expect(words).toContain(w);
   });
 });
 

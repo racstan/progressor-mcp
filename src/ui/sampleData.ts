@@ -3,7 +3,7 @@
 import type { SampleSnapshot } from "./sample.js";
 
 export const SAMPLE_SNAPSHOT: SampleSnapshot = {
- "takenAt": "2026-11-07T11:51:02.425Z",
+ "takenAt": "2026-11-17T05:30:23.666Z",
  "answers": {
   "/api/projects": [
    {
@@ -29,7 +29,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "openQuestions": 0,
       "untriedTests": 0,
       "waitingSteps": 0,
-      "updatedAt": 1794052262159.1482
+      "updatedAt": 1794893423442.4482
      },
      {
       "id": "save-favourite-recipes",
@@ -41,7 +41,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "openQuestions": 0,
       "untriedTests": 0,
       "waitingSteps": 0,
-      "updatedAt": 1794052262200.8127
+      "updatedAt": 1794893423473.7126
      },
      {
       "id": "search-by-ingredient",
@@ -53,7 +53,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "openQuestions": 0,
       "untriedTests": 0,
       "waitingSteps": 0,
-      "updatedAt": 1794052262225.823
+      "updatedAt": 1794893423500.5073
      },
      {
       "id": "dark-mode",
@@ -64,8 +64,9 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "waitingOnYou": true,
       "openQuestions": 0,
       "untriedTests": 1,
+      "oldestUntried": "2026-11-16T04:08:00.000Z",
       "waitingSteps": 1,
-      "updatedAt": 1794052262259.1467
+      "updatedAt": 1794893423524.0825
      },
      {
       "id": "shopping-list-from-recipes",
@@ -77,7 +78,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "openQuestions": 0,
       "untriedTests": 0,
       "waitingSteps": 0,
-      "updatedAt": 1794052262309.4163
+      "updatedAt": 1794893423568.8335
      },
      {
       "id": "meal-planner",
@@ -89,7 +90,31 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "openQuestions": 0,
       "untriedTests": 0,
       "waitingSteps": 0,
-      "updatedAt": 1794052262333.291
+      "updatedAt": 1794893423589.1343
+     }
+    ],
+    "seriousRisks": [
+     {
+      "id": "r2",
+      "title": "Recipes lost when a phone is reset"
+     }
+    ],
+    "failedChecks": [],
+    "waitingOnOthers": [
+     {
+      "goal": "shopping-list-from-recipes",
+      "goalTitle": "Shopping list from recipes",
+      "step": "t5",
+      "title": "Share the list by link",
+      "waitingFor": "Sam",
+      "need": "Open the share link on their phone and tick an item off"
+     }
+    ],
+    "people": [
+     {
+      "id": "p1",
+      "name": "Sam",
+      "role": "your partner, trying the shared list"
      }
     ]
    }
@@ -106,7 +131,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "cancelled": 0
    },
    "time": {
-    "spent": 2709,
+    "spent": 1961,
     "compared": {
      "steps": 14,
      "estimated": 580,
@@ -129,48 +154,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
    },
    "perDay": [
     {
-     "day": "2026-10-25",
-     "count": 0
-    },
-    {
-     "day": "2026-10-26",
-     "count": 0
-    },
-    {
-     "day": "2026-10-27",
-     "count": 0
-    },
-    {
-     "day": "2026-10-28",
-     "count": 0
-    },
-    {
-     "day": "2026-10-29",
-     "count": 3
-    },
-    {
-     "day": "2026-10-30",
-     "count": 0
-    },
-    {
-     "day": "2026-10-31",
-     "count": 0
-    },
-    {
-     "day": "2026-11-01",
-     "count": 3
-    },
-    {
-     "day": "2026-11-02",
-     "count": 0
-    },
-    {
-     "day": "2026-11-03",
-     "count": 0
-    },
-    {
      "day": "2026-11-04",
-     "count": 3
+     "count": 0
     },
     {
      "day": "2026-11-05",
@@ -178,10 +163,50 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     },
     {
      "day": "2026-11-06",
-     "count": 2
+     "count": 0
     },
     {
      "day": "2026-11-07",
+     "count": 0
+    },
+    {
+     "day": "2026-11-08",
+     "count": 3
+    },
+    {
+     "day": "2026-11-09",
+     "count": 0
+    },
+    {
+     "day": "2026-11-10",
+     "count": 0
+    },
+    {
+     "day": "2026-11-11",
+     "count": 3
+    },
+    {
+     "day": "2026-11-12",
+     "count": 0
+    },
+    {
+     "day": "2026-11-13",
+     "count": 0
+    },
+    {
+     "day": "2026-11-14",
+     "count": 3
+    },
+    {
+     "day": "2026-11-15",
+     "count": 0
+    },
+    {
+     "day": "2026-11-16",
+     "count": 2
+    },
+    {
+     "day": "2026-11-17",
      "count": 3
     }
    ],
@@ -245,7 +270,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "open": 6,
      "goalsFinished": 3,
      "goalsOpen": 3,
-     "spent": 2709,
+     "spent": 1961,
      "sideTrips": 2,
      "lastTwoWeeks": 14
     }
@@ -263,11 +288,11 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "line": 11,
      "outcome": "People can sign in with their Google account and stay signed in on that device.",
      "added": {
-      "at": "2026-10-29T04:00:00.000Z",
+      "at": "2026-11-08T04:00:00.000Z",
       "by": "AI"
      },
      "updated": {
-      "at": "2026-10-29T06:11:00.000Z",
+      "at": "2026-11-08T06:11:00.000Z",
       "by": "AI"
      },
      "planFile": ".progressor/goals/sign-in-with-google.md",
@@ -276,6 +301,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "counts": {
       "pending": 0,
       "in progress": 0,
+      "waiting on someone": 0,
       "with a helper": 0,
       "waiting on you": 0,
       "checked": 0,
@@ -287,7 +313,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "openQuestions": 0,
      "untriedTests": 0,
      "waitingSteps": 0,
-     "updatedAt": 1794052262159.1482,
+     "updatedAt": 1794893423442.4482,
      "waiting": [],
      "blocked": false
     },
@@ -299,11 +325,11 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "line": 15,
      "outcome": "A heart on each recipe saves it, and Favourites lists them, also offline.",
      "added": {
-      "at": "2026-11-01T04:40:00.000Z",
+      "at": "2026-11-11T04:40:00.000Z",
       "by": "AI"
      },
      "updated": {
-      "at": "2026-11-01T07:12:00.000Z",
+      "at": "2026-11-11T07:12:00.000Z",
       "by": "AI"
      },
      "planFile": ".progressor/goals/save-favourite-recipes.md",
@@ -312,6 +338,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "counts": {
       "pending": 0,
       "in progress": 0,
+      "waiting on someone": 0,
       "with a helper": 0,
       "waiting on you": 0,
       "checked": 0,
@@ -323,7 +350,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "openQuestions": 0,
      "untriedTests": 0,
      "waitingSteps": 0,
-     "updatedAt": 1794052262200.8127,
+     "updatedAt": 1794893423473.7126,
      "waiting": [],
      "blocked": false
     },
@@ -335,11 +362,11 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "line": 19,
      "outcome": "Typing an ingredient lists every recipe that uses it, fastest first.",
      "added": {
-      "at": "2026-11-04T05:40:00.000Z",
+      "at": "2026-11-14T05:40:00.000Z",
       "by": "AI"
      },
      "updated": {
-      "at": "2026-11-04T07:34:00.000Z",
+      "at": "2026-11-14T07:34:00.000Z",
       "by": "AI"
      },
      "planFile": ".progressor/goals/search-by-ingredient.md",
@@ -348,6 +375,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "counts": {
       "pending": 0,
       "in progress": 0,
+      "waiting on someone": 0,
       "with a helper": 0,
       "waiting on you": 0,
       "checked": 0,
@@ -359,7 +387,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "openQuestions": 0,
      "untriedTests": 0,
      "waitingSteps": 0,
-     "updatedAt": 1794052262225.823,
+     "updatedAt": 1794893423500.5073,
      "waiting": [],
      "blocked": false
     },
@@ -370,12 +398,13 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "status": "paused",
      "line": 23,
      "outcome": "The app follows the phone's dark setting, and every screen reads well in it.",
+     "forLaunch": true,
      "added": {
-      "at": "2026-11-06T03:10:00.000Z",
+      "at": "2026-11-16T03:10:00.000Z",
       "by": "AI"
      },
      "updated": {
-      "at": "2026-11-06T03:10:00.000Z",
+      "at": "2026-11-17T05:49:00.000Z",
       "by": "AI"
      },
      "planFile": ".progressor/goals/dark-mode.md",
@@ -384,6 +413,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "counts": {
       "pending": 0,
       "in progress": 0,
+      "waiting on someone": 0,
       "with a helper": 0,
       "waiting on you": 1,
       "checked": 0,
@@ -394,8 +424,9 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "waitingOnYou": true,
      "openQuestions": 0,
      "untriedTests": 1,
+     "oldestUntried": "2026-11-16T04:08:00.000Z",
      "waitingSteps": 1,
-     "updatedAt": 1794052262259.1467,
+     "updatedAt": 1794893423524.0825,
      "waiting": [],
      "blocked": false
     },
@@ -404,27 +435,29 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "ref": "progressor://shopping-list-from-recipes",
      "title": "Shopping list from recipes",
      "status": "active",
-     "line": 27,
+     "line": 28,
      "claim": {
       "session": "s-sample",
-      "pid": 27252,
-      "since": "2026-11-07T03:45:00.000Z"
+      "pid": 29396,
+      "since": "2026-11-17T03:45:00.000Z"
      },
      "outcome": "Pick recipes for the week and get one shopping list, with the same ingredients added up.",
+     "forLaunch": true,
      "added": {
-      "at": "2026-11-07T03:45:00.000Z",
+      "at": "2026-11-17T03:45:00.000Z",
       "by": "AI"
      },
      "updated": {
-      "at": "2026-11-07T03:45:00.000Z",
+      "at": "2026-11-17T05:49:00.000Z",
       "by": "AI"
      },
      "planFile": ".progressor/goals/shopping-list-from-recipes.md",
      "done": 3,
      "total": 6,
      "counts": {
-      "pending": 2,
+      "pending": 1,
       "in progress": 1,
+      "waiting on someone": 1,
       "with a helper": 0,
       "waiting on you": 0,
       "checked": 0,
@@ -436,7 +469,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "openQuestions": 0,
      "untriedTests": 0,
      "waitingSteps": 0,
-     "updatedAt": 1794052262309.4163,
+     "updatedAt": 1794893423568.8335,
      "waiting": [],
      "blocked": false
     },
@@ -445,10 +478,10 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "ref": "progressor://meal-planner",
      "title": "Meal planner",
      "status": "planned",
-     "line": 32,
+     "line": 34,
      "outcome": "Plan the week's meals on a calendar.",
      "added": {
-      "at": "2026-11-07T05:49:00.000Z",
+      "at": "2026-11-17T05:49:00.000Z",
       "by": "AI"
      },
      "planFile": ".progressor/goals/meal-planner.md",
@@ -457,6 +490,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "counts": {
       "pending": 2,
       "in progress": 0,
+      "waiting on someone": 0,
       "with a helper": 0,
       "waiting on you": 0,
       "checked": 0,
@@ -468,7 +502,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "openQuestions": 0,
      "untriedTests": 0,
      "waitingSteps": 0,
-     "updatedAt": 1794052262333.291,
+     "updatedAt": 1794893423589.1343,
      "waiting": [],
      "blocked": false
     }
@@ -476,7 +510,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
    "sessions": [
     {
      "session": "s-sample",
-     "pid": 27252,
+     "pid": 29396,
      "goal": "shopping-list-from-recipes",
      "running": true
     }
@@ -498,8 +532,31 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "hard": false
     }
    ],
-   "context": "Recipe box is a small web app for saving recipes, planning meals and shopping for them. This is a sample, for the walkthrough.\n\n- Built with React and a local database, so it works without a connection.\n- Runs on phones first; the desktop layout comes second.",
+   "context": "Recipe box is a small web app for saving recipes, planning meals and shopping for them. This is a sample, for the tour.\n\n- Built with React and a local database, so it works without a connection.\n- Runs on phones first; the desktop layout comes second.",
    "wishes": [],
+   "seriousRisks": [
+    {
+     "id": "r2",
+     "title": "Recipes lost when a phone is reset"
+    }
+   ],
+   "waitingOnOthers": [
+    {
+     "goal": "shopping-list-from-recipes",
+     "goalTitle": "Shopping list from recipes",
+     "step": "t5",
+     "title": "Share the list by link",
+     "waitingFor": "Sam",
+     "need": "Open the share link on their phone and tick an item off"
+    }
+   ],
+   "people": [
+    {
+     "id": "p1",
+     "name": "Sam",
+     "role": "your partner, trying the shared list"
+    }
+   ],
    "schedule": {
     "capacity": 1,
     "helpers": 0,
@@ -509,10 +566,10 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "id": "t4",
       "title": "Tick items off in the shop",
       "status": "in progress",
-      "left": 0,
+      "left": 21,
       "start": 0,
-      "end": 0,
-      "over": true
+      "end": 21,
+      "over": false
      }
     ],
     "next": [
@@ -520,10 +577,10 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "goal": "shopping-list-from-recipes",
       "id": "t5",
       "title": "Share the list by link",
-      "status": "pending",
+      "status": "waiting on someone",
       "left": 42,
-      "start": 0,
-      "end": 42,
+      "start": 21,
+      "end": 63,
       "over": false
      }
     ],
@@ -541,9 +598,9 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      {
       "id": "shopping-list-from-recipes",
       "title": "Shopping list from recipes",
-      "finish": 63,
+      "finish": 84,
       "unknown": 0,
-      "left": 63,
+      "left": 84,
       "estimate": 120,
       "estimateSet": false,
       "adjusted": true
@@ -551,7 +608,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      {
       "id": "meal-planner",
       "title": "Meal planner",
-      "finish": 136.5,
+      "finish": 157.5,
       "unknown": 0,
       "left": 73.5,
       "estimate": 105,
@@ -559,7 +616,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "adjusted": true
      }
     ],
-    "finish": 136.5,
+    "finish": 157.5,
     "unknown": 0,
     "estimated": true,
     "factor": 0.7
@@ -573,10 +630,10 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "text": "Please keep the app working offline, whatever we add.",
       "line": 5,
       "state": "replied",
-      "sentAt": "2026-11-07T05:47:00.000Z",
-      "seenAt": "2026-11-07T05:49:00.000Z",
+      "sentAt": "2026-11-17T05:47:00.000Z",
+      "seenAt": "2026-11-17T05:49:00.000Z",
       "reply": "Will do. Everything is stored on the phone first and synced when there's a connection.",
-      "repliedAt": "2026-11-07T05:49:00.000Z"
+      "repliedAt": "2026-11-17T05:49:00.000Z"
      }
     ]
    }
@@ -593,7 +650,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "cancelled": 0
    },
    "time": {
-    "spent": 2709,
+    "spent": 1961,
     "compared": {
      "steps": 14,
      "estimated": 580,
@@ -616,48 +673,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
    },
    "perDay": [
     {
-     "day": "2026-10-25",
-     "count": 0
-    },
-    {
-     "day": "2026-10-26",
-     "count": 0
-    },
-    {
-     "day": "2026-10-27",
-     "count": 0
-    },
-    {
-     "day": "2026-10-28",
-     "count": 0
-    },
-    {
-     "day": "2026-10-29",
-     "count": 3
-    },
-    {
-     "day": "2026-10-30",
-     "count": 0
-    },
-    {
-     "day": "2026-10-31",
-     "count": 0
-    },
-    {
-     "day": "2026-11-01",
-     "count": 3
-    },
-    {
-     "day": "2026-11-02",
-     "count": 0
-    },
-    {
-     "day": "2026-11-03",
-     "count": 0
-    },
-    {
      "day": "2026-11-04",
-     "count": 3
+     "count": 0
     },
     {
      "day": "2026-11-05",
@@ -665,10 +682,50 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     },
     {
      "day": "2026-11-06",
-     "count": 2
+     "count": 0
     },
     {
      "day": "2026-11-07",
+     "count": 0
+    },
+    {
+     "day": "2026-11-08",
+     "count": 3
+    },
+    {
+     "day": "2026-11-09",
+     "count": 0
+    },
+    {
+     "day": "2026-11-10",
+     "count": 0
+    },
+    {
+     "day": "2026-11-11",
+     "count": 3
+    },
+    {
+     "day": "2026-11-12",
+     "count": 0
+    },
+    {
+     "day": "2026-11-13",
+     "count": 0
+    },
+    {
+     "day": "2026-11-14",
+     "count": 3
+    },
+    {
+     "day": "2026-11-15",
+     "count": 0
+    },
+    {
+     "day": "2026-11-16",
+     "count": 2
+    },
+    {
+     "day": "2026-11-17",
      "count": 3
     }
    ],
@@ -751,7 +808,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "status": "paused",
      "done": 2,
      "total": 3,
-     "spent": 1941,
+     "spent": 1560,
      "estimate": 70,
      "sideTrips": 0
     },
@@ -761,7 +818,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "status": "active",
      "done": 3,
      "total": 6,
-     "spent": 461,
+     "spent": 94,
      "estimate": 240,
      "sideTrips": 1
     },
@@ -784,13 +841,13 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
    }
   },
   "/api/projects/progressor-sample/calendar": {
-   "now": "2026-11-07T11:51:02.515Z",
+   "now": "2026-11-17T05:30:23.714Z",
    "events": [
     {
      "id": "added:sign-in-with-google",
      "kind": "goal-added",
      "title": "New goal: Sign in with Google",
-     "start": "2026-10-29T04:00:00.000Z",
+     "start": "2026-11-08T04:00:00.000Z",
      "goal": "sign-in-with-google",
      "goalTitle": "Sign in with Google",
      "detail": "Added by your AI"
@@ -799,8 +856,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "step:sign-in-with-google:t1",
      "kind": "step",
      "title": "Google sign-in button",
-     "start": "2026-10-29T04:00:00.000Z",
-     "end": "2026-10-29T04:27:00.000Z",
+     "start": "2026-11-08T04:00:00.000Z",
+     "end": "2026-11-08T04:27:00.000Z",
      "goal": "sign-in-with-google",
      "goalTitle": "Sign in with Google",
      "detail": "Step finished"
@@ -809,8 +866,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "step:sign-in-with-google:t2",
      "kind": "step",
      "title": "Keep people signed in",
-     "start": "2026-10-29T04:37:00.000Z",
-     "end": "2026-10-29T05:19:00.000Z",
+     "start": "2026-11-08T04:37:00.000Z",
+     "end": "2026-11-08T05:19:00.000Z",
      "goal": "sign-in-with-google",
      "goalTitle": "Sign in with Google",
      "detail": "Step finished"
@@ -819,8 +876,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "step:sign-in-with-google:t3",
      "kind": "step",
      "title": "Tests for sign-in",
-     "start": "2026-10-29T05:29:00.000Z",
-     "end": "2026-10-29T06:01:00.000Z",
+     "start": "2026-11-08T05:29:00.000Z",
+     "end": "2026-11-08T06:01:00.000Z",
      "goal": "sign-in-with-google",
      "goalTitle": "Sign in with Google",
      "detail": "Step finished"
@@ -829,7 +886,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "done:sign-in-with-google",
      "kind": "goal-done",
      "title": "Finished: Sign in with Google",
-     "start": "2026-10-29T06:01:00.000Z",
+     "start": "2026-11-08T06:01:00.000Z",
      "goal": "sign-in-with-google",
      "goalTitle": "Sign in with Google"
     },
@@ -837,7 +894,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "added:save-favourite-recipes",
      "kind": "goal-added",
      "title": "New goal: Save favourite recipes",
-     "start": "2026-11-01T04:40:00.000Z",
+     "start": "2026-11-11T04:40:00.000Z",
      "goal": "save-favourite-recipes",
      "goalTitle": "Save favourite recipes",
      "detail": "Added by your AI"
@@ -846,8 +903,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "step:save-favourite-recipes:t1",
      "kind": "step",
      "title": "Heart button on a recipe",
-     "start": "2026-11-01T04:40:00.000Z",
-     "end": "2026-11-01T04:58:00.000Z",
+     "start": "2026-11-11T04:40:00.000Z",
+     "end": "2026-11-11T04:58:00.000Z",
      "goal": "save-favourite-recipes",
      "goalTitle": "Save favourite recipes",
      "detail": "Step finished"
@@ -856,8 +913,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "step:save-favourite-recipes:t2",
      "kind": "step",
      "title": "Store favourites on the device",
-     "start": "2026-11-01T05:08:00.000Z",
-     "end": "2026-11-01T06:04:00.000Z",
+     "start": "2026-11-11T05:08:00.000Z",
+     "end": "2026-11-11T06:04:00.000Z",
      "goal": "save-favourite-recipes",
      "goalTitle": "Save favourite recipes",
      "detail": "Step finished"
@@ -866,8 +923,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "step:save-favourite-recipes:t3",
      "kind": "step",
      "title": "Favourites page",
-     "start": "2026-11-01T06:14:00.000Z",
-     "end": "2026-11-01T07:02:00.000Z",
+     "start": "2026-11-11T06:14:00.000Z",
+     "end": "2026-11-11T07:02:00.000Z",
      "goal": "save-favourite-recipes",
      "goalTitle": "Save favourite recipes",
      "detail": "Step finished"
@@ -876,7 +933,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "done:save-favourite-recipes",
      "kind": "goal-done",
      "title": "Finished: Save favourite recipes",
-     "start": "2026-11-01T07:02:00.000Z",
+     "start": "2026-11-11T07:02:00.000Z",
      "goal": "save-favourite-recipes",
      "goalTitle": "Save favourite recipes"
     },
@@ -884,7 +941,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "added:search-by-ingredient",
      "kind": "goal-added",
      "title": "New goal: Search by ingredient",
-     "start": "2026-11-04T05:40:00.000Z",
+     "start": "2026-11-14T05:40:00.000Z",
      "goal": "search-by-ingredient",
      "goalTitle": "Search by ingredient",
      "detail": "Added by your AI"
@@ -893,8 +950,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "step:search-by-ingredient:t1",
      "kind": "step",
      "title": "Index ingredients",
-     "start": "2026-11-04T05:40:00.000Z",
-     "end": "2026-11-04T06:07:00.000Z",
+     "start": "2026-11-14T05:40:00.000Z",
+     "end": "2026-11-14T06:07:00.000Z",
      "goal": "search-by-ingredient",
      "goalTitle": "Search by ingredient",
      "detail": "Step finished"
@@ -903,8 +960,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "step:search-by-ingredient:t2",
      "kind": "step",
      "title": "Search box",
-     "start": "2026-11-04T06:17:00.000Z",
-     "end": "2026-11-04T06:38:00.000Z",
+     "start": "2026-11-14T06:17:00.000Z",
+     "end": "2026-11-14T06:38:00.000Z",
      "goal": "search-by-ingredient",
      "goalTitle": "Search by ingredient",
      "detail": "Step finished"
@@ -913,8 +970,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "step:search-by-ingredient:t3",
      "kind": "step",
      "title": "Results page",
-     "start": "2026-11-04T06:48:00.000Z",
-     "end": "2026-11-04T07:24:00.000Z",
+     "start": "2026-11-14T06:48:00.000Z",
+     "end": "2026-11-14T07:24:00.000Z",
      "goal": "search-by-ingredient",
      "goalTitle": "Search by ingredient",
      "detail": "Step finished"
@@ -923,7 +980,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "done:search-by-ingredient",
      "kind": "goal-done",
      "title": "Finished: Search by ingredient",
-     "start": "2026-11-04T07:24:00.000Z",
+     "start": "2026-11-14T07:24:00.000Z",
      "goal": "search-by-ingredient",
      "goalTitle": "Search by ingredient"
     },
@@ -931,7 +988,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "added:dark-mode",
      "kind": "goal-added",
      "title": "New goal: Dark mode",
-     "start": "2026-11-06T03:10:00.000Z",
+     "start": "2026-11-16T03:10:00.000Z",
      "goal": "dark-mode",
      "goalTitle": "Dark mode",
      "detail": "Added by your AI"
@@ -940,8 +997,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "step:dark-mode:t1",
      "kind": "step",
      "title": "Colours for dark mode",
-     "start": "2026-11-06T03:10:00.000Z",
-     "end": "2026-11-06T03:34:00.000Z",
+     "start": "2026-11-16T03:10:00.000Z",
+     "end": "2026-11-16T03:34:00.000Z",
      "goal": "dark-mode",
      "goalTitle": "Dark mode",
      "detail": "Step finished"
@@ -950,8 +1007,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "step:dark-mode:t2",
      "kind": "step",
      "title": "Follow the phone's setting",
-     "start": "2026-11-06T03:44:00.000Z",
-     "end": "2026-11-06T03:58:00.000Z",
+     "start": "2026-11-16T03:44:00.000Z",
+     "end": "2026-11-16T03:58:00.000Z",
      "goal": "dark-mode",
      "goalTitle": "Dark mode",
      "detail": "Step finished"
@@ -960,7 +1017,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "added:shopping-list-from-recipes",
      "kind": "goal-added",
      "title": "New goal: Shopping list from recipes",
-     "start": "2026-11-07T03:45:00.000Z",
+     "start": "2026-11-17T03:45:00.000Z",
      "goal": "shopping-list-from-recipes",
      "goalTitle": "Shopping list from recipes",
      "detail": "Added by your AI"
@@ -969,8 +1026,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "step:shopping-list-from-recipes:t1",
      "kind": "step",
      "title": "List items in the database",
-     "start": "2026-11-07T03:45:00.000Z",
-     "end": "2026-11-07T04:03:00.000Z",
+     "start": "2026-11-17T03:45:00.000Z",
+     "end": "2026-11-17T04:03:00.000Z",
      "goal": "shopping-list-from-recipes",
      "goalTitle": "Shopping list from recipes",
      "detail": "Step finished"
@@ -979,8 +1036,8 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "step:shopping-list-from-recipes:t2",
      "kind": "step",
      "title": "Add a recipe's ingredients",
-     "start": "2026-11-07T04:13:00.000Z",
-     "end": "2026-11-07T04:44:00.000Z",
+     "start": "2026-11-17T04:13:00.000Z",
+     "end": "2026-11-17T04:44:00.000Z",
      "goal": "shopping-list-from-recipes",
      "goalTitle": "Shopping list from recipes",
      "detail": "Step finished"
@@ -989,17 +1046,27 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "step:shopping-list-from-recipes:t3",
      "kind": "step",
      "title": "Add up the same ingredients",
-     "start": "2026-11-07T04:54:00.000Z",
-     "end": "2026-11-07T05:39:00.000Z",
+     "start": "2026-11-17T04:54:00.000Z",
+     "end": "2026-11-17T05:39:00.000Z",
      "goal": "shopping-list-from-recipes",
      "goalTitle": "Shopping list from recipes",
      "detail": "Step finished"
     },
     {
+     "id": "planned:shopping-list-from-recipes:t4",
+     "kind": "planned",
+     "title": "Tick items off in the shop",
+     "start": "2026-11-17T05:30:23.717Z",
+     "end": "2026-11-17T05:51:23.717Z",
+     "goal": "shopping-list-from-recipes",
+     "goalTitle": "Shopping list from recipes",
+     "detail": "Being worked on"
+    },
+    {
      "id": "added:meal-planner",
      "kind": "goal-added",
      "title": "New goal: Meal planner",
-     "start": "2026-11-07T05:49:00.000Z",
+     "start": "2026-11-17T05:49:00.000Z",
      "goal": "meal-planner",
      "goalTitle": "Meal planner",
      "detail": "Added by your AI"
@@ -1008,17 +1075,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "planned:shopping-list-from-recipes:t5",
      "kind": "planned",
      "title": "Share the list by link",
-     "start": "2026-11-07T11:51:02.527Z",
-     "end": "2026-11-07T12:33:02.527Z",
+     "start": "2026-11-17T05:51:23.717Z",
+     "end": "2026-11-17T06:33:23.717Z",
      "goal": "shopping-list-from-recipes",
      "goalTitle": "Shopping list from recipes",
-     "detail": "Planned next"
+     "detail": "Being worked on"
     },
     {
      "id": "due:shopping-list-from-recipes",
      "kind": "due",
      "title": "Should be done: Shopping list from recipes",
-     "start": "2026-11-07T12:54:02.527Z",
+     "start": "2026-11-17T06:54:23.717Z",
      "goal": "shopping-list-from-recipes",
      "goalTitle": "Shopping list from recipes",
      "detail": "Expected finish, from the estimates"
@@ -1027,7 +1094,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "due:meal-planner",
      "kind": "due",
      "title": "Should be done: Meal planner",
-     "start": "2026-11-07T14:07:32.527Z",
+     "start": "2026-11-17T08:07:53.717Z",
      "goal": "meal-planner",
      "goalTitle": "Meal planner",
      "detail": "Expected finish, from the estimates"
@@ -1038,6 +1105,376 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
   "/api/projects/progressor-sample/routines": {
    "routines": []
   },
+  "/api/projects/progressor-sample/readiness": {
+   "readiness": {
+    "scope": {
+     "kind": "marked",
+     "goals": [
+      {
+       "id": "dark-mode",
+       "title": "Dark mode",
+       "status": "paused"
+      },
+      {
+       "id": "shopping-list-from-recipes",
+       "title": "Shopping list from recipes",
+       "status": "active"
+      }
+     ]
+    },
+    "ready": false,
+    "left": 6,
+    "verdict": "Not ready yet: 2 steps for the AI, 2 things for you, 1 thing waiting on others, 1 serious risk.",
+    "ai": [
+     {
+      "kind": "step",
+      "goal": "shopping-list-from-recipes",
+      "goalTitle": "Shopping list from recipes",
+      "id": "t4",
+      "title": "Tick items off in the shop"
+     },
+     {
+      "kind": "step",
+      "goal": "shopping-list-from-recipes",
+      "goalTitle": "Shopping list from recipes",
+      "id": "t6",
+      "title": "Convert cups and spoons to grams"
+     }
+    ],
+    "you": [
+     {
+      "kind": "step",
+      "goal": "dark-mode",
+      "goalTitle": "Dark mode",
+      "id": "t3",
+      "title": "Try it on your phone"
+     },
+     {
+      "kind": "hand test",
+      "goal": "dark-mode",
+      "goalTitle": "Dark mode",
+      "id": "h1",
+      "title": "Open the app on your phone with dark mode on. Every screen should be easy to read."
+     }
+    ],
+    "others": [
+     {
+      "person": "Sam",
+      "items": [
+       {
+        "kind": "step",
+        "goal": "shopping-list-from-recipes",
+        "goalTitle": "Shopping list from recipes",
+        "id": "t5",
+        "title": "Share the list by link",
+        "need": "Open the share link on their phone and tick an item off"
+       }
+      ]
+     }
+    ],
+    "risks": [
+     {
+      "id": "r2",
+      "title": "Recipes lost when a phone is reset",
+      "score": 6
+     }
+    ]
+   }
+  },
+  "/api/projects/progressor-sample/risks": {
+   "risks": [
+    {
+     "id": "r1",
+     "title": "A shared list link reaches a stranger",
+     "likelihood": "medium",
+     "impact": "high",
+     "mitigation": "Links expire after a week and can be switched off",
+     "goals": [
+      {
+       "id": "shopping-list-from-recipes",
+       "title": "Shopping list from recipes",
+       "status": "active"
+      }
+     ],
+     "status": "open",
+     "score": 6,
+     "serious": false
+    },
+    {
+     "id": "r2",
+     "title": "Recipes lost when a phone is reset",
+     "likelihood": "medium",
+     "impact": "high",
+     "mitigation": "Back recipes up to the account",
+     "goals": [],
+     "status": "open",
+     "score": 6,
+     "serious": true
+    },
+    {
+     "id": "r3",
+     "title": "Slow search with thousands of recipes",
+     "likelihood": "low",
+     "impact": "medium",
+     "goals": [
+      {
+       "id": "search-by-ingredient",
+       "title": "Search by ingredient",
+       "status": "done"
+      }
+     ],
+     "status": "open",
+     "score": 2,
+     "serious": false
+    }
+   ]
+  },
+  "/api/projects/progressor-sample/feed": {
+   "items": [
+    {
+     "goalId": "shopping-list-from-recipes",
+     "goalTitle": "Shopping list from recipes",
+     "kind": "decision",
+     "key": "decision/shopping-list-from-recipes/c1",
+     "at": "2026-11-17T05:39:00.000Z",
+     "by": "AI",
+     "text": "added a decision"
+    },
+    {
+     "goalId": "shopping-list-from-recipes",
+     "goalTitle": "Shopping list from recipes",
+     "kind": "step",
+     "key": "step/shopping-list-from-recipes/t3",
+     "at": "2026-11-17T05:39:00.000Z",
+     "by": "AI",
+     "text": "finished step t3 Add up the same ingredients"
+    },
+    {
+     "goalId": "shopping-list-from-recipes",
+     "goalTitle": "Shopping list from recipes",
+     "kind": "step",
+     "key": "step/shopping-list-from-recipes/t2",
+     "at": "2026-11-17T04:44:00.000Z",
+     "by": "AI",
+     "text": "finished step t2 Add a recipe's ingredients"
+    },
+    {
+     "goalId": "shopping-list-from-recipes",
+     "goalTitle": "Shopping list from recipes",
+     "kind": "step",
+     "key": "step/shopping-list-from-recipes/t1",
+     "at": "2026-11-17T04:03:00.000Z",
+     "by": "AI",
+     "text": "finished step t1 List items in the database"
+    },
+    {
+     "goalId": "dark-mode",
+     "goalTitle": "Dark mode",
+     "kind": "handTest",
+     "key": "handTest/dark-mode/h1",
+     "at": "2026-11-16T04:08:00.000Z",
+     "by": "AI",
+     "text": "added something to try",
+     "open": true
+    },
+    {
+     "goalId": "dark-mode",
+     "goalTitle": "Dark mode",
+     "kind": "step",
+     "key": "step/dark-mode/t2",
+     "at": "2026-11-16T03:58:00.000Z",
+     "by": "AI",
+     "text": "finished step t2 Follow the phone's setting"
+    },
+    {
+     "goalId": "dark-mode",
+     "goalTitle": "Dark mode",
+     "kind": "step",
+     "key": "step/dark-mode/t1",
+     "at": "2026-11-16T03:34:00.000Z",
+     "by": "AI",
+     "text": "finished step t1 Colours for dark mode"
+    },
+    {
+     "goalId": "search-by-ingredient",
+     "goalTitle": "Search by ingredient",
+     "kind": "goal",
+     "key": "goal/search-by-ingredient/done",
+     "at": "2026-11-14T07:34:00.000Z",
+     "by": "AI",
+     "text": "finished goal Search by ingredient"
+    },
+    {
+     "goalId": "search-by-ingredient",
+     "goalTitle": "Search by ingredient",
+     "kind": "step",
+     "key": "step/search-by-ingredient/t3",
+     "at": "2026-11-14T07:24:00.000Z",
+     "by": "AI",
+     "text": "finished step t3 Results page"
+    },
+    {
+     "goalId": "search-by-ingredient",
+     "goalTitle": "Search by ingredient",
+     "kind": "step",
+     "key": "step/search-by-ingredient/t2",
+     "at": "2026-11-14T06:38:00.000Z",
+     "by": "AI",
+     "text": "finished step t2 Search box"
+    },
+    {
+     "goalId": "search-by-ingredient",
+     "goalTitle": "Search by ingredient",
+     "kind": "step",
+     "key": "step/search-by-ingredient/t1",
+     "at": "2026-11-14T06:07:00.000Z",
+     "by": "AI",
+     "text": "finished step t1 Index ingredients"
+    },
+    {
+     "goalId": "save-favourite-recipes",
+     "goalTitle": "Save favourite recipes",
+     "kind": "goal",
+     "key": "goal/save-favourite-recipes/done",
+     "at": "2026-11-11T07:12:00.000Z",
+     "by": "AI",
+     "text": "finished goal Save favourite recipes"
+    },
+    {
+     "goalId": "save-favourite-recipes",
+     "goalTitle": "Save favourite recipes",
+     "kind": "step",
+     "key": "step/save-favourite-recipes/t3",
+     "at": "2026-11-11T07:02:00.000Z",
+     "by": "AI",
+     "text": "finished step t3 Favourites page"
+    },
+    {
+     "goalId": "save-favourite-recipes",
+     "goalTitle": "Save favourite recipes",
+     "kind": "step",
+     "key": "step/save-favourite-recipes/t2",
+     "at": "2026-11-11T06:04:00.000Z",
+     "by": "AI",
+     "text": "finished step t2 Store favourites on the device"
+    },
+    {
+     "goalId": "save-favourite-recipes",
+     "goalTitle": "Save favourite recipes",
+     "kind": "step",
+     "key": "step/save-favourite-recipes/t1",
+     "at": "2026-11-11T04:58:00.000Z",
+     "by": "AI",
+     "text": "finished step t1 Heart button on a recipe"
+    },
+    {
+     "goalId": "sign-in-with-google",
+     "goalTitle": "Sign in with Google",
+     "kind": "goal",
+     "key": "goal/sign-in-with-google/done",
+     "at": "2026-11-08T06:11:00.000Z",
+     "by": "AI",
+     "text": "finished goal Sign in with Google"
+    },
+    {
+     "goalId": "sign-in-with-google",
+     "goalTitle": "Sign in with Google",
+     "kind": "step",
+     "key": "step/sign-in-with-google/t3",
+     "at": "2026-11-08T06:01:00.000Z",
+     "by": "AI",
+     "text": "finished step t3 Tests for sign-in"
+    },
+    {
+     "goalId": "sign-in-with-google",
+     "goalTitle": "Sign in with Google",
+     "kind": "step",
+     "key": "step/sign-in-with-google/t2",
+     "at": "2026-11-08T05:19:00.000Z",
+     "by": "AI",
+     "text": "finished step t2 Keep people signed in"
+    },
+    {
+     "goalId": "sign-in-with-google",
+     "goalTitle": "Sign in with Google",
+     "kind": "step",
+     "key": "step/sign-in-with-google/t1",
+     "at": "2026-11-08T04:27:00.000Z",
+     "by": "AI",
+     "text": "finished step t1 Google sign-in button"
+    }
+   ]
+  },
+  "/api/projects/progressor-sample/cost": {
+   "priced": false,
+   "goals": {
+    "sign-in-with-google": {
+     "tokens": 1609260,
+     "steps": {
+      "t1": {
+       "tokens": 536420
+      },
+      "t2": {
+       "tokens": 536420
+      },
+      "t3": {
+       "tokens": 536420
+      }
+     }
+    },
+    "save-favourite-recipes": {
+     "tokens": 2680260,
+     "steps": {
+      "t1": {
+       "tokens": 893420
+      },
+      "t2": {
+       "tokens": 893420
+      },
+      "t3": {
+       "tokens": 893420
+      }
+     }
+    },
+    "search-by-ingredient": {
+     "tokens": 1223700,
+     "steps": {
+      "t1": {
+       "tokens": 407900
+      },
+      "t2": {
+       "tokens": 407900
+      },
+      "t3": {
+       "tokens": 407900
+      }
+     }
+    },
+    "shopping-list-from-recipes": {
+     "tokens": 1996960,
+     "steps": {
+      "t1": {
+       "tokens": 673100
+      },
+      "t2": {
+       "tokens": 673100
+      },
+      "t3": {
+       "tokens": 650760
+      }
+     }
+    }
+   },
+   "other": {
+    "tokens": 22340
+   }
+  },
+  "/api/projects/progressor-sample/sessions": {
+   "sessions": [],
+   "helpers": {
+    "busy": 0
+   }
+  },
   "/api/projects/progressor-sample/goals/sign-in-with-google": {
    "goal": {
     "id": "sign-in-with-google",
@@ -1047,11 +1484,11 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "line": 11,
     "outcome": "People can sign in with their Google account and stay signed in on that device.",
     "added": {
-     "at": "2026-10-29T04:00:00.000Z",
+     "at": "2026-11-08T04:00:00.000Z",
      "by": "AI"
     },
     "updated": {
-     "at": "2026-10-29T06:11:00.000Z",
+     "at": "2026-11-08T06:11:00.000Z",
      "by": "AI"
     },
     "planFile": ".progressor/goals/sign-in-with-google.md",
@@ -1060,6 +1497,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "counts": {
      "pending": 0,
      "in progress": 0,
+     "waiting on someone": 0,
      "with a helper": 0,
      "waiting on you": 0,
      "checked": 0,
@@ -1071,7 +1509,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "openQuestions": 0,
     "untriedTests": 0,
     "waitingSteps": 0,
-    "updatedAt": 1794052262159.1482,
+    "updatedAt": 1794893423442.4482,
     "waiting": [],
     "blocked": false
    },
@@ -1089,17 +1527,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-10-29T04:00:00.000Z",
+       "at": "2026-11-08T04:00:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-10-29T04:27:00.000Z",
+       "at": "2026-11-08T04:27:00.000Z",
        "by": "AI"
       },
       "estimate": 45,
       "spent": 27,
-      "startedAt": "2026-10-29T04:00:00.000Z",
-      "finishedAt": "2026-10-29T04:27:00.000Z",
+      "startedAt": "2026-11-08T04:00:00.000Z",
+      "finishedAt": "2026-11-08T04:27:00.000Z",
       "step": 0,
       "lane": 0
      },
@@ -1115,17 +1553,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-10-29T04:00:00.000Z",
+       "at": "2026-11-08T04:00:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-10-29T05:19:00.000Z",
+       "at": "2026-11-08T05:19:00.000Z",
        "by": "AI"
       },
       "estimate": 60,
       "spent": 42,
-      "startedAt": "2026-10-29T04:37:00.000Z",
-      "finishedAt": "2026-10-29T05:19:00.000Z",
+      "startedAt": "2026-11-08T04:37:00.000Z",
+      "finishedAt": "2026-11-08T05:19:00.000Z",
       "step": 1,
       "lane": 0
      },
@@ -1141,17 +1579,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-10-29T04:00:00.000Z",
+       "at": "2026-11-08T04:00:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-10-29T06:01:00.000Z",
+       "at": "2026-11-08T06:01:00.000Z",
        "by": "AI"
       },
       "estimate": 40,
       "spent": 32,
-      "startedAt": "2026-10-29T05:29:00.000Z",
-      "finishedAt": "2026-10-29T06:01:00.000Z",
+      "startedAt": "2026-11-08T05:29:00.000Z",
+      "finishedAt": "2026-11-08T06:01:00.000Z",
       "step": 2,
       "lane": 0
      }
@@ -1185,11 +1623,11 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "line": 15,
     "outcome": "A heart on each recipe saves it, and Favourites lists them, also offline.",
     "added": {
-     "at": "2026-11-01T04:40:00.000Z",
+     "at": "2026-11-11T04:40:00.000Z",
      "by": "AI"
     },
     "updated": {
-     "at": "2026-11-01T07:12:00.000Z",
+     "at": "2026-11-11T07:12:00.000Z",
      "by": "AI"
     },
     "planFile": ".progressor/goals/save-favourite-recipes.md",
@@ -1198,6 +1636,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "counts": {
      "pending": 0,
      "in progress": 0,
+     "waiting on someone": 0,
      "with a helper": 0,
      "waiting on you": 0,
      "checked": 0,
@@ -1209,7 +1648,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "openQuestions": 0,
     "untriedTests": 0,
     "waitingSteps": 0,
-    "updatedAt": 1794052262200.8127,
+    "updatedAt": 1794893423473.7126,
     "waiting": [],
     "blocked": false
    },
@@ -1227,17 +1666,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-01T04:40:00.000Z",
+       "at": "2026-11-11T04:40:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-11-01T04:58:00.000Z",
+       "at": "2026-11-11T04:58:00.000Z",
        "by": "AI"
       },
       "estimate": 30,
       "spent": 18,
-      "startedAt": "2026-11-01T04:40:00.000Z",
-      "finishedAt": "2026-11-01T04:58:00.000Z",
+      "startedAt": "2026-11-11T04:40:00.000Z",
+      "finishedAt": "2026-11-11T04:58:00.000Z",
       "step": 0,
       "lane": 0
      },
@@ -1253,17 +1692,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-01T04:40:00.000Z",
+       "at": "2026-11-11T04:40:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-11-01T06:04:00.000Z",
+       "at": "2026-11-11T06:04:00.000Z",
        "by": "AI"
       },
       "estimate": 45,
       "spent": 56,
-      "startedAt": "2026-11-01T05:08:00.000Z",
-      "finishedAt": "2026-11-01T06:04:00.000Z",
+      "startedAt": "2026-11-11T05:08:00.000Z",
+      "finishedAt": "2026-11-11T06:04:00.000Z",
       "step": 1,
       "lane": 0
      },
@@ -1279,17 +1718,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-01T04:40:00.000Z",
+       "at": "2026-11-11T04:40:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-11-01T07:02:00.000Z",
+       "at": "2026-11-11T07:02:00.000Z",
        "by": "AI"
       },
       "estimate": 60,
       "spent": 48,
-      "startedAt": "2026-11-01T06:14:00.000Z",
-      "finishedAt": "2026-11-01T07:02:00.000Z",
+      "startedAt": "2026-11-11T06:14:00.000Z",
+      "finishedAt": "2026-11-11T07:02:00.000Z",
       "step": 3,
       "lane": 0
      },
@@ -1345,11 +1784,11 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "line": 19,
     "outcome": "Typing an ingredient lists every recipe that uses it, fastest first.",
     "added": {
-     "at": "2026-11-04T05:40:00.000Z",
+     "at": "2026-11-14T05:40:00.000Z",
      "by": "AI"
     },
     "updated": {
-     "at": "2026-11-04T07:34:00.000Z",
+     "at": "2026-11-14T07:34:00.000Z",
      "by": "AI"
     },
     "planFile": ".progressor/goals/search-by-ingredient.md",
@@ -1358,6 +1797,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "counts": {
      "pending": 0,
      "in progress": 0,
+     "waiting on someone": 0,
      "with a helper": 0,
      "waiting on you": 0,
      "checked": 0,
@@ -1369,7 +1809,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "openQuestions": 0,
     "untriedTests": 0,
     "waitingSteps": 0,
-    "updatedAt": 1794052262225.823,
+    "updatedAt": 1794893423500.5073,
     "waiting": [],
     "blocked": false
    },
@@ -1387,17 +1827,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-04T05:40:00.000Z",
+       "at": "2026-11-14T05:40:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-11-04T06:07:00.000Z",
+       "at": "2026-11-14T06:07:00.000Z",
        "by": "AI"
       },
       "estimate": 45,
       "spent": 27,
-      "startedAt": "2026-11-04T05:40:00.000Z",
-      "finishedAt": "2026-11-04T06:07:00.000Z",
+      "startedAt": "2026-11-14T05:40:00.000Z",
+      "finishedAt": "2026-11-14T06:07:00.000Z",
       "step": 0,
       "lane": 0
      },
@@ -1413,17 +1853,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-04T05:40:00.000Z",
+       "at": "2026-11-14T05:40:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-11-04T06:38:00.000Z",
+       "at": "2026-11-14T06:38:00.000Z",
        "by": "AI"
       },
       "estimate": 30,
       "spent": 21,
-      "startedAt": "2026-11-04T06:17:00.000Z",
-      "finishedAt": "2026-11-04T06:38:00.000Z",
+      "startedAt": "2026-11-14T06:17:00.000Z",
+      "finishedAt": "2026-11-14T06:38:00.000Z",
       "step": 1,
       "lane": 0
      },
@@ -1439,17 +1879,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-04T05:40:00.000Z",
+       "at": "2026-11-14T05:40:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-11-04T07:24:00.000Z",
+       "at": "2026-11-14T07:24:00.000Z",
        "by": "AI"
       },
       "estimate": 45,
       "spent": 36,
-      "startedAt": "2026-11-04T06:48:00.000Z",
-      "finishedAt": "2026-11-04T07:24:00.000Z",
+      "startedAt": "2026-11-14T06:48:00.000Z",
+      "finishedAt": "2026-11-14T07:24:00.000Z",
       "step": 2,
       "lane": 0
      }
@@ -1482,12 +1922,13 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "status": "paused",
     "line": 23,
     "outcome": "The app follows the phone's dark setting, and every screen reads well in it.",
+    "forLaunch": true,
     "added": {
-     "at": "2026-11-06T03:10:00.000Z",
+     "at": "2026-11-16T03:10:00.000Z",
      "by": "AI"
     },
     "updated": {
-     "at": "2026-11-06T03:10:00.000Z",
+     "at": "2026-11-17T05:49:00.000Z",
      "by": "AI"
     },
     "planFile": ".progressor/goals/dark-mode.md",
@@ -1496,6 +1937,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "counts": {
      "pending": 0,
      "in progress": 0,
+     "waiting on someone": 0,
      "with a helper": 0,
      "waiting on you": 1,
      "checked": 0,
@@ -1506,8 +1948,9 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "waitingOnYou": true,
     "openQuestions": 0,
     "untriedTests": 1,
+    "oldestUntried": "2026-11-16T04:08:00.000Z",
     "waitingSteps": 1,
-    "updatedAt": 1794052262259.1467,
+    "updatedAt": 1794893423524.0825,
     "waiting": [],
     "blocked": false
    },
@@ -1525,17 +1968,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-06T03:10:00.000Z",
+       "at": "2026-11-16T03:10:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-11-06T03:34:00.000Z",
+       "at": "2026-11-16T03:34:00.000Z",
        "by": "AI"
       },
       "estimate": 40,
       "spent": 24,
-      "startedAt": "2026-11-06T03:10:00.000Z",
-      "finishedAt": "2026-11-06T03:34:00.000Z",
+      "startedAt": "2026-11-16T03:10:00.000Z",
+      "finishedAt": "2026-11-16T03:34:00.000Z",
       "step": 0,
       "lane": 0
      },
@@ -1551,17 +1994,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-06T03:10:00.000Z",
+       "at": "2026-11-16T03:10:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-11-06T03:58:00.000Z",
+       "at": "2026-11-16T03:58:00.000Z",
        "by": "AI"
       },
       "estimate": 20,
       "spent": 14,
-      "startedAt": "2026-11-06T03:44:00.000Z",
-      "finishedAt": "2026-11-06T03:58:00.000Z",
+      "startedAt": "2026-11-16T03:44:00.000Z",
+      "finishedAt": "2026-11-16T03:58:00.000Z",
       "step": 1,
       "lane": 0
      },
@@ -1575,16 +2018,16 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "code": [],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-06T03:10:00.000Z",
+       "at": "2026-11-16T03:10:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-11-06T04:08:00.000Z",
+       "at": "2026-11-16T04:08:00.000Z",
        "by": "AI"
       },
       "estimate": 10,
-      "timingSince": "2026-11-06T04:08:00.000Z",
-      "startedAt": "2026-11-06T04:08:00.000Z",
+      "timingSince": "2026-11-16T04:08:00.000Z",
+      "startedAt": "2026-11-16T04:08:00.000Z",
       "step": 2,
       "lane": 0
      }
@@ -1614,7 +2057,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "task": "t3",
      "seen": false,
      "added": {
-      "at": "2026-11-06T04:08:00.000Z",
+      "at": "2026-11-16T04:08:00.000Z",
       "by": "AI"
      }
     }
@@ -1629,27 +2072,29 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "ref": "progressor://shopping-list-from-recipes",
     "title": "Shopping list from recipes",
     "status": "active",
-    "line": 27,
+    "line": 28,
     "claim": {
      "session": "s-sample",
-     "pid": 27252,
-     "since": "2026-11-07T03:45:00.000Z"
+     "pid": 29396,
+     "since": "2026-11-17T03:45:00.000Z"
     },
     "outcome": "Pick recipes for the week and get one shopping list, with the same ingredients added up.",
+    "forLaunch": true,
     "added": {
-     "at": "2026-11-07T03:45:00.000Z",
+     "at": "2026-11-17T03:45:00.000Z",
      "by": "AI"
     },
     "updated": {
-     "at": "2026-11-07T03:45:00.000Z",
+     "at": "2026-11-17T05:49:00.000Z",
      "by": "AI"
     },
     "planFile": ".progressor/goals/shopping-list-from-recipes.md",
     "done": 3,
     "total": 6,
     "counts": {
-     "pending": 2,
+     "pending": 1,
      "in progress": 1,
+     "waiting on someone": 1,
      "with a helper": 0,
      "waiting on you": 0,
      "checked": 0,
@@ -1661,7 +2106,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "openQuestions": 0,
     "untriedTests": 0,
     "waitingSteps": 0,
-    "updatedAt": 1794052262309.4163,
+    "updatedAt": 1794893423568.8335,
     "waiting": [],
     "blocked": false
    },
@@ -1679,17 +2124,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-07T03:45:00.000Z",
+       "at": "2026-11-17T03:45:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-11-07T04:03:00.000Z",
+       "at": "2026-11-17T04:03:00.000Z",
        "by": "AI"
       },
       "estimate": 30,
       "spent": 18,
-      "startedAt": "2026-11-07T03:45:00.000Z",
-      "finishedAt": "2026-11-07T04:03:00.000Z",
+      "startedAt": "2026-11-17T03:45:00.000Z",
+      "finishedAt": "2026-11-17T04:03:00.000Z",
       "step": 0,
       "lane": 0
      },
@@ -1705,17 +2150,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-07T03:45:00.000Z",
+       "at": "2026-11-17T03:45:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-11-07T04:44:00.000Z",
+       "at": "2026-11-17T04:44:00.000Z",
        "by": "AI"
       },
       "estimate": 45,
       "spent": 31,
-      "startedAt": "2026-11-07T04:13:00.000Z",
-      "finishedAt": "2026-11-07T04:44:00.000Z",
+      "startedAt": "2026-11-17T04:13:00.000Z",
+      "finishedAt": "2026-11-17T04:44:00.000Z",
       "step": 1,
       "lane": 0
      },
@@ -1731,17 +2176,17 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-07T03:45:00.000Z",
+       "at": "2026-11-17T03:45:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-11-07T05:39:00.000Z",
+       "at": "2026-11-17T05:39:00.000Z",
        "by": "AI"
       },
       "estimate": 45,
       "spent": 45,
-      "startedAt": "2026-11-07T04:54:00.000Z",
-      "finishedAt": "2026-11-07T05:39:00.000Z",
+      "startedAt": "2026-11-17T04:54:00.000Z",
+      "finishedAt": "2026-11-17T05:39:00.000Z",
       "step": 2,
       "lane": 0
      },
@@ -1757,16 +2202,16 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-07T03:45:00.000Z",
+       "at": "2026-11-17T03:45:00.000Z",
        "by": "AI"
       },
       "updated": {
-       "at": "2026-11-07T05:44:00.000Z",
+       "at": "2026-11-17T05:44:00.000Z",
        "by": "AI"
       },
       "estimate": 30,
-      "timingSince": "2026-11-07T05:44:00.000Z",
-      "startedAt": "2026-11-07T05:44:00.000Z",
+      "timingSince": "2026-11-17T05:44:00.000Z",
+      "startedAt": "2026-11-17T05:44:00.000Z",
       "step": 3,
       "lane": 0
      },
@@ -1775,17 +2220,25 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "id": "t5",
       "ref": "progressor://shopping-list-from-recipes/t5",
       "title": "Share the list by link",
-      "status": "pending",
+      "status": "waiting on someone",
       "line": 36,
       "code": [
        "src/list/share.ts"
       ],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-07T03:45:00.000Z",
+       "at": "2026-11-17T03:45:00.000Z",
+       "by": "AI"
+      },
+      "updated": {
+       "at": "2026-11-17T05:49:00.000Z",
        "by": "AI"
       },
       "estimate": 60,
+      "timingSince": "2026-11-17T05:49:00.000Z",
+      "waitingFor": "Sam",
+      "need": "Open the share link on their phone and tick an item off",
+      "startedAt": "2026-11-17T05:49:00.000Z",
       "step": 4,
       "lane": 0
      },
@@ -1795,14 +2248,14 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "ref": "progressor://shopping-list-from-recipes/t6",
       "title": "Convert cups and spoons to grams",
       "status": "pending",
-      "line": 40,
+      "line": 46,
       "code": [
        "src/list/units.ts"
       ],
       "addedBy": "d1",
       "fromDetour": true,
       "added": {
-       "at": "2026-11-07T05:39:00.000Z",
+       "at": "2026-11-17T05:39:00.000Z",
        "by": "AI"
       },
       "estimate": 30,
@@ -1815,7 +2268,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "ref": "progressor://shopping-list-from-recipes/d1",
       "title": "Units that don't match",
       "status": "returned",
-      "line": 51,
+      "line": 57,
       "branchedFrom": "t3",
       "reason": "\"1 cup\" and \"200 g\" of the same flour could not be added up",
       "step": 3,
@@ -1865,9 +2318,9 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "id": "c1",
      "ref": "progressor://shopping-list-from-recipes/c1",
      "text": "Ingredients are added up by name and unit: 200 g flour + 100 g Flour = 300 g flour.",
-     "line": 48,
+     "line": 54,
      "added": {
-      "at": "2026-11-07T05:39:00.000Z",
+      "at": "2026-11-17T05:39:00.000Z",
       "by": "AI"
      }
     }
@@ -1881,10 +2334,10 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
      "text": "Can the list update live when my partner ticks something off?",
      "line": 5,
      "state": "replied",
-     "sentAt": "2026-11-07T05:44:00.000Z",
-     "seenAt": "2026-11-07T05:47:00.000Z",
+     "sentAt": "2026-11-17T05:44:00.000Z",
+     "seenAt": "2026-11-17T05:47:00.000Z",
      "reply": "Yes: the shared list syncs when either phone is online. I added it to \"Share the list by link\".",
-     "repliedAt": "2026-11-07T05:47:00.000Z"
+     "repliedAt": "2026-11-17T05:47:00.000Z"
     }
    ],
    "questions": [],
@@ -1896,10 +2349,10 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "ref": "progressor://meal-planner",
     "title": "Meal planner",
     "status": "planned",
-    "line": 32,
+    "line": 34,
     "outcome": "Plan the week's meals on a calendar.",
     "added": {
-     "at": "2026-11-07T05:49:00.000Z",
+     "at": "2026-11-17T05:49:00.000Z",
      "by": "AI"
     },
     "planFile": ".progressor/goals/meal-planner.md",
@@ -1908,6 +2361,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "counts": {
      "pending": 2,
      "in progress": 0,
+     "waiting on someone": 0,
      "with a helper": 0,
      "waiting on you": 0,
      "checked": 0,
@@ -1919,7 +2373,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
     "openQuestions": 0,
     "untriedTests": 0,
     "waitingSteps": 0,
-    "updatedAt": 1794052262333.291,
+    "updatedAt": 1794893423589.1343,
     "waiting": [],
     "blocked": false
    },
@@ -1935,7 +2389,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "code": [],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-07T05:49:00.000Z",
+       "at": "2026-11-17T05:49:00.000Z",
        "by": "AI"
       },
       "estimate": 60,
@@ -1952,7 +2406,7 @@ export const SAMPLE_SNAPSHOT: SampleSnapshot = {
       "code": [],
       "fromDetour": false,
       "added": {
-       "at": "2026-11-07T05:49:00.000Z",
+       "at": "2026-11-17T05:49:00.000Z",
        "by": "AI"
       },
       "estimate": 45,

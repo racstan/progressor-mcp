@@ -119,6 +119,30 @@ ai.sendMessage("_project", "Please keep the app working offline, whatever we add
 later(2);
 ai.replyToProjectMessage("m1", "Will do. Everything is stored on the phone first and synced when there's a connection.");
 
+// The newer pages: a step waiting on someone else, what a launch needs, and the risks list.
+ai.addPerson("Sam", "your partner, trying the shared list");
+ai.setTaskState(list.steps[4].id, "waiting on someone", list.id, { person: "Sam", need: "Open the share link on their phone and tick an item off" });
+ai.setForLaunch([list.id, dark.id], true);
+ai.addRisk({ title: "A shared list link reaches a stranger", likelihood: "medium", impact: "high", mitigation: "Links expire after a week and can be switched off", goals: [list.id] });
+ai.addRisk({ title: "Recipes lost when a phone is reset", likelihood: "medium", impact: "high", mitigation: "Back recipes up to the account" });
+ai.addRisk({ title: "Slow search with thousands of recipes", likelihood: "low", impact: "medium", goals: [search.id] });
+
+// Token use, as the hooks count it from a chat's record (cost.ts): a made-up record of replies, each
+// after the AI started a step of a finished goal.
+const transcript = join(home, "chat.jsonl");
+let reply = 0;
+const lines = [];
+for (const [g, size] of [[signIn, 9], [favourites, 14], [search, 7], [list, 11]]) {
+  for (const s of g.steps.slice(0, 3)) {
+    const tool = (name, input) => ({ type: "tool_use", name: `mcp__progressor__${name}`, input });
+    lines.push({ type: "assistant", message: { id: `m${++reply}`, usage: { input_tokens: 40, output_tokens: 300, cache_creation_input_tokens: 2000, cache_read_input_tokens: 20000 }, content: [tool("claim_goal", { goal: g.id }), tool("start_task", { task: s.id })] } });
+    for (let i = 0; i < size; i++)
+      lines.push({ type: "assistant", message: { id: `m${++reply}`, usage: { input_tokens: 60, output_tokens: 900 + i * 40, cache_creation_input_tokens: 3000, cache_read_input_tokens: 45000 + i * 2000 }, content: [] } });
+  }
+}
+writeFileSync(transcript, lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
+ai.collectCost(transcript);
+
 ai.addGoal("Meal planner", [
   { title: "Week view", estimate: 60 },
   { title: "Drag a recipe onto a day", estimate: 45 },
@@ -137,7 +161,7 @@ const get = async (path) => {
 };
 const paths = ["/api/projects", "/api/workspaces", "/api/overview", "/api/stats"];
 const p = `/api/projects/${id}`;
-paths.push(`${p}/roadmap`, `${p}/stats`, `${p}/calendar`, `${p}/handoffs`, `${p}/routines`);
+paths.push(`${p}/roadmap`, `${p}/stats`, `${p}/calendar`, `${p}/handoffs`, `${p}/routines`, `${p}/readiness`, `${p}/risks`, `${p}/feed`, `${p}/cost`, `${p}/sessions`);
 const roadmap = await get(`${p}/roadmap`);
 for (const g of roadmap.goals) paths.push(`${p}/goals/${g.id}`);
 const takenAt = new Date().toISOString();

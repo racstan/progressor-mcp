@@ -15,7 +15,7 @@ export interface TourStep {
   show: TourShow;
 }
 
-export type TourShow = "home" | "goal" | "needs" | "talk" | "dashboard";
+export type TourShow = "home" | "goal" | "needs" | "talk" | "readiness" | "dashboard";
 
 export const TOUR_STEPS: TourStep[] = [
   {
@@ -28,19 +28,19 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     title: "Home and your projects",
-    body: "Home shows every project at once: what needs you and what your AI is working on. Pick a project in the sidebar to see its goals.",
+    body: "Home shows every project at once: what needs you and what your AI is working on. Pick a project in the sidebar to see its goals; under its links, Working now shows the AI chats on it right now.",
     targets: ['[data-tour="home"]', ".sidebar"],
     show: "home",
   },
   {
     title: "A goal and its steps",
-    body: "Each goal lists its steps, with the one your AI is on highlighted. It all updates by itself as your AI works.",
+    body: "Each goal lists its steps, with the one your AI is on highlighted, the tokens it used, and any pull request with whether its checks passed. It all updates by itself as your AI works.",
     targets: [".goal-head", ".main .page", ".main"],
     show: "goal",
   },
   {
     title: "Needs you",
-    body: "When your AI has a question or something for you to try by hand, it waits under Needs you, and you answer with a click. Only if you want to: your AI carries on with other steps meanwhile.",
+    body: "When your AI has a question or something for you to try by hand, it waits under Needs you, and you answer with a click; Try them one by one takes you through each thing to try. Only if you want to: your AI carries on with other steps meanwhile.",
     targets: [".needs-panel", ".side-group.needs", '[data-tour="project"]', ".sidebar"],
     show: "needs",
   },
@@ -51,8 +51,14 @@ export const TOUR_STEPS: TourStep[] = [
     show: "talk",
   },
   {
+    title: "Ready to launch?",
+    body: "Ready to launch? says whether the project can ship, and what still stands in the way: for you, for your AI, and steps waiting on someone else. Risks lists what could go wrong. Your AI keeps both filled.",
+    targets: [".readiness .ready-verdict", '[data-tour="ready"]', '[data-tour="project"]', ".sidebar"],
+    show: "readiness",
+  },
+  {
     title: "Dashboard and Calendar",
-    body: "Each project's Dashboard has the numbers: time spent, estimates, side trips. Its Calendar shows what was done and what comes next.",
+    body: "Each project's Dashboard starts with Since you last looked, then the numbers: time spent, estimates, side trips and What goals cost. Its Calendar shows what was done and what comes next.",
     targets: ['[data-tour="dashboard"]', '[data-tour="project"]', ".sidebar"],
     show: "dashboard",
   },
