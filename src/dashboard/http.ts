@@ -639,10 +639,7 @@ class Hub {
     const project = this.projects.get(projectId)?.project;
     if (!project) return json(res, 404, { error: "No such project on the dashboard." });
     const text = await readBody(req, MAX_MARK_BODY);
-    if (text === undefined) {
-      res.once("finish", () => req.destroy());
-      return json(res, 413, { error: "That mark is too big." });
-    }
+    if (text === undefined) return answerTooBig(req, res, "That mark is too big.");
     let body: { mark?: unknown; note?: unknown };
     try {
       body = JSON.parse(text) as typeof body;
@@ -672,10 +669,7 @@ class Hub {
     const project = this.projects.get(projectId)?.project;
     if (!project) return void json(res, 404, { error: "No such project on the dashboard." });
     const text = await readBody(req, limit);
-    if (text === undefined) {
-      res.once("finish", () => req.destroy());
-      return void json(res, 413, { error: "That is too long." });
-    }
+    if (text === undefined) return void answerTooBig(req, res, "That is too long.");
     try {
       const body = JSON.parse(text) as unknown;
       if (body && typeof body === "object") return { project, body: body as Record<string, unknown> };

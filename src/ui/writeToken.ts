@@ -14,12 +14,39 @@ export function withWriteToken(init: RequestInit | undefined, token: string | un
   return { ...init, headers };
 }
 
+/** The token in a page the dashboard served, if it has one. */
+export function tokenFromPage(html: string): string | undefined {
+  return /<meta name="progressor-token" content="([^"<>]+)">/.exec(html)?.[1];
+}
+
+type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
+/**
+ * A fetch that adds the token to every change on this site. The token belongs to the Progressor that
+ * serves the dashboard; when another one takes over while the page stays open, a change is refused
+ * (403). Then the page reads the new token from the page served now and asks once more.
+ */
+export function tokenFetch(plain: Fetch, token: string | undefined, origin: string): Fetch {
+  let current = token;
+  return async (input, init) => {
+    const url = new URL(input instanceof Request ? input.url : String(input), origin);
+    const sameSite = url.origin === origin;
+    const res = await plain(input, withWriteToken(init, current, sameSite));
+    const method = (init?.method ?? "GET").toUpperCase();
+    if (res.status !== 403 || !sameSite || method === "GET" || method === "HEAD") return res;
+    try {
+      const fresh = tokenFromPage(await (await plain(`${origin}/`, { cache: "no-store" })).text());
+      if (!fresh || fresh === current) return res;
+      current = fresh;
+      return await plain(input, withWriteToken(init, current, true));
+    } catch {
+      return res;
+    }
+  };
+}
+
 /** Makes every change the page asks for carry the token. Called once, when the page starts. */
 export function installWriteToken(): void {
   const token = document.querySelector<HTMLMetaElement>('meta[name="progressor-token"]')?.content;
-  const plainFetch = window.fetch.bind(window);
-  window.fetch = (input, init) => {
-    const url = new URL(input instanceof Request ? input.url : String(input), location.href);
-    return plainFetch(input, withWriteToken(init, token, url.origin === location.origin));
-  };
+  window.fetch = tokenFetch(window.fetch.bind(window), token, location.origin);
 }

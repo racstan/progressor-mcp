@@ -150,7 +150,7 @@ describe("uploads and long wishes", () => {
     });
 
   it("refuses a file that says up front it is too big, without reading it", async () => {
-    const res = await upload({ "content-length": String(30 * 1024 * 1024) });
+    const res = await upload({ "content-length": String(200 * 1024 * 1024) }); // past what is read and thrown away
     expect(res.status).toBe(413);
     expect(res.body).toMatch(/too big/);
   });
