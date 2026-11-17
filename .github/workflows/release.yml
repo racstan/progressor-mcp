@@ -20,8 +20,8 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
@@ -80,16 +80,16 @@ jobs:
       VERSION: ${{ needs.release.outputs.version }}
       HUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - if: env.HUB_TOKEN != ''
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: rachitasthana
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -109,7 +109,7 @@ jobs:
           fi
       - id: meta
         if: steps.exists.outputs.ghcr != 'true'
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: |
             ghcr.io/racstan/progressor-mcp
@@ -121,7 +121,7 @@ jobs:
         name: Copy the published image to Docker Hub
         run: docker buildx imagetools create -t "docker.io/rachitasthana/progressor-mcp:$VERSION" -t docker.io/rachitasthana/progressor-mcp:latest "ghcr.io/racstan/progressor-mcp:$VERSION"
       - if: steps.exists.outputs.ghcr != 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -133,7 +133,7 @@ jobs:
           cache-to: type=gha,mode=max
       - if: env.HUB_TOKEN != ''
         name: Docker Hub page
-        uses: peter-evans/dockerhub-description@v4
+        uses: peter-evans/dockerhub-description@432a30c9e07499fd01da9f8a49f0faf9e0ca5b77 # v4.0.2
         with:
           username: rachitasthana
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -146,7 +146,7 @@ jobs:
     needs: [release, docker]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Install mcp-publisher
         run: |
           curl -fsSL -o mcp-publisher.tar.gz https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz
