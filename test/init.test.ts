@@ -241,6 +241,22 @@ describe("the hooks check", () => {
     write(".claude/settings.json", JSON.stringify({ hooks: { SessionStart: JSON.parse(hooksJson).hooks.SessionStart } }));
     expect(hooksAdvice(root, home, global)).toBeDefined();
     write(".claude/settings.json", "{ not json");
-    expect(hooksAdvice(root, home, global)).toBeDefined();
+    expect(hooksAdvice(root, home, global)).toMatch(/couldn't read .claude\/settings.json/);
+  });
+
+  it("reads a settings file with comments and trailing commas, as Claude Code does", () => {
+    const home = tempDir("progressor-home-");
+    const withComments = [
+      "{",
+      "  // my hooks",
+      '  "hooks": {',
+      '    /* start */ "SessionStart": [{ "hooks": [{ "type": "command", "command": "progressor-mcp hook session-start" }] }],',
+      '    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "progressor-mcp hook prompt", }] }],',
+      "  },",
+      '  "note": "a // inside a string is not a comment",',
+      "}",
+    ].join("\n");
+    write(".claude/settings.json", withComments);
+    expect(hooksAdvice(root, home, global)).toBeUndefined();
   });
 });

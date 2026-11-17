@@ -172,20 +172,65 @@ function readJson(root: string, file: string): Json | undefined {
   throw new Error(`${file} is not valid JSON; fix it (or move it aside) and run init again.`);
 }
 
+/**
+ * JSON with comments (line and block comments) and trailing commas, as Claude Code allows in its settings files,
+ * turned into plain JSON. Text inside strings is left alone. Only for reading: files Progressor writes
+ * are read strictly, so a comment is never lost by rewriting the file.
+ */
+export function stripJsonComments(raw: string): string {
+  let out = "";
+  let i = 0;
+  while (i < raw.length) {
+    const c = raw[i]!;
+    if (c === '"') {
+      let j = i + 1;
+      while (j < raw.length && raw[j] !== '"') j += raw[j] === "\\" ? 2 : 1;
+      out += raw.slice(i, j + 1);
+      i = j + 1;
+    } else if (c === "/" && raw[i + 1] === "/") {
+      while (i < raw.length && raw[i] !== "\n") i++;
+    } else if (c === "/" && raw[i + 1] === "*") {
+      const end = raw.indexOf("*/", i + 2);
+      i = end < 0 ? raw.length : end + 2;
+    } else if (c === ",") {
+      let j = i + 1;
+      while (j < raw.length && /\s/.test(raw[j]!)) j++;
+      if (raw[j] !== "}" && raw[j] !== "]") out += c;
+      i++;
+    } else {
+      out += c;
+      i++;
+    }
+  }
+  return out;
+}
+
+/** A settings file read the way Claude Code reads it; undefined when missing, "unreadable" when it can't be parsed. */
+function readSettings(dir: string, file: string): Json | undefined | "unreadable" {
+  const path = join(dir, file);
+  if (!existsSync(path)) return undefined;
+  try {
+    const raw = readFileSync(path, "utf8");
+    if (!raw.trim()) return {};
+    const data = JSON.parse(stripJsonComments(raw)) as unknown;
+    return data && typeof data === "object" && !Array.isArray(data) ? (data as Json) : "unreadable";
+  } catch {
+    return "unreadable";
+  }
+}
+
 /** A hook entry that runs one of Progressor's hook commands, whichever way it starts Progressor. */
 const isProgressorHook = (h: any, event: string) =>
   typeof h?.command === "string" && new RegExp(`progressor-mcp(@\\S+)? hook ${event}\\b`).test(h.command);
 
-/** Whether a settings file has both of Progressor's hooks; false for one that is missing or unreadable. */
-function hasHooks(dir: string, file: string): boolean {
-  try {
-    const hooks = readJson(dir, file)?.hooks;
-    return Object.entries(HOOKS).every(([event, name]) =>
-      (Array.isArray(hooks?.[event]) ? hooks[event] : []).some((e: any) => Array.isArray(e?.hooks) && e.hooks.some((h: any) => isProgressorHook(h, name))),
-    );
-  } catch {
-    return false;
-  }
+/** Whether a settings file has both of Progressor's hooks; false for one that is missing, "unreadable" when it can't be parsed. */
+function hasHooks(dir: string, file: string): boolean | "unreadable" {
+  const settings = readSettings(dir, file);
+  if (settings === "unreadable") return settings;
+  const hooks = settings?.hooks;
+  return Object.entries(HOOKS).every(([event, name]) =>
+    (Array.isArray(hooks?.[event]) ? hooks[event] : []).some((e: any) => Array.isArray(e?.hooks) && e.hooks.some((h: any) => isProgressorHook(h, name))),
+  );
 }
 
 /**
@@ -194,7 +239,15 @@ function hasHooks(dir: string, file: string): boolean {
  * Without the prompt hook, the Developer's dashboard messages reach the Agent only at its next call.
  */
 export function hooksAdvice(root: string, home: string, launch: Launch): string | undefined {
-  if (hasHooks(root, SETTINGS_FILE) || hasHooks(root, LOCAL_SETTINGS_FILE) || hasHooks(home, SETTINGS_FILE)) return undefined;
+  const found = [
+    { name: display(SETTINGS_FILE), has: hasHooks(root, SETTINGS_FILE) },
+    { name: display(LOCAL_SETTINGS_FILE), has: hasHooks(root, LOCAL_SETTINGS_FILE) },
+    { name: "your own ~/.claude/settings.json", has: hasHooks(home, SETTINGS_FILE) },
+  ];
+  if (found.some((f) => f.has === true)) return undefined;
+  const unreadable = found.filter((f) => f.has === "unreadable").map((f) => f.name);
+  if (unreadable.length > 0)
+    return `Progressor couldn't read ${unreadable.join(" or ")}, so it can't tell whether its hooks are set up. If Claude Code reads that file fine, ignore this; otherwise fix the file.`;
   let inMcpJson = false;
   try {
     inMcpJson = readJson(root, MCP_FILE)?.mcpServers?.[SERVER_NAME] !== undefined;
