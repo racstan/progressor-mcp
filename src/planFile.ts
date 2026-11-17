@@ -387,6 +387,8 @@ export interface TaskChanges {
 /** Known Task details come first, in this order, when a Task is rewritten; unknown ones follow as they were. */
 const DETAIL_ORDER = ["state", "summary", "code", HELPER, HELPER_BRANCH, HELPER_FOLDER, EVIDENCE, CHECKED_SINCE, TASK_COMMITS, TASK_BRANCH, TASK_TESTS, TASK_UNCOMMITTED, ESTIMATE, SPENT, SINCE, "moved from", "added by", "from hand test", "dropped by", "reason", ORIGIN_KEY, STARTED, FINISHED_AT, ADDED, UPDATED];
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
+/** A file a step touches, as its plan line writes it: one line, in backticks it can't close early. */
+const codeEntry = (c: string) => `\`${oneLine(c.replace(/`/g, ""))}\``;
 
 function sortDetails(b: ItemBlock, order: string[] = DETAIL_ORDER): void {
   const rank = (c: ItemBlock["children"][number]) => {
@@ -581,12 +583,13 @@ export class PlanFile {
   addTasks(tasks: NewTask[], addedBy?: string): Task[] {
     this.assignMissingIds();
     const ids: string[] = [];
+    if (tasks.some((t) => !oneLine(t.title))) throw new Error("Every step needs a title with words in it.");
     const blocks = tasks.map((t) => {
       const id = nextId([...this.allIds(), ...ids], "t");
       ids.push(id);
       const b = newItem({ marker: t.done ? "x" : " ", text: oneLine(t.title), id });
       if (t.summary?.trim()) addDetail(b, "summary", oneLine(t.summary));
-      for (const c of t.code ?? []) addDetail(b, "code", `\`${c}\``);
+      for (const c of t.code ?? []) if (c.trim()) addDetail(b, "code", codeEntry(c));
       if (t.estimate !== undefined) addDetail(b, ESTIMATE, formatDuration(t.estimate));
       if (addedBy) addDetail(b, "added by", `^${addedBy}`);
       if (t.fromHandTest) addDetail(b, "from hand test", `^${t.fromHandTest}`);
@@ -609,7 +612,7 @@ export class PlanFile {
     const b = newItem({ marker: TASK_MARKER[from.status], text: from.title, id });
     if (STATE_LINE.includes(from.status)) addDetail(b, "state", from.status);
     if (from.summary) addDetail(b, "summary", from.summary);
-    for (const c of from.code) addDetail(b, "code", `\`${c}\``);
+    for (const c of from.code) addDetail(b, "code", codeEntry(c));
     if (from.estimate !== undefined) addDetail(b, ESTIMATE, formatDuration(from.estimate));
     if (from.spent > 0) addDetail(b, SPENT, formatDuration(from.spent));
     if (from.timingSince) addDetail(b, SINCE, from.timingSince);
@@ -670,7 +673,7 @@ export class PlanFile {
     if (changes.summary !== undefined) setDetail(b, "summary", changes.summary.trim() ? oneLine(changes.summary) : undefined);
     if (changes.code) {
       b.children = b.children.filter((c) => !("key" in c && c.key === "code"));
-      for (const c of changes.code) addDetail(b, "code", `\`${c}\``);
+      for (const c of changes.code) if (c.trim()) addDetail(b, "code", codeEntry(c));
     }
     if (changes.estimate !== undefined) setDetail(b, ESTIMATE, changes.estimate === null ? undefined : formatDuration(changes.estimate));
     sortDetails(b);
@@ -679,7 +682,7 @@ export class PlanFile {
   addCode(id: string, code: string[]): void {
     const b = this.taskBlock(id);
     const existing = getDetails(b, "code").map(stripTicks);
-    for (const c of code) if (!existing.includes(c)) addDetail(b, "code", `\`${c}\``);
+    for (const c of code) if (c.trim() && !existing.includes(stripTicks(codeEntry(c)))) addDetail(b, "code", codeEntry(c));
     sortDetails(b);
   }
 
@@ -1107,5 +1110,5 @@ export function parsePlanFile(source: string, goalId: string): PlanFile {
 }
 
 export function newPlanFile(goalId: string, title: string): PlanFile {
-  return parsePlanFile(`# ${title}\n\n## ${TASKS}\n`, goalId);
+  return parsePlanFile(`# ${oneLine(title)}\n\n## ${TASKS}\n`, goalId);
 }

@@ -464,8 +464,10 @@ export class Roadmap {
     this.ensureTitle();
     this.assignMissingIds();
     const id = nextId(this.ideaBlocks().map((i) => i.id), "i");
-    const b = newItem({ marker: undefined, text: title, id });
-    if (note) addDetail(b, "note", note);
+    const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
+    if (!oneLine(title)) throw new Error("An idea needs a title with words in it.");
+    const b = newItem({ marker: undefined, text: oneLine(title), id });
+    if (note?.trim()) addDetail(b, "note", oneLine(note));
     appendToSection(this.doc, IDEAS, [b]);
     return this.idea(id)!;
   }

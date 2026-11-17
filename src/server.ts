@@ -75,7 +75,7 @@ function newTasks(tasks: { title: string; summary?: string; code?: string[]; don
 }
 
 const taskInput = z.object({
-  title: z.string().min(1).describe("A short title for the Task, a few words, such as 'Fix callback redirect loop'."),
+  title: z.string().trim().min(1).describe("A short title for the Task, a few words, such as 'Fix callback redirect loop'."),
   summary: z
     .string()
     .optional()
@@ -932,7 +932,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       description:
         "Add a Goal to the end of the Roadmap, with an optional Task list and Outcome; with claim: true, also claim it to start work. A title another Goal already has is refused unless allow_duplicate is set. To record work already finished, set done on the Goal and on every Task. Plan each Goal with an Outcome (one sentence on what done looks like) and Tasks that each have a short title, the files they touch, a one-line summary and an estimate. Tell the Developer the plan in a few plain lines first. With claim: true the answer is the whole status.",
       inputSchema: {
-        title: z.string().min(1).describe("A few words naming the Goal, such as 'Ship OAuth login'."),
+        title: z.string().trim().min(1).describe("A few words naming the Goal, such as 'Ship OAuth login'."),
         id: z
           .string()
           .optional()
@@ -1026,7 +1026,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         "Rename a Goal, set its Outcome or its estimate. Its ID, refs and Plan File stay the same, and it needs no Claim. To change a Goal's Tasks, claim it and use add_tasks, update_task or drop_task.",
       inputSchema: {
         goal: goalId,
-        title: z.string().min(1).optional().describe("The new title."),
+        title: z.string().trim().min(1).optional().describe("The new title."),
         outcome: outcome.optional().describe("The new Outcome; an empty string removes it."),
         estimate: estimateText
           .optional()
@@ -1425,7 +1425,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         "Declare that the work is splitting off from the planned Tasks, before doing it. Branches from the current Task. Only one Detour can be open.",
       inputSchema: {
         goal: heldGoal,
-        title: z.string().min(1).describe("What the Detour does, such as 'Fix flaky token refresh'."),
+        title: z.string().trim().min(1).describe("What the Detour does, such as 'Fix flaky token refresh'."),
         reason: z.string().min(1).describe("Why the work has to split off from the plan now."),
       },
     },

@@ -43,6 +43,8 @@ export type Block = ItemBlock | HeadingBlock | TextBlock;
 
 export interface MarkdownDoc {
   eol: "\n" | "\r\n";
+  /** The file started with a byte order mark, which is put back on save. */
+  bom?: boolean;
   finalNewline: boolean;
   blocks: Block[];
 }
@@ -61,8 +63,14 @@ function splitId(text: string): { text: string; id: string | undefined } {
 }
 
 export function parseMarkdown(source: string): MarkdownDoc {
-  const eol = source.includes("\r\n") ? "\r\n" : "\n";
-  const lines = source.split(eol);
+  const bom = source.charCodeAt(0) === 0xfeff;
+  if (bom) source = source.slice(1);
+  // A file can mix line endings (one edited on Windows, say): every line is read, and the ending
+  // most lines use is the one written back.
+  const crlf = source.split("\r\n").length - 1;
+  const lf = source.split("\n").length - 1 - crlf;
+  const eol = crlf > lf ? "\r\n" : "\n";
+  const lines = source.split(/\r?\n/);
   const finalNewline = lines.length > 1 && lines[lines.length - 1] === "";
   if (finalNewline) lines.pop();
   if (lines.length === 1 && lines[0] === "") lines.pop();
@@ -124,7 +132,7 @@ export function parseMarkdown(source: string): MarkdownDoc {
     }
     blocks.push({ type: "text", text: line });
   }
-  return { eol, finalNewline, blocks };
+  return { eol, finalNewline, blocks, ...(bom ? { bom } : {}) };
 }
 
 function formatHeading(b: HeadingBlock): string[] {
@@ -147,7 +155,7 @@ function blockLines(b: Block): string[] {
 
 export function serialiseMarkdown(doc: MarkdownDoc): string {
   const lines = doc.blocks.flatMap(blockLines);
-  return lines.join(doc.eol) + (doc.finalNewline && lines.length > 0 ? doc.eol : "");
+  return (doc.bom ? "\uFEFF" : "") + lines.join(doc.eol) + (doc.finalNewline && lines.length > 0 ? doc.eol : "");
 }
 
 export function newItem(fields: Pick<ItemBlock, "marker" | "text" | "id"> & { children?: Child[] }): ItemBlock {

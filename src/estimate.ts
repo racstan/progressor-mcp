@@ -3,6 +3,9 @@
 // The plan files write a time compactly ("45m", "2h", "1h 30m"); the Agent and the Developer read it
 // spaced out ("45 m", "1 h 30 m"), and a rough expected finish is rounded ("about 6 h").
 
+/** The longest time a step or goal can be estimated at: 10 000 hours. Anything longer is a typo. */
+export const MAX_ESTIMATE_MINUTES = 600_000;
+
 const PART = /(\d+(?:\.\d+)?)\s*(hours?|hrs?|h|minutes?|mins?|m)(?![a-z])/gy;
 
 /**
@@ -25,7 +28,8 @@ export function parseDuration(text: string): number | undefined {
     at = PART.lastIndex;
     parts++;
   }
-  return parts > 0 ? Math.round(minutes) : undefined;
+  if (parts === 0 || !Number.isFinite(minutes) || minutes > MAX_ESTIMATE_MINUTES) return undefined;
+  return Math.round(minutes);
 }
 
 /** The plan files' form of a time: "45m", "2h", "1h 30m". */
