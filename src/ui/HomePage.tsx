@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { hardFirst } from "../roadmap.js";
 import { About, type NotesApi, RuleForm, RuleRow } from "./ContextPage.js";
-import { type OverviewView, type SearchView, type WorkspaceEntry, addGlobalRule, changeGlobalRule, removeGlobalRule, saveGlobalContext, useAllStats, useGlobal } from "./data.js";
-import { CHECKS_WHY, type PutOff, RISK_WHY, homeSections, needsWhy, progressWords, untriedAcross } from "./home.js";
+import { type OverviewView, type SearchView, type WorkspaceEntry, addGlobalRule, changeGlobalRule, removeGlobalRule, saveGlobalContext, useAllStats, useGlobal, useReadiness } from "./data.js";
+import { type PutOff, SHOW_FIRST, homeSections, needsByProject, needsWhy, projectFacts, untriedAcross, workingWords } from "./home.js";
 import { TryOneByOne, Walkthrough } from "./TryOneByOne.js";
 import { dashboardLine } from "../untried.js";
 import { Icon, Ring } from "./Icon.js";
 import { sortProjects } from "./projectList.js";
 import { Bars, Tile, plural, time } from "./StatsPage.js";
-import { driftWords, estimateWords } from "./words.js";
+import { ago, driftWords, estimateWords } from "./words.js";
 import { Loading } from "./Loading.js";
 import { WaitingOnOthers } from "./WaitingOnOthers.js";
 
@@ -34,9 +34,12 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
   onShowAll: () => void;
 }) {
   const [walking, setWalking] = useState(false);
+  // The projects whose whole Needs you list is open (Show all), in this visit only.
+  const [shownAll, setShownAll] = useState<ReadonlySet<string>>(new Set());
   if (!overview) return <Loading size="page" label="Loading your projects" />;
   const inWorkspace = only ? overview.filter((p) => p.workspace === only) : overview;
   const s = homeSections(sortProjects(inWorkspace), putOff);
+  const needsGroups = needsByProject(s);
   // The goals in Needs you with something untried (not the ones put off with "Not now").
   const tryGoals = s.needsYou.filter((x) => x.canPutOff);
   const untried = untriedAcross(tryGoals.map((x) => ({ id: `${x.project.id}/${x.goal.id}`, untriedTests: x.goal.untriedTests, oldestUntried: x.goal.oldestUntried })));
@@ -51,7 +54,25 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
         <button className="linkbtn" onClick={onShowAll}>Show all {overview.length} projects</button>
       )}
 
-      {(s.needsYou.length > 0 || s.seriousRisks.length > 0 || s.failedChecks.length > 0) && (
+      {s.inProgress.length > 0 && (
+        <section className="section working-now">
+          <h2>Working now</h2>
+          <ul className="list">
+            {s.inProgress.map(({ project, goal }) => (
+              <li key={`${project.id}/${goal.id}`}>
+                <button className="list-row working" onClick={() => onOpen(project.id, goal.id)}>
+                  <Ring done={goal.done} total={goal.total} />
+                  <span className="t">{goal.title}</span>
+                  <span className="end">{project.name}</span>
+                  <span className="sub">{workingWords(goal)}{putOffNote(goal, putOff[`${project.id}/${goal.id}`])}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {needsGroups.length > 0 && (
         <section className="section needs">
           <h2>Needs you</h2>
           {untried.count > 0 && (
@@ -60,44 +81,42 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
               <TryOneByOne count={untried.count} onClick={() => setWalking(true)} />
             </div>
           )}
-          <ul className="list">
-            {s.needsYou.map(({ project, goal, why, canPutOff }) => (
-              <li key={`${project.id}/${goal.id}`} className={canPutOff ? "with-action" : undefined}>
-                <button className="list-row" onClick={() => onOpen(project.id, goal.id)}>
-                  <Ring done={goal.done} total={goal.total} />
-                  <span className="t">{goal.title}</span>
-                  <span className="end">{project.name}</span>
-                  <span className="sub you">{why}</span>
-                </button>
-                {canPutOff && (
-                  <button className="linkbtn put-off" title="Takes this goal out of Needs you until your AI adds something new to try. The plan is unchanged; only this browser remembers."
-                    onClick={() => onPutOff(`${project.id}/${goal.id}`, goal.untriedTests ?? 0)}>
-                    Not now
+          {needsGroups.map(({ project, count, items }) => {
+            const all = shownAll.has(project.id);
+            const shown = all ? items : items.slice(0, SHOW_FIRST);
+            return (
+              <div key={project.id} className="needs-project">
+                {needsGroups.length > 1 || inWorkspace.length > 1 ? (
+                  <h3 className="needs-project-name">
+                    <button className="linkbtn" onClick={() => onOpen(project.id)} title={`Open ${project.name}`}>{project.name}</button> <span className="n">{count}</span>
+                  </h3>
+                ) : null}
+                <ul className="list">
+                  {shown.map((item) => (
+                    <li key={item.key} className={item.canPutOff ? "with-action" : undefined}>
+                      <button className="list-row" onClick={() => (item.kind === "risk" ? onOpenRisks(project.id) : onOpen(project.id, item.id))}
+                        title={item.kind === "risk" ? "Open this project's Risks page" : item.kind === "checks" ? "Open this goal to see which pull request or commit failed its checks" : undefined}>
+                        {item.kind === "risk" ? <Icon name="warning" /> : <Ring done={item.goal!.done} total={item.goal!.total} />}
+                        <span className="t">{item.title}</span>
+                        <span className="sub you">{item.why}</span>
+                      </button>
+                      {item.canPutOff && (
+                        <button className="linkbtn put-off" title="Takes this goal out of Needs you until your AI adds something new to try. The plan is unchanged; only this browser remembers."
+                          onClick={() => onPutOff(item.key, item.goal?.untriedTests ?? 0)}>
+                          Not now
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {items.length > SHOW_FIRST && (
+                  <button className="linkbtn show-all" onClick={() => setShownAll((was) => toggled(was, project.id))}>
+                    {all ? "Show fewer" : `Show all ${items.length}`}
                   </button>
                 )}
-              </li>
-            ))}
-            {s.failedChecks.map(({ project, goal }) => (
-              <li key={`checks/${project.id}/${goal.id}`}>
-                <button className="list-row" onClick={() => onOpen(project.id, goal.id)} title="Open this goal to see which pull request or commit failed its checks">
-                  <Ring done={goal.done} total={goal.total} />
-                  <span className="t">{goal.title}</span>
-                  <span className="end">{project.name}</span>
-                  <span className="sub you">{CHECKS_WHY}</span>
-                </button>
-              </li>
-            ))}
-            {s.seriousRisks.map(({ project, risk }) => (
-              <li key={`risk/${project.id}/${risk.id}`}>
-                <button className="list-row" onClick={() => onOpenRisks(project.id)} title="Open this project's Risks page">
-                  <Icon name="warning" />
-                  <span className="t">{risk.title}</span>
-                  <span className="end">{project.name}</span>
-                  <span className="sub you">{RISK_WHY}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+              </div>
+            );
+          })}
         </section>
       )}
 
@@ -109,24 +128,6 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
       <WaitingOnOthers showProject onOpen={onOpen}
         blocks={inWorkspace.map((p) => ({ projectId: p.id, projectName: p.name, lines: p.waitingOnOthers ?? [], people: p.people ?? [] }))} />
 
-      {s.inProgress.length > 0 && (
-        <section className="section">
-          <h2>In progress</h2>
-          <ul className="list">
-            {s.inProgress.map(({ project, goal }) => (
-              <li key={`${project.id}/${goal.id}`}>
-                <button className="list-row working" onClick={() => onOpen(project.id, goal.id)}>
-                  <Ring done={goal.done} total={goal.total} />
-                  <span className="t">{goal.title}</span>
-                  <span className="end">{project.name}</span>
-                  <span className="sub">{progressWords(goal)}{putOffNote(goal, putOff[`${project.id}/${goal.id}`])}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       <section className="section">
         <h2>Projects</h2>
         {inWorkspace.length === 0 ? (
@@ -135,19 +136,9 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
           <p className="quiet">No project matches “{query.trim()}”.</p>
         ) : (
           <div className="project-grid">
-            {projects.map((p) => {
-              const you = s.needsYou.filter((x) => x.project.id === p.id).length;
-              return (
-                <button key={p.id} className="project-card" onClick={() => onOpen(p.id)} title={p.root}>
-                  <span className="t">{p.name}</span>
-                  <span className="path">{p.root}</span>
-                  <span className="c">
-                    {p.goals.length === 0 ? "No goals yet" : [`${p.open} open`, p.finished > 0 && `${p.finished} finished`].filter(Boolean).join(" · ")}
-                  </span>
-                  {you > 0 && <span className="you">{you === 1 ? "1 goal needs you" : `${you} goals need you`}</span>}
-                </button>
-              );
-            })}
+            {projects.map((p) => (
+              <ProjectCard key={p.id} project={p} you={s.needsYou.filter((x) => x.project.id === p.id).length} onOpen={onOpen} />
+            ))}
           </div>
         )}
       </section>
@@ -203,6 +194,47 @@ function AllStats({ version, onOpen, onOpenStats }: { version: unknown; onOpen: 
 }
 
 /** " · 2 things to try, put off", so a put-off goal still says so quietly. */
+const toggled = (set: ReadonlySet<string>, id: string): ReadonlySet<string> => {
+  const next = new Set(set);
+  if (!next.delete(id)) next.add(id);
+  return next;
+};
+
+/**
+ * A project on Home: how far it is (finished goals), what the AI is on now, when it last changed
+ * something, and its Ready to launch? verdict, which loads on its own so Home never waits for it.
+ */
+function ProjectCard({ project: p, you, onOpen }: { project: OverviewView[number] & { open: number; finished: number }; you: number; onOpen: (projectId: string, goalId?: string) => void }) {
+  const facts = projectFacts(p.goals);
+  // Asked again only when something in the project changed, not on every refresh of Home.
+  const ready = useReadiness(p.id, facts.lastChange);
+  const now = facts.working[0];
+  return (
+    <button className={`project-card${facts.working.length > 0 ? " working" : ""}`} onClick={() => onOpen(p.id)} title={p.root}>
+      <span className="t">{p.name}</span>
+      {facts.of === 0 ? (
+        <span className="c">No goals yet</span>
+      ) : (
+        <>
+          <span className="card-bar" role="progressbar" aria-valuemin={0} aria-valuemax={facts.of} aria-valuenow={facts.finished} aria-label="Goals finished">
+            <i style={{ width: `${(100 * facts.finished) / facts.of}%` }} />
+          </span>
+          <span className="c">{facts.finished} of {facts.of} goals finished · {p.open} open</span>
+        </>
+      )}
+      {now && (
+        <span className="card-now">
+          {now.step ? `Now: ${now.step}` : `Working on ${now.title}`}
+          {facts.working.length > 1 ? ` · and ${facts.working.length - 1} more` : ""}
+        </span>
+      )}
+      {you > 0 && <span className="you">{you === 1 ? "1 goal needs you" : `${you} goals need you`}</span>}
+      {ready && <span className={`card-ready${ready.ready ? " ready" : ""}`}>{ready.verdict}</span>}
+      {facts.lastChange !== undefined && <span className="c">Last change {ago(facts.lastChange)}</span>}
+    </button>
+  );
+}
+
 function putOffNote(goal: Parameters<typeof needsWhy>[0], putOff: number | undefined): string {
   if (putOff === undefined || !goal.untriedTests || needsWhy(goal, putOff).why) return "";
   return ` · ${goal.untriedTests === 1 ? "1 thing" : `${goal.untriedTests} things`} to try, put off`;

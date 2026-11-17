@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHECKS_WHY, RISK_WHY, homeSections, needsWords, progressWords, sidebarSections, untriedAcross } from "../src/ui/home.js";
+import { CHECKS_WHY, RISK_WHY, SHOW_FIRST, homeSections, needsByProject, needsWords, progressWords, projectFacts, sidebarSections, untriedAcross, workingWords } from "../src/ui/home.js";
 
 const g = (id: string, status: string, extra: Partial<{ oldestUntried: string; done: number; total: number; waitingOnYou: boolean; openQuestions: number; untriedTests: number; waitingSteps: number; updatedAt: number }> = {}) => ({
   id,
@@ -174,5 +174,59 @@ describe("the sidebar", () => {
 
   it("leaves out a group with nothing in it", () => {
     expect(sidebarSections([g("a", "planned")]).map((x) => x.label)).toEqual(["Up next"]);
+  });
+});
+
+describe("Needs you, by project", () => {
+  const p = (id: string, goals: ReturnType<typeof g>[], extra: Record<string, unknown> = {}) => ({ id, name: id.toUpperCase(), root: `/${id}`, goals, ...extra });
+
+  it("puts each project's goals, failed checks and serious risks together, projects in their order, with a count", () => {
+    const projects = [
+      p("one", [g("a", "active", { waitingOnYou: true, untriedTests: 1 }), g("b", "active", { waitingOnYou: true, openQuestions: 1 })], { seriousRisks: [{ id: "r1", title: "Leak" }] }),
+      p("two", [g("c", "active"), g("d", "testing", { waitingOnYou: true, untriedTests: 2 })], { failedChecks: [{ id: "c", title: "C" }] }),
+      p("three", [g("e", "active")]),
+    ];
+    const groups = needsByProject(homeSections(projects));
+    expect(groups.map((x) => [x.project.id, x.count])).toEqual([
+      ["one", 3],
+      ["two", 2],
+    ]);
+    expect(groups[0]!.items.map((i) => [i.kind, i.title])).toEqual([
+      ["goal", "A"],
+      ["goal", "B"],
+      ["risk", "Leak"],
+    ]);
+    expect(groups[1]!.items.map((i) => [i.kind, i.title])).toEqual([
+      ["goal", "D"],
+      ["checks", "C"],
+    ]);
+  });
+
+  it("shows the first five of a project until asked for all", () => {
+    expect(SHOW_FIRST).toBe(5);
+  });
+});
+
+describe("what a project card says", () => {
+  it("counts finished goals out of the ones not cancelled, names what the AI is on, and when it last changed something", () => {
+    const facts = projectFacts([
+      { ...g("a", "done"), updatedAt: 100 },
+      { ...g("b", "dropped"), updatedAt: 900 },
+      { ...g("c", "active"), currentStep: "Write the tests", updatedAt: 300 },
+      { ...g("d", "active"), updatedAt: 200 },
+      g("e", "planned"),
+    ]);
+    expect(facts).toEqual({ finished: 1, of: 4, working: [{ id: "c", title: "C", step: "Write the tests" }, { id: "d", title: "D" }], lastChange: 900 });
+  });
+
+  it("has nothing to say about an empty project", () => {
+    expect(projectFacts([])).toEqual({ finished: 0, of: 0, working: [] });
+  });
+});
+
+describe("In progress names the step", () => {
+  it("says the step a goal is on, else how far it is", () => {
+    expect(workingWords({ done: 1, total: 4, currentStep: "Write the tests" })).toBe("Now: Write the tests · 1 of 4 steps");
+    expect(workingWords({ done: 1, total: 4 })).toBe("1 of 4 steps");
   });
 });

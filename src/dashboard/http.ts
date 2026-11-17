@@ -164,9 +164,12 @@ export function dashboardApi(
     let openQuestions = 0;
     let untriedTests = 0;
     let oldestUntried: string | undefined;
+    // The step the AI is on, for "Now: ..." on Home.
+    let currentStep: string | undefined;
     try {
       const plan = project.plan(goalId);
       for (const t of plan.tasks) counts[t.status]++;
+      currentStep = plan.tasks.find((t) => t.status === "in progress")?.title;
       const untried = plan.handTests.filter((h) => h.result === "pending");
       untriedTests = untried.length;
       oldestUntried = summarizeUntried(untried.map((h) => ({ goal: goalId, at: h.added?.at }))).oldestAt;
@@ -192,7 +195,7 @@ export function dashboardApi(
     // The goals it waits on (dependencies.ts): blocked while one of them is not finished.
     const waiting = goal.waitsOn?.length ? project.waitingOn(goalId, lookup).map((w) => ({ raw: w.ref.raw, state: w.state, ...(w.title ? { title: w.title } : {}), ...(w.ref.project ? {} : { here: w.ref.goal }) })) : [];
     const blocked = waiting.some((w) => w.state === "open");
-    return { ...goal, planFile, done, total, counts, waitingOnYou, openQuestions, untriedTests, ...(oldestUntried ? { oldestUntried } : {}), waitingSteps, updatedAt: changed(planFile) ?? changed(roadmapFile), fromElsewhere, waiting, blocked };
+    return { ...goal, planFile, done, total, counts, waitingOnYou, openQuestions, untriedTests, ...(oldestUntried ? { oldestUntried } : {}), ...(currentStep ? { currentStep } : {}), waitingSteps, updatedAt: changed(planFile) ?? changed(roadmapFile), fromElsewhere, waiting, blocked };
   };
   return {
     /** Only the goals' summaries, for the overview of every project: none of the rest of the roadmap view. */
@@ -554,11 +557,13 @@ class Hub {
         untriedTests: number;
         /** When the oldest untried thing to try was added. */
         oldestUntried?: string;
+        /** The step the AI is on, if one is in progress. */
+        currentStep?: string;
         waitingSteps: number;
         updatedAt: number | undefined;
       }[] = [];
       try {
-        goals = (api?.goals() ?? []).map(({ id, title, status, done, total, waitingOnYou, openQuestions, untriedTests, oldestUntried, waitingSteps, updatedAt }) => ({
+        goals = (api?.goals() ?? []).map(({ id, title, status, done, total, waitingOnYou, openQuestions, untriedTests, oldestUntried, currentStep, waitingSteps, updatedAt }) => ({
           id,
           title,
           status,
@@ -568,6 +573,7 @@ class Hub {
           openQuestions,
           untriedTests,
           ...(oldestUntried ? { oldestUntried } : {}),
+          ...(currentStep ? { currentStep } : {}),
           waitingSteps,
           updatedAt,
         }));

@@ -153,3 +153,60 @@ export function sidebarSections<G extends GoalLike>(goals: G[], putOff: PutOff =
     { label: "Up next", goals: rest.filter((g) => g.status === "planned" || g.status === "paused" || g.status === "testing") },
   ].filter((s) => s.goals.length > 0);
 }
+
+/** How many of a project's Needs you items Home shows before "Show all". */
+export const SHOW_FIRST = 5;
+
+/** One thing in Needs you: a goal (with why), a goal whose checks failed, or a serious risk. */
+export interface NeedsItem {
+  kind: "goal" | "checks" | "risk";
+  key: string;
+  /** The goal, or the risk's ID. */
+  id: string;
+  title: string;
+  why: string;
+  goal?: GoalLike & { untriedTests?: number };
+  canPutOff?: boolean;
+}
+
+/** Needs you grouped by project, in the projects' order, each with how many things wait; projects with none are left out. */
+export function needsByProject<P extends { id: string; name: string }>(s: {
+  needsYou: { project: P; goal: GoalLike; why: string; canPutOff: boolean }[];
+  failedChecks: { project: P; goal: GoalLike }[];
+  seriousRisks: { project: P; risk: RiskLine }[];
+}): { project: P; count: number; items: NeedsItem[] }[] {
+  const groups = new Map<string, { project: P; items: NeedsItem[] }>();
+  const into = (project: P, item: NeedsItem) => {
+    const g = groups.get(project.id) ?? { project, items: [] };
+    g.items.push(item);
+    groups.set(project.id, g);
+  };
+  for (const { project, goal, why, canPutOff } of s.needsYou)
+    into(project, { kind: "goal", key: `${project.id}/${goal.id}`, id: goal.id, title: goal.title, why, goal, canPutOff });
+  for (const { project, goal } of s.failedChecks) into(project, { kind: "checks", key: `checks/${project.id}/${goal.id}`, id: goal.id, title: goal.title, why: CHECKS_WHY, goal });
+  for (const { project, risk } of s.seriousRisks) into(project, { kind: "risk", key: `risk/${project.id}/${risk.id}`, id: risk.id, title: risk.title, why: RISK_WHY });
+  // Map keeps the order projects first came up in, which is the projects' own order for goals; a
+  // project with only a failed check or a risk comes after, in the order it came up.
+  return [...groups.values()].map((g) => ({ ...g, count: g.items.length }));
+}
+
+/** What a project's card on Home says: finished goals out of those not cancelled, what the AI is on now, and its last change. */
+export function projectFacts(goals: readonly (GoalLike & { currentStep?: string | undefined })[]): {
+  finished: number;
+  of: number;
+  working: { id: string; title: string; step?: string }[];
+  lastChange?: number;
+} {
+  const counted = goals.filter((g) => g.status !== "dropped");
+  const last = Math.max(0, ...goals.map((g) => g.updatedAt ?? 0));
+  return {
+    finished: counted.filter((g) => g.status === "done").length,
+    of: counted.length,
+    working: goals.filter((g) => g.status === "active").map((g) => ({ id: g.id, title: g.title, ...(g.currentStep ? { step: g.currentStep } : {}) })),
+    ...(last > 0 ? { lastChange: last } : {}),
+  };
+}
+
+/** "Now: Write the tests · 1 of 4 steps", or only how far it is when no step is started. */
+export const workingWords = (g: { done: number; total: number; currentStep?: string | undefined }): string =>
+  g.currentStep ? `Now: ${g.currentStep} · ${progressWords(g)}` : progressWords(g);

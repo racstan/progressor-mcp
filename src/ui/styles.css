@@ -175,7 +175,11 @@ h2 .inline-confirm { font-weight: 400; font-size: var(--t-s); color: var(--ink);
 .section > h2 { margin: 0 0 var(--s3); font-size: var(--t-m); font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: var(--s2); }
 .section.needs > h2 { color: var(--you); }
 /* Home's Needs you stays a fixed-height box however many goals wait; the list scrolls inside it. */
-.section.needs > .list { max-height: 320px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+/* Needs you on Home, by project: no scroll box inside the page; each project shows its first few, then Show all. */
+.needs-project + .needs-project { margin-top: var(--s4); }
+.needs-project-name { display: flex; align-items: center; gap: var(--s2); margin: 0 0 var(--s2); font-size: var(--t-m, 1rem); }
+.needs-project-name .linkbtn { font-weight: 700; color: var(--ink); }
+.needs-project .show-all { margin-top: var(--s2); font-size: var(--t-s); }
 .placeholder { margin: 15vh auto 0; text-align: center; color: var(--muted); max-width: 420px; padding: var(--s5); }
 .placeholder h2 { color: var(--ink); font-size: var(--t-l); margin: 0 0 var(--s2); }
 .placeholder .detail { display: block; margin-top: var(--s3); font-size: var(--t-s); color: var(--faint); }
@@ -199,6 +203,14 @@ button.list-row:hover { background: var(--hover); }
 .project-card .c { font-size: var(--t-s); color: var(--muted); }
 .project-card .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-card .you { color: var(--you); font-size: var(--t-s); font-weight: 600; }
+.project-card .card-bar { display: block; height: 6px; border-radius: 3px; background: var(--panel2); border: 1px solid var(--line-strong); overflow: hidden; }
+.project-card .card-bar i { display: block; height: 100%; background: var(--ink); transition: width .4s var(--ease); }
+.project-card .card-now { font-size: var(--t-s); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-card.working { border: var(--heavy); animation: pulse-edge 2.4s var(--ease) infinite; }
+.project-card .card-ready { font-size: var(--t-s); border-left: 3px solid var(--line-strong); padding-left: var(--s2); }
+.project-card .card-ready.ready { border-left-color: var(--ink); font-weight: 600; }
+[data-theme="vibrant"] .project-card .card-bar i { background: var(--done); }
+[data-theme="vibrant"] .project-card .card-ready.ready { border-left-color: var(--done); }
 
 /* ---------- goal page ---------- */
 .goal-head { display: flex; flex-direction: column; gap: var(--s2); }
@@ -488,7 +500,10 @@ pre { font: var(--t-s)/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; b
 /* "Not now" beside a row on the home page */
 .list > li.with-action { display: flex; align-items: center; }
 .list > li.with-action .list-row { flex: 1; min-width: 0; }
-.list > li.with-action .put-off { flex: none; padding: 0 var(--s4); color: var(--muted); }
+.list > li.with-action .put-off { flex: none; padding: 0 var(--s4); color: var(--muted); opacity: 0; transition: opacity .15s var(--ease); }
+/* "Not now" shows on the row being pointed at or moved to, and always on touch screens. */
+.list > li.with-action:hover .put-off, .list > li.with-action:focus-within .put-off { opacity: 1; }
+@media (hover: none) { .list > li.with-action .put-off { opacity: 1; } }
 .list > li.with-action .put-off:hover { color: var(--ink); }
 .legend > span { display: inline-flex; align-items: center; gap: 6px; }
 .legend .step-icon { width: 14px; height: 14px; }
