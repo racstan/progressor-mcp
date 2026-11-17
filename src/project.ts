@@ -30,7 +30,7 @@ import {
   newPlanFile,
   parsePlanFile,
 } from "./planFile.js";
-import { pause, withLock } from "./lock.js";
+import { pause, sweepTempFiles, withLock, withLockAsync } from "./lock.js";
 import { HISTORY_DIR, type HistoryItem, type HistorySettings, entryChanges, recordEntry, restorePlan, tracked } from "./history.js";
 import { SETTINGS_DEFAULTS } from "./settings.js";
 import { type MarkdownDoc, findSection, parseMarkdown } from "./markdown.js";
@@ -309,6 +309,8 @@ export const PRIVATE_GITIGNORE = `# Progressor keeps this plan on this computer:
 /** Errors that mean the file is held for a moment (Windows), so a rename is tried again. */
 const RETRY_CODES = ["EPERM", "EBUSY", "EACCES"];
 const RENAME_TRIES = 5;
+/** How long shutdown waits for another process to finish with the plan. */
+const SHUTDOWN_LOCK_MS = 1000;
 /** Whether a file has anything but blank lines and a title: a file with only that is new, not damaged. */
 const hasBody = (doc: MarkdownDoc) => doc.blocks.some((b) => (b.type === "text" ? b.text.trim() !== "" : b.type === "item" || b.level > 1));
 export const CONTEXT_FILE = "context.md";
@@ -378,6 +380,7 @@ export class Project {
   history: (root: string) => HistorySettings;
   /** While a transaction runs: what it is, and each plan file's text before its first write in it. */
   private journal: { label: string; files: Map<string, string | null> } | undefined;
+  private swept = false;
 
   constructor(options: ProjectOptions) {
     this.folder = options.root;
@@ -469,19 +472,37 @@ export class Project {
    * wrote before it failed.
    */
   transaction<T>(label: string, body: () => T): T {
-    return withLock(this.root, () => {
-      if (this.journal) return body();
-      this.journal = { label, files: new Map() };
+    return withLock(this.root, () => this.inTransaction(label, body));
+  }
+
+  /**
+   * Like transaction, but waits for another process's hold without blocking this one, so the
+   * dashboard's server keeps answering while it waits. `body` itself runs in one go.
+   */
+  transactionAsync<T>(label: string, body: () => T): Promise<T> {
+    return withLockAsync(this.root, () => this.inTransaction(label, body));
+  }
+
+  private inTransaction<T>(label: string, body: () => T): T {
+    if (this.journal) return body();
+    if (label !== "check-up") this.sweepTemps(); // the check-up removes them itself, and says so
+    this.journal = { label, files: new Map() };
+    try {
+      return body();
+    } finally {
       try {
-        return body();
+        this.commit();
       } finally {
-        try {
-          this.commit();
-        } finally {
-          this.journal = undefined;
-        }
+        this.journal = undefined;
       }
-    });
+    }
+  }
+
+  /** Once per Session: removes half-written `.pid.tmp` saves left by a process that was killed mid-save. */
+  private sweepTemps(): void {
+    if (this.swept) return;
+    this.swept = true;
+    sweepTempFiles(join(this.root, PROGRESSOR_DIR), this.isAlive);
   }
 
   /** The history folder, `.progressor/history/`. */
@@ -788,6 +809,22 @@ export class Project {
     this.writeText(file, stampDates(roadmap.toString(), this.readText(file), ROADMAP_DATES, this.now(), this.actor));
   }
 
+  /**
+   * Saves a new Goal's plan file first, then the Roadmap that lists it, so a save that fails part-way
+   * never leaves a listed Goal with no steps. If the Roadmap cannot be saved, the plan file is taken back.
+   */
+  private saveNewGoal(roadmap: Roadmap, plan: PlanFile): void {
+    const file = this.path("goals", `${plan.goalId}.md`);
+    const existed = existsSync(file);
+    this.savePlan(plan);
+    try {
+      this.saveRoadmap(roadmap);
+    } catch (e) {
+      if (!existed) rmSync(file, { force: true });
+      throw e;
+    }
+  }
+
   private savePlan(plan: PlanFile): void {
     plan.assignMissingIds();
     const file = this.path("goals", `${plan.goalId}.md`);
@@ -934,12 +971,24 @@ export class Project {
 
   /** Releases every Goal this Session holds, as it ends. */
   releaseAll(): void {
-    this.resources().releaseAll();
-    const roadmap = this.roadmap();
-    const held = this.claimedGoals(roadmap);
-    if (held.length === 0) return;
-    for (const g of held) roadmap.setClaim(g.id, undefined);
-    this.saveRoadmap(roadmap);
+    try {
+      // Under the plan's lock like every other change, but only briefly: shutdown never hangs. A
+      // Goal left claimed is cleared by the next reader, because this Session has ended.
+      withLock(
+        this.root,
+        () => {
+          this.resources().releaseAll();
+          const roadmap = this.roadmap();
+          const held = this.claimedGoals(roadmap);
+          if (held.length === 0) return;
+          for (const g of held) roadmap.setClaim(g.id, undefined);
+          this.saveRoadmap(roadmap);
+        },
+        { timeoutMs: SHUTDOWN_LOCK_MS },
+      );
+    } catch (e) {
+      if (!/is busy/.test((e as Error).message)) throw e;
+    }
   }
 
   // --- Goals and Tasks -----------------------------------------------------
@@ -1001,8 +1050,7 @@ export class Project {
     const plan = newPlanFile(goal.id, title);
     plan.now = this.now;
     if (tasks.length > 0) this.markItems(plan, plan.addTasks(tasks).map((t) => t.id));
-    this.saveRoadmap(roadmap);
-    this.savePlan(plan);
+    this.saveNewGoal(roadmap, plan);
     return roadmap.goal(goal.id)!;
   }
 
@@ -1028,8 +1076,7 @@ export class Project {
       { title: "Fix the bug", summary: "Make that test pass without breaking the others." },
     ]);
     this.markItems(plan, tasks.map((t) => t.id));
-    this.saveRoadmap(roadmap);
-    this.savePlan(plan);
+    this.saveNewGoal(roadmap, plan);
     return roadmap.goal(goal.id)!;
   }
 

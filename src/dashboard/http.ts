@@ -643,7 +643,7 @@ class Hub {
     if (!result) return json(res, 400, { error: `The mark must be one of: ${Object.keys(MARKS).join(", ")}.` });
     if (body.note !== undefined && typeof body.note !== "string") return json(res, 400, { error: "The note must be text." });
     try {
-      const test = project.transaction("Marked something to try", () => project.markHandTest(goalId, itemId, result, body.note as string | undefined));
+      const test = await project.transactionAsync("Marked something to try", () => project.markHandTest(goalId, itemId, result, body.note as string | undefined));
       return json(res, 200, test);
     } catch (e) {
       const message = (e as Error).message;
@@ -696,7 +696,7 @@ class Hub {
         : action.endsWith("/more") ? "Asked for other options"
         : action.startsWith("questions") ? "Answered a question"
         : "Took back a message";
-      const answer = project.transaction(label, () => {
+      const answer = await project.transactionAsync(label, () => {
         if (action === "messages") return { status: 201, body: project.sendMessage(goalId, words("text")) };
         if (action === "clear") return { status: 200, body: { removed: project.clearFinishedTalk(goalId) } };
         const remove = /^(?:messages|questions)\/([^/]+)\/remove$/.exec(action);
@@ -737,7 +737,7 @@ class Hub {
     if (text !== undefined && typeof text !== "string") return json(res, 400, { error: "The text must be text." });
     const rule = (s: { id: string | undefined; text: string; hard: boolean }) => `${s.hard ? "a rule that must never be broken, " : ""}${s.id}: "${s.text}"`;
     try {
-      const answer = project.transaction(notesLabel(action), () => {
+      const answer = await project.transactionAsync(notesLabel(action), () => {
         if (action === "context") {
           if (text === undefined) throw new Error("Write the project notes first.");
           const context = project.setContext(text);
@@ -857,7 +857,7 @@ class Hub {
       // keep the plain name
     }
     try {
-      const attached = project.transaction("Attached a file to a wish", () => {
+      const attached = await project.transactionAsync("Attached a file to a wish", () => {
         const a = project.attachToWish(wishId, name, data);
         project.sendMessage(
           PROJECT_TALK,

@@ -50,9 +50,9 @@ export const historyRoutes: FeatureRoute[] = [
     method: "POST",
     pattern: /^\/api\/projects\/([^/]+)\/history\/([^/]+)\/restore$/,
     header: "history",
-    handle(ctx) {
+    async handle(ctx) {
       const project = projectOf(ctx);
-      const restored = project.transaction("Went back", () => {
+      const restored = await project.transactionAsync("Went back", () => {
         const r = project.restoreHistory(ctx.match[2]!);
         project.sendMessage(PROJECT_TALK, restoredMessage(r));
         return r;
