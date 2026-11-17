@@ -47,7 +47,10 @@ export function refreshProjectCi(project: Project, projectId: string, hub: Pick<
 /** The open goals whose latest checks failed, from the kept file only: for Needs you. */
 export function failedCheckLines(project: Project, registryFile: string): { id: string; title: string }[] {
   try {
-    return failedGoals(goalsWithSteps(project), readCiCache(ciCacheFile(registryFile, project.root)));
+    const cache = readCiCache(ciCacheFile(registryFile, project.root));
+    // Nothing kept has failed: no need to read every plan (Home asks on every load).
+    if (!JSON.stringify(cache).includes('"failed"')) return [];
+    return failedGoals(goalsWithSteps(project), cache);
   } catch {
     return [];
   }

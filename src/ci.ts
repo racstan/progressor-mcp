@@ -464,6 +464,9 @@ export function kickCiRefresh(root: string, tasks: () => readonly CiTask[], file
   const now = deps.now();
   const last = tried.get(file);
   if (last && (last.running || now - last.at < FRESH_MS)) return undefined;
+  // Looked at now, whatever comes of it: the plan is read again only after FRESH_MS.
+  const entry = { at: now, running: false };
+  tried.set(file, entry);
   let lookups: Lookup[];
   try {
     lookups = stepLookups(tasks());
@@ -472,8 +475,7 @@ export function kickCiRefresh(root: string, tasks: () => readonly CiTask[], file
   }
   const cache = readCiCache(file);
   if (!lookups.some((l) => !isFresh(cache.commits[l.sha], now) || (l.branch && !isFresh(cache.branches[l.branch], now)))) return undefined;
-  const entry = { at: now, running: true };
-  tried.set(file, entry);
+  entry.running = true;
   return refreshCi(root, lookups, deps, file)
     .then((did) => {
       if (did) changed();

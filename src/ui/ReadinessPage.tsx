@@ -10,19 +10,34 @@ import { scopeLine } from "../readiness.js";
 const INTRO =
   "What still stands between this project and its launch or next release, by who it waits on. Your AI keeps it filled: it marks the goals a launch needs, and with none marked every open goal counts.";
 
-function Item({ b, onOpenGoal }: { b: Blocker; onOpenGoal: (id: string) => void }) {
+function Item({ b }: { b: Blocker }) {
   const what = b.kind === "hand test" ? "Try by hand: " : b.kind === "question" ? "Question: " : "";
   return (
     <li className={`ready-item ${b.kind.replace(" ", "-")}`}>
-      <button className="linkbtn" onClick={() => onOpenGoal(b.goal)} title="Open this goal">
-        {b.goalTitle}
-      </button>
       <span className="ready-what">
         {what}
         {b.title}
         {b.need && <span className="muted"> · they need to: {b.need}</span>}
       </span>
     </li>
+  );
+}
+
+/** The items under each goal, goals in the order they first come up, so a long list reads goal by goal. */
+function ByGoal({ items, onOpenGoal }: { items: Blocker[]; onOpenGoal: (id: string) => void }) {
+  const goals = new Map<string, Blocker[]>();
+  for (const b of items) goals.set(b.goal, [...(goals.get(b.goal) ?? []), b]);
+  return (
+    <>
+      {[...goals].map(([id, list]) => (
+        <div key={id} className="ready-goal">
+          <button className="linkbtn ready-goal-name" onClick={() => onOpenGoal(id)} title="Open this goal">
+            {list[0]!.goalTitle} <span className="n">{list.length}</span>
+          </button>
+          <ul className="ready-list">{list.map((b) => <Item key={`${b.kind}-${b.id ?? ""}`} b={b} />)}</ul>
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -39,7 +54,7 @@ function Group({ title, hint, children, count }: { title: string; hint: string; 
 }
 
 function Summary({ r, onOpenGoal, onOpenRisks }: { r: Readiness; onOpenGoal: (id: string) => void; onOpenRisks: () => void }) {
-  const list = (items: Blocker[]) => <ul className="ready-list">{items.map((b) => <Item key={`${b.kind}-${b.goal}-${b.id ?? ""}`} b={b} onOpenGoal={onOpenGoal} />)}</ul>;
+  const list = (items: Blocker[]) => <ByGoal items={items} onOpenGoal={onOpenGoal} />;
   const waiting = r.others.reduce((n, o) => n + o.items.length, 0);
   return (
     <>

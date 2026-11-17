@@ -355,4 +355,20 @@ describe("kickCiRefresh", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+  it("reads the plan once per few minutes, even when nothing was due (the Home page asks on every load)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "progressor-ci-"));
+    try {
+      const deps: CiDeps = { run: async () => undefined, fetchJson: async () => undefined, now: () => Date.now() };
+      let reads = 0;
+      const none = () => {
+        reads++;
+        return [];
+      };
+      expect(kickCiRefresh("/repo-quiet", none, join(dir, "ci.json"), deps, () => undefined)).toBeUndefined();
+      expect(kickCiRefresh("/repo-quiet", none, join(dir, "ci.json"), deps, () => undefined)).toBeUndefined();
+      expect(reads).toBe(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

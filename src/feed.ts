@@ -78,9 +78,13 @@ export function markNew(items: FeedItem[], since: number | undefined): FeedItem[
 const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** The one-line digest of what is new. */
+/** What the digest says on the first look at a project in this browser: there is no "last time" to compare with. */
+export const FIRST_LOOK = "This is your first look here: below is everything your AI has done, newest first. Next time, this line says what is new since now.";
+
 export function digestLines(items: FeedItem[], since: number | undefined, now = Date.now()): string {
+  if (since === undefined) return items.length > 0 ? FIRST_LOOK : "Nothing has happened in this project yet.";
   const fresh = items.filter((i) => i.isNew);
-  if (fresh.length === 0 || since === undefined) return "Nothing new since you last looked.";
+  if (fresh.length === 0) return "Nothing new since you last looked.";
   const of = (k: FeedKind, onlyOpen = false) => fresh.filter((i) => i.kind === k && (!onlyOpen || i.open));
   const parts: string[] = [];
   const steps = of("step").length;

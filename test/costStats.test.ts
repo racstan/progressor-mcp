@@ -1,5 +1,5 @@
-// Cost on the project's Dashboard page: the goals that used most, and the cost of a finished step and
-// of an hour of work. Pure (ui/costStats.ts).
+// Cost on the project's Dashboard page: the goals that used most, and the cost of a finished step.
+// Pure (ui/costStats.ts).
 import { describe, expect, it } from "vitest";
 import { costSummary } from "../src/ui/costStats.js";
 
@@ -18,7 +18,6 @@ describe("cost on the Dashboard page", () => {
         { id: "f", title: "F", done: 1 },
         { id: "g", title: "G", done: 1 },
       ],
-      0,
     );
     expect(s!.ranked.map((r) => [r.id, r.tokens, r.perStep?.tokens])).toEqual([
       ["b", 900, 300],
@@ -33,15 +32,14 @@ describe("cost on the Dashboard page", () => {
     expect(s!.total.tokens).toBe(1150);
   });
 
-  it("works out money and an hour of work when they are known", () => {
-    const s = costSummary({ priced: true, other: { tokens: 0, money: 0 }, goals: { a: line(1000, 2) } }, [{ id: "a", title: "A", done: 4 }], 120);
+  it("works out money when a price is set", () => {
+    const s = costSummary({ priced: true, other: { tokens: 0, money: 0 }, goals: { a: line(1000, 2) } }, [{ id: "a", title: "A", done: 4 }]);
     expect(s!.perStep).toEqual({ tokens: 250, money: 0.5 });
-    expect(s!.perHour).toEqual({ tokens: 500, money: 1 });
     expect(s!.total).toEqual({ tokens: 1000, money: 2 });
   });
 
   it("is nothing while no tokens were counted", () => {
-    expect(costSummary({ priced: false, other: { tokens: 0 }, goals: {} }, [], 60)).toBeUndefined();
-    expect(costSummary(undefined, [], 60)).toBeUndefined();
+    expect(costSummary({ priced: false, other: { tokens: 0 }, goals: {} }, [])).toBeUndefined();
+    expect(costSummary(undefined, [])).toBeUndefined();
   });
 });

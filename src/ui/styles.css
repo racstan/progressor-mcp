@@ -1467,6 +1467,16 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
   border-left-width: 5px;
   border-left-color: var(--ink);
 }
+.readiness .ready-goal {
+  margin-top: 10px;
+}
+.readiness .ready-goal-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
 .readiness .ready-what {
   min-width: 0;
   overflow-wrap: anywhere;

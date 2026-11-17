@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type FeedGoal, buildFeed, digestLines, markNew } from "../src/feed.js";
+import { FIRST_LOOK, type FeedGoal, buildFeed, digestLines, markNew } from "../src/feed.js";
 
 const goal = (over: Partial<FeedGoal> = {}): FeedGoal => ({
   id: "login",
@@ -85,6 +85,7 @@ describe("markNew and digestLines", () => {
 
   it("says nothing is new", () => {
     expect(digestLines(markNew(feed, now), now, now + 1000)).toBe("Nothing new since you last looked.");
-    expect(digestLines(markNew(feed, undefined), undefined, now)).toBe("Nothing new since you last looked.");
+    expect(digestLines(markNew(feed, undefined), undefined, now)).toBe(FIRST_LOOK);
+    expect(digestLines([], undefined, now)).toBe("Nothing has happened in this project yet.");
   });
 });

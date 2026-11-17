@@ -42,7 +42,7 @@ export function StatsPage({ projectId, roadmap, onOpenGoal, heading }: { project
       ) : (
         <>
           <Stats stats={stats} onOpenGoal={onOpenGoal} />
-          <GoalCosts projectId={projectId} roadmap={roadmap} minutesWorked={stats.time.spent} onOpenGoal={onOpenGoal} />
+          <GoalCosts projectId={projectId} roadmap={roadmap} onOpenGoal={onOpenGoal} />
         </>
       )}
       <CheckupCard projectId={projectId} />
@@ -53,19 +53,15 @@ export function StatsPage({ projectId, roadmap, onOpenGoal, heading }: { project
 const costText = (l: CostLine) => `${tokenWords(l.tokens)}${l.money !== undefined ? ` · about ${moneyWords(l.money)}` : ""}`;
 
 /** What goals cost (cost.ts): hidden until the hooks have counted some tokens. */
-function GoalCosts({ projectId, roadmap, minutesWorked, onOpenGoal }: { projectId: string; roadmap: RoadmapView; minutesWorked: number; onOpenGoal: (id: string) => void }) {
+function GoalCosts({ projectId, roadmap, onOpenGoal }: { projectId: string; roadmap: RoadmapView; onOpenGoal: (id: string) => void }) {
   const cost = useCost(projectId, roadmap);
-  const s = costSummary(cost, roadmap.goals.map((g) => ({ id: g.id, title: g.title, done: g.done })), minutesWorked);
+  const s = costSummary(cost, roadmap.goals.map((g) => ({ id: g.id, title: g.title, done: g.done })));
   if (!s) return null;
   return (
     <section className="section goal-costs">
       <h2>What goals cost</h2>
       <p className="stat-lead">{costWords(s.total)} on this project's goals, counted by your AI's hooks as it works.</p>
-      {(s.perStep || s.perHour) && (
-        <p className="quiet">
-          {[s.perStep && `About ${costText(s.perStep)} per finished step`, s.perHour && `${costText(s.perHour)} per hour of work`].filter(Boolean).join(" · ")}.
-        </p>
-      )}
+      {s.perStep && <p className="quiet">About {costText(s.perStep)} per finished step.</p>}
       <ol className="stat-list">
         {s.ranked.map((r) => (
           <li key={r.id}>

@@ -1,5 +1,4 @@
-// Cost on the project's Dashboard page (cost.ts): the goals that used most, what a finished step and an
-// hour of work cost. Pure, so it is tested.
+// Cost on the project's Dashboard page (cost.ts): the goals that used most, and what a finished step cost. Pure, so it is tested.
 import type { CostLine, CostView } from "../dashboard/routes/cost.js";
 
 export interface CostRow extends CostLine {
@@ -15,8 +14,6 @@ export interface CostSummary {
   ranked: CostRow[];
   /** Across the goals with finished steps. */
   perStep?: CostLine;
-  /** Per hour worked on steps. */
-  perHour?: CostLine;
 }
 
 const per = (l: CostLine, n: number): CostLine => ({ tokens: Math.round(l.tokens / n), ...(l.money !== undefined ? { money: l.money / n } : {}) });
@@ -25,8 +22,11 @@ const sum = (lines: CostLine[], priced: boolean): CostLine => ({
   ...(priced ? { money: lines.reduce((n, l) => n + (l.money ?? 0), 0) } : {}),
 });
 
-/** Undefined while nothing was counted. `minutesWorked` is the time spent on steps (stats.ts). */
-export function costSummary(cost: CostView | undefined, goals: { id: string; title: string; done: number }[], minutesWorked: number): CostSummary | undefined {
+/**
+ * Undefined while nothing was counted. There is no cost per hour: tokens are counted only from when the
+ * hooks started, while the time worked covers the whole plan, so the two don't divide.
+ */
+export function costSummary(cost: CostView | undefined, goals: { id: string; title: string; done: number }[]): CostSummary | undefined {
   if (!cost) return undefined;
   const byId = new Map(goals.map((g) => [g.id, g]));
   const lines = Object.entries(cost.goals).filter(([, l]) => l.tokens > 0);
@@ -45,6 +45,5 @@ export function costSummary(cost: CostView | undefined, goals: { id: string; tit
     total,
     ranked: ranked.slice(0, 5),
     ...(steps > 0 ? { perStep: per(sum(finished, cost.priced), steps) } : {}),
-    ...(minutesWorked > 0 ? { perHour: per(total, minutesWorked / 60) } : {}),
   };
 }
