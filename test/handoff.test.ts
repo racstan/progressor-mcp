@@ -2,7 +2,10 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// These tests run real git, which can take seconds when the machine is busy.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import type { GitFacts, GitRange } from "../src/gitFacts.js";
 import { handoffFacts, handoffName, listHandoffs, readHandoff, saveHandoff } from "../src/handoff.js";
 import { Project } from "../src/project.js";

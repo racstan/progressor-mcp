@@ -1,7 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// These tests run real git, which can take seconds when the machine is busy.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 import { commitLinkBase, realGit } from "../src/gitFacts.js";
 import { tempDir } from "./tmp.js";
 
