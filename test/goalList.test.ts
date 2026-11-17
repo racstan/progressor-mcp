@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { doneMark, groupGoals, groupOpen, hideAll, seenOnFirstVisit } from "../src/ui/goalList.js";
+import { DATE_UNKNOWN, FINISHED_SORT_DEFAULT, dayGroups, dayHeading, doneMark, groupGoals, groupOpen, hideAll, seenOnFirstVisit, sortFinished } from "../src/ui/goalList.js";
 
 const goal = (id: string, status: string, done = 0, total = 2) => ({ id, status, done, total });
 const goals = [
@@ -66,5 +66,76 @@ describe("hideAll", () => {
     expect(hideAll(["x"], ["b", "e"])).toEqual(["x", "b", "e"]);
     expect(hideAll(["b"], ["b", "e"])).toEqual(["b", "e"]);
     expect(hideAll([], [])).toEqual([]);
+  });
+});
+
+// 17 Nov 2026 is a Tuesday; local times so the tests hold in any time zone.
+const NOW = new Date(2026, 10, 17, 15, 0).getTime();
+const at = (y: number, m: number, d: number, h = 12) => new Date(y, m - 1, d, h).toISOString();
+
+describe("dayHeading", () => {
+  it("uses plain words for today and yesterday, else the weekday and date", () => {
+    expect(dayHeading(at(2026, 11, 17, 1), NOW)).toBe("Today");
+    expect(dayHeading(at(2026, 11, 16, 23), NOW)).toBe("Yesterday");
+    expect(dayHeading(at(2026, 11, 3), NOW)).toBe("Tue 3 Nov");
+  });
+  it("adds the year when it is not this year", () => {
+    expect(dayHeading(at(2025, 12, 3), NOW)).toBe("Wed 3 Dec 2025");
+  });
+  it("says the date is not known for a missing or broken time", () => {
+    expect(dayHeading(undefined, NOW)).toBe(DATE_UNKNOWN);
+    expect(dayHeading("nonsense", NOW)).toBe(DATE_UNKNOWN);
+  });
+});
+
+describe("sortFinished", () => {
+  const g = (id: string, title: string, fin?: string, add?: string) => ({
+    id, title, ...(fin ? { updated: { at: fin } } : {}), ...(add ? { added: { at: add } } : {}),
+  });
+  const list = [
+    g("b", "beta", at(2026, 11, 2), at(2026, 10, 1)),
+    g("n", "no dates"),
+    g("a", "Alpha", at(2026, 11, 9), at(2026, 10, 20)),
+    g("c", "charlie", at(2026, 11, 5), at(2026, 9, 1)),
+  ];
+  it("newest finished first, goals with no date last", () => {
+    expect(ids(sortFinished(list, "finished-new"))).toEqual(["a", "c", "b", "n"]);
+    expect(FINISHED_SORT_DEFAULT).toBe("finished-new");
+  });
+  it("oldest finished first, goals with no date still last", () => {
+    expect(ids(sortFinished(list, "finished-old"))).toEqual(["b", "c", "a", "n"]);
+  });
+  it("by name, ignoring capitals", () => {
+    expect(ids(sortFinished(list, "name"))).toEqual(["a", "b", "c", "n"]);
+  });
+  it("newest added first", () => {
+    expect(ids(sortFinished(list, "added-new"))).toEqual(["a", "b", "c", "n"]);
+  });
+  it("leaves the original list alone", () => {
+    const copy = [...list];
+    sortFinished(list, "name");
+    expect(list).toEqual(copy);
+  });
+});
+
+describe("dayGroups", () => {
+  const items = [
+    { id: "1", t: at(2026, 11, 17, 9) },
+    { id: "2", t: at(2026, 11, 17, 14) },
+    { id: "3", t: at(2026, 11, 16) },
+    { id: "4", t: undefined },
+    { id: "5", t: at(2026, 11, 3) },
+  ];
+  it("groups by day, newest day first, unknown last, keeping order inside a day", () => {
+    const groups = dayGroups(items, (i) => i.t, "newest", NOW);
+    expect(groups.map((x) => x.heading)).toEqual(["Today", "Yesterday", "Tue 3 Nov", DATE_UNKNOWN]);
+    expect(groups.map((x) => ids(x.items))).toEqual([["1", "2"], ["3"], ["5"], ["4"]]);
+  });
+  it("oldest day first, unknown still last", () => {
+    const groups = dayGroups(items, (i) => i.t, "oldest", NOW);
+    expect(groups.map((x) => x.heading)).toEqual(["Tue 3 Nov", "Yesterday", "Today", DATE_UNKNOWN]);
+  });
+  it("gives no groups for no items", () => {
+    expect(dayGroups([], () => undefined, "newest", NOW)).toEqual([]);
   });
 });

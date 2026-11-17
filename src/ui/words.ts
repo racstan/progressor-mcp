@@ -167,7 +167,7 @@ const STEP_END: Record<string, string> = {
 const FINISH_WORD: Record<string, string> = { done: "Done", released: "Released", dropped: "Cancelled" };
 
 /** When a step was finished; an older plan has no finish line, but a finished step last changed when it was finished. */
-const finishedAt = (t: StepTimes) => (t.status in FINISH_WORD ? (t.finishedAt ?? t.updated?.at) : undefined);
+export const finishedAt = (t: StepTimes) => (t.status in FINISH_WORD ? (t.finishedAt ?? t.updated?.at) : undefined);
 
 /** Only the clock for today, else the day too: "14:02", "yesterday 23:40", "3 Oct 09:00". */
 const shortWhen = (iso: string, now: number) => {

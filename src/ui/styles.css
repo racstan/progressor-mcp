@@ -1287,3 +1287,11 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 [data-motion="gentle"] .skeleton i { animation: none; }
 [data-motion="gentle"] .loading-dots i { animation-duration: 2.2s; }
 [data-motion="gentle"] .btn.busy::before { animation-duration: 1.6s; }
+/* Finished goals and steps by day */
+.side-sort { display: grid; gap: var(--s2); margin: var(--s1) var(--s2) var(--s2); padding: var(--s2); border: 1px solid var(--line); border-radius: var(--r-s); font-size: var(--t-s); }
+.side-sort label { display: grid; gap: 2px; color: var(--muted); font-weight: 600; }
+.side-sort select { width: 100%; padding: 4px var(--s2); border: 1px solid var(--line-strong); border-radius: var(--r-s); background: var(--panel); color: var(--ink); font-weight: 400; }
+.day-group h4, .steps-day { margin: var(--s2) 0 2px; padding: 0 var(--s2); font-size: var(--t-s); font-weight: 600; color: var(--faint); }
+.steps-day { padding: 0; margin: var(--s4) 0 var(--s1); color: var(--muted); }
+.steps-view { display: flex; gap: var(--s3); flex-wrap: wrap; margin-bottom: var(--s2); }
+.steps-view .linkbtn[aria-pressed="true"] { color: var(--ink); font-weight: 600; text-decoration: underline; }
