@@ -250,9 +250,21 @@ export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, 
     }
     // Changes an AI chat in another project made to this plan, told once (elsewhere.ts).
     const elsewhere = takeElsewhereLine(project, env.PROGRESSOR_REGISTRY ? seenFile(env.PROGRESSOR_REGISTRY) : seenFile());
+    // More helpers at work than the project allows: said on every message until one comes back.
+    let overLimit: string | undefined;
+    if (kind === "prompt") {
+      try {
+        const { busy, limit } = project.helperLoad();
+        if (limit !== undefined && busy > limit)
+          overLimit = `${busy} helpers are at work, over this project's helper limit of ${limit}: hand out no more until one comes back.`;
+      } catch {
+        // the reminder never fails the message
+      }
+    }
     const text = [
       ...(warning ? [`${PREFIX} ${warning}`] : []),
       ...(status ? [status] : []),
+      ...(overLimit ? [`${PREFIX} ${overLimit}`] : []),
       ...(elsewhere ? [`${PREFIX} ${elsewhere}`] : []),
     ].join("\n");
     return text.length <= MAX_CONTEXT ? text : text.slice(0, MAX_CONTEXT - CUT.length) + CUT;

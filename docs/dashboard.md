@@ -181,6 +181,10 @@ Wherever the dashboard shows your AI's words, such as things to try by hand, ste
 
 **Wishlist** in the sidebar is for what you want from the project as a whole, in your own words: not goals or steps, just wishes, such as *People can use it on their phone*. Type one in the box at the top and press **Add wish**. Each wish has **Edit** and **Remove**, and a tick box for when you have what you wished for; ticked-off wishes move down to **You have these**, and unticking puts one back. Only you change the wishlist. Your AI reads it at every status check, is told about each change, and may suggest goals from it, but it never edits it.
 
+## Working now
+
+Under a project's links in the sidebar, **Working now** lists the AI chats working on that project at this moment: since when, the goals each holds (click one to open it) and the step it is on, which is gently highlighted. It also says how many helpers are at work, against the project's helper limit when it has one (*1 helper at work of at most 1*). Steps a helper works on together count as one helper. When more helpers work than the limit allows, the box gets a heavy border and your AI is reminded on every message until one comes back. A chat drops off the list about a minute after it closes. The box is hidden while nothing is working.
+
 ## Risks
 
 **Risks** in the sidebar lists what could go wrong in this project, such as *Plan files swept into commits*. Your AI adds risks as it notices them while it works and keeps each one up to date; you only read the page, you never have to fill it in. Each risk shows how likely it is (Unlikely, Possible or Likely) and how bad it would be (Minor, Serious or Severe), in words and as a small three-by-three grid with one square filled in: further right is likelier, higher up is worse. It also shows what would reduce it, who looks after it, and the goals that reduce it, each one a link to that goal with its state (such as *Finished*). Open risks come first, the worst at the top; risks your AI has reduced or closed are folded away under **Reduced and closed**.

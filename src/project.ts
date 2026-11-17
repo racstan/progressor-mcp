@@ -44,7 +44,7 @@ import { type Routine, dueRoutines, formatEvery, nextAfter, nextDue, parseEvery,
 import { formatDuration, parseDuration } from "./estimate.js";
 import { type Claim, type Goal, GOAL_BUNDLES, GOAL_FROM_ROUTINE, GOAL_RELEASE, GOAL_WAITS_ON, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, type Roadmap, type StandingInstruction, helperLimit, parseRoadmap } from "./roadmap.js";
 import { type Actor, type DateScope, stampDates } from "./dates.js";
-import { type Schedule, computeSchedule } from "./schedule.js";
+import { type Schedule, computeSchedule, helperCount } from "./schedule.js";
 import { type Calibration, calibration } from "./stats.js";
 import { RISKS_FILE, type Risk, type RiskChanges, type Level, formatRisks, nextRiskId, parseRisks, riskLine } from "./risks.js";
 import { WISHLIST_FILE, type Attachment, type Wish, formatWishlist, isWishId, nextWishId, parseWishlist, wishText } from "./wishlist.js";
@@ -2130,7 +2130,7 @@ export class Project {
    */
   helperLoad(): { busy: number; limit: number | undefined; rule: StandingInstruction | undefined } {
     const roadmap = this.roadmap();
-    const busy = this.plannedGoals(roadmap).reduce((n, p) => n + p.tasks.filter((t) => t.status === "with a helper").length, 0);
+    const busy = helperCount(this.plannedGoals(roadmap));
     const found = helperLimit(roadmap.standingInstructions);
     return { busy, limit: found?.limit, rule: found?.rule };
   }

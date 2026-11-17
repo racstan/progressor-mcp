@@ -3,6 +3,7 @@ import { DEFAULT_EDITOR, editorUrl } from "../dashboard/editor.js";
 import type { GoalSchedule } from "../schedule.js";
 import { type ProjectEntry, type RoadmapView, removeProjectFromDashboard, showInFolder, useDashboard, useOverview, useSearch, useServers, usePageStaleness, useSettings, useStored, useStoredJson, renewPhoneTopic, resetComputerSettings, saveSettings } from "./data.js";
 import { HotfixPage } from "./HotfixPage.js";
+import { LiveSessions } from "./LiveSessions.js";
 import { RisksPage } from "./RisksPage.js";
 import { WhatsNew, changelog } from "./WhatsNew.js";
 import { ContextPage } from "./ContextPage.js";
@@ -746,6 +747,7 @@ export function App() {
                   <Icon name="note" /> Handoffs
                 </button>
               </div>
+              {projectId && !sample && <LiveSessions projectId={projectId} version={roadmap} onOpenGoal={pickGoal} />}
               <button className="side-link" aria-current={page === "settings"} onClick={() => openPage("settings")} title="How the page looks, notifications, and how your AI plans, for every project. All optional">
                 <Icon name="settings" /> Settings
               </button>

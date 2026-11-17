@@ -24,7 +24,7 @@ const POLL_MS = 15_000;
 /** How often the page asks which build is served, to notice a newer Progressor. */
 const INFO_MS = 60_000;
 
-async function getJson<T>(path: string): Promise<T | undefined> {
+export async function getJson<T>(path: string): Promise<T | undefined> {
   // While the tour's sample shows, it answers the reads about projects itself (sample.ts).
   if (sampleOn()) {
     const answer = sampleAnswer(path);

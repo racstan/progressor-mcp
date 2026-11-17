@@ -72,13 +72,25 @@ export interface Schedule {
 /** One Goal of the Roadmap with its Tasks, as the schedule needs it. */
 export interface PlannedGoal {
   goal: Pick<Goal, "id" | "title" | "status" | "estimate"> & { waitsOn?: string[] };
-  tasks: Pick<Task, "id" | "title" | "status" | "estimate" | "spent" | "timingSince">[];
+  tasks: (Pick<Task, "id" | "title" | "status" | "estimate" | "spent" | "timingSince"> & { helper?: Task["helper"] })[];
 }
 
 const RUNNING: readonly TaskStatus[] = ["in progress", "with a helper"];
 const WAITING: readonly TaskStatus[] = ["waiting on you", "checked"];
 const OPEN_TASK = (s: TaskStatus) => s !== "done" && s !== "released" && s !== "dropped";
 const OPEN_GOAL = (s: string) => s === "planned" || s === "active" || s === "paused";
+
+/**
+ * How many helpers are at work on these goals: steps with a helper that share a branch (or, without
+ * one, a folder) are one helper; a step with neither counts on its own.
+ */
+export function helperCount(roadmap: readonly PlannedGoal[]): number {
+  const keys = new Set<string>();
+  for (const { goal, tasks } of roadmap)
+    for (const t of tasks)
+      if (t.status === "with a helper") keys.add(t.helper?.branch ? `b:${t.helper.branch}` : t.helper?.folder ? `f:${t.helper.folder}` : `t:${goal.id}/${t.id}`);
+  return keys.size;
+}
 
 export function computeSchedule(roadmap: PlannedGoal[], limit: number | undefined, now: Date, factor?: number): Schedule {
   const scale = factor ?? 1;
@@ -165,7 +177,7 @@ export function computeSchedule(roadmap: PlannedGoal[], limit: number | undefine
   return {
     limit,
     capacity,
-    helpers: running.filter((i) => i.status === "with a helper").length,
+    helpers: helperCount(roadmap.filter((p) => OPEN_GOAL(p.goal.status))),
     running,
     next: queue.slice(0, capacity),
     goals,

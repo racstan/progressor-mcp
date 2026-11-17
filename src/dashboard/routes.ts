@@ -19,6 +19,7 @@ import { globalRoutes } from "./routes/global.js";
 import { projectRoutes } from "./routes/projects.js";
 import { goalNoteRoutes } from "./routes/goalNotes.js";
 import { riskRoutes } from "./routes/risks.js";
+import { sessionRoutes } from "./routes/sessions.js";
 
 /** What the hub gives every feature route. */
 export interface HubContext {
@@ -69,6 +70,7 @@ export const featureRoutes: FeatureRoute[] = [
   ...projectRoutes,
   ...goalNoteRoutes,
   ...riskRoutes,
+  ...sessionRoutes,
 ];
 
 /** A body bigger than this is refused unread, unless the route asks for more. */
