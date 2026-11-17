@@ -24,7 +24,7 @@ import { everyWords, parseEvery } from "./routines.js";
 import { releaseFacts } from "./facts.js";
 import { offerHint, parseWait } from "./alternatives.js";
 import { registerFeatureTools } from "./tools/index.js";
-import { type GlobalNotes, PART_TITLE, addGlobalRule, contextLines, globalFileFor, globalInstructions, globalStatusLines, readGlobal, setGlobalContext, updateGlobalRule } from "./globalRules.js";
+import { type GlobalNotes, PART_TITLE, addGlobalRule, contextLines, globalFileFor, globalInstructions, globalStatusLines, notEverywhere, readGlobal, setGlobalContext, updateGlobalRule } from "./globalRules.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const BUILD_SEAL = "368785021a7bdfc977b37e328e88f7750027fa2b92ecb8f73cfeeb2b2e433fa0";
@@ -329,18 +329,34 @@ export function estimateLine(c: { factor: number | undefined; samples: number } 
   return `Steps here have taken about ${how} as long as estimated (last ${c.samples} steps); estimate shorter.`;
 }
 
-export function formatStatus(session: SessionStatus, schedule?: Schedule, warnings: string[] = [], waits?: Map<string, string>, global?: GlobalNotes): string {
-  const rules = hardFirst(session.standingInstructions);
-  // The rules and context for everything come first, then this project's own.
+/** The rules, Important context and wishlist a status ends with: those for everything first, then this project's own. */
+export function instructionLines(session: SessionStatus, global?: GlobalNotes): string[] {
+  const rules = notEverywhere(hardFirst(session.standingInstructions), global);
   const instructions = [
     ...globalStatusLines(global),
     ...(rules.length > 0
       ? [rules.some((r) => r.hard) ? "Standing Instructions (a HARD RULE must never be broken):" : "Standing Instructions:", ...rules.map((r) => `- ${ruleText(r)}`)]
       : []),
   ];
-  const timing = [...(schedule ? scheduleLines(schedule, session.held.map((s) => s.goal!.id)) : []), ...warnings];
   if (session.context) instructions.push("Important context:", session.context);
   instructions.push(...wishlistLines(session.wishes));
+  return instructions;
+}
+
+/** Said instead of the rules, context and wishlist when this chat was already sent them unchanged. */
+export const INSTRUCTIONS_UNCHANGED =
+  "Standing Instructions, Important context and wishlist: unchanged since this chat last saw them (get_status shows them in full).";
+
+export function formatStatus(
+  session: SessionStatus,
+  schedule?: Schedule,
+  warnings: string[] = [],
+  waits?: Map<string, string>,
+  global?: GlobalNotes,
+  shownInstructions?: string[],
+): string {
+  const instructions = shownInstructions ?? instructionLines(session, global);
+  const timing = [...(schedule ? scheduleLines(schedule, session.held.map((s) => s.goal!.id)) : []), ...warnings];
   const hotfix = hotfixFirst(session);
   if (session.held.length > 1)
     return [
@@ -730,9 +746,17 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         .filter((id) => project.hasNewFromDeveloper(id))
         .map((id) => ({ goal: id, from: project.takeNewFromDeveloper(id) })),
     );
-  const status = () => {
+  // The rules, context and wishlist this chat was last sent; tools that end with a status leave them
+  // out while they are unchanged. get_status always sends them, as it is called after compaction.
+  let sentInstructions: string | undefined;
+  const status = (brief = false) => {
     const news = takeNews();
     const session = project.sessionStatus();
+    const global = readGlobal(globalFile);
+    const instructions = instructionLines(session, global);
+    const said = instructions.join("\n");
+    const shown = brief && instructions.length > 0 && said === sentInstructions ? [INSTRUCTIONS_UNCHANGED] : instructions;
+    sentInstructions = said;
     const held = new Set(session.held.map((s) => s.goal!.id));
     // Goals nobody is working on: said, but left unseen for the Session that claims them.
     const unheld = project
@@ -762,7 +786,8 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           ...resourceLines(project.resources().list(), project.now()),
         ],
         goalWaits(session.goals),
-        readGlobal(globalFile),
+        global,
+        shown,
       ),
       ...session.held.filter((h) => h.goal!.release !== undefined && h.goal!.status !== "done").map((h) => `\n${releaseFor(project, h.goal!).text}`),
     ].join("\n");
@@ -1006,7 +1031,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const learned = calibrationLine(p);
         if (claim) {
           project.claimGoal(goal.id);
-          return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks, claimed by this Session.${facts}${learned ? `\n${learned}` : ""}\n\n${status()}`;
+          return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks, claimed by this Session.${facts}${learned ? `\n${learned}` : ""}\n\n${status(true)}`;
         }
         return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks. Claim it with claim_goal to work on it.${learned ? `\n${learned}` : ""}${facts}`;
       }),
@@ -1032,7 +1057,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         if (p !== project) return doneIn(p, `Added hotfix ${goal.id} (${goal.ref}) at the top of the Roadmap.`);
         if (claim) {
           project.claimGoal(goal.id);
-          return `Added hotfix ${goal.id} (${goal.ref}), claimed by this Session. Start with t1: a test that shows the bug.\n\n${status()}`;
+          return `Added hotfix ${goal.id} (${goal.ref}), claimed by this Session. Start with t1: a test that shows the bug.\n\n${status(true)}`;
         }
         return withNow(`Added hotfix ${goal.id} (${goal.ref}) at the top of the Roadmap. Finish the step you are on, then claim it with claim_goal.`);
       }),
@@ -1125,7 +1150,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         project.claimGoal(goal, { takeover });
         // Waiting never stops the work (nothing waits for the Developer); the AI is only told.
         const waits = readSettings(settingsFile, project.root).dependencies.warnOnClaim ? waitsText(project.waitingOn(goal, goalLookup)) : undefined;
-        return waits ? `Note: Goal ${goal} ${waits}; carry on only where that work isn't needed first.\n\n${status()}` : status();
+        return waits ? `Note: Goal ${goal} ${waits}; carry on only where that work isn't needed first.\n\n${status(true)}` : status(true);
       }),
   );
 

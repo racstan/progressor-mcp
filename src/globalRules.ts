@@ -148,6 +148,15 @@ export function contextLines(notes: GlobalNotes, cut?: number): string[] {
   });
 }
 
+/** A rule's words for comparing: case, spaces and punctuation don't count. */
+const ruleWords = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/** A project's rules without those that say the same as a rule for everything, so each is listed once. */
+export function notEverywhere<T extends { text: string }>(rules: T[], notes: GlobalNotes | undefined): T[] {
+  const everywhere = new Set((notes?.rules ?? []).map((r) => ruleWords(r.text)));
+  return everywhere.size === 0 ? rules : rules.filter((r) => !everywhere.has(ruleWords(r.text)));
+}
+
 /** What get_status shows of the rules and context for everything, before a project's own; nothing when there are none. */
 export function globalStatusLines(notes: GlobalNotes | undefined): string[] {
   if (!notes) return [];
