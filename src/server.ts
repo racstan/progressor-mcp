@@ -322,8 +322,11 @@ function wishlistLines(wishes: Wish[]): string[] {
 /** One short line when estimates have run more than 20% off, for the AI to allow for; undefined otherwise. */
 export function estimateLine(c: { factor: number | undefined; samples: number } | undefined): string | undefined {
   if (!c || c.factor === undefined || Math.abs(c.factor - 1) <= 0.2) return undefined;
-  const long = c.factor > 1;
-  return `Your estimates here have run ${c.factor.toFixed(1)}× ${long ? "long" : "short"} (last ${c.samples} steps); allow for it.`;
+  // The factor is time spent over estimate: below 1, steps take less time than estimated.
+  const f = c.factor;
+  if (f > 1) return `Steps here have taken about ${Number(f.toFixed(1))}× as long as estimated (last ${c.samples} steps); estimate longer.`;
+  const how = f <= 0.55 ? "half" : `${f.toFixed(1)}×`;
+  return `Steps here have taken about ${how} as long as estimated (last ${c.samples} steps); estimate shorter.`;
 }
 
 export function formatStatus(session: SessionStatus, schedule?: Schedule, warnings: string[] = [], waits?: Map<string, string>, global?: GlobalNotes): string {
@@ -790,8 +793,10 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     if (!s.record) return [];
     return finished.flatMap(({ task, goal, commits, tests }) => {
       if (task.status !== "done" && task.status !== "released") return [];
+      // Said once per goal: later steps of a goal that is committed at the end stay quiet (complete_goal says it again).
+      const warned = s.warnUncommitted && p.uncommittedWarned(task.id!, goal);
       const t = p.recordEvidence(task.id!, goal, { commits, tests });
-      return s.warnUncommitted && t.uncommitted ? [`Warning: ${t.id} is done but its files have changes not saved in git.`] : [];
+      return s.warnUncommitted && t.uncommitted && !warned ? [`Warning: ${t.id} is done but its files have changes not saved in git. This is said once for each goal; the files still need saving before the goal is finished.`] : [];
     });
   };
   // Goals that wait on other goals (dependencies.ts): another project's goals are read, never changed.
@@ -1208,20 +1213,23 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     ({ goal: id, unmarked_hand_tests_ok, project: wanted }) =>
       respondIn(wanted, (p) => {
         const options = { unmarkedHandTests: unmarked_hand_tests_ok };
+        const ev = readSettings(settingsFile, p.root).evidence;
+        const unsaved = ev.record && ev.warnUncommitted && p.goalUncommitted(id) === true;
         const goal = p.completeGoal(id, options);
+        const unsavedLine = unsaved ? ` Warning: some files this goal's steps touched still have changes not saved in git.` : "";
         if (goal.status === "testing") {
           const left = p.plan(goal.id).handTests.filter((h) => h.result === "pending").length;
           const said =
             `Goal ${goal.id} is built and waiting on the Developer's hand tests (${left} not marked yet); it is released. ` +
-            "It finishes by itself when they mark the last one, and a failure reopens it with a new Task.";
+            "It finishes by itself when they mark the last one, and a failure reopens it with a new Task." + unsavedLine;
           return p === project
             ? `${said} Tell the Developer in one plain sentence that "${goal.title}" is built and ${left === 1 ? "one thing is" : `${left} things are`} waiting for them to try${dashboard?.url ? ` at ${dashboard.url}` : " on the dashboard"}.`
             : doneIn(p, said);
         }
         // A finished release gets its handoff, written by the AI from the facts (handoff.ts).
         const handoff = goal.release !== undefined && readSettings(settingsFile, p.root).handoffs.afterRelease ? " Then write a handoff for this release with the handoff tool." : "";
-        if (p !== project) return doneIn(p, `Goal ${goal.id} is done.${handoff}`);
-        return `Goal ${goal.id} is done. Tell the Developer in one plain sentence that "${goal.title}" is finished${dashboard?.url ? `, and that they can see it at ${dashboard.url}` : ""}.${handoff}`;
+        if (p !== project) return doneIn(p, `Goal ${goal.id} is done.${unsavedLine}${handoff}`);
+        return `Goal ${goal.id} is done.${unsavedLine} Tell the Developer in one plain sentence that "${goal.title}" is finished${dashboard?.url ? `, and that they can see it at ${dashboard.url}` : ""}.${handoff}`;
       }),
   );
 
