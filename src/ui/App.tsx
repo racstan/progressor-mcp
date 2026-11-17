@@ -3,6 +3,7 @@ import { DEFAULT_EDITOR, editorUrl } from "../dashboard/editor.js";
 import type { GoalSchedule } from "../schedule.js";
 import { type ProjectEntry, type RoadmapView, removeProjectFromDashboard, showInFolder, useDashboard, useOverview, useSearch, useServers, usePageStaleness, useSettings, useStored, useStoredJson, renewPhoneTopic, resetComputerSettings, saveSettings } from "./data.js";
 import { HotfixPage } from "./HotfixPage.js";
+import { RisksPage } from "./RisksPage.js";
 import { WhatsNew, changelog } from "./WhatsNew.js";
 import { ContextPage } from "./ContextPage.js";
 import { WishlistPage } from "./WishlistPage.js";
@@ -17,7 +18,7 @@ import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
 import { type Finished, type FinishedSort, type GroupBy, type Seen, FINISHED_SORT_DEFAULT, FINISHED_SORT_KEY, FINISHED_SORT_WORDS, GROUP_BY_DEFAULT, GROUP_BY_KEY, GROUP_BY_WORDS, addedOf, dayGroups, doneMark, finishedOf, groupGoals, groupOpen, hideAll, isFinishedSort, isGroupBy, seenOnFirstVisit, sortFinished } from "./goalList.js";
 import { GoalPage } from "./GoalPage.js";
 import { Home } from "./HomePage.js";
-import { type PutOff, needsWhy, sidebarSections } from "./home.js";
+import { type PutOff, RISK_WHY, needsWhy, sidebarSections } from "./home.js";
 import { Icon, Ring } from "./Icon.js";
 import { GoalMenu, MenuPanel } from "./Menus.js";
 import { sortProjects } from "./projectList.js";
@@ -414,6 +415,16 @@ export function App() {
       </button>
     );
   };
+  /** A serious risk nothing is reducing: a small line in Needs you that opens the Risks page. */
+  const riskRow = (r: { id: string; title: string }) => (
+    <button key={`risk-${r.id}`} className="goal-row you risk-row" title={`${r.title}\n${RISK_WHY}. Open the Risks page.`} onClick={() => openPage("risks")}>
+      <Icon name="warning" />
+      <span className="t">{r.title}</span>
+      <span className="n" />
+      <span className="why">{RISK_WHY}</span>
+    </button>
+  );
+  const seriousRisks = roadmap?.seriousRisks ?? [];
   const menuGoal = goalMenu && goals.find((g) => g.id === goalMenu.id);
   const latest = changelog.releases[0];
   /** A release this browser has not opened What's new for yet. */
@@ -519,7 +530,7 @@ export function App() {
     </div>
   ) : onHome ? (
     <Home overview={overview} workspaces={workspaces ?? []} only={pickedWorkspace} query={query} hits={hits}
-      putOff={putOff} onPutOff={onPutOff} onOpen={pickProject} onOpenStats={(id) => { pickProject(id); openPage("dashboard"); }} onShowAll={goHome} />
+      putOff={putOff} onPutOff={onPutOff} onOpen={pickProject} onOpenStats={(id) => { pickProject(id); openPage("dashboard"); }} onOpenRisks={(id) => { pickProject(id); openPage("risks"); }} onShowAll={goHome} />
   ) : roadmap === null || (roadmap === undefined && !project) ? (
     <div className="placeholder">
       <h2>Nothing planned here yet</h2>
@@ -540,6 +551,8 @@ export function App() {
     <HotfixPage heading={heading} projectId={projectId} goals={roadmap.goals} onOpen={pickGoal} onAdded={(id) => { refresh(); pickGoal(id); toast("Hotfix added. Your AI takes it as soon as it finishes the step it is on."); }} />
   ) : page === "wishlist" && projectId ? (
     <WishlistPage heading={heading} projectId={projectId} wishes={roadmap.wishes} onChanged={refresh} />
+  ) : page === "risks" && projectId ? (
+    <RisksPage heading={heading} projectId={projectId} roadmap={roadmap} onOpenGoal={pickGoal} />
   ) : page === "context" && projectId ? (
     <ContextPage heading={heading} projectId={projectId} rules={roadmap.standingInstructions} context={roadmap.context} onChanged={refresh} version={roadmap} />
   ) : page === "talk" && projectId ? (
@@ -720,6 +733,9 @@ export function App() {
                 <button className="side-link" aria-current={page === "wishlist"} onClick={() => openPage("wishlist")} title="What you want from this project as a whole; your AI may suggest goals from it">
                   <Icon name="star" /> Wishlist
                 </button>
+                <button className="side-link" aria-current={page === "risks"} onClick={() => openPage("risks")} title="What could go wrong in this project, how likely and how bad, and what is being done about it. Your AI keeps the list; you only read it">
+                  <Icon name="warning" /> Risks
+                </button>
                 <button className="side-link" aria-current={page === "calendar"} onClick={() => openPage("calendar")} title="What your AI did and what comes next, by month, week or day">
                   <Icon name="calendar" /> Calendar
                 </button>
@@ -745,8 +761,15 @@ export function App() {
                     );
                   })()}
                   {s.goals.map((g) => goalRow(g, s.label === "Needs you" ? needsWhy(g, putOffHere[g.id]).why : undefined))}
+                  {s.label === "Needs you" && seriousRisks.map(riskRow)}
                 </div>
               ))}
+              {seriousRisks.length > 0 && !sidebarSections(grouped.open.filter((g) => !grouped.fresh.has(g.id)), putOffHere).some((s) => s.label === "Needs you") && (
+                <div className="side-group needs">
+                  <h3>Needs you</h3>
+                  {seriousRisks.map(riskRow)}
+                </div>
+              )}
               {freshGoals.length > 0 && (
                 <div className="side-group">
                   <h3>Just finished <button className="linkbtn" title="Clears these from the list. The plan keeps them; find them under Hidden." onClick={() => clearFinished(freshGoals)}>Clear all</button></h3>

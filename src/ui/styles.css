@@ -1329,3 +1329,28 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 
 /* Add a screenshot to a thing to try (AddShot.tsx): icon and words on one line */
 .add-shot { display: inline-flex; align-items: center; gap: var(--s1); white-space: nowrap; }
+
+/* The Risks page. Greys only: a serious risk has a heavy border, a quiet one is dashed and lighter. */
+.risk-list { list-style: none; margin: var(--s4) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s3); }
+.risk { display: flex; gap: var(--s4); align-items: flex-start; padding: var(--s4); background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r); }
+.risk.serious { border: var(--heavy); }
+.risk.quiet-risk { border-style: dashed; opacity: .75; }
+.risk-body { flex: 1; min-width: 0; }
+.risk-body p { margin: var(--s1) 0 0; overflow-wrap: anywhere; }
+.risk-head { display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap; }
+.risk-title { font-weight: 700; }
+.risk-status { font-size: var(--t-s); font-weight: 600; color: var(--muted); border: 1px solid var(--line-strong); border-radius: var(--r-s); padding: 0 var(--s2); }
+.risk-facts, .risk-goals, .risk-reduce { font-size: var(--t-s); color: var(--muted); }
+.risk-facts b { color: var(--ink); }
+.risk-warn { font-size: var(--t-s); font-weight: 700; }
+.risk .label { font-weight: 600; }
+.risk-goal small { color: var(--muted); }
+.risk-goal.gone { color: var(--muted); }
+.risk-goals .risk-goal + .risk-goal { margin-left: var(--s3); }
+.risk-grid { flex: none; display: grid; grid-template-columns: repeat(3, 12px); grid-auto-rows: 12px; gap: 2px; margin-top: 2px; }
+.risk-grid i { border: 1px solid var(--line-strong); border-radius: 2px; }
+.risk-grid i.on { background: var(--ink); border-color: var(--ink); }
+.risk-folded { margin-top: var(--s5); }
+.risk-folded > summary { font-size: var(--t-s); font-weight: 600; color: var(--muted); }
+.goal-row.risk-row svg { width: 14px; height: 14px; }
+@media (max-width: 560px) { .risk { flex-direction: column; } }

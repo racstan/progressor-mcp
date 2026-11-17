@@ -22,11 +22,22 @@ interface GoalLike extends Needs {
   updatedAt?: number | undefined;
 }
 
+/** A serious risk nothing is reducing (risks.ts): it shows in Needs you beside the goals. */
+export interface RiskLine {
+  id: string;
+  title: string;
+}
+
+/** What Needs you says under a risk. */
+export const RISK_WHY = "A serious risk has nothing reducing it";
+
 interface ProjectLike<G extends GoalLike> {
   id: string;
   name: string;
   root: string;
   goals: G[];
+  /** Missing from a server older than the Risks page. */
+  seriousRisks?: RiskLine[] | undefined;
 }
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -90,6 +101,7 @@ export function homeSections<G extends GoalLike, P extends ProjectLike<G>>(proje
     .filter(({ left }) => left.needs)
     // In each project's plan order: the AI puts what to check first at the top (move_goal).
     .map(({ project, goal, left }) => ({ project, goal, why: needsWords(left) || "Waiting on you", canPutOff: (left.untriedTests ?? 0) > 0 }));
+  const seriousRisks = projects.flatMap((project) => (project.seriousRisks ?? []).map((risk) => ({ project, risk })));
   const inProgress = all
     .filter(({ goal, left }) => goal.status === "active" && !left.needs)
     .map(({ project, goal }) => ({ project, goal }))
@@ -99,6 +111,7 @@ export function homeSections<G extends GoalLike, P extends ProjectLike<G>>(proje
       ? "No projects yet"
       : [
           needsYou.length > 0 ? count(needsYou.length, "goal needs you", "goals need you") : "",
+          seriousRisks.length > 0 ? count(seriousRisks.length, "serious risk", "serious risks") : "",
           inProgress.length > 0 ? `${inProgress.length} in progress` : "",
           count(projects.length, "project", "projects"),
         ]
@@ -107,6 +120,7 @@ export function homeSections<G extends GoalLike, P extends ProjectLike<G>>(proje
   return {
     summary,
     needsYou,
+    seriousRisks,
     inProgress,
     projects: projects.map((p) => ({ ...p, open: p.goals.filter(open).length, finished: p.goals.filter((g) => g.status === "done").length })),
   };

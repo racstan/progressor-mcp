@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Project } from "../src/project.js";
-import { formatRisks, parseRisks, riskScore, sortedRisks } from "../src/risks.js";
+import { type Level, type Risk, type RiskStatus, formatRisks, parseRisks, riskScore, sortedRisks, unreducedSeriousRisks } from "../src/risks.js";
 import { createServer } from "../src/server.js";
 import { tempDir } from "./tmp.js";
 
@@ -87,6 +87,52 @@ describe("risks in the project", () => {
     expect(agent().risks()).toEqual([]);
     writeFileSync(file(), "# Risks\n");
     expect(agent().risks()).toEqual([]);
+  });
+});
+
+describe("serious risks nothing is reducing", () => {
+  const risk = (id: string, likelihood: Level, impact: Level, goals: string[] = [], status: RiskStatus = "open"): Risk => ({ id, title: id, likelihood, impact, goals, status });
+  const statuses: Record<string, string> = { a: "active", b: "done", c: "dropped", d: "planned" };
+  const found = (rs: Risk[]) => unreducedSeriousRisks(rs, (g) => statuses[g]).map((r) => r.id);
+
+  it("lists an open risk scoring 6 or more with no goal linked", () => {
+    expect(found([risk("r1", "high", "medium")])).toEqual(["r1"]);
+    expect(found([risk("r1", "high", "high")])).toEqual(["r1"]);
+  });
+  it("leaves out risks scoring under 6", () => {
+    expect(found([risk("r1", "medium", "medium"), risk("r2", "low", "high")])).toEqual([]);
+  });
+  it("leaves out a risk with a linked goal still open, whatever else is linked", () => {
+    expect(found([risk("r1", "high", "high", ["a"]), risk("r2", "high", "high", ["b", "d"]), risk("r3", "high", "high", ["b", "a"])])).toEqual([]);
+  });
+  it("lists a risk whose goals are all finished, cancelled or gone", () => {
+    expect(found([risk("r1", "high", "high", ["b", "c", "zzz"])])).toEqual(["r1"]);
+  });
+  it("leaves out reduced and closed risks, and puts the highest score first", () => {
+    expect(found([risk("r1", "high", "high", [], "reduced"), risk("r2", "high", "high", [], "closed"), risk("r3", "medium", "high"), risk("r4", "high", "high")])).toEqual(["r4", "r3"]);
+  });
+});
+
+describe("the risks on the dashboard", () => {
+  it("answers with the sorted risks and each linked goal's title and status, and tells the home page which are serious", async () => {
+    const { startDashboard } = await import("../src/dashboard/http.js");
+    const p = agent();
+    p.addRisk({ title: "Token leaks", likelihood: "high", impact: "high", goals: ["login"] });
+    p.addRisk({ title: "Slow start", likelihood: "low", impact: "low" });
+    p.addRisk({ title: "Nobody on it", likelihood: "high", impact: "medium", mitigation: "Plan it" });
+    writeFileSync(file(), readFileSync(file(), "utf8").replace("- goals: login", "- goals: login, gone")); // a goal since removed
+    const dash = await startDashboard({ project: p, registryFile: join(tempDir("progressor-reg-"), "projects.json"), port: 20000 + Math.floor(Math.random() * 20000) });
+    try {
+      const entry = (await (await fetch(new URL("/api/projects", dash.url!))).json())[0] as { id: string };
+      const body = (await (await fetch(new URL(`/api/projects/${entry.id}/risks`, dash.url!))).json()) as { risks: { id: string; score: number; goals: { id: string; title?: string; status?: string }[]; serious: boolean }[] };
+      expect(body.risks.map((r) => [r.id, r.score])).toEqual([["r1", 9], ["r3", 6], ["r2", 1]]);
+      expect(body.risks[0]!.goals).toEqual([{ id: "login", title: "Login", status: "planned" }, { id: "gone" }]);
+      expect(body.risks.map((r) => r.serious)).toEqual([false, true, false]);
+      const overview = (await (await fetch(new URL("/api/overview", dash.url!))).json()) as { seriousRisks: { id: string }[] }[];
+      expect(overview[0]!.seriousRisks.map((r) => r.id)).toEqual(["r3"]);
+    } finally {
+      await dash.close();
+    }
   });
 });
 

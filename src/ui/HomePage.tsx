@@ -2,10 +2,10 @@ import { useState } from "react";
 import { hardFirst } from "../roadmap.js";
 import { About, type NotesApi, RuleForm, RuleRow } from "./ContextPage.js";
 import { type OverviewView, type SearchView, type WorkspaceEntry, addGlobalRule, changeGlobalRule, removeGlobalRule, saveGlobalContext, useAllStats, useGlobal } from "./data.js";
-import { type PutOff, homeSections, needsWhy, progressWords, untriedAcross } from "./home.js";
+import { type PutOff, RISK_WHY, homeSections, needsWhy, progressWords, untriedAcross } from "./home.js";
 import { TryOneByOne, Walkthrough } from "./TryOneByOne.js";
 import { dashboardLine } from "../untried.js";
-import { Ring } from "./Icon.js";
+import { Icon, Ring } from "./Icon.js";
 import { sortProjects } from "./projectList.js";
 import { Bars, Tile, plural, time } from "./StatsPage.js";
 import { driftWords, estimateWords } from "./words.js";
@@ -15,7 +15,7 @@ import { Loading } from "./Loading.js";
  * The page the dashboard opens on: what needs the person across every project, what is being worked
  * on, and the projects themselves. "Not now" puts off things to try on one goal, in this browser only.
  */
-export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff, onOpen, onOpenStats, onShowAll }: {
+export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff, onOpen, onOpenStats, onOpenRisks, onShowAll }: {
   overview: OverviewView | undefined;
   workspaces: WorkspaceEntry[];
   /** The Workspace the page was opened on, if any. */
@@ -28,6 +28,8 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
   onOpen: (projectId: string, goalId?: string) => void;
   /** Opens a project's Dashboard page. */
   onOpenStats: (projectId: string) => void;
+  /** Opens a project's Risks page. */
+  onOpenRisks: (projectId: string) => void;
   onShowAll: () => void;
 }) {
   const [walking, setWalking] = useState(false);
@@ -48,7 +50,7 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
         <button className="linkbtn" onClick={onShowAll}>Show all {overview.length} projects</button>
       )}
 
-      {s.needsYou.length > 0 && (
+      {(s.needsYou.length > 0 || s.seriousRisks.length > 0) && (
         <section className="section needs">
           <h2>Needs you</h2>
           {untried.count > 0 && (
@@ -72,6 +74,16 @@ export function Home({ overview, workspaces, only, query, hits, putOff, onPutOff
                     Not now
                   </button>
                 )}
+              </li>
+            ))}
+            {s.seriousRisks.map(({ project, risk }) => (
+              <li key={`risk/${project.id}/${risk.id}`}>
+                <button className="list-row" onClick={() => onOpenRisks(project.id)} title="Open this project's Risks page">
+                  <Icon name="warning" />
+                  <span className="t">{risk.title}</span>
+                  <span className="end">{project.name}</span>
+                  <span className="sub you">{RISK_WHY}</span>
+                </button>
               </li>
             ))}
           </ul>

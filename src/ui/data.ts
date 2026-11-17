@@ -3,6 +3,7 @@ import type { AllStatsView, GoalView, InfoView, OverviewView, RoadmapView, Searc
 import type { CalendarEvent } from "../calendar.js";
 import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
 import type { SettingsView } from "../dashboard/routes/settings.js";
+import type { RiskView } from "../dashboard/routes/risks.js";
 import type { DiffLine, FileChange, HistoryItem } from "../history.js";
 import { newestOnly, sharedEvents } from "./liveEvents.js";
 import { type Staleness, pageStaleness } from "./stale.js";
@@ -666,6 +667,28 @@ export function useHistory(projectId: string, version: unknown): [HistoryView | 
     };
   }, [path, version, asked]);
   return [view?.path === path ? view.view : undefined, () => setAsked((n) => n + 1)];
+}
+
+export type { RiskView };
+
+/**
+ * A project's risks (GET /api/projects/:id/risks), fetched again whenever `version` changes (the page
+ * passes the roadmap it shows); undefined while loading, null when it failed.
+ */
+export function useRisks(projectId: string, version: unknown): RiskView[] | null | undefined {
+  const path = `/api/projects/${encodeURIComponent(projectId)}/risks`;
+  const [state, setState] = useState<{ path: string; risks: RiskView[] | null }>();
+  useEffect(() => {
+    let alive = true;
+    getJson<{ risks: RiskView[] }>(path)
+      // the tour's sample has no risks list: it shows as an empty one
+      .then((v) => alive && setState({ path, risks: v?.risks ?? [] }))
+      .catch(() => alive && setState({ path, risks: null }));
+    return () => {
+      alive = false;
+    };
+  }, [path, version]);
+  return state?.path === path ? state.risks : undefined;
 }
 
 /** The last plan check-up (checkup.ts); null when none ran yet. */

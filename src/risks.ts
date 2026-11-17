@@ -129,5 +129,20 @@ export function sortedRisks(risks: Risk[]): Risk[] {
   );
 }
 
+/** A risk at or above this score (likelihood times impact) is serious. */
+export const SERIOUS_SCORE = 6;
+
+/** A goal still being worked on or waiting its turn; finished, dropped or missing goals do not reduce a risk. */
+const goalIsOpen = (status: string | undefined): boolean => status !== undefined && status !== "done" && status !== "dropped";
+
+/**
+ * The serious risks nothing is reducing: open, scoring 6 or more, and with no linked goal still open
+ * (none linked, every one finished or cancelled, or the goal no longer exists). `goalStatus` maps a
+ * goal ID to its status. These are shown in Needs you.
+ */
+export function unreducedSeriousRisks(risks: Risk[], goalStatus: (goalId: string) => string | undefined): Risk[] {
+  return sortedRisks(risks).filter((r) => r.status === "open" && riskScore(r) >= SERIOUS_SCORE && !r.goals.some((g) => goalIsOpen(goalStatus(g))));
+}
+
 /** A text field as one line: titles, mitigations and owners never break the file's layout. */
 export const riskLine = (text: string): string => text.replace(/\s+/g, " ").trim();

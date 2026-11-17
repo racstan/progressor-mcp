@@ -18,6 +18,7 @@ import { daemonRoutes } from "./routes/daemon.js";
 import { globalRoutes } from "./routes/global.js";
 import { projectRoutes } from "./routes/projects.js";
 import { goalNoteRoutes } from "./routes/goalNotes.js";
+import { riskRoutes } from "./routes/risks.js";
 
 /** What the hub gives every feature route. */
 export interface HubContext {
@@ -67,6 +68,7 @@ export const featureRoutes: FeatureRoute[] = [
   ...globalRoutes,
   ...projectRoutes,
   ...goalNoteRoutes,
+  ...riskRoutes,
 ];
 
 /** A body bigger than this is refused unread, unless the route asks for more. */
