@@ -2,14 +2,15 @@ import { useState } from "react";
 import type { DetourNode, TaskNode } from "../dashboard/graph.js";
 import { parseCodeRef } from "../dashboard/editor.js";
 import { copyAsPrompt } from "../dashboard/prompt.js";
-import type { GoalView } from "./data.js";
+import { type GoalView, useStored } from "./data.js";
+import { STEPS_VIEW_DEFAULT, STEPS_VIEW_KEY, type StepsView, isStepsView, stepDayGroups } from "./goalList.js";
 import { Dates } from "./Dates.js";
 import { Icon } from "./Icon.js";
 import { type PictureItem, Pictures } from "./Pictures.js";
 import { RichText } from "./RichText.js";
 import { plainText } from "./text.js";
 import { checklistRows } from "./views.js";
-import { NOT_SAVED, NOT_SAVED_HINT, SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, commitsLabel, elsewhereTag, evidenceLine, helperLine, statusClass, stepTime, stepTimes, stepWhen, testsLabel } from "./words.js";
+import { NOT_SAVED, NOT_SAVED_HINT, SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, commitsLabel, elsewhereTag, evidenceLine, finishedAt, helperLine, statusClass, stepTime, stepTimes, stepWhen, testsLabel } from "./words.js";
 
 export type FileLink = (path: string, line?: number) => { href: string | undefined; onClick: () => void };
 
@@ -39,18 +40,37 @@ export function Steps({ view, fileLink, onCopy, onReveal }: { view: GoalView; fi
     return next;
   });
   const copy = (node: TaskNode | DetourNode) => onCopy(copyAsPrompt({ kind: "node", node, goal: view.goal, graph: view.graph }));
+  const [stored, setStored] = useStored<StepsView>(STEPS_VIEW_KEY, undefined);
+  const stepsView: StepsView = isStepsView(stored) ? stored : STEPS_VIEW_DEFAULT;
   if (rows.length === 0)
     return <p className="quiet">No steps yet. Your AI adds them as it plans, and this page updates by itself.</p>;
+  const shown = rows.filter((row) => !row.task || cancelled || row.task.status !== "dropped" || row.detours.length > 0);
+  const items = (list: typeof rows) =>
+    list.flatMap((row) => [
+      ...(row.task && (cancelled || row.task.status !== "dropped")
+        ? [<Step key={row.task.id} task={row.task} open={open.has(row.task.id)} onToggle={() => toggle(row.task!.id)} pictures={view.pictures.filter((p) => p.task === row.task!.id)} fileLink={fileLink} onCopy={() => copy(row.task!)} onReveal={onReveal} commitLink={view.commitLink} />]
+        : []),
+      ...row.detours.map((d) => <SideTrip key={d.id} detour={d} open={open.has(d.id)} onToggle={() => toggle(d.id)} onCopy={() => copy(d)} />),
+    ]);
+  const pick = (v: StepsView) => setStored(v === STEPS_VIEW_DEFAULT ? undefined : v);
+  const finishedRow = (row: (typeof rows)[number]) => !!row.task && finishedAt(row.task) !== undefined;
   return (
     <>
-      <ol className="steps" aria-label="Steps in order">
-        {rows.flatMap((row) => [
-          ...(row.task && (cancelled || row.task.status !== "dropped")
-            ? [<Step key={row.task.id} task={row.task} open={open.has(row.task.id)} onToggle={() => toggle(row.task!.id)} pictures={view.pictures.filter((p) => p.task === row.task!.id)} fileLink={fileLink} onCopy={() => copy(row.task!)} onReveal={onReveal} commitLink={view.commitLink} />]
-            : []),
-          ...row.detours.map((d) => <SideTrip key={d.id} detour={d} open={open.has(d.id)} onToggle={() => toggle(d.id)} onCopy={() => copy(d)} />),
-        ])}
-      </ol>
+      <div className="steps-view" role="group" aria-label="How the steps are shown">
+        <button className="linkbtn" aria-pressed={stepsView === "plan"} onClick={() => pick("plan")}>In plan order</button>
+        <button className="linkbtn" aria-pressed={stepsView === "newest"} onClick={() => pick("newest")}>By day finished, newest first</button>
+        <button className="linkbtn" aria-pressed={stepsView === "oldest"} onClick={() => pick("oldest")}>By day finished, oldest first</button>
+      </div>
+      {stepsView === "plan" ? (
+        <ol className="steps" aria-label="Steps in order">{items(rows)}</ol>
+      ) : (
+        stepDayGroups(shown, finishedRow, (row) => (row.task ? finishedAt(row.task) : undefined), stepsView).map((g) => (
+          <section key={g.key} className="steps-day-group">
+            <h4 className="steps-day">{g.heading}</h4>
+            <ol className="steps" aria-label={g.heading}>{items(g.items)}</ol>
+          </section>
+        ))
+      )}
       {dropped > 0 && (
         <div className="steps-foot">
           <button className="linkbtn" onClick={() => setCancelled(!cancelled)}>

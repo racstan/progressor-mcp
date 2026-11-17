@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DATE_UNKNOWN, FINISHED_SORT_DEFAULT, dayGroups, dayHeading, doneMark, groupGoals, groupOpen, hideAll, seenOnFirstVisit, sortFinished } from "../src/ui/goalList.js";
+import { DATE_UNKNOWN, FINISHED_SORT_DEFAULT, dayGroups, dayHeading, doneMark, groupGoals, groupOpen, hideAll, seenOnFirstVisit, sortFinished, stepDayGroups } from "../src/ui/goalList.js";
 
 const goal = (id: string, status: string, done = 0, total = 2) => ({ id, status, done, total });
 const goals = [
@@ -137,5 +137,31 @@ describe("dayGroups", () => {
   });
   it("gives no groups for no items", () => {
     expect(dayGroups([], () => undefined, "newest", NOW)).toEqual([]);
+  });
+});
+
+describe("steps by day finished", () => {
+  const NOW = Date.parse("2026-11-17T12:00:00Z");
+  const step = (id: string, status: string, at?: string) => ({ id, status, finishedAt: at });
+  const when = (s: { finishedAt?: string }) => s.finishedAt;
+
+  it("puts steps not finished yet first, then finished ones under their day, newest day first", () => {
+    const groups = stepDayGroups(
+      [step("t1", "done", "2026-11-16T09:00:00Z"), step("t2", "pending"), step("t3", "done", "2026-11-17T08:00:00Z"), step("t4", "in progress")],
+      (s) => s.status === "done",
+      when,
+      "newest",
+      NOW,
+    );
+    expect(groups.map((g) => [g.heading, g.items.map((s) => s.id)])).toEqual([
+      ["Not finished yet", ["t2", "t4"]],
+      ["Today", ["t3"]],
+      ["Yesterday", ["t1"]],
+    ]);
+  });
+
+  it("can show the oldest day first, and leaves out an empty Not finished yet", () => {
+    const groups = stepDayGroups([step("t1", "done", "2026-11-16T09:00:00Z"), step("t3", "done", "2026-11-17T08:00:00Z")], () => true, when, "oldest", NOW);
+    expect(groups.map((g) => g.heading)).toEqual(["Yesterday", "Today"]);
   });
 });

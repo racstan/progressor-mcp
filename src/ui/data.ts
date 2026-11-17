@@ -225,6 +225,19 @@ export function useStoredJson<T>(key: string | undefined, fallback: T): [T, (v: 
   return [value ?? fallback, set, value !== undefined];
 }
 
+/** Sent on the page when a stored choice changes, so every part showing it (the sidebar, Settings) follows. */
+const STORED_EVENT = "progressor-stored";
+
+/** Forgets a stored choice (back to the usual), telling every part of the page that shows it. */
+export function clearStored(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // nothing stored
+  }
+  window.dispatchEvent(new CustomEvent(STORED_EVENT, { detail: { key, value: undefined } }));
+}
+
 /** A value kept in localStorage, for per-browser conveniences (theme, sidebar, editor). */
 export function useStored<T extends string>(key: string, initial: T | undefined): [T | undefined, (v: T | undefined) => void] {
   const [value, setValue] = useState<T | undefined>(() => {
@@ -234,6 +247,14 @@ export function useStored<T extends string>(key: string, initial: T | undefined)
       return initial;
     }
   });
+  useEffect(() => {
+    const follow = (e: Event) => {
+      const d = (e as CustomEvent<{ key: string; value: string | undefined }>).detail;
+      if (d?.key === key) setValue((d.value as T | undefined) ?? initial);
+    };
+    window.addEventListener(STORED_EVENT, follow);
+    return () => window.removeEventListener(STORED_EVENT, follow);
+  }, [key, initial]);
   const set = useCallback(
     (v: T | undefined) => {
       setValue(v);
@@ -243,6 +264,7 @@ export function useStored<T extends string>(key: string, initial: T | undefined)
       } catch {
         // storage can be unavailable (private windows); the choice then lasts for this page only
       }
+      window.dispatchEvent(new CustomEvent(STORED_EVENT, { detail: { key, value: v } }));
     },
     [key],
   );

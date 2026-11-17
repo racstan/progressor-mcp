@@ -2,6 +2,11 @@
 // goals, and Advanced (editor, things put off, running servers).
 import { EDITORS } from "../../dashboard/editor.js";
 import { Choice } from "../Menus.js";
+import { clearStored, useStored } from "../data.js";
+import {
+  FINISHED_SORT_DEFAULT, FINISHED_SORT_KEY, FINISHED_SORT_WORDS, type FinishedSort, GROUP_BY_DEFAULT, GROUP_BY_KEY, GROUP_BY_WORDS, type GroupBy,
+  STEPS_VIEW_DEFAULT, STEPS_VIEW_KEY, type StepsView, isFinishedSort, isGroupBy, isStepsView,
+} from "../goalList.js";
 import { ServersPanel } from "../Servers.js";
 import type { SettingsContext, SettingsSection } from "./types.js";
 
@@ -61,9 +66,48 @@ function FinishedGoals({ ctx }: { ctx: SettingsContext }) {
         <input type="radio" name="finished" checked={ctx.finished === "review"} onChange={() => ctx.setFinished("review")} />
         <span><b>Wait for me to look</b><small>A finished goal stays under Just finished until you open it.</small></span>
       </label>
+      <FinishedOrder />
     </>
   );
 }
+
+const STEPS_VIEW_WORDS: Record<StepsView, string> = {
+  plan: "In plan order",
+  newest: "By day finished, newest first",
+  oldest: "By day finished, oldest first",
+};
+
+/** The order and day groups of the Finished list and of a goal's steps; the same choices as the Sort link in the sidebar. */
+function FinishedOrder() {
+  const [sort, setSort] = useStored<FinishedSort>(FINISHED_SORT_KEY, undefined);
+  const [group, setGroup] = useStored<GroupBy>(GROUP_BY_KEY, undefined);
+  const [steps, setSteps] = useStored<StepsView>(STEPS_VIEW_KEY, undefined);
+  const pick = <T extends string>(set: (v: T | undefined) => void, usual: T) => (v: T) => set(v === usual ? undefined : v);
+  return (
+    <div className="limits">
+      <label className="limit">
+        <span>Order finished goals</span>
+        <select className="picker" value={isFinishedSort(sort) ? sort : FINISHED_SORT_DEFAULT} onChange={(e) => pick(setSort, FINISHED_SORT_DEFAULT)(e.target.value as FinishedSort)}>
+          {Object.entries(FINISHED_SORT_WORDS).map(([v, w]) => <option key={v} value={v}>{w}</option>)}
+        </select>
+      </label>
+      <label className="limit">
+        <span>Group finished goals</span>
+        <select className="picker" value={isGroupBy(group) ? group : GROUP_BY_DEFAULT} onChange={(e) => pick(setGroup, GROUP_BY_DEFAULT)(e.target.value as GroupBy)}>
+          {Object.entries(GROUP_BY_WORDS).map(([v, w]) => <option key={v} value={v}>{w}</option>)}
+        </select>
+      </label>
+      <label className="limit">
+        <span>Show a goal's steps</span>
+        <select className="picker" value={isStepsView(steps) ? steps : STEPS_VIEW_DEFAULT} onChange={(e) => pick(setSteps, STEPS_VIEW_DEFAULT)(e.target.value as StepsView)}>
+          {Object.entries(STEPS_VIEW_WORDS).map(([v, w]) => <option key={v} value={v}>{w}</option>)}
+        </select>
+      </label>
+    </div>
+  );
+}
+
+const resetFinishedOrder = () => [FINISHED_SORT_KEY, GROUP_BY_KEY, STEPS_VIEW_KEY].forEach(clearStored);
 
 function TourChoice({ ctx }: { ctx: SettingsContext }) {
   return (
@@ -108,7 +152,16 @@ function Advanced({ ctx }: { ctx: SettingsContext }) {
 
 export const themeSection: SettingsSection = { id: "theme", group: "look", title: "Theme", Component: Theme, reset: (ctx) => ctx.setTheme(undefined) };
 export const popUpsSection: SettingsSection = { id: "pop-ups", group: "notifications", title: "Pop-ups", Component: PopUps, reset: (ctx) => ctx.setPopUps(undefined) };
-export const finishedSection: SettingsSection = { id: "finished", group: "look", title: "Finished goals", Component: FinishedGoals, reset: (ctx) => ctx.setFinished(undefined) };
+export const finishedSection: SettingsSection = {
+  id: "finished",
+  group: "look",
+  title: "Finished goals and steps",
+  Component: FinishedGoals,
+  reset: (ctx) => {
+    ctx.setFinished(undefined);
+    resetFinishedOrder();
+  },
+};
 export const tourSection: SettingsSection = { id: "tour", group: "look", title: "The walkthrough", Component: TourChoice, reset: (ctx) => ctx.setTourOnOpen(false) };
 export const advancedSection: SettingsSection = {
   id: "advanced",

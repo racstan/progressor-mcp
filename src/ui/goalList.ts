@@ -149,3 +149,18 @@ export function dayGroups<T>(items: T[], when: (item: T) => string | undefined, 
   const groups = keys.map((k) => ({ key: String(k), heading: dayHeading(when(days.get(k)![0]!), now), items: days.get(k)! }));
   return unknown.length ? [...groups, { key: "unknown", heading: DATE_UNKNOWN, items: unknown }] : groups;
 }
+
+export const NOT_FINISHED_YET = "Not finished yet";
+
+/** A goal's steps for the "by day finished" view: the ones not finished first, in plan order, then the finished ones under their day. */
+export function stepDayGroups<T>(
+  steps: T[],
+  isFinished: (step: T) => boolean,
+  when: (step: T) => string | undefined,
+  order: "newest" | "oldest",
+  now = Date.now(),
+): { key: string; heading: string; items: T[] }[] {
+  const open = steps.filter((s) => !isFinished(s));
+  const days = dayGroups(steps.filter(isFinished), when, order, now);
+  return open.length ? [{ key: "open", heading: NOT_FINISHED_YET, items: open }, ...days] : days;
+}
