@@ -34,7 +34,7 @@ export const goalNoteRoutes: FeatureRoute[] = [
       if (!(await ctx.body())) return;
       const project = projectOf(ctx);
       const [goalId, id] = [ctx.match[2]!, ctx.match[3]!];
-      project.transaction("Removed a note", () => {
+      await project.transactionAsync("Removed a note", () => {
         const old = project.plan(goalId).note(id);
         if (!old) throw new Error(`No note ${id} in Goal ${goalId}.`);
         project.updateNote(goalId, id, { text: "" });
@@ -57,7 +57,7 @@ export const goalNoteRoutes: FeatureRoute[] = [
       if (text !== undefined && !text.trim()) throw new Error("Write the note first; to remove it, use Delete.");
       const project = projectOf(ctx);
       const [goalId, id] = [ctx.match[2]!, ctx.match[3]!];
-      const note = project.transaction(resolved === undefined ? "Changed a note" : resolved ? "Marked a note dealt with" : "Reopened a note", () => {
+      const note = await project.transactionAsync(resolved === undefined ? "Changed a note" : resolved ? "Marked a note dealt with" : "Reopened a note", () => {
         const old = project.plan(goalId).note(id);
         if (!old) throw new Error(`No note ${id} in Goal ${goalId}.`);
         const changed = project.updateNote(goalId, id, { text, resolved })!;
@@ -77,7 +77,7 @@ export const goalNoteRoutes: FeatureRoute[] = [
       if (!(await ctx.body())) return;
       const project = projectOf(ctx);
       const [goalId, id] = [ctx.match[2]!, ctx.match[3]!];
-      project.transaction("Removed a decision", () => {
+      await project.transactionAsync("Removed a decision", () => {
         const old = project.plan(goalId).decision(id);
         if (!old) throw new Error(`No decision ${id} in Goal ${goalId}.`);
         project.editDecision(goalId, id, "");
@@ -97,7 +97,7 @@ export const goalNoteRoutes: FeatureRoute[] = [
       if (typeof text !== "string" || !text.trim()) throw new Error("Write the decision first; to remove it, use Delete.");
       const project = projectOf(ctx);
       const [goalId, id] = [ctx.match[2]!, ctx.match[3]!];
-      const decision = project.transaction("Changed a decision", () => {
+      const decision = await project.transactionAsync("Changed a decision", () => {
         const changed = project.editDecision(goalId, id, text)!;
         tell(project, goalId, `changed decision ${id} on goal ${goalId} to: ${quote(changed.text)}. Follow it from now on.`);
         return changed;

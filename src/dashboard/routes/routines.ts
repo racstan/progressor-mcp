@@ -29,10 +29,10 @@ export const routinesRoutes: FeatureRoute[] = [
     method: "POST",
     pattern: /^\/api\/projects\/([^/]+)\/routines\/([^/]+)\/(pause|resume|stop)$/,
     header: "routines",
-    handle(ctx) {
+    async handle(ctx) {
       const project = projectOf(ctx);
       const [, , id, action] = ctx.match as [string, string, string, keyof typeof LABEL];
-      const routine = project.transaction(LABEL[action], () =>
+      const routine = await project.transactionAsync(LABEL[action], () =>
         action === "stop" ? project.stopRoutine(id) : project.pauseRoutine(id, action === "pause"),
       );
       ctx.json(200, { routine });

@@ -55,7 +55,7 @@ export const handoffRoutes: FeatureRoute[] = [
       const body = await ctx.body();
       if (!body) return;
       const text = requestMessage(body);
-      const message = project.transaction("Asked for a handoff", () => project.sendMessage(PROJECT_TALK, text));
+      const message = await project.transactionAsync("Asked for a handoff", () => project.sendMessage(PROJECT_TALK, text));
       ctx.json(201, message);
     },
   },
