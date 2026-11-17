@@ -13,7 +13,7 @@ function Evidence({ ctx }: { ctx: SettingsContext }) {
       </label>
       <label className="option">
         <input type="checkbox" checked={e.warnUncommitted} disabled={!e.record} onChange={(ev) => void ctx.save("evidence", { warnUncommitted: ev.target.checked })} />
-        <span><b>Warn about work not saved in git</b><small>Your AI is told, and the step is marked, when a finished step's files still have changes not saved in git.</small></span>
+        <span><b>Warn about work not saved in git</b><small>Finished steps whose files have changes not saved in git are marked. Your AI is told once for each goal, at the first such step, and again when the goal is finished if the files are still not saved.</small></span>
       </label>
     </>
   );

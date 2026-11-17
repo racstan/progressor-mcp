@@ -7,7 +7,7 @@ import { formatDuration, parseDuration, roughDuration, sayDuration, timeText } f
 import { parsePlanFile } from "../src/planFile.js";
 import { Project } from "../src/project.js";
 import { parseRoadmap } from "../src/roadmap.js";
-import { createServer, formatRules, scheduleLines } from "../src/server.js";
+import { createServer, estimateLine, formatRules, scheduleLines } from "../src/server.js";
 import { computeSchedule } from "../src/schedule.js";
 import { tempDir, withoutDates } from "./tmp.js";
 
@@ -247,7 +247,7 @@ describe("learning from how long steps took", () => {
     const r = (await client.callTool({ name, arguments: args })) as { content: { text: string }[]; isError?: boolean };
     return { text: r.content.map((c) => c.text).join("\n"), isError: r.isError ?? false };
   }
-  const LONG = "Your estimates here have run 2.0× long (last 5 steps); allow for it.";
+  const LONG = "Steps here have taken about 2× as long as estimated (last 5 steps); estimate longer.";
   /** Finishes five steps, each estimated 30 minutes, that take `minutes` each. */
   async function finishFive(minutes: number) {
     await call("add_goal", { title: "Past", claim: true, tasks: [1, 2, 3, 4, 5].map((n) => ({ title: `Step ${n}`, estimate: "30m" })) });
@@ -263,8 +263,8 @@ describe("learning from how long steps took", () => {
     await call("start_task", { task: "t1" });
     at("2026-10-26T12:00:00.000Z");
     await call("complete_task", { task: "t1", code: ["a.ts"] });
-    expect((await call("add_tasks", { tasks: [{ title: "Two", estimate: "30m" }] })).text).not.toContain("allow for it");
-    expect((await call("get_status")).text).not.toContain("allow for it");
+    expect((await call("add_tasks", { tasks: [{ title: "Two", estimate: "30m" }] })).text).not.toContain("as long as estimated");
+    expect((await call("get_status")).text).not.toContain("as long as estimated");
   });
 
   it("tells the AI once when estimates run long, in add_tasks, add_goal and get_status", async () => {
@@ -277,17 +277,29 @@ describe("learning from how long steps took", () => {
 
   it("says run short when estimates are too big", async () => {
     await finishFive(15);
-    expect((await call("get_status")).text).toContain("Your estimates here have run 0.5× short (last 5 steps); allow for it.");
+    expect((await call("get_status")).text).toContain("Steps here have taken about half as long as estimated (last 5 steps); estimate shorter.");
+  });
+
+  it("words the advice by what the steps took, not by the estimates", () => {
+    expect(estimateLine({ factor: 0.5, samples: 7 })).toBe("Steps here have taken about half as long as estimated (last 7 steps); estimate shorter.");
+    expect(estimateLine({ factor: 0.7, samples: 7 })).toBe("Steps here have taken about 0.7× as long as estimated (last 7 steps); estimate shorter.");
+    expect(estimateLine({ factor: 1.5, samples: 7 })).toBe("Steps here have taken about 1.5× as long as estimated (last 7 steps); estimate longer.");
+    expect(estimateLine({ factor: 1.1, samples: 7 })).toBeUndefined();
+  });
+
+  it("learns nothing from steps finished within 2 minutes of starting", async () => {
+    await finishFive(1);
+    expect((await call("get_status")).text).not.toContain("as long as estimated");
   });
 
   it("says nothing when estimates are within 20%", async () => {
     await finishFive(33);
-    expect((await call("get_status")).text).not.toContain("allow for it");
+    expect((await call("get_status")).text).not.toContain("as long as estimated");
   });
 
   it("is off when the learn setting is off", async () => {
     writeFileSync(settings, JSON.stringify({ estimates: { learn: false } }));
     await finishFive(60);
-    expect((await call("get_status")).text).not.toContain("allow for it");
+    expect((await call("get_status")).text).not.toContain("as long as estimated");
   });
 });

@@ -71,6 +71,34 @@ describe("a finished step records its commits, branch and tests", () => {
     expect(plan()).toContain("  - uncommitted: yes\n");
   });
 
+  it("warns only for the first unsaved step of a goal, and again when the goal is finished", async () => {
+    facts.dirty = true;
+    const { call } = await connect();
+    const first = await call("complete_task", { task: "t1" });
+    expect(first.text).toContain("Warning: t1 is done");
+    const second = await call("complete_task", { task: "t2", code: ["src/cb.ts"] });
+    expect(second.text).not.toContain("Warning");
+    expect(plan()).toContain("  - uncommitted: yes\n");
+    const end = await call("complete_goal", {});
+    expect(end.text).toContain("Warning: some files this goal's steps touched still have changes not saved in git.");
+  });
+
+  it("does not warn at the end of a goal whose files are saved", async () => {
+    const { call } = await connect();
+    await call("complete_task", { task: "t1" });
+    await call("complete_task", { task: "t2" });
+    expect((await call("complete_goal", {})).text).not.toContain("Warning");
+  });
+
+  it("stays quiet at the end of a goal when the warning is off", async () => {
+    writeSettings(settings, "evidence", { record: true, warnUncommitted: false });
+    facts.dirty = true;
+    const { call } = await connect();
+    await call("complete_task", { task: "t1" });
+    await call("complete_task", { task: "t2" });
+    expect((await call("complete_goal", {})).text).not.toContain("Warning");
+  });
+
   it("records them when a step is set done or released by state too", async () => {
     const { call } = await connect();
     await call("set_task_state", { task: "t1", state: "released" });

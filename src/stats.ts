@@ -9,6 +9,7 @@ export interface StatsTask {
   estimate?: number;
   spent: number;
   timingSince?: string;
+  startedAt?: string;
   finishedAt?: string;
   updated?: { at: string };
   /** The Detour that added it, or that dropped it. */
@@ -55,6 +56,23 @@ const worked = (t: StatsTask, now: Date) => {
   const since = t.timingSince ? Date.parse(t.timingSince) : NaN;
   return t.spent + (Number.isNaN(since) ? 0 : Math.max(0, Math.round((now.getTime() - since) / 60_000)));
 };
+
+/** Under this many minutes, a recorded time says nothing about how long the work took. */
+const MIN_REAL_MINUTES = 2;
+
+/**
+ * Whether a finished step's time can be trusted for learning: not a step finished without ever being
+ * started, nor one started and done within 2 minutes, nor one whose worked time is under 2 minutes.
+ * Older plans that recorded neither time are given the benefit of the doubt.
+ */
+function realTime(t: StatsTask, now: Date): boolean {
+  if (worked(t, now) < MIN_REAL_MINUTES) return false;
+  const done = Date.parse(t.finishedAt ?? "");
+  if (Number.isNaN(done)) return true;
+  const began = Date.parse(t.startedAt ?? "");
+  if (Number.isNaN(began)) return false;
+  return done - began >= MIN_REAL_MINUTES * 60_000;
+}
 
 /**
  * Statistics worked out from the plan: how long steps take against their estimates, how often work
@@ -132,7 +150,7 @@ export function projectStats(goals: StatsGoal[], now: Date): ProjectStats {
 
 /** How far the estimates have been off, as a factor to multiply an estimate by; see calibration(). */
 export interface Calibration {
-  /** Median of time spent over the estimate, kept between 0.5 and 3; undefined with too few steps to say. */
+  /** Median of time spent over the estimate (below 1: steps take less time than estimated), kept between 0.5 and 3; undefined with too few steps to say. */
   factor: number | undefined;
   /** How many finished steps with both an estimate and a time were looked at (at most the window). */
   samples: number;
@@ -149,7 +167,7 @@ export function calibration(goals: StatsGoal[], now: Date, { window, min }: { wi
   };
   const recent = goals
     .flatMap((g) => g.tasks)
-    .filter((t) => FINISHED.includes(t.status) && t.estimate !== undefined && t.estimate > 0 && worked(t, now) > 0)
+    .filter((t) => FINISHED.includes(t.status) && t.estimate !== undefined && t.estimate > 0 && worked(t, now) > 0 && realTime(t, now))
     .sort((a, b) => stamp(b) - stamp(a))
     .slice(0, window);
   if (recent.length < min || recent.length === 0) return { factor: undefined, samples: recent.length };

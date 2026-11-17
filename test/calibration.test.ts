@@ -5,7 +5,7 @@ const NOW = new Date("2026-10-26T12:00:00.000Z");
 const daysAgo = (d: number) => new Date(NOW.getTime() - d * 86_400_000).toISOString();
 
 function step(n: number, estimate: number | undefined, spent: number, ago = n, status: StatsTask["status"] = "done"): StatsTask {
-  return { id: `t${n}`, title: `Step ${n}`, status, ...(estimate !== undefined ? { estimate } : {}), spent, finishedAt: daysAgo(ago) };
+  return { id: `t${n}`, title: `Step ${n}`, status, ...(estimate !== undefined ? { estimate } : {}), spent, startedAt: daysAgo(ago + 1), finishedAt: daysAgo(ago) };
 }
 const goal = (tasks: StatsTask[]): StatsGoal => ({ id: "g", title: "G", status: "active", tasks, detours: [] });
 const OPTIONS = { window: 20, min: 5 };
@@ -51,5 +51,20 @@ describe("calibration", () => {
     const a = goal([1, 2, 3].map((n) => step(n, 60, 60)));
     const b = goal([4, 5].map((n) => step(n, 60, 60, n, "released")));
     expect(calibration([a, b], NOW, OPTIONS).samples).toBe(5);
+  });
+
+  it("leaves out steps never started, or started and done within 2 minutes", () => {
+    const at = (min: number) => new Date(NOW.getTime() - min * 60_000).toISOString();
+    const mk = (n: number, startedAt: string | undefined, doneMin: number): StatsTask => ({ id: `t${n}`, title: `S${n}`, status: "done", estimate: 60, spent: 90, ...(startedAt ? { startedAt } : {}), finishedAt: at(doneMin) });
+    const never = mk(1, undefined, 10);
+    const quick = mk(2, at(11), 10);
+    const real = mk(3, at(200), 10);
+    expect(calibration([goal([never, quick, real])], NOW, { window: 20, min: 1 }).samples).toBe(1);
+  });
+
+  it("leaves out steps whose recorded time is under 2 minutes", () => {
+    const at = (min: number) => new Date(NOW.getTime() - min * 60_000).toISOString();
+    const t: StatsTask = { id: "t1", title: "S", status: "done", estimate: 60, spent: 1, startedAt: at(300), finishedAt: at(10) };
+    expect(calibration([goal([t])], NOW, { window: 20, min: 1 }).samples).toBe(0);
   });
 });

@@ -1266,6 +1266,22 @@ export class Project {
     });
   }
 
+  /**
+   * Whether another step of the same goal is already marked as having files not saved in git, so the
+   * warning about it has been given once already. Read before a finished step is recorded.
+   */
+  uncommittedWarned(id: string, goalId?: string): boolean {
+    const { plan } = this.requireClaim(goalId);
+    return plan.tasks.some((t) => t.id !== id && t.uncommitted === true);
+  }
+
+  /** Whether any file the steps of a claimed goal list still has changes not saved in git; undefined when git cannot say. */
+  goalUncommitted(goalId?: string): boolean | undefined {
+    const { plan } = this.requireClaim(goalId);
+    const files = [...new Set(plan.tasks.filter((t) => t.status === "done" || t.status === "released").flatMap((t) => t.code))];
+    return files.length > 0 ? this.git.dirty(this.root, files) : false;
+  }
+
   /** Where a commit of this project can be seen online (add the short hash), when its git remote is known. */
   commitLink(): string | undefined {
     return this.git.commitLink(this.root);
