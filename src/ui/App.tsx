@@ -14,7 +14,7 @@ import { PAGE_HASH, PAGE_TITLE, type Page, type Route, breadcrumbs, newHash, pag
 import { Breadcrumbs } from "./Breadcrumbs.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
-import { type Finished, type Seen, doneMark, groupGoals, groupOpen, hideAll, seenOnFirstVisit } from "./goalList.js";
+import { type Finished, type FinishedSort, type GroupBy, type Seen, FINISHED_SORT_DEFAULT, FINISHED_SORT_KEY, FINISHED_SORT_WORDS, GROUP_BY_DEFAULT, GROUP_BY_KEY, GROUP_BY_WORDS, addedOf, dayGroups, doneMark, finishedOf, groupGoals, groupOpen, hideAll, isFinishedSort, isGroupBy, seenOnFirstVisit, sortFinished } from "./goalList.js";
 import { GoalPage } from "./GoalPage.js";
 import { Home } from "./HomePage.js";
 import { type PutOff, needsWhy, sidebarSections } from "./home.js";
@@ -116,6 +116,12 @@ export function App() {
   const [theme, setTheme] = useStored<Theme>("progressor.theme", undefined);
   const [finished, setFinished] = useStored<Finished>("progressor.finished", undefined);
   const [showHidden, setShowHidden] = useStored<"1">("progressor.show-hidden", undefined);
+  // How the Finished list is ordered and grouped (goalList.ts); a stored value that is not one of the choices counts as the default.
+  const [storedSort, setFinishedSort] = useStored<FinishedSort>(FINISHED_SORT_KEY, undefined);
+  const [storedGroup, setGroupBy] = useStored<GroupBy>(GROUP_BY_KEY, undefined);
+  const finishedSort = isFinishedSort(storedSort) ? storedSort : FINISHED_SORT_DEFAULT;
+  const groupBy = isGroupBy(storedGroup) ? storedGroup : GROUP_BY_DEFAULT;
+  const [sortOpen, setSortOpen] = useState(false);
   const [doneOpen, setDoneOpen] = useStored<"1">("progressor.done-open", undefined);
   /** The finished goal on screen when the Developer closed Finished, so it stays closed for that goal. */
   const [doneClosedFor, setDoneClosedFor] = useStored<string>("progressor.done-closed-for", undefined);
@@ -479,6 +485,15 @@ export function App() {
     toast(`Cleared ${list.length} finished ${list.length === 1 ? "goal" : "goals"}. The plan keeps them; find them under Hidden.`);
   };
   const freshGoals = grouped.open.filter((g) => grouped.fresh.has(g.id));
+  // The Finished list in the chosen order, under day headings when sorted by a date or grouped by the day added.
+  const finishedLists = (() => {
+    const sorted = sortFinished(grouped.done, finishedSort);
+    const byAdded = groupBy === "added" || finishedSort === "added-new";
+    if (finishedSort === "name" && !byAdded) return [{ key: "all", heading: "", goals: sorted }];
+    const when = byAdded ? addedOf : finishedOf;
+    const order = finishedSort === "finished-old" && !byAdded ? "oldest" : "newest";
+    return dayGroups(sorted, when, order).map((x) => ({ key: x.key, heading: x.heading, goals: x.items }));
+  })();
   const doneShown = groupOpen({ pinned: !!doneOpen, closedFor: doneClosedFor, holdsShown: grouped.done.some((g) => g.id === effectiveGoal), shown: effectiveGoal });
 
   // The page's heading, named after its project: "Bindery Dashboard".
@@ -736,12 +751,32 @@ export function App() {
                     }}>
                       <Icon name={doneShown ? "chevronDown" : "chevronRight"} size={14} /> Finished <span className="n">{grouped.done.length}</span>
                     </button>
+                    <button className="linkbtn" aria-expanded={sortOpen} title="Choose the order of finished goals and whether they sit under the day they were added" onClick={() => setSortOpen(!sortOpen)}>Sort</button>
                     <button className="linkbtn" title="Clears every finished goal from this list. The plan keeps them; find them under Hidden."
                       onClick={() => clearFinished(grouped.done)}>
                       Clear all
                     </button>
                   </div>
-                  {doneShown && grouped.done.map((g) => goalRow(g))}
+                  {doneShown && sortOpen && (
+                    <div className="side-sort">
+                      <label>Order
+                        <select value={finishedSort} onChange={(e) => setFinishedSort(e.target.value === FINISHED_SORT_DEFAULT ? undefined : (e.target.value as FinishedSort))}>
+                          {(Object.keys(FINISHED_SORT_WORDS) as FinishedSort[]).map((k) => <option key={k} value={k}>{FINISHED_SORT_WORDS[k]}</option>)}
+                        </select>
+                      </label>
+                      <label>Group by
+                        <select value={groupBy} onChange={(e) => setGroupBy(e.target.value === GROUP_BY_DEFAULT ? undefined : (e.target.value as GroupBy))}>
+                          {(Object.keys(GROUP_BY_WORDS) as GroupBy[]).map((k) => <option key={k} value={k}>{GROUP_BY_WORDS[k]}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                  )}
+                  {doneShown && finishedLists.map((l) => (
+                    <div key={l.key} className="day-group">
+                      {l.heading && <h4>{l.heading}</h4>}
+                      {l.goals.map((g) => goalRow(g))}
+                    </div>
+                  ))}
                 </div>
               )}
               {grouped.hidden.length > 0 && (
