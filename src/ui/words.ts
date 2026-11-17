@@ -627,6 +627,24 @@ export const testsLabel = (tests: string | undefined) => (tests?.trim() ? `Tests
 export const NOT_SAVED = "Not saved in git yet";
 export const NOT_SAVED_HINT = "When this step was finished, some of its files still had changes that were not saved (committed) in git.";
 
+// --- pull requests and CI checks (ci.ts) ---
+export type ChecksState = "passed" | "failed" | "running";
+export const CHECKS_WORDS: Record<ChecksState, string> = { passed: "Checks passed", failed: "Checks failed", running: "Checks running" };
+export const CHECKS_HINT: Record<ChecksState, string> = {
+  passed: "The automatic checks (the tests and builds your git host runs on this work) all passed.",
+  failed: "At least one of the automatic checks (the tests and builds your git host runs on this work) failed. Your AI can look into it.",
+  running: "The automatic checks (the tests and builds your git host runs on this work) are still running. This updates by itself.",
+};
+/** "Pull request #12", with ", merged" or ", closed" once it is no longer open. */
+export function pullRequestLabel(pr: { number: number; state: string }): string {
+  return `Pull request #${pr.number}${pr.state === "merged" ? ", merged" : pr.state === "closed" ? ", closed" : ""}`;
+}
+/** What a pull request link says when pointed at: its title and where it opens. */
+export function pullRequestHint(pr: { title: string; state: string }): string {
+  const state = pr.state === "merged" ? "Merged" : pr.state === "closed" ? "Closed without merging" : "Open";
+  return `${pr.title ? `${pr.title}\n` : ""}${state}. Opens the pull request on your git host's website.`;
+}
+
 // --- dependencies ---
 // Goals that wait on other goals.
 export const WAITING_ON_GOAL = "Waiting on another goal";

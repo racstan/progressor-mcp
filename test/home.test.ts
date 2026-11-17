@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RISK_WHY, homeSections, needsWords, progressWords, sidebarSections, untriedAcross } from "../src/ui/home.js";
+import { CHECKS_WHY, RISK_WHY, homeSections, needsWords, progressWords, sidebarSections, untriedAcross } from "../src/ui/home.js";
 
 const g = (id: string, status: string, extra: Partial<{ oldestUntried: string; done: number; total: number; waitingOnYou: boolean; openQuestions: number; untriedTests: number; waitingSteps: number; updatedAt: number }> = {}) => ({
   id,
@@ -94,6 +94,29 @@ describe("serious risks in Needs you", () => {
 
   it("works for an older server that sends no risks", () => {
     expect(homeSections([projects[2]!]).seriousRisks).toEqual([]);
+  });
+});
+
+describe("goals whose checks failed in Needs you", () => {
+  const projects = [
+    { id: "a", name: "Shop", root: "/a", goals: [g("cart", "active"), g("pay", "active", { waitingOnYou: true, openQuestions: 1 })], failedChecks: [{ id: "cart", title: "CART" }, { id: "pay", title: "PAY" }] },
+    { id: "b", name: "Blog", root: "/b", goals: [g("post", "active")] },
+  ];
+
+  it("lists them in plain words, once each: a goal already there says it beside its other reasons", () => {
+    const s = homeSections(projects);
+    expect(CHECKS_WHY).toBe("Checks failed on its latest work");
+    expect(s.failedChecks.map((x) => [x.project.name, x.goal.id])).toEqual([["Shop", "cart"]]);
+    expect(s.needsYou.map((x) => [x.goal.id, x.why])).toEqual([["pay", `A question for you · ${CHECKS_WHY}`]]);
+    expect(s.inProgress.map((x) => x.goal.id)).toEqual(["post"]);
+  });
+
+  it("counts them in the line at the top", () => {
+    expect(homeSections(projects).summary).toBe("1 goal needs you · 1 goal with failed checks · 1 in progress · 2 projects");
+  });
+
+  it("works for an older server that sends none", () => {
+    expect(homeSections([projects[1]!]).failedChecks).toEqual([]);
   });
 });
 

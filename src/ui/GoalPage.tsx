@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { type DetourNode, type GoalGraph, type TaskNode, withoutDropped } from "../dashboard/graph.js";
 import { copyAsPrompt } from "../dashboard/prompt.js";
 import type { GoalSchedule } from "../schedule.js";
-import { type GoalView, type RoadmapView, useStored } from "./data.js";
+import { type GoalView, type RoadmapView, useCi, useStored } from "./data.js";
+import { GoalCiRow } from "./CiBadges.js";
 import { GoalNotes } from "./GoalNotes.js";
 import { HandTests, UntriedTests } from "./HandTests.js";
 import { Pictures } from "./Pictures.js";
@@ -73,6 +74,8 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
   const props = { projectId, goalId: goal.id, view, onChanged };
   const said = view.messages.length + view.questions.filter((q) => q.state === "answered").length;
   const notes = view.decisions.length + view.notes.filter((n) => !n.resolved).length + view.handTests.length + view.pictures.length;
+  // Pull requests and CI checks for the steps' commits (ci.ts); empty until something is known.
+  const ci = useCi(projectId, goal.id, view);
 
   return (
     <div className="page">
@@ -132,6 +135,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
             <div className="words">{[progressWords({ done, total: live.length }), left].filter(Boolean).join(" · ")}</div>
           </div>
         )}
+        <GoalCiRow prs={ci.prs} checks={ci.checks} />
       </header>
 
       {detour && (
@@ -175,7 +179,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
         <TabButton id="notes" tab={tab} setTab={setTab}>Notes {notes > 0 && <span className="n">{notes}</span>}</TabButton>
       </div>
       <div className="tab-body" role="tabpanel">
-        {tab === "steps" && <Steps view={view} fileLink={fileLink} onCopy={onCopy} onReveal={() => onReveal(goal.planFile)} />}
+        {tab === "steps" && <Steps view={view} ci={ci.steps} fileLink={fileLink} onCopy={onCopy} onReveal={() => onReveal(goal.planFile)} />}
         {tab === "map" && (
           mapGraph.nodes.length === 0 ? <p className="quiet">No steps yet, so nothing to draw.</p> : (
             <>

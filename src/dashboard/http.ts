@@ -31,6 +31,8 @@ import { type HubContext, featureRoutes, runFeatureRoute } from "./routes.js";
 import { runRoutinesIn } from "./routes/routines.js";
 import { peopleList, waitingOnOthersLines } from "./routes/others.js";
 import { seriousRiskLines } from "./routes/risks.js";
+import { failedCheckLines, refreshProjectCi } from "./routes/ci.js";
+import type { CiDeps } from "../ci.js";
 import { type FetchFn, lookAtProject, sendNew } from "../ntfy.js";
 import { type Look, eventsBetween } from "../events.js";
 import { readSettings, settingsFileFor } from "../settings.js";
@@ -87,6 +89,8 @@ export interface DashboardOptions {
   settingsFile?: string;
   /** Stands in for the network when the hub sends phone notifications (tests). */
   ntfyFetch?: FetchFn;
+  /** Stands in for git, gh and the network when pull requests and CI checks are asked for (tests; ci.ts). */
+  ciDeps?: CiDeps;
   /** Called after this process stopped serving because a newer Progressor took the port over (daemon.ts). */
   onStepDown?: () => void;
   /**
@@ -393,6 +397,7 @@ class Hub {
     /** The settings for how Progressor works (settings.ts). */
     private readonly settingsFile: string = settingsFileFor(registryFile),
     private readonly ntfyFetch?: FetchFn,
+    private readonly ciDeps?: CiDeps,
   ) {
     this.sync();
     this.look = this.lookNow();
@@ -563,7 +568,9 @@ class Hub {
         // a Roadmap that cannot be read shows as a project with no Goals
       }
       const live = this.projects.get(entry.id)?.project;
-      return { ...entry, goals, seriousRisks: live ? seriousRiskLines(live) : [], waitingOnOthers: live ? waitingOnOthersLines(live) : [], people: live ? peopleList(live) : [] };
+      // Goals whose latest CI checks failed, from the kept answers; a refresh starts when they are old (ci.ts).
+      if (live) refreshProjectCi(live, entry.id, this.hubContext());
+      return { ...entry, goals, seriousRisks: live ? seriousRiskLines(live) : [], failedChecks: live ? failedCheckLines(live, this.registryFile) : [], waitingOnOthers: live ? waitingOnOthersLines(live) : [], people: live ? peopleList(live) : [] };
     });
   }
 
@@ -994,6 +1001,7 @@ class Hub {
       send: (event, data) => this.send(event, data),
       refresh: () => void this.sync(),
       fetch: this.ntfyFetch,
+      ...(this.ciDeps ? { ci: this.ciDeps } : {}),
     };
   }
 
@@ -1233,7 +1241,7 @@ export async function startDashboard(options: DashboardOptions): Promise<Dashboa
       // the background dashboard takes the port a moment after this lets it go: don't take it back meanwhile
       if (toBackground) holdOffUntil = Date.now() + 4000;
       void stopServing().then(() => options.onStepDown?.());
-    }, reveal, options.settingsFile ?? settingsFileFor(registryFile), options.ntfyFetch);
+    }, reveal, options.settingsFile ?? settingsFileFor(registryFile), options.ntfyFetch, options.ciDeps);
     hub.port = p;
     hub.background = !!options.background;
     http.on("request", hub.handle);

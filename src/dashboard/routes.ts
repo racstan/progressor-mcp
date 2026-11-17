@@ -21,6 +21,8 @@ import { projectRoutes } from "./routes/projects.js";
 import { goalNoteRoutes } from "./routes/goalNotes.js";
 import { riskRoutes } from "./routes/risks.js";
 import { sessionRoutes } from "./routes/sessions.js";
+import { ciRoutes } from "./routes/ci.js";
+import type { CiDeps } from "../ci.js";
 
 /** What the hub gives every feature route. */
 export interface HubContext {
@@ -36,6 +38,8 @@ export interface HubContext {
   refresh(): void;
   /** How web requests are made, so a test can stand in for the network (ntfy). Undefined means the real one. */
   fetch?: unknown;
+  /** How pull requests and CI checks are asked for (ci.ts), so a test can stand in for git, gh and the network. Undefined means the real ones. */
+  ci?: CiDeps;
 }
 
 export interface RouteContext extends HubContext {
@@ -73,6 +77,7 @@ export const featureRoutes: FeatureRoute[] = [
   ...goalNoteRoutes,
   ...riskRoutes,
   ...sessionRoutes,
+  ...ciRoutes,
 ];
 
 /** A body bigger than this is refused unread, unless the route asks for more. */

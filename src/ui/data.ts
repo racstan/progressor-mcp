@@ -185,7 +185,8 @@ export function useOverview(enabled: boolean): OverviewView | undefined {
         .catch(() => undefined);
     };
     void load();
-    const stop = live.on({ projects: () => void load(), change: () => void load() });
+    // "ci": a background refresh of pull requests and checks found something new (ci.ts).
+    const stop = live.on({ projects: () => void load(), change: () => void load(), ci: () => void load() });
     const unSample = onSampleSwitch(() => void load());
     return () => {
       alive = false;
@@ -696,6 +697,46 @@ export function useRisks(projectId: string, version: unknown): RiskView[] | null
     };
   }, [path, version]);
   return state?.path === path ? state.risks : undefined;
+}
+
+/** A pull request with its checks, as GET /api/projects/:id/goals/:goal/ci sends it (ci.ts). */
+export type CiPullRequest = { number: number; title: string; url: string; state: "open" | "merged" | "closed"; checks?: "passed" | "failed" | "running" };
+export type StepCiView = { prs: CiPullRequest[]; checks?: "passed" | "failed" | "running" };
+export type GoalCiView = StepCiView & { steps: Record<string, StepCiView> };
+const NO_CI: GoalCiView = { prs: [], steps: {} };
+
+/**
+ * A goal's pull requests and CI checks, fetched again whenever `version` changes and when the server
+ * says its background refresh found something new. Empty while loading, when the server is too old,
+ * or when nothing is known: the page then just shows no badges.
+ */
+export function useCi(projectId: string, goalId: string, version: unknown): GoalCiView {
+  const path = `/api/projects/${encodeURIComponent(projectId)}/goals/${encodeURIComponent(goalId)}/ci`;
+  const [state, setState] = useState<{ path: string; ci: GoalCiView }>();
+  const [asked, setAsked] = useState(0);
+  useEffect(
+    () =>
+      live.on({
+        ci: (e) => {
+          try {
+            if ((JSON.parse(e.data) as { project?: string }).project === projectId) setAsked((n) => n + 1);
+          } catch {
+            // a notice that cannot be read changes nothing
+          }
+        },
+      }),
+    [projectId],
+  );
+  useEffect(() => {
+    let alive = true;
+    getJson<GoalCiView>(path)
+      .then((v) => alive && setState({ path, ci: v && Array.isArray(v.prs) ? v : NO_CI }))
+      .catch(() => alive && setState({ path, ci: NO_CI }));
+    return () => {
+      alive = false;
+    };
+  }, [path, version, asked]);
+  return state?.path === path ? state.ci : NO_CI;
 }
 
 /** The last plan check-up (checkup.ts); null when none ran yet. */

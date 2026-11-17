@@ -889,6 +889,29 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .git-facts .not-saved { font-weight: 700; padding: 0 var(--s2); border: var(--heavy); border-style: dashed; border-radius: var(--r-s); color: var(--ink); }
 [data-theme="vibrant"] .git-facts .not-saved { border-color: var(--you); color: var(--you-ink); }
 
+/* pull requests and CI checks (ci.ts): greys tell the states apart by border, weight and fill; Vibrant adds colour */
+.ci-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); margin-top: var(--s2); }
+.pr-link { font-size: var(--t-s); padding: 0 var(--s1); border: 1px solid var(--line-strong); border-radius: var(--r-s); color: var(--ink); text-decoration: none; white-space: nowrap; }
+.pr-link:hover { background: var(--hover); }
+.pr-link.open { font-weight: 700; }
+.pr-link.closed { color: var(--muted); border-style: dashed; }
+.ci-badge { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-s); padding: 0 var(--s2); border: 1px solid var(--line-strong); border-radius: var(--r-s); color: var(--ink); white-space: nowrap; flex: none; }
+.ci-badge .ci-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); flex: none; }
+.ci-badge.passed { font-weight: 600; }
+.ci-badge.failed { font-weight: 800; border: var(--heavy); background: var(--ink); color: var(--bg); }
+.ci-badge.failed .ci-dot { background: var(--bg); }
+.ci-badge.running { border-style: dashed; font-weight: 600; }
+.ci-badge.running .ci-dot { animation: beat 1.4s ease-in-out infinite; }
+[data-motion="gentle"] .ci-badge.running .ci-dot { animation-duration: 2.6s; }
+.step-row .ci-badge { margin-left: var(--s2); }
+[data-theme="vibrant"] .ci-badge.passed { border-color: var(--done); color: var(--done); }
+[data-theme="vibrant"] .ci-badge.passed .ci-dot { background: var(--done); }
+[data-theme="vibrant"] .ci-badge.failed { border: 1px solid var(--you); background: var(--you); color: var(--on-you); }
+[data-theme="vibrant"] .ci-badge.failed .ci-dot { background: var(--on-you); }
+[data-theme="vibrant"] .ci-badge.running { border-color: var(--accent); color: var(--ink); }
+[data-theme="vibrant"] .ci-badge.running .ci-dot { background: var(--accent); }
+[data-theme="vibrant"] .pr-link.merged { border-color: var(--done); }
+
 
 /* ---------- estimates: estimates that learn ---------- */
 

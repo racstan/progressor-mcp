@@ -42,6 +42,8 @@ Next to the status, a few small labels may show:
 
 On a finished step, a line such as *2 commits on main · 715 passed* shows the work that went into it, with each commit linked when your project is on GitHub, GitLab or Gitea. *Not saved in git yet* means some of its files still had changes nobody had committed when it was finished.
 
+When your project is on GitHub or Gitea, a finished step also shows the pull requests its work is in, such as **Pull request #12** (or *Pull request #12, merged*), each a link to the pull request, and how the automatic checks (the tests and builds your git host runs) went: **Checks passed**, **Checks failed** or **Checks running**. A step whose checks failed or are still running says so on its row too, without opening it. Under the goal's title, the goal shows all its pull requests and the checks of its most recently finished step. In Light, Dark and System, a failed badge is filled in and a running one has a dashed border and a gently pulsing dot; Vibrant colours them green and amber. An open goal whose latest checks failed shows in **Needs you** on Home as *Checks failed on its latest work*. GitHub is asked through the `gh` command, so it needs `gh` installed and logged in; Gitea uses the token in `GITEA_TOKEN`. The page shows what it last found at once and looks again every few minutes in the background; without a remote, `gh` or a network connection there are simply no badges.
+
 **Copy for your AI** copies a description of the goal that you can paste into any AI chat, to ask about it or change it.
 
 ## The map
