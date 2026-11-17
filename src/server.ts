@@ -1772,7 +1772,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   server.registerPrompt(
     "status",
     { title: "Progressor status", description: "Where the work stands: the Goals, their Outcomes, the current Tasks, any open Detour and what comes next." },
-    () => message(statusPrompt(status())),
+    () => message(statusPrompt(project.transaction("status", status))),
   );
 
   server.registerPrompt(
@@ -1806,7 +1806,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   server.registerPrompt(
     "next",
     { title: "Pick up the work", description: "Carry on where the plan left off: the open Detour, the Task in progress, or the next Task, claiming a Goal if needed." },
-    () => message(nextPrompt(project.sessionStatus(), status())),
+    () => message(project.transaction("next", () => nextPrompt(project.sessionStatus(), status()))),
   );
 
   server.registerPrompt(

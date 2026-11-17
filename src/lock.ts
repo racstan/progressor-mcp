@@ -7,7 +7,7 @@
 // added to the project. It holds the pid of the process that made it: a hold whose process has
 // ended, or that is older than a few seconds, is stale and taken over.
 import { createHash, randomBytes } from "node:crypto";
-import { closeSync, linkSync, openSync, readFileSync, renameSync, rmSync, statSync, writeSync } from "node:fs";
+import { closeSync, linkSync, openSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathKey } from "./dashboard/registry.js";
@@ -77,39 +77,56 @@ function takeOver(file: string, stale: string): void {
   }
 }
 
+type Attempt = "mine" | "skip" | "again" | "busy";
+
+/** One try at making the hold file: ours, unusable (run without), worth trying at once, or busy (wait). */
+function attempt(file: string, token: string, options: LockOptions): Attempt {
+  try {
+    const fd = (options.open ?? openSync)(file, "wx");
+    try {
+      writeSync(fd, token);
+    } finally {
+      closeSync(fd);
+    }
+    return "mine";
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code ?? "";
+    if (!BUSY.has(code)) return "skip"; // the temp folder cannot be used: run without a hold
+    const stale = code === "EEXIST" ? staleHold(file, options.staleMs ?? 15_000, options.isAlive ?? alive) : undefined;
+    if (stale === undefined) return "busy";
+    takeOver(file, stale);
+    return "again";
+  }
+}
+
+const busyError = (root: string) => new Error(`The plan in ${root} is busy: another Progressor is changing it. Try again in a moment.`);
+
+function release(key: string, file: string, token: string, mine: boolean): void {
+  held.delete(key);
+  if (!mine) return;
+  try {
+    if (readFileSync(file, "utf8") === token) rmSync(file, { force: true });
+  } catch {
+    // already gone
+  }
+}
+
 /**
  * Runs `body` while holding the project's plan. Waits for another process's hold, and fails with a
  * plain message if it is not released in time. When the temp folder cannot be written, `body` runs
- * without a hold rather than not at all.
+ * without a hold rather than not at all. The wait blocks this whole process; code that serves
+ * requests uses withLockAsync instead.
  */
 export function withLock<T>(root: string, body: () => T, options: LockOptions = {}): T {
   const key = pathKey(root);
   if (held.has(key)) return body();
   const file = lockFile(root, options.dir);
-  const isAlive = options.isAlive ?? alive;
-  const open = options.open ?? openSync;
   const deadline = Date.now() + (options.timeoutMs ?? 5000);
   const token = `${process.pid} ${randomBytes(6).toString("hex")}`;
-  let mine = false;
-  while (!mine) {
-    try {
-      const fd = open(file, "wx");
-      try {
-        writeSync(fd, token);
-      } finally {
-        closeSync(fd);
-      }
-      mine = true;
-    } catch (e) {
-      const code = (e as NodeJS.ErrnoException).code ?? "";
-      if (!BUSY.has(code)) break; // the temp folder cannot be used: run without a hold
-      const stale = code === "EEXIST" ? staleHold(file, options.staleMs ?? 15_000, isAlive) : undefined;
-      if (stale !== undefined) {
-        takeOver(file, stale);
-        continue;
-      }
-      if (Date.now() > deadline)
-        throw new Error(`The plan in ${root} is busy: another Progressor is changing it. Try again in a moment.`);
+  let result: Attempt;
+  while ((result = attempt(file, token, options)) === "again" || result === "busy") {
+    if (result === "busy") {
+      if (Date.now() > deadline) throw busyError(root);
       pause(15);
     }
   }
@@ -117,13 +134,53 @@ export function withLock<T>(root: string, body: () => T, options: LockOptions = 
   try {
     return body();
   } finally {
-    held.delete(key);
-    if (mine) {
-      try {
-        if (readFileSync(file, "utf8") === token) rmSync(file, { force: true });
-      } catch {
-        // already gone
-      }
+    release(key, file, token, result === "mine");
+  }
+}
+
+/**
+ * Like withLock, but waits without blocking the process, so a server (the dashboard) keeps answering
+ * while another Progressor holds the plan. `body` itself still runs in one go, without waiting.
+ */
+export async function withLockAsync<T>(root: string, body: () => T, options: LockOptions = {}): Promise<T> {
+  const key = pathKey(root);
+  if (held.has(key)) return body();
+  const file = lockFile(root, options.dir);
+  const deadline = Date.now() + (options.timeoutMs ?? 5000);
+  const token = `${process.pid} ${randomBytes(6).toString("hex")}`;
+  let result: Attempt;
+  while ((result = attempt(file, token, options)) === "again" || result === "busy") {
+    if (result === "busy") {
+      if (Date.now() > deadline) throw busyError(root);
+      await new Promise((r) => setTimeout(r, 15));
     }
+  }
+  held.add(key);
+  try {
+    return body();
+  } finally {
+    release(key, file, token, result === "mine");
+  }
+}
+
+/**
+ * Removes `<file>.<pid>.tmp` files (half-written saves, see Project.writeText) left by a process that
+ * was killed mid-save, in `dir` and the folders under it. Files of a running process are left alone.
+ */
+export function sweepTempFiles(dir: string, isAlive: (pid: number) => boolean = alive, depth = 2): void {
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (depth > 0 && entry.name !== "history") sweepTempFiles(path, isAlive, depth - 1);
+      continue;
+    }
+    const m = /\.(\d+)\.tmp$/.exec(entry.name);
+    if (m && !isAlive(Number(m[1]))) rmSync(path, { force: true });
   }
 }
