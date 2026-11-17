@@ -22,6 +22,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { startDashboard } from "../dist/dashboard/http.js";
 import { projectEntry, registerProject } from "../dist/dashboard/registry.js";
+import { addGlobalRule, globalFileFor } from "../dist/globalRules.js";
 import { Project } from "../dist/project.js";
 
 const out = resolve(process.argv[2] ?? "docs/media");
@@ -171,6 +172,9 @@ ai.releaseGoal(dark.id);
 const registryFile = join(tmpdir(), "progressor-demo-projects.json");
 rmSync(registryFile, { force: true });
 registerProject(root2, registryFile);
+rmSync(globalFileFor(registryFile), { force: true });
+rmSync(join(tmpdir(), "project-layout.json"), { force: true });
+addGlobalRule(globalFileFor(registryFile), "Explain every change in plain English", false);
 const dashboard = await startDashboard({
   project: ai,
   registryFile,
@@ -337,8 +341,14 @@ await click(goalRow("Dark mode"));
 await caption("Things only you can try, like checking on your phone, are listed too.", "Needs you");
 await pause(3500);
 await shot("needs-you");
+// Lift the thing to try above the caption, so the note being typed shows.
+await page.getByLabel("A note for your AI").first().evaluate((el) => el.scrollIntoView({ block: "center" }));
+await pause(600);
+await type(page.getByLabel("A note for your AI").first(), "Looks right on my phone");
+await caption("Mark each one works, doesn't work or won't test, with a note or a screenshot if you like.", "Needs you");
+await pause(2500);
 await click(page.getByRole("button", { name: "Works" }).first());
-await pause(2000);
+await pause(2500);
 
 // 4. Talk to your AI.
 await card("Talk to your AI from the page.", "", "4", 2200);
@@ -423,6 +433,12 @@ await pause(1500);
 next.replyToProjectMessage("m1", "Noted: the app must keep working offline, and I'll check that in every step.");
 await pause(2000);
 await shot("notes");
+await click(page.getByRole("button", { name: /Copy from Rules and context for everything/ }));
+await caption("Rules for every project live on Home. Copy one in to keep it with this project.", "Project notes");
+await pause(1500);
+await click(page.getByLabel(/Explain every change in plain English/));
+await click(page.getByRole("button", { name: /Copy 1 into this project/ }));
+await pause(3000);
 
 // 8. The project's Dashboard, Calendar and Settings, then Home.
 await card("See how it's going.", "", "8", 2200);
@@ -438,12 +454,16 @@ await click(page.getByRole("button", { name: /^Calendar$/ }).first());
 await caption("The Calendar: what your AI did each day, and what comes next.", "Calendar");
 await pause(4000);
 await shot("calendar");
+await click(page.locator(".sidebar").getByRole("button", { name: "Ready to launch?" }));
+await caption("Ready to launch? What's left before you can ship: for your AI, for you, and for others.", "Ready to launch?");
+await pause(5000);
+await shot("readiness");
 await click(page.getByRole("button", { name: "Settings", exact: true }).first());
 await caption("Settings has its own page. Everything there is optional: your AI runs the plan either way.", "Settings");
 await pause(4000);
 await shot("settings");
 await click(page.locator("[data-tour=home]"));
-await caption("Home: what needs you and what's being worked on, across all your projects.", "Every project on one page");
+await caption("Home: what your AI is working on now, what needs you, and how each project is doing.", "Every project on one page");
 await pause(4500);
 await shot("home");
 ai2.claimGoal(blog.id);
@@ -455,6 +475,22 @@ await caption("Each project keeps its own plan. Switch between them with a click
 await pause(5000);
 await click(page.locator("[data-tour=home]"));
 await pause(800);
+await caption("Put projects in groups, and drag them into any order.", "Every project on one page");
+await click(page.locator(".side-add-group"));
+await page.locator(".side-group-name").pressSequentially("Side projects", { delay: 45 });
+await page.keyboard.press("Enter");
+await pause(800);
+{
+  const from = page.locator(".side-project", { hasText: "portfolio-site" });
+  const to = page.locator(".side-proj-group h4", { hasText: "Side projects" });
+  const a = await from.boundingBox();
+  const b = await to.boundingBox();
+  await demo("pointer", a.x + a.width / 2, a.y + a.height / 2);
+  await pause(700);
+  await demo("pointer", b.x + b.width / 2, b.y + b.height / 2);
+  await from.dragTo(to);
+}
+await pause(4000);
 await page.mouse.wheel(0, 700);
 await caption("…with the numbers for all of them.", "Every project on one page");
 await pause(3500);
