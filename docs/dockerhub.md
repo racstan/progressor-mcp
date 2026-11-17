@@ -8,7 +8,7 @@ Progressor is an MCP server for AI coding apps (Claude Code, Claude Desktop, Cur
 
 - Website: https://progressor-mcp.racstan.workers.dev
 - Source and full docs: https://github.com/racstan/progressor-mcp
-- Video: https://youtu.be/PVk795l6om8
+- Video: https://youtu.be/Nf22yrT9Dwo
 
 ## Use it
 

@@ -15,9 +15,9 @@
 </p>
 
 <p align="center">
-  <a href="https://youtu.be/PVk795l6om8"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail-1.3.0.png" alt="Watch the 4-minute video on YouTube" width="640"></a>
+  <a href="https://youtu.be/Nf22yrT9Dwo"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail.png" alt="Watch the 5-minute video on YouTube" width="640"></a>
   <br>
-  <sub><a href="https://youtu.be/PVk795l6om8">▶ Watch the 4-minute video on YouTube</a></sub>
+  <sub><a href="https://youtu.be/Nf22yrT9Dwo">▶ Watch the 5-minute video on YouTube</a></sub>
 </p>
 
 <p align="center">
@@ -70,7 +70,7 @@ It works with any app that supports [MCP](https://modelcontextprotocol.io) (the 
   Every step as a list or a map, a Dashboard of the numbers, a Calendar, search across all your projects, and four themes, from calm black and white to colourful.
 
 <p align="center">
-  <a href="https://youtu.be/PVk795l6om8"><img src="https://img.shields.io/badge/video-watch_on_YouTube-111111?style=for-the-badge" alt="Watch the video"></a>
+  <a href="https://youtu.be/Nf22yrT9Dwo"><img src="https://img.shields.io/badge/video-watch_on_YouTube-111111?style=for-the-badge" alt="Watch the video"></a>
   &nbsp;
   <a href="#set-it-up"><img src="https://img.shields.io/badge/set_it_up-2_minutes-111111?style=for-the-badge" alt="Set it up"></a>
 </p>
@@ -92,7 +92,7 @@ It works with any app that supports [MCP](https://modelcontextprotocol.io) (the 
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/needs-you.png" alt="A Needs you box: a step waiting on you, and something to try by hand with Works and Doesn't work buttons">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/answer-a-question.gif" alt="Your AI's question waits on the goal's page; one click answers it, and the AI keeps the answer as a decision">
       <h3>It says when it needs you</h3>
       A question, a step to check, something to try on your phone: it all waits in <b>Needs you</b>, and you answer with a click. Your AI sees your answer at its next step.
     </td>
@@ -116,7 +116,7 @@ It works with any app that supports [MCP](https://modelcontextprotocol.io) (the 
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/home.png" alt="Home: a goal that needs you, a goal in progress, the projects and the numbers across all of them">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/home-groups.gif" alt="Home: Working now, Needs you by project and a card for each project; a new group is made in the sidebar and a project dragged into it">
       <h3>Every project on one page</h3>
       <b>Home</b> shows what your AI is working on now, what needs you, and a card for each project saying how it's doing, in any app. Put projects in groups and drag them into any order.
     </td>
@@ -124,6 +124,18 @@ It works with any app that supports [MCP](https://modelcontextprotocol.io) (the 
       <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/vibrant.png" alt="The dashboard in the colourful Vibrant theme">
       <h3>Light, dark or colourful</h3>
       <b>Vibrant</b> by default, with black text, or a calm black-and-white look in light or dark. <a href="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/dark.png">See dark</a>.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/try-by-hand.gif" alt="Something to try by hand: a note is typed for the AI, then Works is pressed">
+      <h3>Try it yourself, then say how it went</h3>
+      Anything only a person can check waits for you. Mark it <b>Works</b>, <b>Doesn't work</b> or <b>Won't test</b>, with a note or a screenshot for your AI, or go through them all with <b>Try them one by one</b>.
+    </td>
+    <td width="50%" valign="top">
+      <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/readiness.png" alt="Ready to launch?: the verdict, then what is left for you and for your AI, goal by goal">
+      <h3>Ready to launch?</h3>
+      One line answers <i>"can we ship?"</i>, then lists what is left for your AI, for you and for other people, and the serious risks nothing is reducing.
     </td>
   </tr>
   <tr>
