@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { type DetourNode, type GoalGraph, type TaskNode, withoutDropped } from "../dashboard/graph.js";
 import { copyAsPrompt } from "../dashboard/prompt.js";
 import type { GoalSchedule } from "../schedule.js";
-import { type GoalView, type RoadmapView, useStored } from "./data.js";
+import { type GoalView, type RoadmapView, useCost, useStored } from "./data.js";
+import { costWords } from "../costWords.js";
 import { GoalNotes } from "./GoalNotes.js";
 import { HandTests, UntriedTests } from "./HandTests.js";
 import { Pictures } from "./Pictures.js";
@@ -55,6 +56,8 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
   const tab: Tab = storedTab ?? "steps";
   const [across, setAcross] = useStored<"down">("progressor.map", undefined);
   const [walking, setWalking] = useState(false);
+  // How many tokens the goal used (cost.ts), counted by the hooks; nothing shows until there is some.
+  const cost = useCost(projectId, view)?.goals[goal.id];
   const [selected, setSelected] = useState<{ key: string; at: { x: number; y: number } }>();
   const tasks = tasksOf(graph);
   const live = tasks.filter((t) => t.status !== "dropped");
@@ -132,6 +135,11 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
             <div className="words">{[progressWords({ done, total: live.length }), left].filter(Boolean).join(" · ")}</div>
           </div>
         )}
+        {cost && cost.tokens > 0 && (
+          <p className="goal-cost quiet" title="Tokens your AI used on this goal, counted by itself as it works. Set prices in Settings, What goals cost, to see money too">
+            {costWords(cost)}
+          </p>
+        )}
       </header>
 
       {detour && (
@@ -175,7 +183,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
         <TabButton id="notes" tab={tab} setTab={setTab}>Notes {notes > 0 && <span className="n">{notes}</span>}</TabButton>
       </div>
       <div className="tab-body" role="tabpanel">
-        {tab === "steps" && <Steps view={view} fileLink={fileLink} onCopy={onCopy} onReveal={() => onReveal(goal.planFile)} />}
+        {tab === "steps" && <Steps view={view} cost={cost?.steps} fileLink={fileLink} onCopy={onCopy} onReveal={() => onReveal(goal.planFile)} />}
         {tab === "map" && (
           mapGraph.nodes.length === 0 ? <p className="quiet">No steps yet, so nothing to draw.</p> : (
             <>

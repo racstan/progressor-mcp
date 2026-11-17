@@ -40,6 +40,8 @@ const SCHEMA = {
   alternatives: z.object({ wait: z.string().regex(/^\d+(?:\.\d+)?\s*(?:m|min|h|d)$/), offer: z.enum(["off", "big choices", "always"]) }),
   handoffs: z.object({ afterRelease: flag, keep: count }),
   claims: z.object({ idleHours: count }),
+  // Prices per million tokens, to show what goals cost in money (cost.ts); 0 shows tokens only.
+  cost: z.object({ inputPrice: z.number().min(0).max(1000), outputPrice: z.number().min(0).max(1000) }),
 };
 
 export type SettingsSection = keyof typeof SCHEMA;
@@ -64,6 +66,7 @@ export const SETTINGS_DEFAULTS: Settings = {
   alternatives: { wait: "0m", offer: "big choices" },
   handoffs: { afterRelease: true, keep: 50 },
   claims: { idleHours: 24 },
+  cost: { inputPrice: 0, outputPrice: 0 },
 };
 
 export const SETTINGS_SECTIONS = Object.keys(SCHEMA) as SettingsSection[];

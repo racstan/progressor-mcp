@@ -128,3 +128,34 @@ describe("the hooks count it", () => {
     expect(readFileSync(join(root, ".progressor", ".gitignore"), "utf8")).toMatch(/^cost\/$/m);
   });
 });
+
+describe("on the dashboard", () => {
+  it("gives each goal's and step's tokens, and money once a price is set in Settings", async () => {
+    const { Project } = await import("../src/project.js");
+    const { startDashboard } = await import("../src/dashboard/http.js");
+    const { writeSettings } = await import("../src/settings.js");
+    const { costWords } = await import("../src/costWords.js");
+    const root = tempDir("progressor-cost-dash-");
+    const p = new Project({ root, session: { id: "s", pid: process.pid } });
+    p.addGoal("Login", [{ title: "Route" }]);
+    p.collectCost(transcript([reply("m1", usage(1, 0), [tool("claim_goal", { goal: "login" }), tool("start_task", { task: "t1" })]), reply("m2", usage(1_000_000, 0))]));
+    const registryFile = join(tempDir("progressor-reg-"), "projects.json");
+    const settingsFile = join(tempDir("progressor-set-"), "settings.json");
+    const dash = await startDashboard({ project: p, registryFile, settingsFile, port: 20000 + Math.floor(Math.random() * 20000) });
+    try {
+      const entry = (await (await fetch(new URL("/api/projects", dash.url!))).json())[0] as { id: string };
+      const get = async () => (await (await fetch(new URL(`/api/projects/${entry.id}/cost`, dash.url!))).json()) as { priced: boolean; goals: Record<string, { tokens: number; money?: number; steps: Record<string, { tokens: number; money?: number }> }>; other: { tokens: number } };
+      const first = await get();
+      expect(first.priced).toBe(false);
+      expect(first.goals.login).toEqual({ tokens: 1_000_000, steps: { t1: { tokens: 1_000_000 } } });
+      expect(first.other.tokens).toBe(1);
+      writeSettings(settingsFile, "cost", { inputPrice: 3, outputPrice: 15 });
+      const priced = await get();
+      expect(priced.goals.login!.money).toBeCloseTo(3);
+      expect(costWords(priced.goals.login!)).toBe("Used 1M tokens (about $3.00)");
+      expect(costWords({ tokens: 950 })).toBe("Used 950 tokens");
+    } finally {
+      await dash.close();
+    }
+  });
+});

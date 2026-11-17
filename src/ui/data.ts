@@ -6,6 +6,7 @@ import type { ProjectEntry, WorkspaceEntry } from "../dashboard/registry.js";
 import type { SettingsView } from "../dashboard/routes/settings.js";
 import type { RiskView } from "../dashboard/routes/risks.js";
 import type { Readiness } from "../readiness.js";
+import type { CostView } from "../dashboard/routes/cost.js";
 import type { DiffLine, FileChange, HistoryItem } from "../history.js";
 import { newestOnly, sharedEvents } from "./liveEvents.js";
 import { type Staleness, pageStaleness } from "./stale.js";
@@ -697,6 +698,22 @@ export function useRisks(projectId: string, version: unknown): RiskView[] | null
     };
   }, [path, version]);
   return state?.path === path ? state.risks : undefined;
+}
+
+/** How many tokens each goal and step used (cost.ts); undefined while loading or when it could not be loaded. */
+export function useCost(projectId: string, version: unknown): CostView | undefined {
+  const path = `/api/projects/${encodeURIComponent(projectId)}/cost`;
+  const [state, setState] = useState<{ path: string; cost: CostView | undefined }>();
+  useEffect(() => {
+    let alive = true;
+    getJson<CostView>(path)
+      .then((v) => alive && setState({ path, cost: v && typeof v === "object" && "goals" in v ? v : undefined }))
+      .catch(() => alive && setState({ path, cost: undefined }));
+    return () => {
+      alive = false;
+    };
+  }, [path, version]);
+  return state?.path === path ? state.cost : undefined;
 }
 
 /** What still stands before a launch (readiness.ts); null when it could not be loaded. */

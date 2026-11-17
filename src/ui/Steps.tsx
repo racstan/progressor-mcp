@@ -3,6 +3,8 @@ import type { DetourNode, TaskNode } from "../dashboard/graph.js";
 import { parseCodeRef } from "../dashboard/editor.js";
 import { copyAsPrompt } from "../dashboard/prompt.js";
 import { type GoalView, useStored } from "./data.js";
+import type { CostLine } from "../dashboard/routes/cost.js";
+import { costWords } from "../costWords.js";
 import { STEPS_VIEW_DEFAULT, STEPS_VIEW_KEY, type StepsView, isStepsView, stepDayGroups } from "./goalList.js";
 import { Dates } from "./Dates.js";
 import { Icon } from "./Icon.js";
@@ -31,7 +33,7 @@ export function StepIcon({ status }: { status: string }) {
  * A goal's steps in plan order, each a row that opens to show what it does, what was checked and the
  * files it changed. Side trips sit under the step they left from. Cancelled steps wait behind a link.
  */
-export function Steps({ view, fileLink, onCopy, onReveal }: { view: GoalView; fileLink: FileLink; onCopy: (text: string) => void; onReveal: () => void }) {
+export function Steps({ view, cost, fileLink, onCopy, onReveal }: { view: GoalView; cost?: Record<string, CostLine>; fileLink: FileLink; onCopy: (text: string) => void; onReveal: () => void }) {
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [cancelled, setCancelled] = useState(false);
   const rows = checklistRows(view.graph);
@@ -50,7 +52,7 @@ export function Steps({ view, fileLink, onCopy, onReveal }: { view: GoalView; fi
   const items = (list: typeof rows) =>
     list.flatMap((row) => [
       ...(row.task && (cancelled || row.task.status !== "dropped")
-        ? [<Step key={row.task.id} task={row.task} open={open.has(row.task.id)} onToggle={() => toggle(row.task!.id)} pictures={view.pictures.filter((p) => p.task === row.task!.id)} fileLink={fileLink} onCopy={() => copy(row.task!)} onReveal={onReveal} commitLink={view.commitLink} />]
+        ? [<Step key={row.task.id} task={row.task} open={open.has(row.task.id)} onToggle={() => toggle(row.task!.id)} pictures={view.pictures.filter((p) => p.task === row.task!.id)} cost={cost?.[row.task.id]} fileLink={fileLink} onCopy={() => copy(row.task!)} onReveal={onReveal} commitLink={view.commitLink} />]
         : []),
       ...row.detours.map((d) => <SideTrip key={d.id} detour={d} open={open.has(d.id)} onToggle={() => toggle(d.id)} onCopy={() => copy(d)} />),
     ]);
@@ -105,7 +107,7 @@ function GitFacts({ task: t, commitLink }: { task: TaskNode; commitLink: string 
   );
 }
 
-function Step({ task: t, open, onToggle, pictures, fileLink, onCopy, onReveal, commitLink }: { task: TaskNode; open: boolean; onToggle: () => void; pictures: PictureItem[]; fileLink: FileLink; onCopy: () => void; onReveal: () => void; commitLink?: string }) {
+function Step({ task: t, open, onToggle, pictures, cost, fileLink, onCopy, onReveal, commitLink }: { task: TaskNode; open: boolean; onToggle: () => void; pictures: PictureItem[]; cost?: CostLine; fileLink: FileLink; onCopy: () => void; onReveal: () => void; commitLink?: string }) {
   const elsewhere = elsewhereTag(t.updatedFrom);
   const meta = [stepTime(t), helperLine(t.helper), t.fromDetour && "Added after a side trip", elsewhere?.label].filter(Boolean).join(" · ");
   const cls = t.status === "in progress" ? "now" : t.status === "waiting on you" ? "you" : statusClass(t.status);
@@ -126,6 +128,7 @@ function Step({ task: t, open, onToggle, pictures, fileLink, onCopy, onReveal, c
           {t.status === "dropped" && t.reason && <div className="meta">Why it was cancelled: {plainText(t.reason)}</div>}
           {meta && <div className="meta">{meta}</div>}
           {times.line && <div className="meta" title={times.title}>{times.line}</div>}
+          {cost && cost.tokens > 0 && <div className="meta step-cost">{costWords(cost)}</div>}
           <Dates item={t} />
           {t.code.length > 0 && (
             <div className="file-chips">
