@@ -164,7 +164,7 @@ A compressed chat, a new chat or a different AI app never costs you your progres
 
 ## Set it up
 
-You need [Node.js](https://nodejs.org) 22 or later. Then paste this into your AI's chat, in the project you're working on:
+You need [Node.js](https://nodejs.org) 22 or later (or [uv](https://docs.astral.sh/uv/) instead: see [Install it with Python](#install-it-with-python)). Then paste this into your AI's chat, in the project you're working on:
 
 ```text
 Set up Progressor (https://github.com/racstan/progressor-mcp) for this project:
@@ -198,9 +198,22 @@ Update Progressor with `npm install -g progressor-mcp@latest`, then tell me to r
 - **Chats that were already open** keep the old version until they restart; the dashboard says so if one of them is serving the page.
 - **The background dashboard** (`progressor-mcp daemon install`) moves to the new version by itself; nothing to do.
 - **Set up with `npx`?** It updates itself the next time your app starts it.
+- **Python?** With uvx, `uv cache clean progressor-mcp`; with `uv tool`, `uv tool upgrade progressor-mcp`; with pip, `pip install -U progressor-mcp`. Then restart your app.
 - **Docker?** `docker pull ghcr.io/racstan/progressor-mcp`, then restart your app. For the always-running dashboard container, `docker rm -f progressor` and run its command again.
 
 Removing it is just as short: see [Updating and removing](docs/updating-and-removing.md).
+
+### Install it with Python
+
+Would you rather not install Node? Progressor is also on [PyPI](https://pypi.org/project/progressor-mcp/), and that package brings its own Node, so all you need is [uv](https://docs.astral.sh/uv/) (or pip). It is the same Progressor, so everything else in this README applies as it is. In your project's folder:
+
+```bash
+uvx progressor-mcp init
+```
+
+That sets up Claude Code and Claude Desktop with `uvx progressor-mcp` as the command. For other apps, the server entry is `"command": "uvx", "args": ["progressor-mcp"]` ([where each app keeps it](docs/apps.md)); then run `uvx progressor-mcp init --no-server` in your project's folder.
+
+Prefer a fixed install? `uv tool install progressor-mcp` or `pip install progressor-mcp` gives you the `progressor-mcp` command, used just like the npm one.
 
 ### Run it with Docker
 

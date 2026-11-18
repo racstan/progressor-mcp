@@ -20,6 +20,12 @@ export interface Launch {
 /** Started through npx when the running script sits in npm's npx cache. */
 export const startedViaNpx = (script = process.argv[1] ?? "") => /[\\/]_npx[\\/]/.test(script);
 
+/** The command a person types to run Progressor the way it was started, such as `uvx progressor-mcp`. */
+export const typedCommand = (launch: Launch) => [launch.server.command, ...launch.server.args].join(" ");
+
+/** Started through uvx: the Python package's launcher says so in PROGRESSOR_INSTALL. */
+export const startedViaUvx = (env: NodeJS.ProcessEnv = process.env) => env.PROGRESSOR_INSTALL === "uvx";
+
 /**
  * The global command when Progressor is installed globally, else npx. On Windows the app starts the
  * server without a shell, so the npm launcher needs `cmd /c` in front of it. That would break the
@@ -27,10 +33,11 @@ export const startedViaNpx = (script = process.argv[1] ?? "") => /[\\/]_npx[\\/]
  * wrapped one goes in Claude Code's local settings for this folder, which win over .mcp.json and
  * stay on this computer. Hooks run in a shell, so they need no wrapper.
  */
-export function launchFor({ viaNpx, platform }: { viaNpx: boolean; platform: NodeJS.Platform }): Launch {
-  const base = viaNpx ? ["npx", "-y", "progressor-mcp"] : ["progressor-mcp"];
+export function launchFor({ viaNpx, viaUvx = false, platform }: { viaNpx: boolean; viaUvx?: boolean; platform: NodeJS.Platform }): Launch {
+  const base = viaUvx ? ["uvx", "progressor-mcp"] : viaNpx ? ["npx", "-y", "progressor-mcp"] : ["progressor-mcp"];
   const launch: Launch = { server: { command: base[0]!, args: base.slice(1) }, hook: `${base.join(" ")} hook` };
-  if (platform === "win32") launch.local = { command: "cmd", args: ["/c", ...base] };
+  // uvx is a real program, not an npm launcher script, so Windows starts it without cmd /c.
+  if (platform === "win32" && !viaUvx) launch.local = { command: "cmd", args: ["/c", ...base] };
   return launch;
 }
 

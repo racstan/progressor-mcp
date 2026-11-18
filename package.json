@@ -32,7 +32,8 @@
     "typecheck": "tsc --noEmit",
     "start": "node dist/cli.js",
     "prepublishOnly": "npm run typecheck && npm test && npm run build",
-    "dev:ui": "node scripts/build-ui.mjs --watch"
+    "dev:ui": "node scripts/build-ui.mjs --watch",
+    "build:python": "npm run build && node scripts/build-python.mjs"
   },
   "keywords": [
     "mcp",

@@ -8,7 +8,7 @@ import { defaultRegistryFile, projectEntry } from "./dashboard/registry.js";
 import { resolveProject, sameFolder, seenFile, takeElsewhereLine } from "./elsewhere.js";
 import { type GoalLookup, waitsText } from "./dependencies.js";
 import { checkUp, checkupLine } from "./checkup.js";
-import { hooksAdvice, launchFor, startedViaNpx } from "./init.js";
+import { hooksAdvice, launchFor, startedViaNpx, startedViaUvx } from "./init.js";
 import { parseDuration, roughDuration, sayDuration, timeText } from "./estimate.js";
 import { type Decision, type Detour, type HelperInfo, type NewTask, type Note, type Task, type TaskStatus, TIMED, timeSpent } from "./planFile.js";
 import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, PROJECT_TALK, Project, type SessionStatus, type Status, type TaskOperation } from "./project.js";
@@ -928,7 +928,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   const hooksLine = (): string | undefined => {
     if (hooksChecked || !isClaudeCode(server)) return undefined;
     hooksChecked = true;
-    return hooksAdvice(project.root, options.claudeHome ?? homedir(), launchFor({ viaNpx: startedViaNpx(), platform: process.platform }));
+    return hooksAdvice(project.root, options.claudeHome ?? homedir(), launchFor({ viaNpx: startedViaNpx(), viaUvx: startedViaUvx(), platform: process.platform }));
   };
   // The plan a tool acts on: this project's, or with `project` another one's, changed from here.
   const planOf = (wanted: string | undefined): Project => {
@@ -1890,7 +1890,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   server.registerPrompt(
     "setup",
     { title: "Set up this project", description: "Add Progressor's hooks, its notes in CLAUDE.md and AGENTS.md and a Roadmap to this folder." },
-    () => message(setupPrompt(project.root, launchFor({ viaNpx: startedViaNpx(), platform: process.platform }))),
+    () => message(setupPrompt(project.root, launchFor({ viaNpx: startedViaNpx(), viaUvx: startedViaUvx(), platform: process.platform }))),
   );
 
   server.registerPrompt(

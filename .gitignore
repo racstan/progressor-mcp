@@ -6,3 +6,8 @@ dist/
 .claude/worktrees/
 docs/media/*.mp4
 AUDIT-*.md
+# Made by npm run build:python
+python/src/progressor_mcp/app/
+python/src/progressor_mcp/_version.py
+python/LICENSE.md
+__pycache__/

@@ -1,0 +1,48 @@
+# The Python package of Progressor: the same Progressor as on npm, run with Node from the
+# nodejs-wheel-binaries package, so `uvx progressor-mcp` works with no Node installed.
+# Build it with `npm run build:python` from the repository's folder, never from here directly:
+# that script puts the built Progressor in src/progressor_mcp/app and writes the version.
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "progressor-mcp"
+dynamic = ["version"]
+description = "Your AI's plan, saved in your project and shown live on a dashboard: an MCP server that keeps an AI coding agent on its plan across context compression."
+readme = "README.md"
+license = "PolyForm-Noncommercial-1.0.0"
+license-files = ["LICENSE.md"]
+authors = [{ name = "Rachit Asthana" }]
+requires-python = ">=3.9"
+dependencies = ["nodejs-wheel-binaries>=22"]
+keywords = ["mcp", "model-context-protocol", "agent", "planning", "progress", "claude"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development",
+]
+
+[project.urls]
+Homepage = "https://github.com/racstan/progressor-mcp#readme"
+Source = "https://github.com/racstan/progressor-mcp"
+Issues = "https://github.com/racstan/progressor-mcp/issues"
+Changelog = "https://github.com/racstan/progressor-mcp/blob/main/CHANGELOG.md"
+
+[project.scripts]
+progressor-mcp = "progressor_mcp:main"
+
+[tool.hatch.version]
+path = "src/progressor_mcp/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/progressor_mcp"]
+# app/ and _version.py are made by the build script and kept out of git, so name them here.
+artifacts = ["src/progressor_mcp/app/**", "src/progressor_mcp/_version.py"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/progressor_mcp", "README.md", "LICENSE.md"]
+artifacts = ["src/progressor_mcp/app/**", "src/progressor_mcp/_version.py"]

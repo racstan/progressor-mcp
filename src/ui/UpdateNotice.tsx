@@ -10,7 +10,7 @@ export interface UpdateInfo {
   current: string;
   latest?: string;
   available: boolean;
-  install: "global" | "npx" | "docker";
+  install: "global" | "npx" | "docker" | "uvx" | "uv-tool" | "pip";
   command: string;
   enabled: boolean;
 }

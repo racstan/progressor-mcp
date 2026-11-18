@@ -24,7 +24,10 @@ export interface UpdateState {
   toldAI?: string;
 }
 
-export type Install = "global" | "npx" | "docker";
+/** uvx, uv-tool and pip are the Python package, whose launcher says which in PROGRESSOR_INSTALL. */
+export type Install = "global" | "npx" | "docker" | "uvx" | "uv-tool" | "pip";
+
+const PYTHON_INSTALLS: readonly Install[] = ["uvx", "uv-tool", "pip"];
 
 export interface UpdateView {
   current: string;
@@ -117,12 +120,18 @@ export function dismissUpdate(file: string, version: string): void {
 /** How this Progressor was installed, from its environment and the path of the running script. */
 export function howInstalled(env: NodeJS.ProcessEnv = process.env, script: string = process.argv[1] ?? ""): Install {
   if (env.PROGRESSOR_CONTAINER) return "docker";
+  const python = PYTHON_INSTALLS.find((i) => i === env.PROGRESSOR_INSTALL);
+  if (python) return python;
   if (/[\\/]_npx[\\/]/.test(script)) return "npx";
   return "global";
 }
 
 export function updateCommand(install: Install): string {
   if (install === "docker") return "docker pull ghcr.io/racstan/progressor-mcp:latest";
+  // uvx keeps using the version it has cached, so clearing it makes the next start fetch the newest.
+  if (install === "uvx") return "uv cache clean progressor-mcp";
+  if (install === "uv-tool") return "uv tool upgrade progressor-mcp";
+  if (install === "pip") return "pip install -U progressor-mcp";
   if (install === "npx") return "Nothing to install: restart your AI app and npx fetches the new version.";
   return "npm install -g progressor-mcp@latest";
 }

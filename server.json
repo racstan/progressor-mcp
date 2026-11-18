@@ -25,6 +25,15 @@
       "transport": {
         "type": "stdio"
       }
+    },
+    {
+      "registryType": "pypi",
+      "identifier": "progressor-mcp",
+      "version": "1.4.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      }
     }
   ]
 }

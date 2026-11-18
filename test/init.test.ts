@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { type Launch, applyChanges, hooksAdvice, launchFor, onPath, planInit, planLocal, planLocalRemove, planRemove, startedViaNpx } from "../src/init.js";
+import { type Launch, applyChanges, hooksAdvice, launchFor, onPath, planInit, planLocal, planLocalRemove, planRemove, startedViaNpx, startedViaUvx, typedCommand } from "../src/init.js";
 import { tempDir } from "./tmp.js";
 
 let root: string;
@@ -39,6 +39,26 @@ describe("how Progressor is started", () => {
   it("wraps the command in cmd /c for this computer only on Windows", () => {
     expect(windows.local).toEqual({ command: "cmd", args: ["/c", "progressor-mcp"] });
     expect(launchFor({ viaNpx: true, platform: "win32" }).local).toEqual({ command: "cmd", args: ["/c", "npx", "-y", "progressor-mcp"] });
+  });
+});
+
+describe("started from the Python package", () => {
+  it("knows uvx from the Python launcher's note", () => {
+    expect(startedViaUvx({ PROGRESSOR_INSTALL: "uvx" })).toBe(true);
+    expect(startedViaUvx({ PROGRESSOR_INSTALL: "pip" })).toBe(false);
+    expect(startedViaUvx({})).toBe(false);
+  });
+
+  it("uses uvx for the server and the hooks, with no cmd /c on Windows", () => {
+    const uvx = launchFor({ viaNpx: false, viaUvx: true, platform: "linux" });
+    expect(uvx).toEqual({ server: { command: "uvx", args: ["progressor-mcp"] }, hook: "uvx progressor-mcp hook" });
+    expect(launchFor({ viaNpx: false, viaUvx: true, platform: "win32" }).local).toBeUndefined();
+  });
+
+  it("names the command to type for the way it was started", () => {
+    expect(typedCommand(launchFor({ viaNpx: false, viaUvx: true, platform: "win32" }))).toBe("uvx progressor-mcp");
+    expect(typedCommand(npx)).toBe("npx -y progressor-mcp");
+    expect(typedCommand(windows)).toBe("progressor-mcp");
   });
 });
 

@@ -20,6 +20,8 @@ import {
   planLocalRemove,
   planRemove,
   startedViaNpx,
+  startedViaUvx,
+  typedCommand,
 } from "./init.js";
 
 const USAGE = `Usage: progressor-mcp init [folder] [--code | --desktop | --all] [--yes] [--no-server]
@@ -99,7 +101,9 @@ function reportCheck(launch: Launch): void {
   console.log(
     check.ok
       ? `Checked: Progressor starts fine on this computer (version ${check.version}).`
-      : "Warning: I couldn't start Progressor to check it. Make sure it is installed (npm install -g progressor-mcp) and try again.",
+      : launch.server.command === "uvx"
+        ? "Warning: I couldn't start Progressor to check it. Make sure uv is installed (https://docs.astral.sh/uv/) and try again."
+        : "Warning: I couldn't start Progressor to check it. Make sure it is installed (npm install -g progressor-mcp) and try again.",
   );
 }
 
@@ -116,7 +120,7 @@ export async function runInitCommand(args: string[]): Promise<number> {
   const remove = args.includes("--remove");
   const noServer = args.includes("--no-server");
   const viaNpx = startedViaNpx();
-  const launch = launchFor({ viaNpx, platform: process.platform });
+  const launch = launchFor({ viaNpx, viaUvx: startedViaUvx(), platform: process.platform });
   const found = desktopConfigs({ env: process.env, platform: process.platform, home: homedir() });
   const targets = pickTargets(args, found);
   const wantsDesktop = args.includes("--desktop") || args.includes("--all");
@@ -187,9 +191,10 @@ export async function runInitCommand(args: string[]): Promise<number> {
         ? "Progressor's tools work right away; the hooks and the notes in CLAUDE.md and AGENTS.md take effect from the next conversation."
         : "Restart Claude Code in this folder to load Progressor, then ask the Agent to plan a Goal.",
     );
-  console.log("See every project's progress with: progressor-mcp dashboard");
+  const typed = typedCommand(launch);
+  console.log(`See every project's progress with: ${typed} dashboard`);
   console.log(
-    "The dashboard runs while your AI's app is open. To keep it up all the time, in a small background process (about 30 MB) that starts when you log in: progressor-mcp daemon install (optional; Settings › Advanced has the same choice).",
+    `The dashboard runs while your AI's app is open. To keep it up all the time, in a small background process (about 30 MB) that starts when you log in: ${typed} daemon install (optional; Settings › Advanced has the same choice).`,
   );
   if (viaNpx)
     console.log(

@@ -1,7 +1,7 @@
 # Publishes a release when a version tag (v0.3.0) is pushed: to npm through npm's trusted publishing
 # (no token or one-time code; npm trusts this workflow file), the Docker image to GitHub's container
-# registry (ghcr.io/racstan/progressor-mcp), and then to the official MCP Registry, signed in through
-# GitHub. Each step skips itself if that version is already published, so a run
+# registry (ghcr.io/racstan/progressor-mcp), the Python package to PyPI through PyPI's trusted
+# publishing (no token either), and then to the official MCP Registry, signed in through GitHub. Each step skips itself if that version is already published, so a run
 # can be repeated safely. "Run workflow" on the Actions tab publishes the version in package.json.
 name: Release
 
@@ -36,11 +36,17 @@ jobs:
           server=$(node -p "require('./server.json').version")
           package=$(node -p "require('./server.json').packages.find(p => p.registryType === 'npm').version")
           image=$(node -p "require('./server.json').packages.find(p => p.registryType === 'oci').identifier")
+          pypi=$(node -p "require('./server.json').packages.find(p => p.registryType === 'pypi')?.version")
           if [ "$server" != "$version" ] || [ "$package" != "$version" ]; then
             echo "::error::server.json says $server / $package but package.json says $version"; exit 1
           fi
           if [ "$image" != "ghcr.io/racstan/progressor-mcp:$version" ]; then
             echo "::error::server.json's Docker image is $image, not ghcr.io/racstan/progressor-mcp:$version"; exit 1
+          fi
+          # PyPI spells test versions differently (1.5.0b1), so only a release version is checked here;
+          # the pypi job checks the built package against server.json either way.
+          if [[ "$version" != *-* ]] && [ "$pypi" != "$version" ]; then
+            echo "::error::server.json's PyPI package says $pypi but package.json says $version"; exit 1
           fi
           if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"; exit 1
@@ -141,9 +147,59 @@ jobs:
           short-description: Your AI's plan, saved in your project and shown live on a dashboard. Free for personal and noncommercial use.
           readme-filepath: docs/dockerhub.md
 
-  # The MCP Registry checks that the npm package and the Docker image exist, so this runs after both.
+  # The Python package (python/): the same built Progressor, run with Node from nodejs-wheel-binaries,
+  # so `uvx progressor-mcp` needs no Node. PyPI trusts this workflow file (a trusted publisher set up on
+  # pypi.org for racstan/progressor-mcp, release.yml), so no token is stored.
+  pypi:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - run: npm ci
+      - name: Build the Python package
+        id: build
+        run: |
+          npm run build:python
+          python -m pip install --quiet build==1.3.0
+          python -m build python
+          py=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' python/src/progressor_mcp/_version.py)
+          listed=$(node -p "require('./server.json').packages.find(p => p.registryType === 'pypi').version")
+          if [ "$py" != "$listed" ]; then
+            echo "::error::The Python package is $py but server.json lists $listed"; exit 1
+          fi
+          echo "version=$py" >> "$GITHUB_OUTPUT"
+          if [ "$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/progressor-mcp/$py/json")" = "200" ]; then
+            echo "progressor-mcp $py is already on PyPI."
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish to PyPI
+        if: steps.build.outputs.published != 'true'
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: python/dist/
+      # The MCP Registry reads the package's page on PyPI, which can take a moment to show a new version.
+      - name: Wait for PyPI to serve the version
+        run: |
+          for i in $(seq 1 60); do
+            [ "$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/progressor-mcp/${{ steps.build.outputs.version }}/json")" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "::error::progressor-mcp ${{ steps.build.outputs.version }} did not show up on PyPI within 10 minutes"; exit 1
+
+  # The MCP Registry checks that the npm package, the Docker image and the PyPI package exist, so this
+  # runs after all three.
   registry:
-    needs: [release, docker]
+    needs: [release, docker, pypi]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

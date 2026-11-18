@@ -149,10 +149,21 @@ describe("how it was installed", () => {
     expect(howInstalled({}, "/usr/lib/node_modules/progressor-mcp/dist/cli.js")).toBe("global");
   });
 
+  it("takes the Python launcher's word for uvx, uv tool and pip", () => {
+    const script = "/home/me/.cache/uv/archive-v0/abc/lib/python3.12/site-packages/progressor_mcp/app/dist/cli.js";
+    expect(howInstalled({ PROGRESSOR_INSTALL: "uvx" }, script)).toBe("uvx");
+    expect(howInstalled({ PROGRESSOR_INSTALL: "uv-tool" }, script)).toBe("uv-tool");
+    expect(howInstalled({ PROGRESSOR_INSTALL: "pip" }, script)).toBe("pip");
+    expect(howInstalled({ PROGRESSOR_INSTALL: "something else" }, "/usr/lib/node_modules/progressor-mcp/dist/cli.js")).toBe("global");
+  });
+
   it("gives the command for each", () => {
     expect(updateCommand("global")).toBe("npm install -g progressor-mcp@latest");
     expect(updateCommand("docker")).toBe("docker pull ghcr.io/racstan/progressor-mcp:latest");
     expect(updateCommand("npx")).toContain("restart");
+    expect(updateCommand("uvx")).toBe("uv cache clean progressor-mcp");
+    expect(updateCommand("uv-tool")).toBe("uv tool upgrade progressor-mcp");
+    expect(updateCommand("pip")).toBe("pip install -U progressor-mcp");
   });
 });
 
