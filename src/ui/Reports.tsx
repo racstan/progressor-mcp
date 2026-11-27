@@ -1,26 +1,15 @@
 // A step's reports: the write-ups a helper (or any chat) attached to it (reports.ts). Each is listed
 // by title and time; clicking one opens it, rendered as markdown the way the Handoffs page shows one.
 import { useEffect, useState } from "react";
-import { parseChangelog, releaseBody } from "./changelog.js";
+import { markdownBlocks, releaseBody } from "./changelog.js";
 import type { ReportItem } from "./data.js";
 import { Loading } from "./Loading.js";
 import { REPORTS_HEADING, REPORT_HINT, REPORT_UNREADABLE, ago, exactDate } from "./words.js";
 
-/** A report's markdown without the lines that make up its header (title, step, written). */
+/** A report's markdown without the lines that make up its header (title, step, written); lists show as lists. */
 function ReportText({ text }: { text: string }) {
   const body = text.replace(/^#\s+.*$/m, "").replace(/^- (step|written): .*$/gm, "");
-  const doc = parseChangelog(body);
-  return (
-    <div className="handoff-text report-text">
-      {doc.intro.map((p, i) => <p key={i}>{p}</p>)}
-      {doc.releases.map((r, i) => (
-        <section key={i}>
-          <h3>{r.title}</h3>
-          {releaseBody(r)}
-        </section>
-      ))}
-    </div>
-  );
+  return <div className="handoff-text report-text">{releaseBody({ title: "", version: "", blocks: markdownBlocks(body) })}</div>;
 }
 
 function Report({ report: r, read }: { report: ReportItem; read: (id: string) => Promise<string | undefined> }) {

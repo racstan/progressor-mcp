@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parseChangelog, spans } from "../src/ui/changelog.js";
+import { markdownBlocks, parseChangelog, spans } from "../src/ui/changelog.js";
 
 describe("What's new", () => {
   it("reads releases, headings, paragraphs and lists with sub-items", () => {
@@ -40,5 +40,22 @@ describe("What's new", () => {
     expect(log.releases.length).toBeGreaterThan(10);
     expect(log.releases.some((r) => r.version === "1.2.1")).toBe(true);
     for (const r of log.releases) expect(r.blocks.length, r.title).toBeGreaterThan(0);
+  });
+});
+
+describe("markdownBlocks", () => {
+  it("shows bullets as a list even before any heading, and a heading as a heading", () => {
+    const blocks = markdownBlocks("Intro line\n\n- one\n- two\n  - nested\n\n## Results\n\nDone.\n- last");
+    expect(blocks).toEqual([
+      { kind: "p", text: "Intro line" },
+      { kind: "list", items: [{ text: "one", sub: [] }, { text: "two", sub: ["nested"] }] },
+      { kind: "h", text: "Results" },
+      { kind: "p", text: "Done." },
+      { kind: "list", items: [{ text: "last", sub: [] }] },
+    ]);
+  });
+
+  it("gives nothing for empty text", () => {
+    expect(markdownBlocks("  \n")).toEqual([]);
   });
 });

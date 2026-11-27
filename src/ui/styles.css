@@ -1564,3 +1564,6 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .step-reports .report-when { font-weight: 400; color: var(--faint); font-size: var(--t-s); white-space: nowrap; }
 .step-reports .report[open], .step-reports .report-row[aria-expanded="true"] { border-bottom: 1px solid var(--line); }
 .step-reports .report-text { padding: var(--s2) var(--s3); border-top: 1px solid var(--line); font-weight: 400; }
+.step-reports .report-text ul { list-style: disc; margin: var(--s1) 0; padding-left: 22px; }
+.step-reports .report-text ul ul { list-style: circle; }
+.step-reports .report-text p, .step-reports .report-text h4 { margin: var(--s1) 0; }
