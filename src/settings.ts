@@ -46,6 +46,9 @@ const SCHEMA = {
   ci: z.object({ enabled: flag }),
   // Asking npm once a day whether a newer Progressor is out (updateCheck.ts); off asks nothing.
   updates: z.object({ check: flag }),
+  // Keeping every project's plan in one private git repo, shared by the Developer's computers (sync/).
+  // repo is that repo's address; talk also syncs messages and screenshots, which stay local unless on.
+  sync: z.object({ enabled: flag, repo: z.string(), talk: flag }),
 };
 
 export type SettingsSection = keyof typeof SCHEMA;
@@ -73,6 +76,7 @@ export const SETTINGS_DEFAULTS: Settings = {
   cost: { inputPrice: 0, outputPrice: 0 },
   ci: { enabled: true },
   updates: { check: true },
+  sync: { enabled: false, repo: "", talk: false },
 };
 
 export const SETTINGS_SECTIONS = Object.keys(SCHEMA) as SettingsSection[];

@@ -4,6 +4,7 @@
 // `progressor-mcp dashboard [folder]` opens the dashboard on a Workspace with no Agent running.
 // `progressor-mcp init [folder]` sets a project up for Progressor and Claude Code.
 // `progressor-mcp daemon <start|stop|status|install|uninstall>` runs the dashboard in the background.
+// `progressor-mcp sync <connect|off|status|link|unlink>` keeps plans in one private git repo across computers.
 // `progressor-mcp --version` prints the version, for bug reports.
 // Each part is loaded only when needed, so the hook (which runs on every prompt) starts fast.
 if (process.argv[2] === "--version" || process.argv[2] === "-v") {
@@ -25,6 +26,9 @@ if (process.argv[2] === "--version" || process.argv[2] === "-v") {
   const { runDaemonCommand } = await import("./daemonCommand.js");
   // `daemon run` (the background process itself) returns only once it has been stopped
   process.exit(await runDaemonCommand(process.argv.slice(3)));
+} else if (process.argv[2] === "sync") {
+  const { runSyncCommand } = await import("./syncCommand.js");
+  process.exit(await runSyncCommand(process.argv.slice(3)));
 } else {
   await import("./serve.js");
 }
