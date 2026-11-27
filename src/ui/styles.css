@@ -1567,3 +1567,7 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .step-reports .report-text ul { list-style: disc; margin: var(--s1) 0; padding-left: 22px; }
 .step-reports .report-text ul ul { list-style: circle; }
 .step-reports .report-text p, .step-reports .report-text h4 { margin: var(--s1) 0; }
+
+/* How long steps waited: quiet grey text. */
+.goal-waited { margin: var(--s1) 0 0; }
+.step-waits { list-style: none; margin: 0; padding: 0; }

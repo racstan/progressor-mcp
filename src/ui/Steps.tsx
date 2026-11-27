@@ -11,11 +11,12 @@ import { Dates } from "./Dates.js";
 import { Icon } from "./Icon.js";
 import { type PictureItem, Pictures } from "./Pictures.js";
 import { Reports } from "./Reports.js";
+import { stepWaitLine, stepWaits } from "../waits.js";
 import { RichText } from "./RichText.js";
 import { waitingLine } from "./others.js";
 import { plainText } from "./text.js";
 import { checklistRows } from "./views.js";
-import { NOT_SAVED, NOT_SAVED_HINT, SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, commitsLabel, elsewhereTag, evidenceLine, finishedAt, helperLine, statusClass, stepTime, stepTimes, stepWhen, testsLabel } from "./words.js";
+import { WAITED_HINT, exactDate, NOT_SAVED, NOT_SAVED_HINT, SIDE_TRIP_HINT, STEP_HINT, STEP_WORD, commitsLabel, elsewhereTag, evidenceLine, finishedAt, helperLine, statusClass, stepTime, stepTimes, stepWhen, testsLabel } from "./words.js";
 
 export type FileLink = (path: string, line?: number) => { href: string | undefined; onClick: () => void };
 
@@ -111,6 +112,17 @@ function GitFacts({ task: t, commitLink, ci }: { task: TaskNode; commitLink: str
   );
 }
 
+/** How long the step waited on whom: each stretch in plain words, the running one counted to now. */
+function Waits({ task: t }: { task: TaskNode }) {
+  const waits = stepWaits(t, new Date());
+  if (waits.length === 0) return null;
+  return (
+    <ul className="step-waits meta" title={WAITED_HINT}>
+      {waits.map((w) => <li key={`${w.at}${w.who}`} title={exactDate(w.at)}>{stepWaitLine(w)}</li>)}
+    </ul>
+  );
+}
+
 function Step({ task: t, open, onToggle, pictures, cost, fileLink, onCopy, onReveal, commitLink, ci, reports = [], readReport }: { task: TaskNode; open: boolean; onToggle: () => void; pictures: PictureItem[]; cost?: CostLine; fileLink: FileLink; onCopy: () => void; onReveal: () => void; commitLink?: string; ci?: StepCiView | undefined; reports?: ReportItem[]; readReport?: ((id: string) => Promise<string | undefined>) | undefined }) {
   const elsewhere = elsewhereTag(t.updatedFrom);
   const meta = [stepTime(t), helperLine(t.helper), t.fromDetour && "Added after a side trip", elsewhere?.label].filter(Boolean).join(" · ");
@@ -133,6 +145,7 @@ function Step({ task: t, open, onToggle, pictures, cost, fileLink, onCopy, onRev
           {t.summary ? <RichText className="summary" text={t.summary} /> : <p className="summary">No details yet.</p>}
           {evidenceLine(t.evidence) && <div className="meta">{evidenceLine(t.evidence)}</div>}
           <GitFacts task={t} commitLink={commitLink} ci={ci} />
+          <Waits task={t} />
           {t.status === "dropped" && t.reason && <div className="meta">Why it was cancelled: {plainText(t.reason)}</div>}
           {meta && <div className="meta">{meta}</div>}
           {times.line && <div className="meta" title={times.title}>{times.line}</div>}

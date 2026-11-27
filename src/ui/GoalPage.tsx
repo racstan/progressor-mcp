@@ -5,6 +5,7 @@ import type { GoalSchedule } from "../schedule.js";
 import { type GoalView, type RoadmapView, getReport, useCi, useCost, useReports, useStored } from "./data.js";
 import { costWords } from "../costWords.js";
 import { GoalCiRow } from "./CiBadges.js";
+import { waitLine, waitTotals } from "../waits.js";
 import { GoalNotes } from "./GoalNotes.js";
 import { HandTests, UntriedTests } from "./HandTests.js";
 import { Pictures } from "./Pictures.js";
@@ -21,7 +22,7 @@ import { Conversation, OpenQuestions, questionsAtTop } from "./Talk.js";
 import { plainText } from "./text.js";
 import { TryOneByOne, Walkthrough } from "./TryOneByOne.js";
 import { dashboardLine, summarizeUntried } from "../untried.js";
-import { SIDE_TRIP_HINT, ago, datesLine, datesTitle, elsewhereTag, exactDate, finishWords, goalState, releaseChip, RELEASE_HINT, waitsChip, whenWords, WAITING_ON_GOAL_HINT } from "./words.js";
+import { SIDE_TRIP_HINT, ago, datesLine, datesTitle, elsewhereTag, exactDate, finishWords, goalState, releaseChip, RELEASE_HINT, waitsChip, whenWords, WAITING_ON_GOAL_HINT, WAITED_HINT } from "./words.js";
 
 type Goal = RoadmapView["goals"][number];
 type Tab = "steps" | "map" | "talk" | "notes";
@@ -79,6 +80,8 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
   const notes = view.decisions.length + view.notes.filter((n) => !n.resolved).length + view.handTests.length + view.pictures.length;
   // Pull requests and CI checks for the steps' commits (ci.ts); empty until something is known.
   const ci = useCi(projectId, goal.id, view);
+  // How long its steps waited, by who (waits.ts); said only when there was any.
+  const waited = waitLine(waitTotals(tasks, new Date()));
   // The write-ups attached to its steps (reports.ts).
   const reports = useReports(projectId, goal.id, view);
   const readReport = useCallback((id: string) => getReport(projectId, goal.id, id), [projectId, goal.id]);
@@ -142,6 +145,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
           </div>
         )}
         <GoalCiRow prs={ci.prs} checks={ci.checks} />
+        {waited && <p className="goal-waited quiet" title={WAITED_HINT}>{waited}</p>}
         {cost && cost.tokens > 0 && (
           <p className="goal-cost quiet" title="Tokens your AI used on this goal, counted by itself as it works. Set prices in Settings, What goals cost, to see money too">
             {costWords(cost)}
