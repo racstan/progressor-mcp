@@ -68,7 +68,7 @@ describe("parsePulls", () => {
       { number: 14, title: "Old", html_url: "https://github.com/me/app/pull/14", state: "closed", merged_at: null, head: { ref: "old", sha: "aaa" } },
     ];
     expect(parsePulls(json)).toEqual([
-      { number: 12, title: "Add login", url: "https://github.com/me/app/pull/12", state: "merged", branch: "login", headSha: "abc123" },
+      { number: 12, title: "Add login", url: "https://github.com/me/app/pull/12", state: "merged", branch: "login", headSha: "abc123", mergedAt: "2026-01-01T00:00:00Z" },
       { number: 13, title: "Fix", url: "https://github.com/me/app/pull/13", state: "open", branch: "fix", headSha: "def456" },
       { number: 14, title: "Old", url: "https://github.com/me/app/pull/14", state: "closed", branch: "old", headSha: "aaa" },
     ]);

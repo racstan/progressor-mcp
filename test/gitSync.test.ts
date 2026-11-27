@@ -1,7 +1,10 @@
 // Steps follow local git: Project.syncWithGit (with git faked) and the line a tool reply gets.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
+import { type CiDeps, ciCacheFile } from "../src/ci.js";
 import type { GitFacts } from "../src/gitFacts.js";
 import type { LiveSession } from "../src/liveSessions.js";
 import { Project } from "../src/project.js";
@@ -187,5 +190,106 @@ describe("the line on a tool reply", () => {
     expect(first.text).toContain("Kept in step with git: t2 is with a helper (chat s-1a2b3c on branch t2-docs).");
     const second = await call("get_status");
     expect(second.text).not.toContain("Kept in step with git");
+  });
+});
+
+describe("steps follow pull requests", () => {
+  const deps: CiDeps = { run: async () => undefined, fetchJson: async () => undefined, now: () => Date.now() };
+  let cacheFile: string;
+  let on: boolean;
+  const keep = (cache: object) => {
+    mkdirSync(dirname(cacheFile), { recursive: true });
+    writeFileSync(cacheFile, JSON.stringify(cache));
+  };
+  const pr = (over: Record<string, unknown> = {}) => ({ number: 12, title: "Export", url: "https://github.com/o/r/pull/12", state: "open", branch: "t1-export", headSha: "a1b2c3d4e5f6a1b2c3d4", ...over });
+  const onBranch = (prs: object[]) => keep({ commits: {}, branches: { "t1-export": { at: Date.now(), prs } } });
+  const follower = () => {
+    const p = lead();
+    p.followPullRequests({ cacheFile: () => cacheFile, deps, on: () => on });
+    return p;
+  };
+  beforeEach(() => {
+    cacheFile = join(tempDir("progressor-ci-"), "ci", "x.json");
+    on = true;
+  });
+
+  it("closes a step whose pull request is merged, with the head and merge commits", () => {
+    const p = follower();
+    p.startTask("t1", "login");
+    onBranch([pr({ state: "merged", mergeSha: "99887766554433", mergedAt: "2026-11-27T10:30:00.000Z" })]);
+    now = new Date("2026-11-27T11:00:00.000Z");
+    expect(p.syncWithGit([])).toBe("Kept in step with git: t1 is done (PR #12 merged, commits a1b2c3d, 9988776).");
+    const t = p.plan("login").tasks.find((x) => x.id === "t1")!;
+    expect(t.status).toBe("done");
+    expect(t.commits).toEqual(["a1b2c3d", "9988776"]);
+  });
+
+  it("marks a step checked, with evidence, once its open pull request's checks pass", () => {
+    const p = follower();
+    p.startTask("t1", "login");
+    onBranch([pr({ checks: "passed", createdAt: "2026-11-27T10:30:00.000Z" })]);
+    now = new Date("2026-11-27T11:00:00.000Z");
+    expect(p.syncWithGit([])).toBe("Kept in step with git: t1 is checked (CI passed on PR #12).");
+    const t = p.plan("login").tasks.find((x) => x.id === "t1")!;
+    expect(t.status).toBe("checked");
+    expect(t.evidence).toBe("CI passed on PR #12");
+  });
+
+  it("does nothing for failed checks, when pull requests are off, or without a kept answer", () => {
+    const p = follower();
+    p.startTask("t1", "login");
+    now = new Date("2026-11-27T11:00:00.000Z");
+    expect(p.syncWithGit([])).toBeUndefined(); // nothing kept yet
+    onBranch([pr({ checks: "failed", createdAt: "2026-11-27T10:30:00.000Z" })]);
+    now = new Date("2026-11-27T11:01:00.000Z");
+    expect(p.syncWithGit([])).toBeUndefined();
+    onBranch([pr({ state: "merged", mergedAt: "2026-11-27T10:30:00.000Z" })]);
+    on = false;
+    now = new Date("2026-11-27T11:02:00.000Z");
+    expect(p.syncWithGit([])).toBeUndefined();
+    expect(p.plan("login").tasks.find((x) => x.id === "t1")!.status).toBe("in progress");
+  });
+
+  it("finds a pull request by a ref to the step among the recent ones", () => {
+    const p = follower();
+    p.startTask("t2", "login");
+    keep({ commits: {}, branches: {}, recent: { at: Date.now(), prs: [pr({ branch: "whatever", state: "merged", refs: ["login/t2"] })] } });
+    now = new Date("2026-11-27T11:00:00.000Z");
+    expect(p.syncWithGit([])).toBe("Kept in step with git: t2 is done (PR #12 merged, commits a1b2c3d).");
+  });
+
+  it("puts a git change and a pull request change on the one line", () => {
+    const p = follower();
+    p.startTask("t1", "login");
+    onBranch([pr({ checks: "passed", createdAt: "2026-11-27T10:30:00.000Z" })]);
+    now = new Date("2026-11-27T11:00:00.000Z");
+    expect(p.syncWithGit([helper("s-h", "t2-docs")])).toBe("Kept in step with git: t2 is with a helper (chat s-h on branch t2-docs); t1 is checked (CI passed on PR #12).");
+  });
+
+  it("leaves a step that is already finished alone", () => {
+    const p = follower();
+    p.completeTask("t1", [], undefined, "login");
+    onBranch([pr({ state: "merged", mergedAt: "2026-11-27T10:30:00.000Z" })]);
+    now = new Date("2026-11-27T11:00:00.000Z");
+    expect(p.syncWithGit([])).toBeUndefined();
+  });
+});
+
+describe("the server follows pull requests", () => {
+  it("reads the kept answers beside the project list and adds the line to a reply", async () => {
+    const registryFile = join(tempDir("progressor-reg-"), "projects.json");
+    const file = ciCacheFile(registryFile, root);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({ commits: {}, branches: {}, recent: { at: Date.now(), prs: [{ number: 9, title: "x", url: "https://github.com/o/r/pull/9", state: "open", branch: "t1-export", headSha: "a1b2c3d", checks: "passed", createdAt: "2099-01-01T00:00:00Z" }] } }));
+    const project = lead();
+    const ci: CiDeps = { run: async () => undefined, fetchJson: async () => undefined, now: () => Date.now() };
+    const server = createServer(project, { servers: () => [], registryFile, ci });
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "test", version: "0" });
+    await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
+    project.startTask("t1", "login");
+    now = new Date("2026-11-27T11:00:00.000Z");
+    const r = (await client.callTool({ name: "get_status", arguments: {} })) as { content: { text: string }[] };
+    expect(r.content.map((c) => c.text).join("\n")).toContain("Kept in step with git: t1 is checked (CI passed on PR #9).");
   });
 });

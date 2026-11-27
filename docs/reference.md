@@ -354,3 +354,12 @@ On each tool call of a chat that holds goals (at most once every 30 seconds per 
 - Done, released and dropped steps are never touched.
 
 The tool's reply ends with one line, such as `Kept in step with git: t3 is done (branch t3-export merged, commits a1b2c3, d4e5f6); t4 is with a helper (chat s-1a2b3c on branch t4-docs).` Nothing to do means no line. If git or the plan cannot be read, nothing happens and the tool call is unaffected.
+
+Steps follow pull requests the same way, from the answers ci.ts keeps (`~/.progressor/ci/`, shown on the dashboard too). A refresh now also looks up the branch of each open step (the one recorded with its helper info, else, from the chat's sync, one naming the step) and lists the repository's 30 most recent pull requests (GitHub `pulls?state=all`, Gitea `/pulls?state=all`), keeping for each any `progressor://<goal>/<step>` refs in its title or body. A step links to a pull request by its branch (as above) or by such a ref. On the same sync, for the goals the chat holds:
+
+- **Merged** pull request: the step is done, with the pull request's head commit and merge commit (short hashes) and its branch, unless it is already finished.
+- **Open** pull request whose checks all passed: a pending, in-progress or with-a-helper step becomes **checked**, with the evidence `CI passed on PR #12`.
+- Failed or running checks, and closed pull requests, change nothing.
+- As for branches, a pull request found only through a branch linked by name must have been merged (or opened) after the step started, or after the goal was claimed; a ref or a branch recorded on the step has no such limit.
+
+The sync only reads the kept file and starts a background refresh (at most once every 5 minutes per project, and only while some step is open); it follows the Settings switch for pull requests and checks, and does nothing without a git remote, `gh` or network.
