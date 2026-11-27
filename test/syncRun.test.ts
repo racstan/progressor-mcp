@@ -1,11 +1,14 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { writeSettings } from "../src/settings.js";
 import { type Run, realRun } from "../src/sync/connect.js";
 import { readSyncState, startBackgroundSync, syncOnce, syncStateFileFor } from "../src/sync/run.js";
 import { ROADMAP, bareRepo, computer, git, goalFile } from "./syncHelpers.js";
 import { tempDir } from "./tmp.js";
+
+// Each test runs real git a few times; that is slow when the whole suite runs at once.
+vi.setConfig({ testTimeout: 90_000 });
 
 describe("syncOnce", () => {
   it("writes a state file saying when it last synced and that all is well", async () => {
@@ -72,7 +75,7 @@ describe("syncOnce", () => {
     let pushes = 0;
     let raced = false;
     const run: Run = async (cmd, args, cwd) => {
-      if (args[0] === "push") {
+      if (args.includes("push")) {
         pushes++;
         if (!raced) {
           raced = true; // the other computer syncs between our fetch and our push

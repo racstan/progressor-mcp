@@ -41,6 +41,9 @@ import { summarizeUntried } from "../untried.js";
 import { globalFileFor, readGlobal } from "../globalRules.js";
 import type { GoalLookup } from "../dependencies.js";
 import { watchProgress } from "./watch.js";
+import { defaultPlansDir } from "../sync/connect.js";
+import { defaultLinksFile } from "../sync/identity.js";
+import { type Background, startBackgroundSync } from "../sync/run.js";
 import { allProjects, findProjects } from "./workspace.js";
 import { calibration, combineStats, projectStats } from "../stats.js";
 import { type RevealRunner, insideProject, revealCommand, runReveal } from "./reveal.js";
@@ -391,6 +394,7 @@ class Hub {
   /** Whether this is the background dashboard (daemonCommand.ts). */
   background = false;
   private look: Look | undefined;
+  private readonly planSync: Background;
   private lookTimer: NodeJS.Timeout | undefined;
 
   constructor(
@@ -411,6 +415,14 @@ class Hub {
   ) {
     this.sync();
     this.look = this.lookNow();
+    // Plan sync (sync/run.js): does nothing until `progressor-mcp sync connect` has turned it on.
+    this.planSync = startBackgroundSync({
+      settingsFile: this.settingsFile,
+      plansDir: defaultPlansDir(this.registryFile),
+      linksFile: defaultLinksFile(this.registryFile),
+      globalFile: globalFileFor(this.registryFile),
+      projects: () => this.entries.map((e) => e.root),
+    });
     this.timer = setInterval(() => {
       this.sync();
       this.runRoutines();
@@ -498,6 +510,7 @@ class Hub {
           this.searchIndex.drop(entry.id);
           this.send("change", { project: entry.id, files });
           this.pushSoon();
+          this.planSync?.changed();
         });
         this.projects.set(entry.id, {
           api: dashboardApi(project, (pid) => sessionOfProcess(this.serversDir, pid), () => readSettings(this.settingsFile, project.root).estimates, this.goalLookup),
@@ -1121,6 +1134,7 @@ class Hub {
   }
 
   close(): void {
+    this.planSync.stop();
     clearInterval(this.timer);
     clearTimeout(this.lookTimer);
     for (const p of this.projects.values()) p.stop();

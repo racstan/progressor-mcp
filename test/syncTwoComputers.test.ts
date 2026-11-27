@@ -1,8 +1,11 @@
 import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readSyncState, syncStateFileFor } from "../src/sync/run.js";
 import { ROADMAP, T2, T3, bareRepo, computer, git, goalFile } from "./syncHelpers.js";
+
+// Each test runs real git a few times; that is slow when the whole suite runs at once.
+vi.setConfig({ testTimeout: 90_000 });
 
 const state = (c: { settingsFile: string }) => readSyncState(syncStateFileFor(c.settingsFile));
 
