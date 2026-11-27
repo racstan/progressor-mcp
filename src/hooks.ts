@@ -10,6 +10,8 @@ import { type GlobalNotes, contextLines, defaultGlobalFile, globalFileFor, globa
 import { handTestLines } from "./handTestText.js";
 import { promptNewsLine, talkLines } from "./talkText.js";
 import { existsSync } from "node:fs";
+import { liveSessions } from "./liveSessions.js";
+import { defaultServersDir, listServers } from "./servers.js";
 import { join } from "node:path";
 
 const PREFIX = "[Progressor]";
@@ -221,9 +223,11 @@ export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, 
     let overLimit: string | undefined;
     if (kind === "prompt") {
       try {
-        const { busy, limit } = project.helperLoad();
+        const registry = env.PROGRESSOR_REGISTRY;
+        const records = listServers(registry ? defaultServersDir(registry) : defaultServersDir(), { ...(isAlive ? { isAlive } : {}), now });
+        const { busy, limit, rule, chats } = project.helperLoad({ chats: liveSessions(project, records), global: global.rules });
         if (limit !== undefined && busy > limit)
-          overLimit = `${busy} helpers are at work, over this project's helper limit of ${limit}: hand out no more until one comes back.`;
+          overLimit = `${busy} helpers are at work${chats ? ` (${chats} chats in this project)` : ""}, over the helper limit of ${limit} (${rule!.id}): hand out no more until one comes back.`;
       } catch {
         // the reminder never fails the message
       }

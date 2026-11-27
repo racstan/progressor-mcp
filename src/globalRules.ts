@@ -22,6 +22,8 @@ export interface GlobalRule {
   text: string;
   /** A hard rule must never be broken; any other is a preference. */
   hard: boolean;
+  /** With it, the rule is the helper limit in every project: at most this many helpers at once. */
+  helpersAtOnce?: number;
 }
 
 /** The two parts of the context for everything. */
@@ -58,7 +60,12 @@ export function readGlobal(file = defaultGlobalFile()): GlobalNotes {
     const rules = Array.isArray(data.rules)
       ? data.rules
           .filter((r): r is GlobalRule => typeof r?.id === "string" && RULE_ID.test(r.id) && typeof r?.text === "string" && r.text.trim() !== "")
-          .map((r) => ({ id: r.id, text: oneLine(r.text), hard: r.hard === true }))
+          .map((r) => ({
+            id: r.id,
+            text: oneLine(r.text),
+            hard: r.hard === true,
+            ...(Number.isInteger(r.helpersAtOnce) && r.helpersAtOnce! > 0 ? { helpersAtOnce: r.helpersAtOnce } : {}),
+          }))
       : [];
     const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
     return { rules, computer: text(data.computer), me: text(data.me) };
@@ -90,12 +97,12 @@ function change<T>(file: string, body: (notes: GlobalNotes) => T): T {
 }
 
 /** Adds a rule for everything. */
-export function addGlobalRule(file: string, text: string, hard = false): GlobalRule {
+export function addGlobalRule(file: string, text: string, hard = false, helpersAtOnce?: number): GlobalRule {
   const clean = oneLine(text);
   if (!clean) throw new Error("Write the rule first.");
   return change(file, (notes) => {
     const top = Math.max(0, ...notes.rules.map((r) => Number(RULE_ID.exec(r.id)![1])));
-    const rule = { id: `g${top + 1}`, text: clean, hard };
+    const rule: GlobalRule = { id: `g${top + 1}`, text: clean, hard, ...(helpersAtOnce && helpersAtOnce > 0 ? { helpersAtOnce } : {}) };
     notes.rules.push(rule);
     return rule;
   });
@@ -105,7 +112,7 @@ export function addGlobalRule(file: string, text: string, hard = false): GlobalR
  * Rewords a rule for everything, or makes it hard (or a preference again); an empty text removes
  * it, and then undefined is given back.
  */
-export function updateGlobalRule(file: string, id: string, changes: { text?: string; hard?: boolean }): GlobalRule | undefined {
+export function updateGlobalRule(file: string, id: string, changes: { text?: string; hard?: boolean; helpersAtOnce?: number }): GlobalRule | undefined {
   return change(file, (notes) => {
     const at = notes.rules.findIndex((r) => r.id === id.trim().toLowerCase());
     if (at < 0) throw new Error(`No rule ${id} for everything. The IDs (g1, g2...) are in get_status.`);
@@ -116,6 +123,10 @@ export function updateGlobalRule(file: string, id: string, changes: { text?: str
     const rule = notes.rules[at]!;
     if (changes.text !== undefined) rule.text = oneLine(changes.text);
     if (changes.hard !== undefined) rule.hard = changes.hard;
+    if (changes.helpersAtOnce !== undefined) {
+      if (changes.helpersAtOnce > 0) rule.helpersAtOnce = changes.helpersAtOnce;
+      else delete rule.helpersAtOnce;
+    }
     return { ...rule };
   });
 }
@@ -133,7 +144,8 @@ export function setGlobalContext(file: string, part: ContextPart, text: string):
 }
 
 /** A global rule as the AI reads it in a list: `g1 text`, or `HARD RULE g2: text`. */
-export const globalRuleText = (r: GlobalRule) => (r.hard ? `HARD RULE ${r.id}: ${r.text}` : `${r.id} ${r.text}`);
+export const globalRuleText = (r: GlobalRule) =>
+  (r.hard ? `HARD RULE ${r.id}: ${r.text}` : `${r.id} ${r.text}`) + (r.helpersAtOnce ? ` (limit: at most ${r.helpersAtOnce} helpers at once)` : "");
 
 const RULES_HEADING = (hard: boolean) =>
   `Rules for everything (the Developer's: they apply in every project and anywhere you use Progressor on this computer${hard ? "; a HARD RULE must never be broken" : ""}):`;

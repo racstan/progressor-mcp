@@ -188,7 +188,9 @@ describe("what the AI is given", () => {
     expect(res.text).toMatch(/^Saved HARD RULE g1 for everything: Answer in plain English/);
     expect(readGlobal(file).rules).toEqual([{ id: "g1", text: "Answer in plain English", hard: true }]);
     expect(project.roadmap().standingInstructions).toEqual([]);
-    expect((await call("save_standing_instruction", { text: "x", global: true, helpers_at_once: 2 })).isError).toBe(true);
+    // A rule for everything can hold the helper limit, for every project.
+    expect((await call("save_standing_instruction", { text: "One helper at a time", global: true, helpers_at_once: 1 })).text).toContain("g2");
+    expect(readGlobal(file).rules[1]).toMatchObject({ id: "g2", helpersAtOnce: 1 });
   });
 
   it("update_standing_instruction with global: true rewords and removes one", async () => {

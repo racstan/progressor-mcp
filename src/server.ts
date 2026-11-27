@@ -145,7 +145,7 @@ const helpersAtOnce = z
   .min(0)
   .optional()
   .describe(
-    "Makes this rule the project's helper limit: the most Tasks that may be 'with a helper' at once, such as 2 when the Developer says 'at most 2 helpers in parallel'. One rule holds the limit; setting it here takes it off any other. 0 removes it.",
+    "Makes this rule the helper limit (in every project, with global): the most helper chats at work at once, such as 1 when the Developer says 'one helper at a time'. Progressor counts the chats running in the project. 0 removes it.",
   );
 const hardFlag = z
   .boolean()
@@ -479,11 +479,11 @@ const limitText = (s: StandingInstruction) => (s.helpersAtOnce ? ` (the helper l
  * The warning after a Task was handed to a helper while the project's helper limit is passed. The
  * change is made all the same: the Agent may have a reason.
  */
-export function helperWarning(p: Pick<Project, "helperLoad">): string[] {
-  const { busy, limit, rule } = p.helperLoad();
+export function helperWarning(p: Pick<Project, "helperLoad">, options: Parameters<Project["helperLoad"]>[0] = {}): string[] {
+  const { busy, limit, rule, chats } = p.helperLoad(options);
   if (limit === undefined || busy <= limit) return [];
   return [
-    `Warning: ${busy} Tasks are now with a helper, over this project's limit of ${limit} at once (${rule!.id}: "${rule!.text}"). ` +
+    `Warning: ${busy} helpers are at work${chats ? ` (${chats} chats in this project)` : ""}, over the helper limit of ${limit} at once (${rule!.id}: "${rule!.text}"). ` +
       "The change is made. Unless you have a good reason, wait for a helper to come back before handing out another, and say why if you keep going.",
   ];
 }
@@ -750,6 +750,8 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   const server = new McpServer({ name: "progressor", version: BUILD.version }, { instructions: serverInstructions(readGlobal(globalFile)) });
   withExamples(server);
   const servers = options.servers ?? (() => listServers(defaultServersDir(options.registryFile ?? defaultRegistryFile())));
+  /** What the helper limit is counted against: the chats here (this project only) and the rules for everything. */
+  const helperContext = (p: Project) => ({ ...(p === project ? { chats: chatsHere() } : {}), global: readGlobal(globalFile).rules });
   /** The chats running in this project now, this one included. */
   const chatsHere = () => {
     try {
@@ -1037,6 +1039,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const risky = riskReminder();
         const update = updateLine();
         const others = chatsHere().filter((c) => c.session !== project.session.id);
+        const overLimit = helperWarning(project, { chats: chatsHere(), global: readGlobal(globalFile).rules });
         const chats = others.length > 0 ? `Other chats in this project: ${others.map((c) => `${c.session} (${c.goals.length > 0 ? `holds ${c.goals.map((g) => g.id).join(", ")}` : "no Goal"})`).join(", ")}` : undefined;
         return [
           ...handed,
@@ -1049,6 +1052,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           ...(hooks ? [hooks] : []),
           ...(update ? [update] : []),
           ...(chats ? [chats] : []),
+          ...overLimit,
           `Project folder: ${project.root}`,
           ...(dashboard?.url ? [`Dashboard: ${dashboard.url}`] : []),
           ...(dashboard?.url && dashboard.notice ? [`Dashboard note: ${dashboard.notice}`] : []),
@@ -1518,7 +1522,7 @@ Could not claim ${next}: ${(e as Error).message}`;
         const t = p.setTaskState(task, state, goal, { helper: helperOf(helper_branch, helper_folder, helper_label), evidence: proof, person, need });
         const waits = t.status === "waiting on someone" ? `, waiting on ${t.waitingFor}${t.need ? `: ${t.need}` : ""}` : "";
         const who = role !== undefined && person ? p.addPerson(person, role) : undefined;
-        const said = [`Task ${taskLine(t)} is now ${t.status}${waits}.`, ...(who ? [who.role ? `${who.name} (${who.id}) is now: ${who.role}.` : `${who.name} (${who.id}) has no role now.`] : []), ...tookLine([t], new Date()), ...(state === "with a helper" ? helperWarning(p) : []), ...recordEvidence(p, [{ task: t, goal }])];
+        const said = [`Task ${taskLine(t)} is now ${t.status}${waits}.`, ...(who ? [who.role ? `${who.name} (${who.id}) is now: ${who.role}.` : `${who.name} (${who.id}) has no role now.`] : []), ...tookLine([t], new Date()), ...(state === "with a helper" ? helperWarning(p, helperContext(p)) : []), ...recordEvidence(p, [{ task: t, goal }])];
         return doneIn(p, said.join("\n"));
       }),
   );
@@ -1616,7 +1620,7 @@ Could not claim ${next}: ${(e as Error).message}`;
               changed.filter((c, i) => operations[i]!.action === "complete" && !was[i]).map((c) => c.task),
               now,
             ),
-            ...(operations.some((o) => o.state === "with a helper") ? helperWarning(p) : []),
+            ...(operations.some((o) => o.state === "with a helper") ? helperWarning(p, helperContext(p)) : []),
             ...(handTests + decisions > 0
               ? [`Saved ${[handTests ? `${handTests} hand test${handTests === 1 ? "" : "s"}` : "", decisions ? `${decisions} decision${decisions === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ")}.`]
               : []),
@@ -1912,8 +1916,7 @@ Could not claim ${next}: ${(e as Error).message}`;
       respondIn(undefined, () => {
         if (id) {
           if (global || /^g\d+$/i.test(id.trim())) {
-            if (helpers_at_once !== undefined) throw new Error("A helper limit belongs to one project: set it on a project rule, without global.");
-            const g = updateGlobalRule(globalFile, id, { text, hard });
+            const g = updateGlobalRule(globalFile, id, { text, hard, helpersAtOnce: helpers_at_once });
             return g ? `Changed ${g.hard ? "HARD RULE" : "rule"} ${g.id} for everything: ${g.text}` : `Removed rule ${id} for everything.`;
           }
           const s = project.updateStandingInstruction(id, { text, hard, helpersAtOnce: helpers_at_once });
@@ -1921,8 +1924,7 @@ Could not claim ${next}: ${(e as Error).message}`;
         }
         if (!text?.trim()) throw new Error("Write the rule first.");
         if (global) {
-          if (helpers_at_once) throw new Error("A helper limit belongs to one project: add it without global.");
-          const g = addGlobalRule(globalFile, text, hard ?? false);
+          const g = addGlobalRule(globalFile, text, hard ?? false, helpers_at_once || undefined);
           return withNow(`Saved ${g.hard ? "HARD RULE" : "rule"} ${g.id} for everything: ${g.text}`);
         }
         const s = project.addStandingInstruction(text, hard, helpers_at_once || undefined);

@@ -90,6 +90,6 @@ describe("passing the helper limit", () => {
     p.setTaskState("t1", "with a helper", "login", { helper: { branch: "helper/a" } });
     expect(prompt()).not.toMatch(/helper limit/);
     p.setTaskState("t2", "with a helper", "login", { helper: { branch: "helper/b" } });
-    expect(prompt()).toMatch(/2 helpers are at work, over this project's helper limit of 1: hand out no more until one comes back\./);
+    expect(prompt()).toMatch(/2 helpers are at work, over the helper limit of 1 \(s1\): hand out no more until one comes back\./);
   });
 });

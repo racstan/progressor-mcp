@@ -185,7 +185,7 @@ describe("estimates through the tools", () => {
     expect(two.text).not.toMatch(/Warning/);
     const three = await call("set_task_state", { task: "t3", state: "with a helper" });
     expect(three.isError).toBe(false);
-    expect(three.text).toContain('Warning: 3 Tasks are now with a helper, over this project\'s limit of 2 at once (s1: "At most 2 helpers in parallel")');
+    expect(three.text).toContain('Warning: 3 helpers are at work, over the helper limit of 2 at once (s1: "At most 2 helpers in parallel")');
     expect(read("goals/login.md")).toContain("- [/] C ^t3\n  - state: with a helper");
   });
 

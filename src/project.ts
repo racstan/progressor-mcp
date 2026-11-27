@@ -35,6 +35,7 @@ import { HISTORY_DIR, type HistoryItem, type HistorySettings, entryChanges, reco
 import { SETTINGS_DEFAULTS } from "./settings.js";
 import { type MarkdownDoc, findSection, parseMarkdown } from "./markdown.js";
 import { gitBranches, orphanWarnings } from "./helperWork.js";
+import type { GlobalRule } from "./globalRules.js";
 import { type GitFacts, type GitRange, realGit } from "./gitFacts.js";
 import type { LiveSession } from "./liveSessions.js";
 import { type BranchFacts, linkedBranch, syncSteps } from "./stepSync.js";
@@ -2361,14 +2362,26 @@ export class Project {
   }
 
   /**
-   * How many Tasks are with a helper across the project's open Goals, against the helper limit and
-   * the Standing Instruction that sets it (none when there is no limit).
+   * How many helpers are at work, against the helper limit and the rule that sets it (none when there
+   * is no limit). Given the chats running in the project (liveSessions.ts), every chat but one is a
+   * helper; helpers marked on steps still count when there are more of them, since a helper chat that
+   * does not run Progressor is not seen. The limit is the lowest of the project's rules and the rules
+   * for everything (`global`).
    */
-  helperLoad(): { busy: number; limit: number | undefined; rule: StandingInstruction | undefined } {
+  helperLoad(options: { chats?: readonly { session: string; worktree?: string }[]; global?: readonly GlobalRule[] } = {}): {
+    busy: number;
+    limit: number | undefined;
+    rule: { id: string; text: string } | undefined;
+    chats: number | undefined;
+  } {
     const roadmap = this.roadmap();
-    const busy = helperCount(this.plannedGoals(roadmap));
-    const found = helperLimit(roadmap.standingInstructions);
-    return { busy, limit: found?.limit, rule: found?.rule };
+    const marked = helperCount(this.plannedGoals(roadmap));
+    const chats = options.chats?.length;
+    const busy = Math.max(marked, chats ? chats - 1 : 0);
+    const own = helperLimit(roadmap.standingInstructions);
+    let found: { limit: number; rule: { id: string; text: string } } | undefined = own ? { limit: own.limit, rule: { id: own.rule.id ?? "", text: own.rule.text } } : undefined;
+    for (const g of options.global ?? []) if (g.helpersAtOnce && (!found || g.helpersAtOnce < found.limit)) found = { limit: g.helpersAtOnce, rule: g };
+    return { busy, limit: found?.limit, rule: found?.rule, chats };
   }
 
   /**
