@@ -22,6 +22,7 @@ import {
   setDetail,
 } from "./markdown.js";
 import { formatDuration, minutesSince, parseDuration } from "./estimate.js";
+import { DEVELOPER, MAX_WAITS, MIN_WAIT, type Wait, formatWaited, parseWaited } from "./waits.js";
 import { ADDED, type Stamp, UPDATED, withDates } from "./dates.js";
 import { ORIGIN_KEY, type Origin, formatOrigin, parseOrigin } from "./origin.js";
 
@@ -75,6 +76,10 @@ export interface Task {
   waitingFor?: string;
   /** What that person needs to do, while it waits on them. */
   need?: string;
+  /** The stretches it waited on someone, ended and newest first (waits.ts). */
+  waits?: Wait[];
+  /** The stretch it is waiting now: on whom and since when. */
+  waitingSince?: { who: string; at: string };
   /** When work on it first began (an ISO time); unknown in older plans. */
   startedAt?: string;
   /** When it was done, released or cancelled (an ISO time), while it still is; unknown in older plans. */
@@ -300,6 +305,8 @@ const HELPER_BRANCH = "helper branch";
 const HELPER_FOLDER = "helper folder";
 const EVIDENCE = "evidence";
 const CHECKED_SINCE = "checked since";
+const WAITED = "waited";
+const WAITING_SINCE = "waiting since";
 const WAITING_FOR = "waiting for";
 const NEED = "they need to";
 const STARTED = "started";
@@ -364,7 +371,12 @@ function withHelper(b: ItemBlock): { helper?: HelperInfo; evidence?: string; che
   const since = getDetail(b, CHECKED_SINCE);
   const waitingFor = getDetail(b, WAITING_FOR);
   const need = getDetail(b, NEED);
+  const waited = getDetail(b, WAITED);
+  const waits = waited ? parseWaited(waited) : [];
+  const open = /^(\S+) (.+)$/.exec(getDetail(b, WAITING_SINCE) ?? "");
   return {
+    ...(waits.length > 0 ? { waits } : {}),
+    ...(open && !Number.isNaN(Date.parse(open[1]!)) ? { waitingSince: { who: open[2]!, at: open[1]! } } : {}),
     ...(waitingFor ? { waitingFor } : {}),
     ...(need ? { need } : {}),
     ...(label || branch || folder ? { helper: { ...(branch ? { branch } : {}), ...(folder ? { folder } : {}), ...(label ? { label } : {}) } } : {}),
@@ -399,7 +411,7 @@ export interface TaskChanges {
 }
 
 /** Known Task details come first, in this order, when a Task is rewritten; unknown ones follow as they were. */
-const DETAIL_ORDER = ["state", "summary", "code", WAITING_FOR, NEED, HELPER, HELPER_BRANCH, HELPER_FOLDER, EVIDENCE, CHECKED_SINCE, TASK_COMMITS, TASK_BRANCH, TASK_TESTS, TASK_UNCOMMITTED, ESTIMATE, SPENT, SINCE, "moved from", "added by", "from hand test", "dropped by", "reason", ORIGIN_KEY, STARTED, FINISHED_AT, ADDED, UPDATED];
+const DETAIL_ORDER = ["state", "summary", "code", WAITING_FOR, NEED, WAITED, WAITING_SINCE, HELPER, HELPER_BRANCH, HELPER_FOLDER, EVIDENCE, CHECKED_SINCE, TASK_COMMITS, TASK_BRANCH, TASK_TESTS, TASK_UNCOMMITTED, ESTIMATE, SPENT, SINCE, "moved from", "added by", "from hand test", "dropped by", "reason", ORIGIN_KEY, STARTED, FINISHED_AT, ADDED, UPDATED];
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 /** A file a step touches, as its plan line writes it: one line, in backticks it can't close early. */
 const codeEntry = (c: string) => `\`${oneLine(c.replace(/`/g, ""))}\``;
@@ -635,6 +647,8 @@ export class PlanFile {
     if (from.helper?.folder) addDetail(b, HELPER_FOLDER, from.helper.folder);
     if (from.evidence) addDetail(b, EVIDENCE, from.evidence);
     if (from.checkedSince) addDetail(b, CHECKED_SINCE, from.checkedSince);
+    if (from.waits?.length) addDetail(b, WAITED, formatWaited(from.waits));
+    if (from.waitingSince) addDetail(b, WAITING_SINCE, `${from.waitingSince.at} ${from.waitingSince.who}`);
     addDetail(b, "moved from", movedFrom);
     if (from.startedAt) addDetail(b, STARTED, from.startedAt);
     if (from.finishedAt) addDetail(b, FINISHED_AT, from.finishedAt);
@@ -661,6 +675,7 @@ export class PlanFile {
       setDetail(b, SPENT, spent >= 0.5 ? formatDuration(spent) : getDetail(b, SPENT));
       setDetail(b, SINCE, undefined);
     }
+    this.recordWaiting(b, status, extras.person);
     b.marker = TASK_MARKER[status];
     setDetail(b, "state", STATE_LINE.includes(status) ? status : undefined);
     // Helper info stays for good: it is how a branch left behind is found. Evidence stays through done
@@ -686,6 +701,27 @@ export class PlanFile {
     // What git said at the finish belongs to that finish: a Task sent back to work loses it.
     if (!FINISHED.includes(status)) for (const key of [TASK_COMMITS, TASK_BRANCH, TASK_TESTS, TASK_UNCOMMITTED]) setDetail(b, key, undefined);
     sortDetails(b);
+  }
+
+  /**
+   * Keeps the record of who a step waits on (waits.ts): while it waits on the Developer or on someone it
+   * carries `waiting since`; leaving that, or changing who it waits on, writes the stretch to `waited`
+   * (newest first, 20 kept). Spent time is not touched.
+   */
+  private recordWaiting(b: ItemBlock, status: TaskStatus, person: string | undefined): void {
+    const now = this.now();
+    const was = /^(\S+) (.+)$/.exec(getDetail(b, WAITING_SINCE) ?? "");
+    const who = status === "waiting on you" ? DEVELOPER : status === "waiting on someone" ? oneLine(person?.trim() || getDetail(b, WAITING_FOR) || "someone") : undefined;
+    if (was && was[2]!.toLowerCase() === who?.toLowerCase()) return;
+    if (was) {
+      const minutes = minutesSince(was[1]!, now);
+      if (minutes >= MIN_WAIT) {
+        const waits = [{ who: was[2]!, at: was[1]!, minutes: Math.max(1, Math.round(minutes)) }, ...parseWaited(getDetail(b, WAITED) ?? "")].slice(0, MAX_WAITS);
+        setDetail(b, WAITED, formatWaited(waits));
+      }
+      setDetail(b, WAITING_SINCE, undefined);
+    }
+    if (who) setDetail(b, WAITING_SINCE, `${now.toISOString()} ${who}`);
   }
 
   /** Changes a Task's title, summary or files; everything else about it stays. */

@@ -7,6 +7,7 @@ import type { Dashboard } from "./dashboard/http.js";
 import { defaultRegistryFile, projectEntry } from "./dashboard/registry.js";
 import { type CiDeps, ciCacheFile, realCiDeps } from "./ci.js";
 import { attachReport, removeReport } from "./reports.js";
+import { stepWaitLine, stepWaits, waitLine, waitTotals } from "./waits.js";
 import { resolveProject, sameFolder, seenFile, takeElsewhereLine } from "./elsewhere.js";
 import { type GoalLookup, waitsText } from "./dependencies.js";
 import { checkUp, checkupLine } from "./checkup.js";
@@ -141,7 +142,7 @@ const evidence = z
 const taskId = z.string().describe("The Task ID, such as 't3'.");
 const states = ["pending", "in progress", "with a helper", "waiting on you", "waiting on someone", "checked", "done", "released"] as const satisfies readonly TaskStatus[];
 /** Who a step waits on, and what they need to do, with the state 'waiting on someone'. */
-const personInput = z.string().optional().describe("With state 'waiting on someone': who it waits on, by name (or ID, such as 'p2'), such as 'Priya' or 'Stripe support'. Someone new is added to the project's people.");
+const personInput = z.string().optional().describe("With state 'waiting on someone': who it waits on, by name (or ID, such as 'p2'), such as 'Priya', 'Stripe support' or 'CI' (for a CI run); how long steps wait on each is kept and shown. Someone new is added to the project's people.");
 const needInput = z.string().optional().describe("With state 'waiting on someone': what they need to do, in one line, such as 'Sign and send back the contract'.");
 const helpersAtOnce = z
   .number()
@@ -214,6 +215,7 @@ function elsewhereLines(s: Status): string[] {
     ...line("With a helper", s.withHelper),
     ...line("Waiting on the Developer", s.waitingOnYou),
     ...line("Checked, not yet released", s.checked),
+    ...(s.waited ? [s.waited] : []),
   ];
 }
 
@@ -488,6 +490,7 @@ export function formatItem(found: FoundItem, schedule?: Schedule, now = new Date
         `Plan File: ${found.planFile}`,
         ...(g.claim ? [`Claimed by: Session ${g.claim.session}${g.claim.since ? ` since ${g.claim.since}` : ""}`] : []),
         ...goalTime(g, schedule?.goals.find((x) => x.id === g.id)),
+        ...[waitLine(waitTotals(found.tasks, now))].filter((l): l is string => !!l),
         ...goalTaskLines(found.tasks),
       ].join("\n");
     }
@@ -505,6 +508,7 @@ export function formatItem(found: FoundItem, schedule?: Schedule, now = new Date
         ...(t.reason ? [`Reason: ${t.reason}`] : []),
         ...(t.helper ? [`Helper: ${helperText(t)}`] : []),
         ...(t.evidence ? [`Evidence: ${t.evidence}`] : []),
+        ...(stepWaits(t, now).length > 0 ? ["Waits:", ...stepWaits(t, now).map((w) => `- ${stepWaitLine(w)} (since ${w.at})`)] : []),
         ...(found.reports.length > 0 ? ["Reports:", ...found.reports.map((r) => `- ${r.id} ${r.title} (${r.written}, ${sayBytes(r.bytes)}): progressor://${r.goal}/${r.id}`)] : []),
         ...timeLine(t, now),
       ].join("\n");
@@ -1076,13 +1080,13 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       respondIn(wanted, (p) => {
         if (!refs?.length) {
           if (!ref) throw new Error("Give a ref, or refs for several.");
-          return formatItem(p.getItem(ref), p.schedule(estimatesOf(p)));
+          return formatItem(p.getItem(ref), p.schedule(estimatesOf(p)), p.now());
         }
         const schedule = p.schedule(estimatesOf(p));
         return [...(ref ? [ref] : []), ...refs]
           .map((r) => {
             try {
-              return formatItem(p.getItem(r), schedule);
+              return formatItem(p.getItem(r), schedule, p.now());
             } catch (e) {
               return `${r}: ${(e as Error).message}`;
             }
