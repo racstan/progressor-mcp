@@ -90,3 +90,11 @@ describe("save_hand_test with a result", () => {
     expect((await call("save_hand_test", { result: "works" })).isError).toBe(true);
   });
 });
+
+describe("the Developer's note", () => {
+  it("is kept for works and won't test too, and dropped when the mark is cleared", () => {
+    expect(agent.markHandTest("attachments", "h1", "works", "looked right").note).toBe("looked right");
+    expect(agent.markHandTest("attachments", "h1", "won't test", "no second computer").note).toBe("no second computer");
+    expect(agent.markHandTest("attachments", "h1", "pending", "x").note).toBeUndefined();
+  });
+});

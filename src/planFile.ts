@@ -935,8 +935,8 @@ export class PlanFile {
   markHandTest(id: string, result: HandResult, note: string | undefined, at: Date, by?: "AI"): HandTest {
     const b = this.handBlock(id);
     b.marker = HAND_MARKER[result];
-    // The Developer's note is kept for a failure only; the AI's says what it did and saw, for every result.
-    const text = note?.trim() && (result === "doesn't work" || (by === "AI" && result !== "pending")) ? oneLine(note) : undefined;
+    // A note is kept for every mark (the AI's says what it did and saw), and dropped when the mark is cleared.
+    const text = note?.trim() && result !== "pending" ? oneLine(note) : undefined;
     setDetail(b, "note", text);
     setDetail(b, "by", by === "AI" && result !== "pending" ? "AI" : undefined);
     setDetail(b, "marked", result === "pending" ? undefined : at.toISOString());
