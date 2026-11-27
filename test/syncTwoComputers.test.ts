@@ -24,6 +24,27 @@ describe("two computers sharing one plans repo", () => {
     expect(b.read("roadmap.md")).toBe(ROADMAP);
   });
 
+  it("a computer's first sync merges with the repo instead of overwriting it", async () => {
+    const bare = bareRepo();
+    const a = await computer("laptop", bare);
+    const goalA = goalFile("A's step", "A's step 2");
+    a.write("goals/a-goal.md", goalA);
+    a.write("roadmap.md", ROADMAP);
+    await a.sync();
+    // B has its own plan for the same project before it connects to the repo
+    const b = await computer("desktop", bare);
+    const goalB = goalFile("B's step", "B's step 2");
+    b.write("goals/b-goal.md", goalB);
+    b.write("roadmap.md", `${ROADMAP}- [ ] Extra ^extra\n  - updated: 2026-03-01T10:00:00.000Z by AI\n`);
+    await b.sync();
+    await a.sync();
+    for (const c of [a, b]) {
+      expect(c.read("goals/a-goal.md")).toBe(goalA);
+      expect(c.read("goals/b-goal.md")).toBe(goalB);
+      expect(c.read("roadmap.md")).toContain("Extra");
+    }
+  });
+
   it("changes to different steps on both computers both survive on both", async () => {
     const bare = bareRepo();
     const a = await computer("laptop", bare);

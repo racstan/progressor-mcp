@@ -71,6 +71,8 @@ export interface SyncState {
 const KEEP_CONFLICTS = 50;
 const GLOBAL_KEY = ".global";
 const GLOBAL_NAME = "global.json";
+/** Which keys this computer has merged at least once, kept inside the clone's .git folder. */
+const SYNCED_FILE = "progressor-synced.json";
 const NOT_SET_UP = "Plan sync isn't set up on this computer. Run: progressor-mcp sync connect";
 const OFFLINE = "Can't reach GitHub; your changes will sync when you're back online.";
 
@@ -199,6 +201,15 @@ async function remoteRefs(g: (args: string[]) => Promise<string>): Promise<Map<s
   return refs;
 }
 
+function readSynced(plansDir: string): Set<string> {
+  try {
+    const d = JSON.parse(readFileSync(join(plansDir, ".git", SYNCED_FILE), "utf8")) as unknown;
+    return new Set(Array.isArray(d) ? d.filter((k): k is string => typeof k === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
 async function oneRound(deps: SyncDeps, talk: boolean, host: string, now: () => number): Promise<Round> {
   const run = deps.run ?? realRun;
   const plansDir = deps.plansDir;
@@ -212,6 +223,9 @@ async function oneRound(deps: SyncDeps, talk: boolean, host: string, now: () => 
     const key = syncKey(root, { links: deps.linksFile, remote: deps.remote });
     if (!byKey.has(key)) byKey.set(key, root);
   }
+  // A key this computer has never merged has no agreed base: what the repo holds and what is here are
+  // merged as two versions (so neither side is overwritten), whatever the clone says.
+  const synced = readSynced(plansDir);
   const keyDir = (key: string) => join(plansDir, ...key.split("/"));
 
   // BASE: the clone as it was when this computer last agreed with the repo.
@@ -263,7 +277,7 @@ async function oneRound(deps: SyncDeps, talk: boolean, host: string, now: () => 
   /** Merges one folder's three versions; the clone's folder is then made to match and the project's is returned. */
   const conflicts: StoredConflict[] = [];
   async function merge(key: string, label: string, ours: Files, oursTimes: Map<string, number>): Promise<Files> {
-    const b = base.get(key)!;
+    const b: Files = synced.has(key) ? base.get(key)! : new Map();
     const t = theirs.get(key)!;
     const out: Files = new Map();
     const both = new Map<string, true>();
@@ -347,7 +361,7 @@ async function oneRound(deps: SyncDeps, talk: boolean, host: string, now: () => 
     // the rules file is not a plan file: compare it whole
     const o = ours.get(GLOBAL_NAME);
     const t = globalTheirs;
-    const b = globalBase;
+    const b = synced.has(GLOBAL_KEY) ? globalBase : undefined;
     let result = o;
     if (!same(o, t)) {
       if (same(o, b)) result = t;
@@ -364,6 +378,13 @@ async function oneRound(deps: SyncDeps, talk: boolean, host: string, now: () => 
       changedProject = true;
       writeWhole(globalFile, result);
     }
+  }
+
+  // Every key is merged now, so from here on the repo's state is a base to merge against.
+  try {
+    writeFileSync(join(plansDir, ".git", SYNCED_FILE), JSON.stringify([...new Set([...synced, ...byKey.keys(), GLOBAL_KEY])]));
+  } catch {
+    // without the note the next round merges with no base again, which loses nothing
   }
 
   // Commit what changed in the clone.
