@@ -2,6 +2,11 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own plan, which is kept on the maintainer's computer; from 0.2.0 on, one release bundles several finished Goals.
 
+## 1.5.1 · A Sponsor button on GitHub, and the Python package fixed
+
+- **A Sponsor button on GitHub.** The repository page has a **Sponsor** button that opens Buy Me a Coffee, like the button beside Help on the dashboard.
+- **The Python package builds again.** It no longer carries shortcut links that Python's build tool refuses, so `uvx progressor-mcp` gets the new version from PyPI.
+
 ## 1.5.0 · Less bookkeeping, plans on every computer, and an AI that tries things itself
 
 Plans made with earlier versions keep working as they are. Restart your AI's app after updating so it picks up the new tools.
