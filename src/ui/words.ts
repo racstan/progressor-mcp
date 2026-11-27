@@ -770,3 +770,6 @@ export const ALT_OFFERS: [value: string, label: string][] = [["off", "Never"], [
 export const REPORTS_HEADING = "Reports";
 export const REPORT_HINT = "Opens or closes this report";
 export const REPORT_UNREADABLE = "This report could not be read.";
+
+/** What the waiting lines mean (GoalPage.tsx, Steps.tsx). */
+export const WAITED_HINT = "How long steps waited on the Developer or on someone else, such as a CI run. It is only a record; time spent is counted as before.";

@@ -1,6 +1,7 @@
 import type { Stamp } from "../dates.js";
 import type { Origin } from "../origin.js";
 import type { Detour, DetourStatus, HelperInfo, Task, TaskStatus } from "../planFile.js";
+import type { Wait } from "../waits.js";
 
 interface NodeBase {
   id: string;
@@ -47,6 +48,9 @@ export interface TaskNode extends NodeBase {
   /** Who it waits on and what they need to do, while it waits on someone other than the Developer. */
   waitingFor?: string;
   need?: string;
+  /** How long it waited on whom (waits.ts): the stretches that ended, newest first, and the one running now. */
+  waits?: Wait[];
+  waitingSince?: { who: string; at: string };
   /** What git said when it was finished: its commits (short hashes), branch, test run, and unsaved changes. */
   commits?: string[];
   branch?: string;
@@ -125,6 +129,8 @@ export function buildGoalGraph(plan: { tasks: Task[]; detours: Detour[] }): Goal
     ...(t.evidence ? { evidence: t.evidence } : {}),
     ...(t.waitingFor ? { waitingFor: t.waitingFor } : {}),
     ...(t.need ? { need: t.need } : {}),
+    ...(t.waits?.length ? { waits: t.waits } : {}),
+    ...(t.waitingSince ? { waitingSince: t.waitingSince } : {}),
     ...(t.startedAt ? { startedAt: t.startedAt } : {}),
     ...(t.finishedAt ? { finishedAt: t.finishedAt } : {}),
     ...(t.commits?.length ? { commits: t.commits } : {}),

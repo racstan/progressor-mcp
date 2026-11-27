@@ -40,6 +40,7 @@ import { type GitFacts, type GitRange, realGit } from "./gitFacts.js";
 import type { LiveSession } from "./liveSessions.js";
 import { type CiDeps, kickCiRefresh, readCiCache } from "./ci.js";
 import { type Report, listReports, readReport } from "./reports.js";
+import { waitLine, waitTotals } from "./waits.js";
 import { type BranchFacts, type PrAction, type SyncAction, linkedBranch, syncFromPullRequests, syncSteps } from "./stepSync.js";
 import { type GoalLookup, type Waiting, finishedState, parseWaitRef, waitCycle } from "./dependencies.js";
 import { type Origin } from "./origin.js";
@@ -212,6 +213,8 @@ export interface Status {
   updatedAt: number | undefined;
   /** A hotfix's bug report, word for word. */
   report?: string;
+  /** How long the Goal's steps waited, by who (waits.ts): one line, when there was any waiting. */
+  waited?: string;
 }
 
 /** Every Goal this Session holds, with what get_status shows besides. */
@@ -2845,6 +2848,7 @@ export class Project {
       notes: plan.notes.filter((n) => !n.resolved),
       handTests: plan.handTests,
       ...(goal.hotfix && plan.report ? { report: plan.report } : {}),
+      ...(waitLine(waitTotals(plan.tasks, this.now())) ? { waited: waitLine(waitTotals(plan.tasks, this.now()))! } : {}),
       ...this.talkStatus(goal.id),
       updatedAt: this.changedAt(this.planFilePath(goal.id)) ?? this.changedAt(`${PROGRESSOR_DIR}/${ROADMAP_FILE}`),
       ...common,
