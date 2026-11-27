@@ -133,7 +133,10 @@ export function SideProjects({ projects, facts, layout, saveLayout, canRemove, o
               </span>
             </h4>
           )}
-          {inGroup.length === 0 && <p className="side-empty">Drag a project here</p>}
+          {inGroup.length === 0 && (
+            // the empty group's own box takes a dropped project too, as its name does
+            <p className={`side-empty side-drop${over === `group:${group!.id}` ? " over" : ""}`} {...dropOn(group!.id, undefined)}>Drag a project here</p>
+          )}
           {rows(inGroup, group!.id)}
         </div>
       ))}
