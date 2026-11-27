@@ -235,6 +235,25 @@ describe("telling the project's own Session", () => {
     );
     expect(run()).not.toContain("Changed from elsewhere");
   });
+
+  it("does not say the unchanged status again after a message that also had the one-time line", () => {
+    const owner = local(there, "s-there", 4242);
+    owner.addGoal("Ship it", [{ title: "Build" }]);
+    owner.claimGoal("ship-it");
+    local(here).elsewhere(there, "kdeaichat").addNote("ship-it", "Released 0.7.1 from the other chat");
+    const prompt = JSON.stringify({ session_id: "chat-1", cwd: there, hook_event_name: "UserPromptSubmit" });
+    const run = () => runHook({ event: "prompt", input: prompt, env: { PROGRESSOR_REGISTRY: registry }, isAlive: () => true });
+    const first = run();
+    expect(first).toMatch(/^\[Progressor\] Goal: Ship it/);
+    expect(first).toContain("Changed from elsewhere");
+    // Nothing changed since: the status is not said again, and the one-time line is gone.
+    expect(run()).toBe("");
+    // A new change from elsewhere is said, without the unchanged status.
+    local(here).elsewhere(there, "kdeaichat").addNote("ship-it", "Another note from the other chat");
+    const third = run();
+    expect(third).toContain("Another note from the other chat");
+    expect(third).not.toContain("Goal: Ship it");
+  });
 });
 
 describe("the dashboard", () => {

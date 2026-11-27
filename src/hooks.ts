@@ -299,16 +299,18 @@ export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, 
         // the reminder never fails the message
       }
     }
-    let text = [
+    // A prompt gets the status only when it changed since this chat's last one; the one-time line from
+    // elsewhere and the over-limit warning are said whenever they are there, and never make the status count as changed.
+    let shownStatus = status;
+    if (kind === "prompt" && status && typeof data.session_id === "string" && data.session_id) {
+      if (!toldChanged(promptToldFile(env.PROGRESSOR_REGISTRY), data.session_id, status, now())) shownStatus = undefined;
+    }
+    const text = [
       ...(warning ? [`${PREFIX} ${warning}`] : []),
-      ...(status ? [status] : []),
+      ...(shownStatus ? [shownStatus] : []),
       ...(overLimit ? [`${PREFIX} ${overLimit}`] : []),
       ...(elsewhere ? [`${PREFIX} ${elsewhere}`] : []),
     ].join("\n");
-    // A prompt gets the reminder only when it changed since this chat's last one.
-    if (kind === "prompt" && typeof data.session_id === "string" && data.session_id) {
-      if (!toldChanged(promptToldFile(env.PROGRESSOR_REGISTRY), data.session_id, text, now())) text = "";
-    }
     return text.length <= MAX_CONTEXT ? text : text.slice(0, MAX_CONTEXT - CUT.length) + CUT;
   } catch {
     return "";
