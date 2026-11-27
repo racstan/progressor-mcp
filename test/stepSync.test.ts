@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { LiveSession } from "../src/liveSessions.js";
 import { branchMatchesStep, linkedBranch, syncSteps, type BranchFacts, type SyncStep } from "../src/stepSync.js";
 
-const step = (id: string, status: SyncStep["status"] = "pending", branch?: string): SyncStep => ({ id, status, ...(branch ? { helper: { branch } } : {}) });
+const step = (id: string, status: SyncStep["status"] = "pending", branch?: string, startedAt?: string): SyncStep => ({ id, status, ...(branch ? { helper: { branch } } : {}), ...(startedAt ? { startedAt } : {}) });
 const chat = (session: string, branch?: string, worktree = `/w/${session}`): LiveSession => ({
   session,
   pid: 1,
@@ -107,5 +107,39 @@ describe("a finished step", () => {
       seen: { "t3-export": ["a1"] },
     });
     expect(out.map((a) => `${a.task}:${a.kind}`)).toEqual(["t3:done", "t4:with a helper"]);
+  });
+});
+
+describe("a merge nobody saw coming", () => {
+  const into = (at: string, commits = ["m1", "m2"]) => ({ "t3-export": facts({ merged: true, mergedInto: { commits, at } }) });
+  const base = { branches: ["t3-export"] };
+
+  it("closes a step from the merge commit when nothing was seen ahead", () => {
+    const out = sync({ ...base, steps: [step("t3", "pending", undefined, "2026-11-27T09:00:00Z")], facts: into("2026-11-27T10:00:00Z") });
+    expect(out).toEqual([{ task: "t3", kind: "done", branch: "t3-export", commits: ["m1", "m2"] }]);
+  });
+
+  it("prefers the commits seen over the merge's", () => {
+    const out = sync({ ...base, steps: [step("t3", "pending", undefined, "2026-11-27T09:00:00Z")], facts: into("2026-11-27T10:00:00Z"), seen: { "t3-export": ["a1"] } });
+    expect(out).toMatchObject([{ commits: ["a1"] }]);
+  });
+
+  it("does not close a step from an old merge of a branch linked only by its name", () => {
+    expect(sync({ ...base, steps: [step("t3", "pending", undefined, "2026-11-27T09:00:00Z")], facts: into("2026-05-01T10:00:00Z") })).toEqual([]);
+  });
+
+  it("falls back to when the goal was claimed, and to nothing when neither is known", () => {
+    expect(sync({ ...base, steps: [step("t3")], since: "2026-11-27T09:00:00Z", facts: into("2026-11-27T10:00:00Z") })).toHaveLength(1);
+    expect(sync({ ...base, steps: [step("t3")], since: "2026-11-27T09:00:00Z", facts: into("2026-05-01T10:00:00Z") })).toEqual([]);
+    expect(sync({ ...base, steps: [step("t3")], facts: into("2026-11-27T10:00:00Z") })).toEqual([]);
+  });
+
+  it("trusts the merge of a branch recorded on the step, whatever its age", () => {
+    const out = sync({ branches: ["odd"], steps: [step("t3", "with a helper", "odd")], facts: { odd: facts({ merged: true, mergedInto: { commits: ["m1"], at: "2026-05-01T10:00:00Z" } }) } });
+    expect(out).toEqual([{ task: "t3", kind: "done", branch: "odd", commits: ["m1"] }]);
+  });
+
+  it("still needs seen when no merge commit was found (fast-forward, or a branch just made)", () => {
+    expect(sync({ ...base, steps: [step("t3", "pending", undefined, "2026-11-27T09:00:00Z")], facts: { "t3-export": facts({ merged: true }) } })).toEqual([]);
   });
 });

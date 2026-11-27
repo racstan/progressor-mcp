@@ -9,6 +9,8 @@ export interface SyncStep {
   id: string;
   status: TaskStatus;
   helper?: HelperInfo;
+  /** When work on it began (an ISO time), when known. */
+  startedAt?: string;
 }
 
 /** What git says about one branch. `ahead` holds the short hashes in HEAD..branch, newest first. */
@@ -16,6 +18,8 @@ export interface BranchFacts {
   exists: boolean;
   merged: boolean;
   ahead: string[];
+  /** The merge of the branch into HEAD, when git found its merge commit (GitFacts.mergedInto). */
+  mergedInto?: { commits: string[]; at: string };
 }
 
 export type SyncAction =
@@ -34,6 +38,8 @@ export interface SyncInput {
   facts: Record<string, BranchFacts>;
   /** The commits last seen ahead of HEAD for each branch (kept by the caller between runs). */
   seen: Record<string, string[]>;
+  /** When the goal was claimed (an ISO time), for a step with no start time of its own. */
+  since?: string;
 }
 
 /** Whether a branch name holds the step ID as a word of its own: `t3-export`, `feat/t3`, `x_t3`, not `t30`. */
@@ -47,6 +53,20 @@ export function linkedBranch(step: Pick<SyncStep, "id" | "helper">, branches: re
   const recorded = step.helper?.branch?.trim();
   if (recorded) return recorded;
   return [...branches].sort().find((b) => branchMatchesStep(b, step.id));
+}
+
+/**
+ * The commits of a merge nobody saw coming, from the merge commit. A branch linked only by its name must
+ * have been merged after the step started (or, without a start, after the goal was claimed), so an old
+ * branch that happens to hold the step's ID is not taken for its work; with neither time known it is not used.
+ */
+function mergeCommits(step: SyncStep, facts: BranchFacts, since: string | undefined): string[] | undefined {
+  const merge = facts.mergedInto;
+  if (!merge || merge.commits.length === 0) return undefined;
+  if (step.helper?.branch?.trim()) return merge.commits;
+  const from = Date.parse(step.startedAt ?? since ?? "");
+  const at = Date.parse(merge.at);
+  return Number.isNaN(from) || Number.isNaN(at) || at <= from ? undefined : merge.commits;
 }
 
 const OPEN: readonly TaskStatus[] = ["pending", "in progress", "with a helper", "waiting on you", "waiting on someone", "checked"];
@@ -64,7 +84,8 @@ export function syncSteps(input: SyncInput): SyncAction[] {
     const branch = linkedBranch(step, input.branches);
     if (!branch) continue;
     const facts = input.facts[branch];
-    const commits = input.seen[branch];
+    let commits = input.seen[branch];
+    if (facts?.exists && facts.merged && !(commits && commits.length > 0)) commits = mergeCommits(step, facts, input.since);
     if (facts?.exists && facts.merged && commits && commits.length > 0) {
       actions.push({ task: step.id, kind: "done", branch, commits });
       continue;

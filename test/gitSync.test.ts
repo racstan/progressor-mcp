@@ -15,6 +15,7 @@ let exists: Set<string>;
 let merged: Set<string>;
 let ahead: Record<string, string[]>;
 let known: boolean;
+let mergedInto: Record<string, { commits: string[]; at: string }>;
 let asked: number;
 const fakeGit: GitFacts = {
   commitsSince: () => [],
@@ -26,6 +27,7 @@ const fakeGit: GitFacts = {
     return known ? { exists, merged } : undefined;
   },
   ahead: (_r, b) => ahead[b],
+  mergedInto: (_r, b) => mergedInto[b],
 };
 const helper = (session: string, branch: string): LiveSession => ({ session, pid: 9, since: "", seen: "", goals: [], branch, worktree: `/w/${session}` });
 
@@ -40,6 +42,7 @@ beforeEach(() => {
   exists = new Set(["main", "t1-export", "t2-docs"]);
   merged = new Set(["main"]);
   ahead = {};
+  mergedInto = {};
   known = true;
   asked = 0;
   const p = lead();
@@ -69,6 +72,35 @@ describe("syncWithGit", () => {
     expect(t.status).toBe("done");
     expect(t.commits).toEqual(["a1b2c3", "d4e5f6"]);
     expect(t.branch).toBe("t1-export");
+  });
+
+  it("closes a step from the merge commit when the merge was never seen coming", () => {
+    const p = lead();
+    p.startTask("t1", "login");
+    merged.add("t1-export");
+    mergedInto = { "t1-export": { commits: ["aaaa111", "bbbb222"], at: "2026-11-27T10:30:00.000Z" } };
+    now = new Date("2026-11-27T11:00:00.000Z");
+    expect(p.syncWithGit([])).toBe("Kept in step with git: t1 is done (branch t1-export merged, commits aaaa111, bbbb222).");
+    expect(p.plan("login").tasks.find((x) => x.id === "t1")!.commits).toEqual(["aaaa111", "bbbb222"]);
+  });
+
+  it("does not close a step from an old branch that only holds its ID in the name", () => {
+    const p = lead();
+    p.startTask("t1", "login");
+    merged.add("t1-export");
+    mergedInto = { "t1-export": { commits: ["cccc333"], at: "2026-05-01T10:00:00.000Z" } };
+    now = new Date("2026-11-27T11:00:00.000Z");
+    expect(p.syncWithGit([])).toBeUndefined();
+  });
+
+  it("closes a step whose recorded branch was merged long ago", () => {
+    const p = lead();
+    exists.add("odd");
+    merged.add("odd");
+    p.setTaskState("t3", "with a helper", "login", { helper: { branch: "odd" } });
+    mergedInto = { odd: { commits: ["dddd444"], at: "2026-05-01T10:00:00.000Z" } };
+    now = new Date("2026-11-27T11:00:00.000Z");
+    expect(p.syncWithGit([])).toBe("Kept in step with git: t3 is done (branch odd merged, commits dddd444).");
   });
 
   it("does not call a branch with no work of its own done", () => {

@@ -1564,10 +1564,6 @@ export class Project {
     });
   }
 
-  /**
-   * Marks a Task done, adding the files it touched and, optionally, the summary of what it changed.
-   * A released Task stays released.
-   */
   /** The commits last seen ahead of HEAD on each branch, so a step is known to have had work once its branch is merged (syncWithGit). */
   private readonly aheadSeen = new Map<string, string[]>();
   private lastGitSync = 0;
@@ -1590,7 +1586,7 @@ export class Project {
       let known: ReturnType<NonNullable<GitFacts["branches"]>> | undefined;
       let asked = false;
       for (const goal of held) {
-        const steps = this.plan(goal.id).tasks.flatMap((t) => (t.id ? [{ id: t.id, status: t.status, helper: t.helper }] : []));
+        const steps = this.plan(goal.id).tasks.flatMap((t) => (t.id ? [{ id: t.id, status: t.status, helper: t.helper, startedAt: t.startedAt }] : []));
         const open = steps.filter((s) => !FINISHED.includes(s.status));
         if (open.length === 0) continue;
         if (!asked) {
@@ -1608,8 +1604,13 @@ export class Project {
           const ahead = exists && !merged ? (this.git.ahead?.(this.root, b) ?? []) : [];
           if (ahead.length > 0) this.aheadSeen.set(b, ahead);
           facts[b] = { exists, merged, ahead };
+          // Merged with nothing seen ahead (nobody called Progressor while the helper worked): find the merge commit.
+          if (merged && !this.aheadSeen.get(b)?.length) {
+            const found = this.git.mergedInto?.(this.root, b);
+            if (found) facts[b]!.mergedInto = found;
+          }
         }
-        const actions = syncSteps({ steps, sessions: [...chats], self: this.session.id, branches, facts, seen: Object.fromEntries(this.aheadSeen) });
+        const actions = syncSteps({ steps, sessions: [...chats], self: this.session.id, branches, facts, seen: Object.fromEntries(this.aheadSeen), since: goal.claim?.since });
         for (const a of actions) {
           try {
             if (a.kind === "done") {
@@ -1636,6 +1637,10 @@ export class Project {
     return this.taskIn(this.requireClaim(goalId).plan, id).status;
   }
 
+  /**
+   * Marks a Task done, adding the files it touched and, optionally, the summary of what it changed.
+   * A released Task stays released.
+   */
   completeTask(id: string, code: string[] = [], summary?: string, goalId?: string): Task {
     return this.change(goalId, (plan) => this.complete(plan, id, code, summary));
   }

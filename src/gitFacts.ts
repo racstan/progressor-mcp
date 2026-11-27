@@ -28,6 +28,12 @@ export interface GitFacts {
   branches?(root: string): Branches | undefined;
   /** Short hashes of the commits in HEAD..branch, newest first; undefined when git cannot say. */
   ahead?(root: string, branch: string): string[] | undefined;
+  /**
+   * The merge of `branch` into HEAD, found on HEAD's first-parent line: a merge commit whose second parent is the
+   * branch's tip. Its commits (short hashes, newest first) and when it was made (ISO). Undefined for a fast-forward,
+   * an unmerged branch, or when git cannot say.
+   */
+  mergedInto?(root: string, branch: string): { commits: string[]; at: string } | undefined;
 }
 
 /** Which commits: those named, or those after `from` (a commit or tag) and between `since` and `until` (ISO times). */
@@ -106,6 +112,21 @@ export const realGit: GitFacts = {
     if (!safeRef(branch)) return undefined;
     const out = run(root, ["log", "--format=%h", "--abbrev=7", `--max-count=${MAX_COMMITS}`, `HEAD..${branch}`, "--"]);
     return out === undefined ? undefined : out.split("\n").map((l) => l.trim()).filter(Boolean);
+  },
+  mergedInto(root, branch) {
+    if (!safeRef(branch)) return undefined;
+    const tip = run(root, ["rev-parse", "--verify", "-q", `${branch}^{commit}`])?.trim();
+    if (!tip) return undefined;
+    const merges = run(root, ["log", "--merges", "--first-parent", "--format=%H %P %cI", "-n", "100", "HEAD", "--"]);
+    if (merges === undefined) return undefined;
+    for (const line of merges.split("\n")) {
+      const [hash, first, second, at] = line.trim().split(" ");
+      if (!hash || !first || second !== tip || !at) continue;
+      const out = run(root, ["log", "--format=%h", "--abbrev=7", `--max-count=${MAX_COMMITS}`, `${first}..${second}`, "--"]);
+      if (out === undefined) return undefined;
+      return { commits: out.split("\n").map((l) => l.trim()).filter(Boolean), at: new Date(at).toISOString() };
+    }
+    return undefined;
   },
   commitsSince(root, since, files) {
     if (!since) return undefined;
