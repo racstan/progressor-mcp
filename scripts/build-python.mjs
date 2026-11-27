@@ -33,12 +33,15 @@ try {
   cpSync(join(root, "package.json"), join(deps, "package.json"));
   cpSync(join(root, "package-lock.json"), join(deps, "package-lock.json"));
   const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-  execFileSync(npm, ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"], {
+  // No node_modules/.bin links: Python's build refuses links to absolute paths in a source package, and the
+  // app runs dist/ with Node directly, so it needs none of them.
+  execFileSync(npm, ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--no-bin-links"], {
     cwd: deps,
     stdio: "inherit",
     shell: process.platform === "win32",
   });
   cpSync(join(deps, "node_modules"), join(app, "node_modules"), { recursive: true });
+  rmSync(join(app, "node_modules", ".bin"), { recursive: true, force: true });
 } finally {
   rmSync(deps, { recursive: true, force: true });
 }
