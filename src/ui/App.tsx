@@ -633,9 +633,14 @@ export function App() {
         )}
         <span className="sp" />
         <SearchBox query={query} hits={hits} onChange={setQuery} onOpen={openHit} />
-        <span className={`live ${connection === "live" ? "" : "off"}`} role="status"
-          title={connection === "live" ? "Live: this page updates by itself as your AI works." : "Lost touch with Progressor. It comes back by itself once your AI chat is open again."}
-          aria-label={connection === "live" ? "Live" : "Reconnecting"} />
+        {/* Green while live, red only once touch is lost; a quiet grey while the page first connects. */}
+        <span className={`live ${connection === "live" ? "" : connection === "connecting" ? "connecting" : "off"}`} role="status"
+          title={
+            connection === "live" ? "Live: this page updates by itself as your AI works."
+            : connection === "connecting" ? "Connecting to Progressor…"
+            : "Lost touch with Progressor. It comes back by itself once your AI chat is open again."
+          }
+          aria-label={connection === "live" ? "Live" : connection === "connecting" ? "Connecting" : "Reconnecting"} />
         <button className={`iconbtn menu-btn ${panel === "help" ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={panel === "help"}
           title={unseen ? "Help · What's new in this version" : "Help"} aria-label="Help" onClick={() => openPanel("help")}>
           <Icon name="help" size={18} />
@@ -801,7 +806,14 @@ export function App() {
                     }}>
                       <Icon name={doneShown ? "chevronDown" : "chevronRight"} size={14} /> Finished <span className="n">{grouped.done.length}</span>
                     </button>
-                    <button className="linkbtn" aria-expanded={sortOpen} title="Choose the order of finished goals and whether they sit under the day they were added" onClick={() => setSortOpen(!sortOpen)}>Sort</button>
+                    <button className="linkbtn" aria-expanded={sortOpen} title="Choose the order of finished goals and whether they sit under the day they were added" onClick={() => {
+                      // the sort choices sit inside the fold, so opening them opens Finished too
+                      if (!sortOpen && !doneShown) {
+                        setDoneOpen("1");
+                        setDoneClosedFor(undefined);
+                      }
+                      setSortOpen(!sortOpen);
+                    }}>Sort</button>
                     <button className="linkbtn" title="Clears every finished goal from this list. The plan keeps them; find them under Hidden."
                       onClick={() => clearFinished(grouped.done)}>
                       Clear all

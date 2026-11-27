@@ -79,6 +79,7 @@ code { font: .92em ui-monospace, "Cascadia Code", Consolas, monospace; backgroun
    updates live, red while it has lost touch with Progressor. */
 .live { width: 10px; height: 10px; border-radius: 50%; background: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18); flex: none; margin: 0 var(--s1); transition: background-color 0.3s ease, box-shadow 0.3s ease; }
 .live.off { background: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18); }
+.live.connecting { background: var(--faint); box-shadow: 0 0 0 3px var(--line); }
 .menu-btn-phone { display: none; }
 
 /* ---------- search ---------- */
