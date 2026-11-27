@@ -1,7 +1,7 @@
 import { readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { MAX_CONTEXT_LENGTH, Project } from "../src/project.js";
+import { MAX_CONTEXT_LENGTH, Project, hostName } from "../src/project.js";
 import { tempDir, withoutDates } from "./tmp.js";
 
 let root: string;
@@ -38,7 +38,7 @@ describe("working through a Goal", () => {
 ## Goals
 
 - [/] [Ship OAuth login](goals/ship-oauth-login.md) ^ship-oauth-login
-  - claimed by: s-a (pid 100) since 2026-10-18T15:00:00.000Z
+  - claimed by: s-a (pid 100) on ${hostName()} since 2026-10-18T15:00:00.000Z
 `);
     expect(read("goals/ship-oauth-login.md")).toBe(`# Ship OAuth login
 
@@ -324,7 +324,7 @@ describe("Claims left by Sessions that have ended", () => {
     write("roadmap.md", read("roadmap.md").replace("s-a (pid 100)", "s-a"));
     alive.clear();
     session("s-b", 200).sessionStatus();
-    expect(read("roadmap.md")).toContain("claimed by: s-a since");
+    expect(read("roadmap.md")).toContain(`claimed by: s-a on ${hostName()} since`);
   });
 
   it("still answers when the Roadmap cannot be written", () => {

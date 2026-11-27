@@ -1,5 +1,5 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, hostname } from "node:os";
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import {
   type Decision,
@@ -80,6 +80,13 @@ export const GIT_SYNC_EVERY_MS = 30_000;
 export interface SessionIdentity {
   id: string;
   pid: number;
+  /** The computer this chat runs on (this computer's name unless set); recorded on its claims. */
+  host?: string;
+}
+
+/** A computer's name as a claim records it: one word, so it reads back. */
+export function hostName(name: string = hostname()): string {
+  return name.trim().replace(/\s+/g, "-") || "unknown";
 }
 
 export interface ProjectOptions {
@@ -371,9 +378,16 @@ export function claimMayBeLive(
     now?: number;
     /** How long such a claim lasts with no change; CLAIM_IDLE_MS unless set. */
     idleMs?: number;
+    /** This computer's name (hostName() unless set). */
+    host?: string;
   },
 ): boolean {
   if (claim.pid === undefined) return true;
+  // A claim made on another computer (the plan is synced): its pid says nothing here, so only a
+  // plan left unchanged for the quiet time ends it.
+  if (claim.host !== undefined && claim.host !== (options.host ?? hostName())) {
+    return !(options.lastActive !== undefined && options.now !== undefined && options.now - options.lastActive > (options.idleMs ?? CLAIM_IDLE_MS));
+  }
   if (options.self && claim.pid === options.self.pid) return claim.session === options.self.id;
   if (!options.isAlive(claim.pid)) return false;
   const running = options.sessionOf?.(claim.pid);
@@ -420,6 +434,8 @@ export function hotfixTitle(report: string): string {
 export class Project {
   private folder: string;
   readonly session: SessionIdentity;
+  /** This computer's name, recorded on claims and used to judge them (see claimMayBeLive). */
+  readonly host: string;
   private readonly isAlive: (pid: number) => boolean;
   private readonly sessionOf: ((pid: number) => string | undefined) | undefined;
   private readonly tidy: boolean;
@@ -441,6 +457,7 @@ export class Project {
   constructor(options: ProjectOptions) {
     this.folder = options.root;
     this.session = options.session;
+    this.host = hostName(options.session.host);
     this.isAlive = options.isAlive ?? processIsAlive;
     this.sessionOf = options.sessionOf;
     this.tidy = options.clearStaleClaims ?? true;
@@ -662,6 +679,7 @@ export class Project {
           lastActive: this.lastActive(g, g.claim),
           now: this.now().getTime(),
           idleMs: this.idleMs(),
+          host: this.host,
         }),
     );
     if (ended.length === 0) return [];
@@ -1080,6 +1098,7 @@ export class Project {
       isAlive: this.isAlive,
       sessionOf: this.sessionOf,
       self: this.session,
+      host: this.host,
       ...(goal ? { lastActive: this.lastActive(goal, claim), now: this.now().getTime(), idleMs: this.idleMs() } : {}),
     });
   }
@@ -1165,7 +1184,7 @@ export class Project {
         `Goal ${goalId} is claimed by Session ${goal.claim!.session} (pid ${goal.claim!.pid ?? "unknown"}), which is still running. ` +
           "Pick another Goal, or take it over only if the Developer asks.",
       );
-    roadmap.setClaim(goalId, { session: this.session.id, pid: this.session.pid, since: this.now().toISOString() });
+    roadmap.setClaim(goalId, { session: this.session.id, pid: this.session.pid, since: this.now().toISOString(), host: this.host });
     roadmap.setGoalStatus(goalId, "started");
     roadmap.setWaitingOnTests(goalId, false);
     this.saveRoadmap(roadmap);
@@ -1202,7 +1221,7 @@ export class Project {
             `Give one of those, or "${HANDED_TO_NEXT}" for the next chat that starts.`,
         );
       }
-      claim = { session: found.session, pid: found.pid, since: this.now().toISOString() };
+      claim = { session: found.session, pid: found.pid, since: this.now().toISOString(), host: this.host };
     }
     const roadmap = this.roadmap();
     roadmap.setClaim(goal.id, claim);
@@ -1216,7 +1235,7 @@ export class Project {
     if (this.claimedGoals(roadmap).length > 0) return [];
     const handed = roadmap.goals.filter((g) => g.claim?.session === HANDED_TO_NEXT && g.status !== "done" && g.status !== "dropped");
     if (handed.length === 0) return [];
-    for (const g of handed) roadmap.setClaim(g.id, { session: this.session.id, pid: this.session.pid, since: this.now().toISOString() });
+    for (const g of handed) roadmap.setClaim(g.id, { session: this.session.id, pid: this.session.pid, since: this.now().toISOString(), host: this.host });
     this.saveRoadmap(roadmap);
     return handed.map((g) => roadmap.goal(g.id)!);
   }

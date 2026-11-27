@@ -52,6 +52,8 @@ export interface Claim {
   session: string;
   pid: number | undefined;
   since: string | undefined;
+  /** The computer the claiming chat runs on; its pid means nothing on another computer (plan sync). */
+  host?: string;
 }
 
 export interface Goal {
@@ -117,7 +119,7 @@ export const ROADMAP_REF = "roadmap";
 
 const GOAL_MARKER: Record<GoalMarker, Marker> = { planned: " ", started: "/", done: "x", dropped: "-" };
 const LINK = /^\[(.*)\]\((.*)\)$/;
-const CLAIM = /^(\S+)(?:\s+\(pid (\d+)\))?(?:\s+since\s+(\S+))?/;
+const CLAIM = /^(\S+)(?:\s+\(pid (\d+)\))?(?:\s+on\s+(\S+))?(?:\s+since\s+(\S+))?/;
 /** A Goal ID chosen by the Agent: the end of every ref into the Goal, so short and URL-safe. */
 const GOAL_ID = /^[a-z0-9][a-z0-9-]{0,47}$/;
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -174,11 +176,11 @@ export function hotfixLine(goals: Goal[]): string | undefined {
 function parseClaim(value: string | undefined): Claim | undefined {
   const m = value ? CLAIM.exec(value.trim()) : null;
   if (!m) return undefined;
-  return { session: m[1]!, pid: m[2] ? Number(m[2]) : undefined, since: m[3] };
+  return { session: m[1]!, pid: m[2] ? Number(m[2]) : undefined, since: m[4], ...(m[3] ? { host: m[3] } : {}) };
 }
 
 function formatClaim(c: Claim): string {
-  return `${c.session}${c.pid !== undefined ? ` (pid ${c.pid})` : ""}${c.since ? ` since ${c.since}` : ""}`;
+  return `${c.session}${c.pid !== undefined ? ` (pid ${c.pid})` : ""}${c.host ? ` on ${c.host}` : ""}${c.since ? ` since ${c.since}` : ""}`;
 }
 
 /** roadmap.md: the Goals, Ideas and Standing Instructions of a project. */
