@@ -680,7 +680,7 @@ describe("a Session holding several Goals", () => {
   });
 
   it("refuses a Goal it has not claimed", () => {
-    expect(() => agent.startTask("t1", "billing")).toThrow(/Goal billing is not claimed by this Session.*claim_goal/);
+    expect(() => agent.startTask("t1", "billing")).toThrow(/Goal billing is not held by any chat; claim it first \(claim_goal\)/);
     expect(() => agent.startTask("t1", "nope")).toThrow(/No Goal nope/);
   });
 
@@ -968,7 +968,7 @@ describe("moving a Task to another Goal", () => {
     expect(() => agent.moveTask("t1", "voice")).toThrow(/several Goals/);
     agent.moveTask("t1", "voice", {}, "login");
     agent.addGoal("Billing", [{ title: "Pay" }]);
-    expect(() => agent.moveTask("t1", "login", {}, "billing")).toThrow(/not claimed by this Session/);
+    expect(() => agent.moveTask("t1", "login", {}, "billing")).toThrow(/not held by any chat/);
   });
 
   it("leaves a Detour that branched from the Task as it was, pointing at the trace", () => {

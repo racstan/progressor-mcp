@@ -11,7 +11,7 @@ import { checkUp, checkupLine } from "./checkup.js";
 import { hooksAdvice, launchFor, startedViaNpx, startedViaUvx } from "./init.js";
 import { parseDuration, roughDuration, sayDuration, timeText } from "./estimate.js";
 import { type Decision, type Detour, type HelperInfo, type NewTask, type Note, type Task, type TaskStatus, TIMED, timeSpent } from "./planFile.js";
-import { type DetourEnding, type FoundItem, MAX_CONTEXT_LENGTH, PROJECT_TALK, Project, type SessionStatus, type Status, type TaskOperation } from "./project.js";
+import { type DetourEnding, type FoundItem, HANDED_TO_NEXT, MAX_CONTEXT_LENGTH, PROJECT_TALK, Project, type SessionStatus, type Status, type TaskOperation } from "./project.js";
 import { dashboardPrompt, nextPrompt, planPrompt, reviewPrompt, setupPrompt, statusPrompt } from "./prompts.js";
 import { handTestLines, handTestWord } from "./handTestText.js";
 import { elsewhereNewsLine, newsLines, projectTalkLine, talkLines } from "./talkText.js";
@@ -28,6 +28,8 @@ import { everyWords, parseEvery } from "./routines.js";
 import { releaseFacts } from "./facts.js";
 import { offerHint, parseWait } from "./alternatives.js";
 import { registerFeatureTools } from "./tools/index.js";
+import { type ServerRecord, defaultServersDir, listServers } from "./servers.js";
+import { liveSessions } from "./liveSessions.js";
 import { type GlobalNotes, PART_TITLE, addGlobalRule, contextLines, globalFileFor, globalInstructions, globalStatusLines, notEverywhere, readGlobal, setGlobalContext, updateGlobalRule } from "./globalRules.js";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -690,6 +692,8 @@ export interface ServerOptions {
   claudeHome?: string;
   /** Where the answer to "is a newer Progressor out?" is kept (updateCheck.ts); beside the registry unless set, and not used under the tests unless set. */
   updateFile?: string;
+  /** The running Progressor processes (servers.ts), for the chats in this project; read from `servers/` beside the registry unless set. */
+  servers?: () => ServerRecord[];
 }
 
 /** Whether the app is Claude Code, the one app with hooks; it names itself "claude-code". */
@@ -745,6 +749,15 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   const globalFile = globalFileFor(options.registryFile ?? defaultRegistryFile());
   const server = new McpServer({ name: "progressor", version: BUILD.version }, { instructions: serverInstructions(readGlobal(globalFile)) });
   withExamples(server);
+  const servers = options.servers ?? (() => listServers(defaultServersDir(options.registryFile ?? defaultRegistryFile())));
+  /** The chats running in this project now, this one included. */
+  const chatsHere = () => {
+    try {
+      return liveSessions(project, servers());
+    } catch {
+      return [];
+    }
+  };
   // Each tool call is one change in the plan's history, named after the tool (history.ts).
   const toolName = new AsyncLocalStorage<string>();
   const register = server.registerTool.bind(server) as (name: string, config: unknown, cb: (...args: unknown[]) => unknown) => unknown;
@@ -987,6 +1000,8 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       const routined = wanted?.trim() ? [] : routineLines(project);
       return respondIn(wanted, (p) => {
         if (p !== project) return formatOtherProject(p, nameOf(p));
+        // A Goal another chat handed to the next one is taken by the first get_status of a chat that holds none.
+        const handed = project.takeHandedGoals().map((g) => `Goal ${g.id} was handed to this chat; it is claimed for you.`);
         // The plan check-up (checkup.ts): once per Session by itself, or every finding when asked.
         const settings = readSettings(settingsFile, project.root).checkup;
         let checked: string[] = [];
@@ -1012,7 +1027,10 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const reminder = untriedReminder();
         const risky = riskReminder();
         const update = updateLine();
+        const others = chatsHere().filter((c) => c.session !== project.session.id);
+        const chats = others.length > 0 ? `Other chats in this project: ${others.map((c) => `${c.session} (${c.goals.length > 0 ? `holds ${c.goals.map((g) => g.id).join(", ")}` : "no Goal"})`).join(", ")}` : undefined;
         return [
+          ...handed,
           now,
           ...routined,
           ...checked,
@@ -1021,6 +1039,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           ...(elsewhere ? [elsewhere] : []),
           ...(hooks ? [hooks] : []),
           ...(update ? [update] : []),
+          ...(chats ? [chats] : []),
           `Project folder: ${project.root}`,
           ...(dashboard?.url ? [`Dashboard: ${dashboard.url}`] : []),
           ...(dashboard?.url && dashboard.notice ? [`Dashboard note: ${dashboard.notice}`] : []),
@@ -1302,11 +1321,21 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     "release_goal",
     {
       title: "Release Goal",
-      description: "Release this Session's Claim on a Goal, leaving it paused for a later Session.",
-      inputSchema: { goal: heldGoal },
+      description:
+        "Release this Session's Claim on a Goal, leaving it paused for a later Session. With to, hand it over in this one call instead: another chat's Session ID (get_status lists the chats in this project), which then holds it, or 'next' for the next chat whose get_status takes it.",
+      inputSchema: {
+        goal: heldGoal,
+        to: z.string().max(40).optional().describe("Hand the Goal to this chat instead of pausing it: a running Session's ID such as 's-1a2b3c', or 'next'."),
+      },
     },
-    ({ goal: id }) =>
+    ({ goal: id, to }) =>
       respondIn(undefined, () => {
+        if (to?.trim()) {
+          const handed = project.handGoal(id, to, chatsHere().map((c) => ({ session: c.session, pid: c.pid })));
+          return handed.claim?.session === HANDED_TO_NEXT
+            ? `Handed Goal ${handed.id} to the next chat in this project: its get_status takes it. If nobody takes it within a day, it is paused.`
+            : `Handed Goal ${handed.id} to Session ${handed.claim?.session}; it holds it now.`;
+        }
         const goal = project.releaseGoal(id);
         return goal ? `Released Goal ${goal.id}; it is now paused.` : "This Session had no Goal to release.";
       }),

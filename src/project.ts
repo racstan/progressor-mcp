@@ -364,6 +364,9 @@ export function claimMayBeLive(
   return true;
 }
 
+/** The claim's session for a Goal handed to whichever chat starts next (Project.handGoal). */
+export const HANDED_TO_NEXT = "next";
+
 /** How long a claim whose process can't be told apart from a reused one stays held with no change to its plan. */
 export const CLAIM_IDLE_MS = 24 * 3_600_000;
 
@@ -973,8 +976,9 @@ export class Project {
     if (goalId !== undefined) {
       const goal = held.find((g) => g.id === goalId);
       if (goal) return { goal, plan: planOf(goal) };
-      if (!roadmap.goal(goalId)) throw new Error(`No Goal ${goalId} on the Roadmap.`);
-      throw new Error(`Goal ${goalId} is not claimed by this Session; claim it first (claim_goal).`);
+      const named = roadmap.goal(goalId);
+      if (!named) throw new Error(`No Goal ${goalId} on the Roadmap.`);
+      throw new Error(this.notHeldText(named));
     }
     if (held.length === 0) throw new Error("This Session has no Goal; claim a Goal first (claim_goal).");
     if (held.length > 1)
@@ -1001,8 +1005,28 @@ export class Project {
     return goal;
   }
 
+  /** Why this Session may not change a Goal it does not hold, saying who holds it and how to take it. */
+  private notHeldText(goal: Goal): string {
+    const claim = goal.claim;
+    if (!claim) return `Goal ${goal.id} is not held by any chat; claim it first (claim_goal).`;
+    if (claim.session === HANDED_TO_NEXT) return `Goal ${goal.id} was handed to the next chat; claim it (claim_goal) to take it here.`;
+    const live = this.claimMayBeLive(claim, goal);
+    return (
+      `Goal ${goal.id} is held by another chat, Session ${claim.session} (${live ? "still running" : "ended"}); this chat is Session ${this.session.id}. ` +
+      "The per-message status lists every Goal in progress in this project, not only this chat's. " +
+      (live
+        ? "Ask that chat to hand it over (release_goal with to), or take it here with claim_goal and takeover only if the Developer asks."
+        : "Claim it here with claim_goal.")
+    );
+  }
+
   /** Whether a Claim's Session may still be running (see claimMayBeLive). */
   private claimMayBeLive(claim: Claim, goal?: Goal): boolean {
+    // A Goal handed to the next chat waits for one, but not for ever.
+    if (claim.session === HANDED_TO_NEXT) {
+      const since = claim.since ? Date.parse(claim.since) : NaN;
+      return !Number.isFinite(since) || this.now().getTime() - since <= this.idleMs();
+    }
     return claimMayBeLive(claim, {
       isAlive: this.isAlive,
       sessionOf: this.sessionOf,
@@ -1054,7 +1078,7 @@ export class Project {
   /** Whether a Goal is held by another Session that may still be running. A Claim whose Session has ended is stale. */
   private claimIsLive(goal: Goal): boolean {
     const claim = goal.claim;
-    if (!claim || claim.session === this.session.id) return false;
+    if (!claim || claim.session === this.session.id || claim.session === HANDED_TO_NEXT) return false;
     return this.claimMayBeLive(claim, goal);
   }
 
@@ -1107,6 +1131,45 @@ export class Project {
     roadmap.setClaim(goal.id, undefined);
     this.saveRoadmap(roadmap);
     return roadmap.goal(goal.id);
+  }
+
+  /**
+   * Hands a Goal this Session holds straight to another chat, in one change: a running Session in
+   * this project (`live`, from the servers' records), which then holds it, or HANDED_TO_NEXT, which
+   * the next chat to call get_status takes (takeHandedGoals). The Goal stays in progress.
+   */
+  handGoal(goalId: string | undefined, to: string, live: readonly { session: string; pid: number }[]): Goal {
+    const target = to.trim();
+    const { goal } = this.requireClaim(goalId);
+    if (target === this.session.id) throw new Error(`This chat (Session ${target}) already holds Goal ${goal.id}.`);
+    let claim: Claim;
+    if (target === HANDED_TO_NEXT) claim = { session: HANDED_TO_NEXT, pid: undefined, since: this.now().toISOString() };
+    else {
+      const found = live.find((r) => r.session === target);
+      if (!found) {
+        const others = live.filter((r) => r.session !== this.session.id).map((r) => r.session);
+        throw new Error(
+          `No chat running in this project is Session ${target}. ${others.length > 0 ? `Running here: ${others.join(", ")}.` : "No other chat is running here."} ` +
+            `Give one of those, or "${HANDED_TO_NEXT}" for the next chat that starts.`,
+        );
+      }
+      claim = { session: found.session, pid: found.pid, since: this.now().toISOString() };
+    }
+    const roadmap = this.roadmap();
+    roadmap.setClaim(goal.id, claim);
+    this.saveRoadmap(roadmap);
+    return roadmap.goal(goal.id)!;
+  }
+
+  /** Claims the Goals handed to the next chat, when this Session holds none yet; returns them. */
+  takeHandedGoals(): Goal[] {
+    const roadmap = this.tidyRoadmap();
+    if (this.claimedGoals(roadmap).length > 0) return [];
+    const handed = roadmap.goals.filter((g) => g.claim?.session === HANDED_TO_NEXT && g.status !== "done" && g.status !== "dropped");
+    if (handed.length === 0) return [];
+    for (const g of handed) roadmap.setClaim(g.id, { session: this.session.id, pid: this.session.pid, since: this.now().toISOString() });
+    this.saveRoadmap(roadmap);
+    return handed.map((g) => roadmap.goal(g.id)!);
   }
 
   /** Releases every Goal this Session holds, as it ends. */

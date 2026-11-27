@@ -560,7 +560,7 @@ describe("several Goals in one Session", () => {
     await call("add_goal", { title: "Billing" });
     const r = await call("save_decision", { goal: "billing", text: "x" });
     expect(r.isError).toBe(true);
-    expect(r.text).toMatch(/not claimed by this Session/);
+    expect(r.text).toMatch(/not held by any chat/);
   });
 });
 
