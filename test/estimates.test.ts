@@ -203,7 +203,8 @@ describe("estimates through the tools", () => {
     await call("save_standing_instruction", { text: "One helper at a time for now", helpers_at_once: 1 });
     expect(read("roadmap.md")).not.toContain("helpers at once: 2");
     expect((await call("save_standing_instruction", { id: "s2", helpers_at_once: 0 })).text).toBe("Changed Standing Instruction s2: One helper at a time for now");
-    expect((await call("get_status")).text).not.toContain("Helper limit");
+    // With the number taken off, the rule's own words still say the limit.
+    expect((await call("get_status")).text).toContain("Helper limit: at most 1 Tasks with a helper at once");
   });
 
   it("says how long a completed Task took against its estimate", async () => {
