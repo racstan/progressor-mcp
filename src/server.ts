@@ -1865,24 +1865,44 @@ Could not claim ${next}: ${(e as Error).message}`;
     {
       title: "Save hand test",
       description:
-        "Add something only the Developer can try by hand to a claimed Goal, such as 'OpenCode may ask permission to read an attached file: allow it and check the reply'. Put it here instead of in your chat summary: the Developer sees the Goal's hand-test list on the dashboard and marks each one there as works, doesn't work (with a note) or won't test. A failure adds a Task to the Goal by itself; get_status shows what is still open and the new marks. complete_goal with tests unmarked leaves the Goal waiting on them, and it finishes when the last is marked. " +
-        "With id: reword it, change which Task it is about, or remove it with an empty text (for one that turned out not to need testing); its mark stays, and only the Developer marks tests.",
+        "Add a hand test to a claimed Goal, such as 'OpenCode may ask permission to read an attached file: allow it and check the reply', and TRY EACH HAND TEST YOURSELF: do it (the dashboard in the browser pane, the tools, the CLI), then mark it with id plus result and a note. Only something that truly needs the Developer (their real accounts, another computer) waits for them. The Developer sees the Goal's hand-test list on the dashboard, with 'Tried by the AI' on yours, and can mark again to replace yours. A failure adds a Task to the Goal by itself (and reopens a finished Goal); a Goal waiting on its tests finishes when the last one is marked. get_status shows what is still open and the Developer's new marks. " +
+        "With id and no result: reword it, change which Task it is about, or remove it with an empty text (for one that turned out not to need testing); its mark stays. " +
+        "With id and result: MARK it as the AI, on any Goal on the plan (claimed or not, and with project in another project's plan); give goal when the test's Goal is not the only one this Session holds. note says what you did and saw; picture is a screenshot file as proof.",
       inputSchema: {
         goal: heldGoal,
-        id: z.string().optional().describe("A hand test's ID, such as 'h2', to change it; leave out to add one."),
+        project: otherProject,
+        id: z.string().optional().describe("A hand test's ID, such as 'h2', to change or mark it; leave out to add one."),
         text: z.string().optional().describe("What to try and what to look for, in one or two short plain sentences; with id, empty removes it."),
         task: z.string().optional().describe("The ID of the Task it is about, such as 't3'; with id, an empty string removes the link."),
+        result: z.enum(["works", "doesn't work", "won't test"]).optional().describe("With id: the AI's mark after trying it."),
+        note: z.string().optional().describe("With result: what you did and saw, in one or two lines (kept for every result)."),
+        picture: z.string().optional().describe("With result: the path of a screenshot (.png .jpg .jpeg .webp .gif) as proof, shown on the hand test."),
       },
     },
-    ({ goal, id, text, task }) =>
-      respondIn(undefined, () => {
+    ({ goal, project: wanted, id, text, task, result, note, picture }) =>
+      respondIn(wanted, (p) => {
+        if (id && result) {
+          const goalId = goal ?? p.goalIdFor(undefined);
+          const h = p.markHandTest(goalId, id, result, note, "AI");
+          const lines = [`Marked hand test ${h.id}: ${result}.`];
+          if (picture) {
+            const pic = p.attachPicture(picture, `Hand test ${id}: ${result}`, { handTest: id }, goalId, true);
+            lines.push(`Attached picture ${pic.id} as proof.`);
+          }
+          if (h.taskAdded) lines.push(`Step ${h.taskAdded} was added to fix it.`);
+          const goalNow = p.roadmap().goal(goalId);
+          if (goalNow?.status === "done") lines.push(`Goal ${goalId} is finished: every hand test is marked.`);
+          else if (h.taskAdded && goalNow?.status === "active") lines.push(`Goal ${goalId} is open again for that step.`);
+          return withNow(lines.join(" "));
+        }
         if (id) {
-          const h = project.updateHandTest(id, { text, task }, goal);
+          const h = p.updateHandTest(id, { text, task }, goal);
           return withNow(h ? `Changed hand test ${h.id}: ${h.text}` : `Removed hand test ${id}.`);
         }
         if (!text?.trim()) throw new Error("Say what to try first.");
-        const h = project.addHandTest(text, goal, task || undefined);
-        return withNow(`Saved hand test ${h.id}: ${h.text}\nThe Developer marks it on the dashboard.`);
+        const h = p.addHandTest(text, goal, task || undefined);
+        return withNow(`Saved hand test ${h.id}: ${h.text}
+Try it yourself and mark it with id and result; whatever only the Developer can try waits on the dashboard.`);
       }),
   );
 

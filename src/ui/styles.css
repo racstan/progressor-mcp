@@ -400,6 +400,7 @@ button.list-row:hover { background: var(--hover); }
 .hand.won-t-test .badge { color: var(--muted); }
 .hand.works .text, .hand.won-t-test .text { color: var(--muted); }
 .hand .note { font-size: var(--t-s); color: var(--muted); overflow-wrap: anywhere; }
+.hand .by-ai { font-size: var(--t-s); color: var(--muted); border: 1px solid var(--border, currentColor); border-radius: 999px; padding: 0 var(--s2); }
 .hand .added { font-size: var(--t-s); color: var(--muted); }
 .hand .undo { margin-left: auto; }
 .hand .ask { margin-top: var(--s3); display: flex; flex-direction: column; gap: var(--s2); }

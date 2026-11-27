@@ -157,8 +157,10 @@ export interface HandTest {
   text: string;
   line: number;
   result: HandResult;
-  /** What the Developer typed when it did not work. */
+  /** What the Developer typed when it did not work, or what the AI did and saw when it marked the test. */
   note: string | undefined;
+  /** "AI" when the AI tried it and marked it; undefined for the Developer's mark. */
+  by?: "AI" | undefined;
   /** The ID of the Task this test is about, if the Agent said. */
   task: string | undefined;
   /** The ID of the Task a failed result added to the Goal. */
@@ -272,7 +274,7 @@ export const TASK_MARKER: Record<TaskStatus, Marker> = {
 /** The checkbox of each hand-test result: older readers see a tried test as done, a failed one as started. */
 const HAND_MARKER: Record<HandResult, Marker> = { pending: " ", works: "x", "doesn't work": "/", "won't test": "-" };
 const HAND_RESULT: Record<Marker, HandResult> = { " ": "pending", x: "works", "/": "doesn't work", "-": "won't test" };
-const HAND_ORDER = ["task", "note", "marked", "task added", "seen", ORIGIN_KEY, ADDED, UPDATED];
+const HAND_ORDER = ["task", "note", "by", "marked", "task added", "seen", ORIGIN_KEY, ADDED, UPDATED];
 const MESSAGE_MARKER: Record<MessageState, Marker> = { new: " ", seen: "/", replied: "x" };
 const MESSAGE_STATE: Record<Marker, MessageState> = { " ": "new", "/": "seen", x: "replied", "-": "seen" };
 const MESSAGE_ORDER = ["sent", "seen", "reply", "replied"];
@@ -879,6 +881,7 @@ export class PlanFile {
       line: b.line,
       result: HAND_RESULT[b.marker ?? " "],
       note: getDetail(b, "note"),
+      by: getDetail(b, "by") === "AI" ? "AI" : undefined,
       task: stripRef(getDetail(b, "task")),
       taskAdded: stripRef(getDetail(b, "task added")),
       markedAt: getDetail(b, "marked"),
@@ -929,13 +932,16 @@ export class PlanFile {
    * Records the Developer's mark on a hand test, or clears it (`pending`). A mark the Agent has not
    * seen yet has no `seen` line; `markHandTestsSeen` adds it.
    */
-  markHandTest(id: string, result: HandResult, note: string | undefined, at: Date): HandTest {
+  markHandTest(id: string, result: HandResult, note: string | undefined, at: Date, by?: "AI"): HandTest {
     const b = this.handBlock(id);
     b.marker = HAND_MARKER[result];
-    const text = note?.trim() && result === "doesn't work" ? oneLine(note) : undefined;
+    // The Developer's note is kept for a failure only; the AI's says what it did and saw, for every result.
+    const text = note?.trim() && (result === "doesn't work" || (by === "AI" && result !== "pending")) ? oneLine(note) : undefined;
     setDetail(b, "note", text);
+    setDetail(b, "by", by === "AI" && result !== "pending" ? "AI" : undefined);
     setDetail(b, "marked", result === "pending" ? undefined : at.toISOString());
-    setDetail(b, "seen", undefined);
+    // The AI made its own mark, so it has nothing new to be shown.
+    setDetail(b, "seen", by === "AI" && result !== "pending" ? "yes" : undefined);
     sortDetails(b, HAND_ORDER);
     return this.handTest(id)!;
   }

@@ -37,7 +37,7 @@ describe("fields a tool doesn't take", () => {
 
   it("say plainly when project is given to a tool that only works on this plan", async () => {
     await call("add_goal", { title: "Login", claim: true, tasks: [{ title: "Route" }] });
-    const r = await call("save_hand_test", { text: "Try it", project: "elsewhere" });
+    const r = await call("attach_picture", { path: "x.png", caption: "x", project: "elsewhere" });
     expect(r.isError).toBe(true);
     expect(r.text).toMatch(/only works on this project's plan/);
   });

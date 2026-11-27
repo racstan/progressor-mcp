@@ -91,6 +91,7 @@ function Item({ test, about, added, pictures, projectId, goalId, onChanged, need
       {marked ? (
         <div className="result">
           <span className="badge">{HAND_WORD[test.result]}</span>
+          {test.by === "AI" && <span className="by-ai">Tried by the AI</span>}
           {test.note && <span className="note">“{test.note}”</span>}
           {test.result === "doesn't work" && added && <span className="added">Added a step for your AI: {added}</span>}
           <button type="button" className="linkbtn undo" disabled={busy} onClick={() => void mark("clear")}>Undo</button>
