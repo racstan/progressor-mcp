@@ -43,6 +43,7 @@ describe("the MCP server", () => {
         "add_tasks",
         "ask_developer",
         "attach_picture",
+        "attach_report",
         "claim_goal",
         "complete_goal",
         "drop_goal",

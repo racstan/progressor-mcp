@@ -64,6 +64,7 @@ if (!process.env.PROGRESSOR_ROOT) {
     project.moveTo(where.root);
   }
 }
+project.setWorktree(where.worktree);
 console.error(`progressor: serving ${project.root} as Session ${project.session.id}`);
 
 // The same process serves the dashboard (ADR 0001; the Developer can also mark hand tests, ADR 0004). A dashboard that cannot start never

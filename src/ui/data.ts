@@ -875,6 +875,37 @@ export async function askForHandoff(projectId: string, range: { since?: string; 
   if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `The server answered ${res.status}.`);
 }
 
+/** A write-up attached to a step (reports.ts). */
+export interface ReportItem {
+  id: string;
+  goal: string;
+  task: string;
+  title: string;
+  written: string;
+  session: string;
+  bytes: number;
+}
+
+/** A goal's reports, in the order written; empty until known or when there are none. Reloads when `version` changes. */
+export function useReports(projectId: string, goalId: string, version: unknown): ReportItem[] {
+  const path = `/api/projects/${encodeURIComponent(projectId)}/goals/${encodeURIComponent(goalId)}/reports`;
+  const [state, setState] = useState<{ path: string; list: ReportItem[] }>();
+  useEffect(() => {
+    let alive = true;
+    getJson<ReportItem[]>(path)
+      .then((list) => alive && setState({ path, list: Array.isArray(list) ? list : [] }))
+      .catch(() => alive && setState({ path, list: [] }));
+    return () => {
+      alive = false;
+    };
+  }, [path, version]);
+  return state?.path === path ? state.list : [];
+}
+
+/** One report's text (markdown); undefined when it cannot be read. */
+export const getReport = async (projectId: string, goalId: string, id: string) =>
+  (await getJson<{ text: string }>(`/api/projects/${encodeURIComponent(projectId)}/goals/${encodeURIComponent(goalId)}/reports/${encodeURIComponent(id)}`))?.text;
+
 /** The project's calendar (calendar.ts): every dated thing in its plan. Reloads when `version` changes. */
 export function useCalendar(projectId: string, version: unknown): { now: string; events: CalendarEvent[] } | null | undefined {
   const path = `/api/projects/${encodeURIComponent(projectId)}/calendar`;

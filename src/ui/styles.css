@@ -1555,3 +1555,12 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
   border-color: var(--done);
   color: var(--on-accent);
 }
+
+/* A step's reports: a plain list, greys and borders only. */
+.step-reports ul { list-style: none; margin: var(--s1) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); }
+.step-reports .report { border: 1px solid var(--line); border-radius: var(--r-s); }
+.step-reports .report-row { all: unset; box-sizing: border-box; display: flex; width: 100%; justify-content: space-between; gap: var(--s3); padding: var(--s1) var(--s2); cursor: pointer; font-weight: 600; }
+.step-reports .report-row:hover, .step-reports .report-row:focus-visible { background: var(--hover); }
+.step-reports .report-when { font-weight: 400; color: var(--faint); font-size: var(--t-s); white-space: nowrap; }
+.step-reports .report[open], .step-reports .report-row[aria-expanded="true"] { border-bottom: 1px solid var(--line); }
+.step-reports .report-text { padding: var(--s2) var(--s3); border-top: 1px solid var(--line); font-weight: 400; }

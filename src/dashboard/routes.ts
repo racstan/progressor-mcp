@@ -12,6 +12,7 @@ import { historyRoutes } from "./routes/history.js";
 import { feedRoutes } from "./routes/feed.js";
 import { checkupRoutes } from "./routes/checkup.js";
 import { handoffRoutes } from "./routes/handoffs.js";
+import { reportRoutes } from "./routes/reports.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { routinesRoutes } from "./routes/routines.js";
 import { calendarRoutes } from "./routes/calendar.js";
@@ -86,6 +87,7 @@ export const featureRoutes: FeatureRoute[] = [
   ...readinessRoutes,
   ...costRoutes,
   ...ciRoutes,
+  ...reportRoutes,
 ];
 
 /** A body bigger than this is refused unread, unless the route asks for more. */
