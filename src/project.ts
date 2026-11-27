@@ -37,7 +37,8 @@ import { type MarkdownDoc, findSection, parseMarkdown } from "./markdown.js";
 import { gitBranches, orphanWarnings } from "./helperWork.js";
 import { type GitFacts, type GitRange, realGit } from "./gitFacts.js";
 import type { LiveSession } from "./liveSessions.js";
-import { type BranchFacts, linkedBranch, syncSteps } from "./stepSync.js";
+import { type CiDeps, kickCiRefresh, readCiCache } from "./ci.js";
+import { type BranchFacts, type PrAction, type SyncAction, linkedBranch, syncFromPullRequests, syncSteps } from "./stepSync.js";
 import { type GoalLookup, type Waiting, finishedState, parseWaitRef, waitCycle } from "./dependencies.js";
 import { type Origin } from "./origin.js";
 import { ResourceLocks } from "./resources.js";
@@ -61,6 +62,14 @@ export interface EstimateSettings {
 }
 /** Finished steps with an estimate and a time needed before estimates are adjusted. */
 export const MIN_SAMPLES = 5;
+
+/** Where a chat finds pull requests for its steps: the kept answers (ci.ts), how to ask the host, and whether it is on. */
+export interface PullRequestSource {
+  /** Read each time, since the project folder can change once the app says which folder it has open. */
+  cacheFile: () => string;
+  deps: CiDeps;
+  on?: () => boolean;
+}
 
 /** The steps are checked against git at most this often by one chat. */
 export const GIT_SYNC_EVERY_MS = 30_000;
@@ -1583,24 +1592,33 @@ export class Project {
       if (at - this.lastGitSync < GIT_SYNC_EVERY_MS && at >= this.lastGitSync) return undefined;
       this.lastGitSync = at;
       const said: string[] = [];
-      let known: ReturnType<NonNullable<GitFacts["branches"]>> | undefined;
-      let asked = false;
-      for (const goal of held) {
-        const steps = this.plan(goal.id).tasks.flatMap((t) => (t.id ? [{ id: t.id, status: t.status, helper: t.helper, startedAt: t.startedAt }] : []));
-        const open = steps.filter((s) => !FINISHED.includes(s.status));
+      const goals = held.map((goal) => {
+        const steps = this.plan(goal.id).tasks.flatMap((t) => (t.id ? [{ id: t.id, status: t.status, helper: t.helper, startedAt: t.startedAt, commits: t.commits, branch: t.branch, finishedAt: t.finishedAt }] : []));
+        return { goal, steps, open: steps.filter((s) => !FINISHED.includes(s.status)) };
+      });
+      if (goals.every((g) => g.open.length === 0)) return undefined;
+      const known = this.git.branches?.(this.root);
+      const branches = known ? [...known.exists] : [];
+      // Pull requests: what is already kept, and a refresh started in the background for next time.
+      const source = this.pullRequests;
+      const cache = source && (source.on?.() ?? true) ? readCiCache(source.cacheFile()) : undefined;
+      if (source && cache)
+        void kickCiRefresh(
+          this.root,
+          () => goals.flatMap((g) => g.steps.map((t) => ({ id: t.id, status: t.status, commits: t.commits, branch: t.branch, finishedAt: t.finishedAt, helperBranch: t.helper?.branch }))),
+          source.cacheFile(),
+          source.deps,
+          () => undefined,
+          branches,
+        )?.catch(() => undefined);
+      for (const { goal, steps, open } of goals) {
         if (open.length === 0) continue;
-        if (!asked) {
-          asked = true;
-          known = this.git.branches?.(this.root);
-        }
-        if (!known) return said.length > 0 ? `Kept in step with git: ${said.join("; ")}.` : undefined;
-        const branches = [...known.exists];
         const facts: Record<string, BranchFacts> = {};
         for (const s of open) {
-          const b = linkedBranch(s, branches);
+          const b = known ? linkedBranch(s, branches) : undefined;
           if (!b || facts[b]) continue;
-          const exists = known.exists.has(b);
-          const merged = exists && known.merged.has(b);
+          const exists = known!.exists.has(b);
+          const merged = exists && known!.merged.has(b);
           const ahead = exists && !merged ? (this.git.ahead?.(this.root, b) ?? []) : [];
           if (ahead.length > 0) this.aheadSeen.set(b, ahead);
           facts[b] = { exists, merged, ahead };
@@ -1610,13 +1628,21 @@ export class Project {
             if (found) facts[b]!.mergedInto = found;
           }
         }
-        const actions = syncSteps({ steps, sessions: [...chats], self: this.session.id, branches, facts, seen: Object.fromEntries(this.aheadSeen), since: goal.claim?.since });
-        for (const a of actions) {
+        const gitActions = known ? syncSteps({ steps, sessions: [...chats], self: this.session.id, branches, facts, seen: Object.fromEntries(this.aheadSeen), since: goal.claim?.since }) : [];
+        const prActions = cache ? syncFromPullRequests({ goal: goal.id, steps, branches, cache, since: goal.claim?.since }) : [];
+        // A pull request's word beats a helper chat's; a merged branch and a merged pull request agree.
+        const byStep = new Map<string, SyncAction | PrAction>(gitActions.map((a) => [a.task, a]));
+        for (const a of prActions) if (byStep.get(a.task)?.kind !== "done") byStep.set(a.task, a);
+        for (const a of byStep.values()) {
           try {
             if (a.kind === "done") {
+              const how = "branch" in a ? `branch ${a.branch} merged` : `PR #${a.pr} merged`;
               this.completeTask(a.task, [], undefined, goal.id);
-              this.recordEvidence(a.task, goal.id, { commits: a.commits, branch: a.branch });
-              said.push(`${a.task} is done (branch ${a.branch} merged, commits ${a.commits.join(", ")})`);
+              this.recordEvidence(a.task, goal.id, { commits: a.commits.length > 0 ? a.commits : undefined, ...("branch" in a ? { branch: a.branch } : {}) });
+              said.push(`${a.task} is done (${how}${a.commits.length > 0 ? `, commits ${a.commits.join(", ")}` : ""})`);
+            } else if (a.kind === "checked") {
+              this.setTaskState(a.task, "checked", goal.id, { evidence: a.evidence });
+              said.push(`${a.task} is checked (${a.evidence})`);
             } else {
               this.setTaskState(a.task, "with a helper", goal.id, { helper: { branch: a.branch, folder: a.folder, label: a.label } });
               said.push(`${a.task} is with a helper (${a.label} on branch ${a.branch})`);
@@ -1630,6 +1656,14 @@ export class Project {
     } catch {
       return undefined;
     }
+  }
+
+  /** Where this chat finds pull requests for its steps (syncWithGit); set once by the server. */
+  private pullRequests: PullRequestSource | undefined;
+
+  /** Turns on following pull requests: the kept answers file and how to ask the git host (ci.ts). */
+  followPullRequests(source: PullRequestSource): void {
+    this.pullRequests = source;
   }
 
   /** A claimed Goal's Task's status, without changing anything. */

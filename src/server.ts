@@ -5,6 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod";
 import type { Dashboard } from "./dashboard/http.js";
 import { defaultRegistryFile, projectEntry } from "./dashboard/registry.js";
+import { type CiDeps, ciCacheFile, realCiDeps } from "./ci.js";
 import { resolveProject, sameFolder, seenFile, takeElsewhereLine } from "./elsewhere.js";
 import { type GoalLookup, waitsText } from "./dependencies.js";
 import { checkUp, checkupLine } from "./checkup.js";
@@ -694,6 +695,8 @@ export interface ServerOptions {
   updateFile?: string;
   /** The running Progressor processes (servers.ts), for the chats in this project; read from `servers/` beside the registry unless set. */
   servers?: () => ServerRecord[];
+  /** How pull requests are asked for (ci.ts), so steps follow them; the real commands and network unless set, and not used under the tests unless set. */
+  ci?: CiDeps;
 }
 
 /** Whether the app is Claude Code, the one app with hooks; it names itself "claude-code". */
@@ -749,6 +752,23 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   const globalFile = globalFileFor(options.registryFile ?? defaultRegistryFile());
   const server = new McpServer({ name: "progressor", version: BUILD.version }, { instructions: serverInstructions(readGlobal(globalFile)) });
   withExamples(server);
+  // Steps follow pull requests (stepSync.ts): the kept answers beside the project list, as the dashboard keeps them.
+  const ciDeps = options.ci ?? (process.env.VITEST ? undefined : realCiDeps());
+  if (ciDeps) {
+    const registry = options.registryFile ?? defaultRegistryFile();
+    const settings = options.settingsFile ?? settingsFileFor(registry);
+    project.followPullRequests({
+      cacheFile: () => ciCacheFile(registry, project.root),
+      deps: ciDeps,
+      on: () => {
+        try {
+          return readSettings(settings, project.root).ci.enabled;
+        } catch {
+          return true;
+        }
+      },
+    });
+  }
   const servers = options.servers ?? (() => listServers(defaultServersDir(options.registryFile ?? defaultRegistryFile())));
   /** The chats running in this project now, this one included. */
   const chatsHere = () => {
