@@ -16,6 +16,7 @@ import { routinesSection } from "./Routines.js";
 import { backgroundSection } from "./Background.js";
 import { claimsSection } from "./Claims.js";
 import { costSection } from "./Cost.js";
+import { syncSection } from "./Sync.js";
 import { checksSection, homePageSection, updatesSection } from "./Home.js";
 import type { SettingsSection } from "./types.js";
 
@@ -43,6 +44,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   claimsSection,
   costSection,
   checksSection,
+  syncSection,
   backgroundSection,
   advancedSection,
 ];

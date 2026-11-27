@@ -27,6 +27,8 @@ import type { GoalSchedule, Schedule } from "./schedule.js";
 import type { Wish } from "./wishlist.js";
 import { readSettings, settingsFileFor } from "./settings.js";
 import { howInstalled, refreshUpdate, takeUpdateLine, updateFileFor } from "./updateCheck.js";
+import { syncToldFileFor, takeSyncLine } from "./sync/notice.js";
+import { syncStateFileFor } from "./sync/run.js";
 import { everyWords, parseEvery } from "./routines.js";
 import { releaseFacts } from "./facts.js";
 import { offerHint, parseWait } from "./alternatives.js";
@@ -836,6 +838,15 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     void refreshUpdate(updateFile, { enabled }).catch(() => undefined);
     return takeUpdateLine(updateFile, VERSION, howInstalled(), enabled);
   };
+  /** Once per problem or new clash: what plan sync wants the AI to know (sync/notice.ts). */
+  const syncLine = (): string | undefined => {
+    if (!updateFile) return undefined;
+    try {
+      return takeSyncLine(syncStateFileFor(settingsFile), syncToldFileFor(settingsFile), readSettings(settingsFile).sync.enabled);
+    } catch {
+      return undefined;
+    }
+  };
   // Release goals (facts.ts): the facts the AI writes the changelog entry and version bump from.
   const releaseFor = (p: Project, g: Goal, bundles?: string[]) => {
     const r = readSettings(settingsFile, p.root).release;
@@ -1040,6 +1051,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const reminder = untriedReminder();
         const risky = riskReminder();
         const update = updateLine();
+        const synced = syncLine();
         const others = chatsHere().filter((c) => c.session !== project.session.id);
         const overLimit = helperWarning(project, { chats: chatsHere(), global: readGlobal(globalFile).rules });
         const chats = others.length > 0 ? `Other chats in this project: ${others.map((c) => `${c.session} (${c.goals.length > 0 ? `holds ${c.goals.map((g) => g.id).join(", ")}` : "no Goal"})`).join(", ")}` : undefined;
@@ -1053,6 +1065,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           ...(elsewhere ? [elsewhere] : []),
           ...(hooks ? [hooks] : []),
           ...(update ? [update] : []),
+          ...(synced ? [synced] : []),
           ...(chats ? [chats] : []),
           ...overLimit,
           `Project folder: ${project.root}`,

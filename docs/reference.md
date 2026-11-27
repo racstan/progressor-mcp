@@ -253,6 +253,7 @@ It removes the project from `projects.json` and adds it to `hidden.json` beside 
 | `progressor-mcp init [folder] --remove [--yes]` | Takes all of that out again, leaving `.progressor/` alone. |
 | `progressor-mcp dashboard [folder] [--no-open] [--forget <folder>]` | Opens the dashboard on every project in a folder, with no AI app running. See [the dashboard](dashboard.md#the-dashboard-without-an-ai-running). |
 | `progressor-mcp daemon <start\|stop\|status\|install\|uninstall>` | Runs the dashboard in a small background process, now or from every login. See [the dashboard in the background](dashboard.md#the-dashboard-in-the-background). |
+| `progressor-mcp sync <connect [repo]\|off\|status\|now\|link <key>\|unlink>` | Keeps every project's plan in one private git repo shared by your computers: `connect` finds or makes `<you>/progressor-plans` with `gh` (or takes `owner/repo` or a URL), clones it to `~/.progressor/plans` and turns sync on; `now` syncs at once; `link` ties this folder to a plan key such as `github.com/owner/repo`. See [Plans on every computer](sync.md). |
 | `progressor-mcp hook <session-start\|prompt>` | Claude Code's hooks: prints the plan for the AI. |
 | `progressor-mcp --version` | Prints the version. |
 

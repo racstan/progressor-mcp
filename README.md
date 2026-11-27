@@ -159,7 +159,7 @@ It works with any app that supports [MCP](https://modelcontextprotocol.io) (the 
 A compressed chat, a new chat or a different AI app never costs you your progress:
 
 - **Everything is saved in your project.** The goals, every step and where each one stands, the side trips and why they happened, the decisions made along the way, notes, your rules and the project's background are kept in plain files in your project folder, not in the chat.
-- **Private, and yours.** The plan is plain markdown files on your computer: nothing is sent anywhere, and it's kept out of git unless you ask your AI to share it ([how](docs/faq.md#is-my-plan-private-should-i-commit-the-progressor-folder)). You can read every file, and delete them whenever you like.
+- **Private, and yours.** The plan is plain markdown files on your computer: nothing is sent anywhere, and it's kept out of git unless you ask your AI to share it ([how](docs/faq.md#is-my-plan-private-should-i-commit-the-progressor-folder)). You can read every file, and delete them whenever you like. Work on more than one computer? One command keeps every plan the same on all of them, through a private GitHub repo of yours ([how](docs/sync.md)).
 - **The same plan for you and the AI.** What you see on the dashboard is what the AI reads, so you always know what's done, what's under way and what's waiting on you.
 
 ## Set it up
@@ -352,6 +352,7 @@ Most problems can be fixed by asking your AI. [Troubleshooting](docs/troubleshoo
 - [The dashboard](docs/dashboard.md): everything on the page
 - [Questions](docs/faq.md) and [Troubleshooting](docs/troubleshooting.md)
 - [Updating and removing](docs/updating-and-removing.md)
+- [Plans on every computer](docs/sync.md): keep each project's plan the same on all your computers, through one private GitHub repo
 - [Tool index](docs/tools.md): all 31 tools your AI has, in one line each
 - [Reference](docs/reference.md): commands, the AI's tools, settings and the file format, for the technically curious
 - [Contributing](CONTRIBUTING.md): working on Progressor itself
