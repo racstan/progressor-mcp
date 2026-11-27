@@ -8,8 +8,8 @@ Words: a **goal** is *Goal* in the tools, a **step** is *Task*, a **side trip** 
 
 | Tool | What it does |
 | --- | --- |
-| `get_status` | Where the work stands and the rules to follow; with `for_helper`, the rules for a helper's brief. |
-| `get_item` | Looks up one goal, step, note or decision by its `progressor://` link. |
+| `get_status` | Where the work stands and the rules to follow (repeated in full only the first time, or when they change, or with `full`); with `for_helper`, the rules for a helper's brief. |
+| `get_item` | Looks up one goal, step, note or decision by its `progressor://` link; `refs` looks up several at once. |
 | `launch_readiness` | Answers "are we ready to launch?": what is left, for whom. |
 | `plan_history` | The plan's last changes, or going back to before one. |
 
@@ -23,7 +23,7 @@ Words: a **goal** is *Goal* in the tools, a **step** is *Task*, a **side trip** 
 | `move_goal` | Moves a goal before or after another. |
 | `claim_goal` | Takes a goal to work on (reopens a finished one). |
 | `release_goal` | Lets go of a goal; it is paused. |
-| `complete_goal` | Marks a goal finished once its steps are done. |
+| `complete_goal` | Marks a goal finished once its steps are done; can add `hand_tests` first and claim the `next` goal after. |
 | `drop_goal` | Cancels a goal, with a reason. |
 
 ## Steps
@@ -32,7 +32,7 @@ Words: a **goal** is *Goal* in the tools, a **step** is *Task*, a **side trip** 
 | --- | --- |
 | `add_tasks` | Adds steps to a goal; can record finished work in the same call. |
 | `add_small_fix` | Records a small one-off fix that belongs to no goal. |
-| `update_tasks` | Starts, finishes or cancels steps, one or several in one call; also states and estimates. |
+| `update_tasks` | Starts, finishes or cancels steps, one or several in one call, with the `hand_tests` and `decisions` of a finished step; also states and estimates. |
 | `update_task` | Rewords a step or changes its files or estimate. |
 | `set_task_state` | Marks a step with a helper, waiting on you or someone else, checked or released. |
 | `move_task` | Moves a step to another goal. |

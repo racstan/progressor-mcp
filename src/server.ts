@@ -36,17 +36,17 @@ const BUILD = { version: VERSION, seal: BUILD_SEAL } as const;
 
 export const INSTRUCTIONS = `Progressor keeps the plan for this project in .progressor/ and shows it to the Developer on a live dashboard. Change the plan only with these tools, never by editing those files. The Developer may not be a programmer: you run the plan, they watch.
 
-1. At the start of every conversation and after context compression, call get_status and follow the Standing Instructions it lists. If it says one Goal is paused, claim it (claim_goal) and carry on.
+1. At the start of every conversation and after context compression, call get_status and follow the Standing Instructions it lists. If it says one Goal is paused, claim it (claim_goal) and carry on. If tools are deferred, load them once: ToolSearch "select:mcp__progressor__get_status,mcp__progressor__claim_goal,mcp__progressor__add_goal,mcp__progressor__add_tasks,mcp__progressor__update_tasks,mcp__progressor__save_hand_test,mcp__progressor__save_decision,mcp__progressor__complete_goal".
 2. When the Developer asks for work no Goal covers, plan it as a Goal: a short title, an Outcome (one sentence) and Tasks, each with the files it touches, a one-line summary and an estimate ("45m", "2h"). Tell the Developer the plan in a few plain lines, then add_goal with claim: true. A quick question needs no Goal.
-3. Before code for a Task longer than a few minutes, start it with update_tasks; when done, complete it there with the files touched, and the new summary if the work differs; drop what is not needed. Record a small finished change in one call: add_tasks with done: true (and hand_test if the Developer should try it). Keep summaries and estimates true with update_task. set_task_state records Tasks in other hands (with a helper, waiting on you, checked, released); keep to any helper limit get_status shows.
+3. Before code for a Task longer than a few minutes, start it with update_tasks. One step is one update_tasks call: complete it (files touched, new summary if it differs, hand_tests, decisions) and start the next in the same call; drop what is not needed. Record a small finished change in one call: add_tasks with done: true (and hand_test). Keep summaries and estimates true with update_task. set_task_state records Tasks in other hands (with a helper, waiting on you, checked, released); keep to any helper limit get_status shows.
 4. To change several Tasks at once, give update_tasks several operations (applied in order, all or nothing). move_task moves a Task to another Goal. To hold several Goals, claim each one and pass goal (its ID) to the tools that change a Goal.
 5. About to change code for something that is not the current Task? Call start_detour with the reason first; afterwards end_detour ("merge back", "return" or "recalibrate").
-6. When every Task is done, released or dropped and the Outcome is true, call complete_goal and tell the Developer in one sentence.
+6. When every Task is done, released or dropped and the Outcome is true, call complete_goal once (with hand_tests, and next to claim the next Goal) and tell the Developer in one sentence.
 7. Talk to the Developer in everyday words: say "step" for Task and "side trip" for Detour, and leave out tool names, IDs and the files in .progressor/. Give them the dashboard link from get_status at the start and when a Goal is finished.
-8. A lasting rule ("always...", "never...") is saved with save_standing_instruction (with its id, changes or removes one); one that must never be broken ("never", "hard rule") with hard: true; one for all their projects ("in all my projects") with global: true. update_context keeps the project's Important context page; save_decision records a choice that is not a project rule; save_note records something that belongs to a Goal instead of fixing it now.
-9. Anything only the Developer can try by hand goes in save_hand_test, not in your chat summary. Show a screenshot or recording with attach_picture instead of naming a file.
-10. The Developer can write to you on the dashboard: their messages and answers arrive at the end of your next Progressor reply under "New from the Developer". Act on each one and answer with reply_to_developer (whole_project: true to message the whole project). For a product or UX choice, use ask_developer with 2 to 4 short choices instead of stopping in the chat.
-11. When you brief a helper agent, paste in get_status with for_helper: true; helpers don't see the Standing Instructions. Before starting something only one can use at a time (a dev window, a port), claim it with resource; release it there when done.
+8. A lasting rule ("always...", "never...") is saved with save_standing_instruction (with its id: change or remove); one that must never be broken ("never", "hard rule") with hard: true; one for all their projects ("in all my projects") with global: true. update_context keeps the project's Important context page; save_decision records a choice only if it would surprise a later session (small technical choices go in the commit message); save_note records something that belongs to a Goal instead of fixing it now.
+9. Anything only the Developer can try by hand goes in a hand test (hand_tests on update_tasks or complete_goal, or save_hand_test), not in your chat summary. Show a screenshot with attach_picture.
+10. The Developer can write to you on the dashboard: their messages and answers arrive at the end of your next Progressor reply under "New from the Developer". Act on each one and answer with reply_to_developer (whole_project: true for the whole project). For a product or UX choice, use ask_developer with 2 to 4 short choices instead of stopping in the chat.
+11. When you brief a helper agent, paste in get_status with for_helper: true; helpers don't see the Standing Instructions. Before using something only one can use at a time (a dev window, a port), claim it with resource; release it there.
 12. Work that belongs to another project using Progressor goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it.
 13. A * line in .progressor/.gitignore keeps the plan out of git; delete it to keep it in git.`;
 
@@ -93,8 +93,18 @@ const newTaskInput = taskInput.extend({
   done: z.boolean().optional().describe("Add the Task already done, for work finished before it was recorded."),
 });
 
+const handTestsInput = z.array(z.string()).optional().describe("Things only the Developer can try by hand, each saved as save_hand_test would (about this Task).");
+const decisionsInput = z.array(z.string()).optional().describe("Choices that would surprise a later session, each saved as save_decision would (on this Goal).");
+/** The non-empty texts of a list, or an error naming what is empty: checked before anything is changed. */
+function filled(texts: string[] | undefined, what: string): string[] {
+  const list = texts ?? [];
+  if (list.some((t) => !t.trim())) throw new Error(`Say what each ${what} is; one was empty.`);
+  return list;
+}
+
 /** A Task added to a claimed Goal, which can bring the hand test for it along. */
 const addTaskInput = newTaskInput.extend({
+  hand_tests: handTestsInput,
   hand_test: z
     .string()
     .optional()
@@ -878,6 +888,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   project.claims = (root) => readSettings(settingsFile, root).claims;
   // Told once per Session: each get_status after that would only repeat it.
   let hooksChecked = false;
+  let hooksMissing = false;
   // The plan check-up runs by itself once per Session (see get_status).
   let checkedUp = false;
   // The reminder about untried things to try: at most one line a day (untried.ts), by the project's clock.
@@ -928,7 +939,9 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
   const hooksLine = (): string | undefined => {
     if (hooksChecked || !isClaudeCode(server)) return undefined;
     hooksChecked = true;
-    return hooksAdvice(project.root, options.claudeHome ?? homedir(), launchFor({ viaNpx: startedViaNpx(), viaUvx: startedViaUvx(), platform: process.platform }));
+    const advice = hooksAdvice(project.root, options.claudeHome ?? homedir(), launchFor({ viaNpx: startedViaNpx(), viaUvx: startedViaUvx(), platform: process.platform }));
+    if (advice) hooksMissing = true;
+    return advice;
   };
   // The plan a tool acts on: this project's, or with `project` another one's, changed from here.
   const planOf = (wanted: string | undefined): Project => {
@@ -963,10 +976,11 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         project: otherProject,
         check: z.boolean().optional().describe("Also run the plan check-up and list everything it found."),
         for_helper: z.boolean().optional().describe("Only the rules, as a block for a helper agent's brief: the rules and context for everything, then this project's Standing Instructions, hard rules first."),
+        full: z.boolean().optional().describe("Print the Standing Instructions, Important context and wishlist in full even if they are unchanged since this Session last saw them."),
       },
       annotations: { readOnlyHint: true },
     },
-    async ({ project: wanted, check, for_helper }) => {
+    async ({ project: wanted, check, for_helper, full }) => {
       if (for_helper) return respondIn(undefined, () => formatRules(project.roadmap().standingInstructions, readGlobal(globalFile)));
       // The Session serving the dashboard may have ended; if so, this one takes over.
       await dashboard?.refresh().catch(() => undefined);
@@ -984,15 +998,17 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           const line = checkupLine(checkUp(project, { repair: settings.autoRepair }));
           if (line) checked = [line];
         }
+        const hooks = hooksLine();
         let now: string;
         try {
-          now = status();
+          // The rules are repeated in full only the first time, when they changed, or when asked; without the
+          // hooks nothing puts them back after context compression, so then always.
+          now = status(!full && !hooksMissing);
         } catch (e) {
           // A plan that can't be read still gets what the check-up found, which says why.
           throw checked.length > 0 ? new Error(`${(e as Error).message}\n${checked.join("\n")}`) : e;
         }
         const elsewhere = takeElsewhereLine(project, seenFile(registryFile));
-        const hooks = hooksLine();
         const reminder = untriedReminder();
         const risky = riskReminder();
         const update = updateLine();
@@ -1019,10 +1035,30 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       title: "Get item",
       description:
         "Look up one Goal, Task, Detour, decision, note or Standing Instruction by its ref (progressor://<goal>/<item>, or progressor://roadmap/<instruction>), with its file and line. Use it when the Developer pastes a ref or you need one item's details; for where the work stands overall, use get_status.",
-      inputSchema: { ref: z.string().describe("A ref such as progressor://login/t2 or progressor://roadmap/i1."), project: otherProject },
+      inputSchema: {
+        ref: z.string().optional().describe("A ref such as progressor://login/t2 or progressor://roadmap/i1."),
+        refs: z.array(z.string()).max(10).optional().describe("Several refs (at most 10) instead of ref: each item's text, separated by a blank line; a bad ref reports its own error."),
+        project: otherProject,
+      },
       annotations: { readOnlyHint: true },
     },
-    ({ ref, project: wanted }) => respondIn(wanted, (p) => formatItem(p.getItem(ref), p.schedule(estimatesOf(p)))),
+    ({ ref, refs, project: wanted }) =>
+      respondIn(wanted, (p) => {
+        if (!refs?.length) {
+          if (!ref) throw new Error("Give a ref, or refs for several.");
+          return formatItem(p.getItem(ref), p.schedule(estimatesOf(p)));
+        }
+        const schedule = p.schedule(estimatesOf(p));
+        return [...(ref ? [ref] : []), ...refs]
+          .map((r) => {
+            try {
+              return formatItem(p.getItem(r), schedule);
+            } catch (e) {
+              return `${r}: ${(e as Error).message}`;
+            }
+          })
+          .join("\n\n");
+      }),
   );
 
   server.registerTool(
@@ -1030,7 +1066,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Add Goal",
       description:
-        "Add a Goal to the end of the Roadmap, with an optional Task list and Outcome; with claim: true, also claim it to start work. A title another Goal already has is refused unless allow_duplicate is set. To record work already finished, set done on the Goal and on every Task. Plan each Goal with an Outcome (one sentence on what done looks like) and Tasks that each have a short title, the files they touch, a one-line summary and an estimate. Tell the Developer the plan in a few plain lines first. With claim: true the answer is the whole status.",
+        "Add a Goal to the end of the Roadmap, with an optional Task list and Outcome; with claim: true, also claim it to start work. A title another Goal already has is refused unless allow_duplicate is set. To record work already finished, set done on the Goal and on every Task. Plan each Goal with an Outcome (one sentence on what done looks like) and Tasks that each have a short title, the files they touch, a one-line summary and an estimate. Tell the Developer the plan in a few plain lines first. With claim: true the answer is the brief status of the claimed Goal; otherwise only the new Goal's ID, title, step count and estimate.",
       inputSchema: {
         title: z.string().trim().min(1).describe("A few words naming the Goal, such as 'Ship OAuth login'."),
         id: z
@@ -1088,7 +1124,8 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           project.claimGoal(goal.id);
           return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks, claimed by this Session.${facts}${learned ? `\n${learned}` : ""}\n\n${status(true)}`;
         }
-        return `Added Goal ${goal.id} (${goal.ref}) with ${n} Tasks. Claim it with claim_goal to work on it.${learned ? `\n${learned}` : ""}${facts}`;
+        const total = goal.estimate ?? (tasks ?? []).reduce((sum, t) => sum + (readEstimate(t.estimate) || 0), 0);
+        return `Added Goal ${goal.id} "${goal.title}" (${goal.ref}): ${n} ${n === 1 ? "step" : "steps"}${total ? `, estimate ${sayDuration(total)}` : ""}. Claim it with claim_goal to work on it.${learned ? `\n${learned}` : ""}${facts}`;
       }),
   );
 
@@ -1283,6 +1320,8 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         "Mark the claimed Goal done and release it, once its Outcome is true and its Tasks are done, released or dropped (not with a helper, waiting on the Developer or only checked). While the Developer still has hand tests (save_hand_test) to mark, the Goal is released as built and waiting on their tests instead: it finishes by itself when they mark the last one, and a failure reopens it with a new Task. unmarked_hand_tests_ok finishes it now, only when the Developer says to finish anyway. If more work turns up later, claim_goal reopens it.",
       inputSchema: {
         goal: heldGoal,
+        hand_tests: z.array(z.string()).optional().describe("Things only the Developer can try by hand, saved before completing (so the Goal is released waiting on them), each as save_hand_test would."),
+        next: z.string().optional().describe("The ID of the Goal to claim right after; if that fails the completion still stands and the reply says why."),
         unmarked_hand_tests_ok: z
           .boolean()
           .optional()
@@ -1290,12 +1329,28 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         project: otherProject,
       },
     },
-    ({ goal: id, unmarked_hand_tests_ok, project: wanted }) =>
+    ({ goal: id, hand_tests, next, unmarked_hand_tests_ok, project: wanted }) =>
       respondIn(wanted, (p) => {
+        const tests = filled(hand_tests, "hand test");
+        if (next && p !== project) throw new Error("A Goal on another project's plan cannot be claimed from here; leave out next.");
+        for (const text of tests) p.addHandTest(text, id);
         const options = { unmarkedHandTests: unmarked_hand_tests_ok };
         const ev = readSettings(settingsFile, p.root).evidence;
         const unsaved = ev.record && ev.warnUncommitted && p.goalUncommitted(id) === true;
         const goal = p.completeGoal(id, options);
+        // The next Goal is claimed after the completion; if that fails, the completion stands.
+        const claimNext = (): string => {
+          if (!next) return "";
+          try {
+            project.claimGoal(next);
+            return `
+
+${status(true)}`;
+          } catch (e) {
+            return `
+Could not claim ${next}: ${(e as Error).message}`;
+          }
+        };
         const unsavedLine =
           (unsaved ? ` Warning: some files this goal's steps touched still have changes not saved in git.` : "") + finishedGoalRisks(p, goal.id);
         if (goal.status === "testing") {
@@ -1304,13 +1359,13 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
             `Goal ${goal.id} is built and waiting on the Developer's hand tests (${left} not marked yet); it is released. ` +
             "It finishes by itself when they mark the last one, and a failure reopens it with a new Task." + unsavedLine;
           return p === project
-            ? `${said} Tell the Developer in one plain sentence that "${goal.title}" is built and ${left === 1 ? "one thing is" : `${left} things are`} waiting for them to try${dashboard?.url ? ` at ${dashboard.url}` : " on the dashboard"}.`
+            ? `${said} Tell the Developer in one plain sentence that "${goal.title}" is built and ${left === 1 ? "one thing is" : `${left} things are`} waiting for them to try${dashboard?.url ? ` at ${dashboard.url}` : " on the dashboard"}.${claimNext()}`
             : doneIn(p, said);
         }
         // A finished release gets its handoff, written by the AI from the facts (handoff.ts).
         const handoff = goal.release !== undefined && readSettings(settingsFile, p.root).handoffs.afterRelease ? " Then write a handoff for this release with the handoff tool." : "";
         if (p !== project) return doneIn(p, `Goal ${goal.id} is done.${unsavedLine}${handoff}`);
-        return `Goal ${goal.id} is done.${unsavedLine} Tell the Developer in one plain sentence that "${goal.title}" is finished${dashboard?.url ? `, and that they can see it at ${dashboard.url}` : ""}.${handoff}`;
+        return `Goal ${goal.id} is done.${unsavedLine} Tell the Developer in one plain sentence that "${goal.title}" is finished${dashboard?.url ? `, and that they can see it at ${dashboard.url}` : ""}.${handoff}${claimNext()}`;
       }),
   );
 
@@ -1320,12 +1375,15 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       title: "Add Tasks",
       description:
         "Append Tasks to the claimed Goal's plan, each with an estimate of how long it takes. For work that is not part of the plan, declare a Detour instead. Set done on a Task that is already finished: a small change you have made is recorded in this one call, with hand_test for what the Developer should try. A quick fix that belongs to no Goal goes under Small fixes with add_small_fix instead.",
-      inputSchema: { goal: heldGoal, tasks: z.array(addTaskInput).min(1), project: otherProject },
+      inputSchema: { goal: heldGoal, tasks: z.array(addTaskInput).min(1), decisions: decisionsInput, project: otherProject },
     },
-    ({ goal, tasks, project: wanted }) =>
+    ({ goal, tasks, decisions, project: wanted }) =>
       respondIn(wanted, (p) => {
-        const added = p.addTasks(newTasks(tasks.map(({ hand_test, ...t }) => t)), goal);
-        const tests = tasks.flatMap((t, i) => (t.hand_test?.trim() ? [p.addHandTest(t.hand_test, goal, added[i]!.id)] : []));
+        for (const t of tasks) filled(t.hand_tests, "hand test");
+        const said = filled(decisions, "decision");
+        const added = p.addTasks(newTasks(tasks.map(({ hand_test, hand_tests, ...t }) => t)), goal);
+        const tests = tasks.flatMap((t, i) => [t.hand_test, ...(t.hand_tests ?? [])].flatMap((text) => (text?.trim() ? [p.addHandTest(text, goal, added[i]!.id)] : [])));
+        for (const text of said) p.addDecision(text, goal);
         const warnings = recordEvidence(p, added.map((task) => ({ task, goal })));
         return doneIn(p, [`Added: ${added.map(taskLine).join("; ")}`, ...[calibrationLine(p)].filter((l): l is string => !!l), ...tests.map((h) => `Saved hand test ${h.id} about ${h.task}: ${h.text}`), ...warnings].join("\n"));
       }),
@@ -1444,6 +1502,8 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     code: z.array(z.string()).optional().describe("For action 'complete': files the Task touched, optionally with :line."),
     commits: commitsInput,
     tests: testsInput,
+    hand_tests: handTestsInput,
+    decisions: decisionsInput,
     summary: taskInput.shape.summary,
     estimate: estimateText.optional().describe("The Task's new estimate, such as '45m' or '2h' (any action; needed for 'estimate'); an empty string removes it."),
   }).strict();
@@ -1459,6 +1519,10 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
       respondIn(wanted, (p) => {
         const held = p !== project || project.claimedGoals().length > 1;
         // A Task completed again changes only its files and summary, and says so.
+        for (const op of operations) {
+          filled(op.hand_tests, "hand test");
+          filled(op.decisions, "decision");
+        }
         const was = operations.map((op) => {
           if (op.action !== "complete") return undefined;
           try {
@@ -1468,7 +1532,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
             return undefined;
           }
         });
-        const ops: TaskOperation[] = operations.map(({ estimate, helper_branch, helper_folder, helper_label, commits: _commits, tests: _tests, ...op }) => {
+        const ops: TaskOperation[] = operations.map(({ estimate, helper_branch, helper_folder, helper_label, commits: _commits, tests: _tests, hand_tests: _h, decisions: _d, ...op }) => {
           const helper = helperOf(helper_branch, helper_folder, helper_label);
           return { ...op, ...(helper ? { helper } : {}), estimate: readEstimate(estimate) };
         });
@@ -1479,6 +1543,20 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
           return finishing && !was[i] ? [{ task: c.task, goal: c.goal, commits: op.commits, tests: op.tests }] : [];
         });
         const warnings = recordEvidence(p, finished);
+        let handTests = 0;
+        let decisions = 0;
+        changed.forEach((c, i) => {
+          const op = operations[i]!;
+          if (op.action !== "complete") return;
+          for (const text of op.hand_tests ?? []) {
+            p.addHandTest(text, c.goal, c.task.id);
+            handTests++;
+          }
+          for (const text of op.decisions ?? []) {
+            p.addDecision(text, c.goal);
+            decisions++;
+          }
+        });
         const now = new Date();
         // An estimate set in this call is said back; the others are left out, to keep the answer short.
         const est = (t: Task, i: number) => (operations[i]!.estimate !== undefined ? `, estimated ${t.estimate !== undefined ? sayDuration(t.estimate) : "none"}` : "");
@@ -1501,6 +1579,9 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
               now,
             ),
             ...(operations.some((o) => o.state === "with a helper") ? helperWarning(p) : []),
+            ...(handTests + decisions > 0
+              ? [`Saved ${[handTests ? `${handTests} hand test${handTests === 1 ? "" : "s"}` : "", decisions ? `${decisions} decision${decisions === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ")}.`]
+              : []),
             ...warnings,
           ].join("\n"),
         );

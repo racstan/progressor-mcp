@@ -210,7 +210,7 @@ describe("the MCP server", () => {
 describe("shaping Goals through the tools", () => {
   it("adds a Goal with a short ID and an Outcome, and shows the Outcome in the status", async () => {
     expect((await call("add_goal", { title: "Share the screens", id: "web-ui", outcome: "Every screen works on the web" })).text).toContain(
-      "Added Goal web-ui (progressor://web-ui)",
+      "Added Goal web-ui \"Share the screens\" (progressor://web-ui)",
     );
     await call("claim_goal", { goal: "web-ui" });
     expect((await call("get_status")).text).toContain("Outcome: Every screen works on the web");
@@ -634,7 +634,7 @@ describe("hard rules and the rules block for helper agents", () => {
       "Saved HARD RULE s2: Never commit secrets",
     );
     await call("add_goal", { title: "Login", claim: true });
-    expect((await call("get_status")).text).toContain(
+    expect((await call("get_status", { full: true })).text).toContain(
       ["Standing Instructions (a HARD RULE must never be broken):", "- HARD RULE s2: Never commit secrets", "- s1 Prefer small commits"].join("\n"),
     );
     expect((await call("save_standing_instruction", { id: "s1", hard: true })).text).toBe("Changed HARD RULE s1: Prefer small commits");
@@ -782,7 +782,7 @@ describe("small finished work in one call", () => {
   });
 
   it("asks for a new summary when what was built differs from the plan", async () => {
-    expect(client.getInstructions()).toMatch(/and the new summary if the work differs/);
+    expect(client.getInstructions()).toMatch(/new summary if it differs/);
     expect(client.getInstructions()).toMatch(/change several Tasks at once, give update_tasks several operations/);
     const { tools } = await client.listTools();
     expect(tools.find((t) => t.name === "update_tasks")?.description).toMatch(/new summary when what you built differs from it/);
@@ -801,7 +801,7 @@ describe("a call with the wrong shape", () => {
   it("names the fields the tool takes, required ones first", async () => {
     const r = await call("get_item", { id: "login" });
     expect(r.isError).toBe(true);
-    expect(r.text).toContain("get_item takes: ref (required), project.");
+    expect(r.text).toContain("get_item takes: ref, refs, project.");
     const h = await call("save_hand_test", { title: "Try it", steps: "Open the page" });
     expect(h.text).toContain("save_hand_test takes: goal, id, text, task.");
   });

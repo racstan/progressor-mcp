@@ -82,7 +82,7 @@ describe("get_status with no Goal claimed", () => {
 
 describe("the instructions", () => {
   it("are short but keep every rule", () => {
-    expect(INSTRUCTIONS.length).toBeLessThanOrEqual(3600);
+    expect(INSTRUCTIONS.length).toBeLessThanOrEqual(4050);
     for (const word of [
       "get_status", "add_goal", "set_task_state", "update_tasks", "claim_goal", "start_detour", "end_detour",
       "complete_goal", "save_standing_instruction", "hard: true", "update_context", "save_decision", "save_note", "save_hand_test",
