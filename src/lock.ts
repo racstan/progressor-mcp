@@ -157,7 +157,7 @@ export async function withLockAsync<T>(root: string, body: () => T, options: Loc
   }
   held.add(key);
   try {
-    return body();
+    return await body(); // a body that returns a promise keeps the hold until it settles
   } finally {
     release(key, file, token, result === "mine");
   }
