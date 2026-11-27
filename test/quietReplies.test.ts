@@ -52,9 +52,8 @@ describe("replies that don't repeat the same blocks", () => {
     expect(added).toMatch(UNCHANGED);
   });
 
-  it("get_status always sends them in full, since it is called after the chat's memory is compressed", async () => {
+  it("get_status sends them in full the first time, or when asked with full", async () => {
     const call = await connect();
-    await call("claim_goal", { goal: "login" });
     const status = await call("get_status");
     expect(status).toContain("- s1 Write tests first");
     expect(status).toContain("A web app in TypeScript.");

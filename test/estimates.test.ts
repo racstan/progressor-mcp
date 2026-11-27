@@ -193,7 +193,7 @@ describe("estimates through the tools", () => {
     await call("save_standing_instruction", { text: "At most 2 helpers in parallel", helpers_at_once: 2 });
     await call("add_goal", { title: "Login", claim: true, tasks: [{ title: "A", estimate: "1h" }, { title: "B" }] });
     await call("set_task_state", { task: "t1", state: "with a helper" });
-    const status = (await call("get_status")).text;
+    const status = (await call("get_status", { full: true })).text;
     expect(status).toContain("Helper limit: at most 2 Tasks with a helper at once; 1 now.");
     expect(status).toContain("Schedule: next login/t2 B · login done in about 1 h (1 Task not estimated).");
     expect(status).toContain("- s1 At most 2 helpers in parallel (limit: at most 2 Tasks with a helper at once)");
