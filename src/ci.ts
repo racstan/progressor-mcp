@@ -335,11 +335,17 @@ function unique(prs: PullRequest[]): PullRequest[] {
   return prs.filter((p) => !seen.has(p.url) && !!seen.add(p.url));
 }
 
+/** The kept branch a step is looked up by: its own, its helper's, or (while open) the branch naming it. */
+function stepBranch(task: CiTask, cache: CiCache): CiCache["branches"][string] | undefined {
+  const name = task.branch ?? task.helperBranch ?? (isOpenStep(task) ? linkedBranch({ id: task.id }, Object.keys(cache.branches)) : undefined);
+  return name ? cache.branches[name] : undefined;
+}
+
 /** A step's pull requests and checks: an open pull request's first, else its commit's own, else any pull request's. */
 export function stepCi(task: CiTask, cache: CiCache): StepCi | undefined {
   const sha = task.commits?.[0];
   const commit = sha ? cache.commits[sha] : undefined;
-  const branch = task.branch ? cache.branches[task.branch] : undefined;
+  const branch = stepBranch(task, cache);
   if (!commit && !branch) return undefined;
   const prs = unique([...(commit?.prs ?? []), ...(branch?.prs ?? [])]);
   const checks =
@@ -425,7 +431,8 @@ function gitea(repo: Repo, deps: CiDeps): Forge {
   return {
     async prsFor(sha) {
       const a = await get(`/commits/${sha}/pull`);
-      if (a?.status === 404) return [];
+      // Gitea answers this only for a merged pull request: an open one is found by its tip commit.
+      if (a?.status === 404) return (await recentAll())?.filter((p) => p.headSha === sha && p.state === "open") ?? [];
       return a && a.status >= 200 && a.status < 300 ? parsePulls(a.body) : undefined;
     },
     async recentPrs() {

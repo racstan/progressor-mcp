@@ -181,6 +181,14 @@ describe("stepCi and goalCi", () => {
     expect(stepCi(task("t"), cache)).toBeUndefined();
   });
 
+  it("an unfinished step shows the pull request of the branch its helper works on", () => {
+    const open: CiCache = { commits: {}, branches: { "t2-reports": { at: 1, prs: [pr(8, "open", "failed")] } } };
+    expect(stepCi(task("t2", { status: "in progress", helperBranch: "t2-reports" }), open)).toEqual({ prs: [pr(8, "open", "failed")], checks: "failed" });
+    // With no branch recorded, the branch that names the step.
+    expect(stepCi(task("t2", { status: "in progress" }), open)).toEqual({ prs: [pr(8, "open", "failed")], checks: "failed" });
+    expect(stepCi(task("t3", { status: "in progress" }), open)).toBeUndefined();
+  });
+
   it("a goal's checks are those of its most recently finished step that has some", () => {
     const tasks = [
       task("t1", { commits: ["aaa1111"], finishedAt: "2026-01-01T00:00:00Z" }),
@@ -291,6 +299,27 @@ describe("refreshCi", () => {
     });
     await refreshCi("/repo", [{ sha: "abc1234" }], deps, file);
     expect(readCiCache(file).commits.abc1234).toEqual({ at: 1_000_000, prs: [] });
+  });
+
+  it("finds an open Gitea pull request for a commit among the recent ones (Gitea answers 404 until it is merged)", async () => {
+    const file = join(dir, "ci.json");
+    const api = "http://g.example/api/v1/repos/o/r";
+    const { deps } = fakeDeps({
+      remotes: "o	http://g.example/o/r (fetch)",
+      http: {
+        [`${api}/commits/abc123400ff/pull`]: { status: 404 },
+        [`${api}/commits/abc123400ff/status`]: { status: 200, body: { state: "failure", total_count: 1 } },
+        [`${api}/pulls?state=all&limit=50`]: {
+          status: 200,
+          body: [
+            { number: 8, title: "Reports", html_url: "http://g.example/o/r/pulls/8", state: "open", head: { ref: "t2-reports", sha: "abc123400ff" } },
+            { number: 9, title: "Other", html_url: "http://g.example/o/r/pulls/9", state: "open", head: { ref: "other", sha: "fff" } },
+          ],
+        },
+      },
+    });
+    await refreshCi("/repo", [{ sha: "abc1234" }], deps, file);
+    expect(readCiCache(file).commits.abc1234?.prs.map((p) => p.number)).toEqual([8]);
   });
 
   it("without a remote, gh or the network nothing is saved and nothing fails", async () => {
