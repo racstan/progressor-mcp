@@ -9,8 +9,8 @@ import { readSettings } from "../../settings.js";
 import type { FeatureRoute, HubContext } from "../routes.js";
 
 /** The steps that have an ID, in the shape ci.ts reads. */
-const stepsOf = (tasks: readonly (Omit<CiTask, "id"> & { id?: string | undefined })[]): CiTask[] =>
-  tasks.flatMap((t) => (t.id ? [{ id: t.id, status: t.status, commits: t.commits, branch: t.branch, finishedAt: t.finishedAt }] : []));
+const stepsOf = (tasks: readonly (Omit<CiTask, "id" | "helperBranch"> & { id?: string | undefined; helper?: { branch?: string | undefined } | undefined })[]): CiTask[] =>
+  tasks.flatMap((t) => (t.id ? [{ id: t.id, status: t.status, commits: t.commits, branch: t.branch, finishedAt: t.finishedAt, helperBranch: t.helper?.branch }] : []));
 
 /** Every goal of the project with its steps; a plan that cannot be read counts as having none. */
 export function goalsWithSteps(project: Project): { id: string; title: string; status: string; tasks: CiTask[] }[] {

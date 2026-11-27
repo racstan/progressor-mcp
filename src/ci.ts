@@ -12,6 +12,7 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { linkedBranch } from "./stepSync.js";
 
 /** What a run of CI checks came to. */
 export type Checks = "passed" | "failed" | "running";
@@ -26,6 +27,13 @@ export interface PullRequest {
   /** The commit at its tip, whose checks are its checks. */
   headSha?: string;
   checks?: Checks;
+  /** Steps its title or body points at with `progressor://<goal>/<step>`, as `<goal>/<step>`. */
+  refs?: string[];
+  /** For a merged one: the commit the merge made, when the host says. */
+  mergeSha?: string;
+  /** When it was merged and when it was opened (ISO), when the host says. */
+  mergedAt?: string;
+  createdAt?: string;
 }
 
 /** What is known about one commit, or one branch (whose `checks` are never set). */
@@ -42,6 +50,8 @@ export interface CiCache {
   commits: Record<string, CiEntry>;
   /** By branch name. */
   branches: Record<string, CiEntry>;
+  /** The repository's recent pull requests, asked for when a step is not finished (to find the ones that point at a step). */
+  recent?: CiEntry;
 }
 
 /** A git host's repository a remote points at. `base` is where its web pages are (no password). */
@@ -71,6 +81,8 @@ export interface CiTask {
   commits?: string[] | undefined;
   branch?: string | undefined;
   finishedAt?: string | undefined;
+  /** The branch recorded with the step's helper info, which an unfinished step is looked up by. */
+  helperBranch?: string | undefined;
 }
 
 /** What a step shows: its pull requests and the checks that matter for it. */
@@ -94,6 +106,8 @@ export const SETTLED_MS = 6 * 60 * 60_000;
 const MAX_STEPS = 30;
 /** At most this many are asked in one refresh; the rest wait for the next. */
 const MAX_PER_REFRESH = 15;
+/** How many of the repository's recent pull requests are kept. */
+const RECENT_PRS = 30;
 /** Entries not asked for this long are dropped from the file. */
 const FORGET_MS = 30 * 24 * 60 * 60_000;
 
@@ -158,6 +172,9 @@ export function parsePulls(json: unknown): PullRequest[] {
     if (!isObject(p) || typeof p.number !== "number" || typeof p.html_url !== "string" || !/^https?:\/\//.test(p.html_url)) return [];
     const merged = p.merged === true || (typeof p.merged_at === "string" && p.merged_at !== "");
     const head = isObject(p.head) ? p.head : {};
+    const said = `${typeof p.title === "string" ? p.title : ""}
+${typeof p.body === "string" ? p.body : ""}`;
+    const refs = [...new Set([...said.matchAll(/progressor:\/\/([\w.-]+)\/(t\d+)(?!\d)/g)].map((m) => `${m[1]}/${m[2]}`))];
     return [
       {
         number: p.number,
@@ -166,6 +183,10 @@ export function parsePulls(json: unknown): PullRequest[] {
         state: merged ? "merged" : p.state === "open" ? "open" : "closed",
         ...(typeof head.ref === "string" ? { branch: head.ref } : {}),
         ...(typeof head.sha === "string" ? { headSha: head.sha } : {}),
+        ...(refs.length > 0 ? { refs } : {}),
+        ...(merged && typeof p.merge_commit_sha === "string" && p.merge_commit_sha ? { mergeSha: p.merge_commit_sha } : {}),
+        ...(typeof p.merged_at === "string" && p.merged_at ? { mergedAt: p.merged_at } : {}),
+        ...(typeof p.created_at === "string" && p.created_at ? { createdAt: p.created_at } : {}),
       },
     ];
   });
@@ -243,7 +264,8 @@ export function readCiCache(file: string): CiCache {
   try {
     const data = JSON.parse(readFileSync(file, "utf8")) as unknown;
     if (!isObject(data)) return { commits: {}, branches: {} };
-    return { commits: entries(data.commits), branches: entries(data.branches) };
+    const recent = isObject(data.recent) && typeof data.recent.at === "number" && Array.isArray(data.recent.prs) ? (data.recent as unknown as CiEntry) : undefined;
+    return { commits: entries(data.commits), branches: entries(data.branches), ...(recent ? { recent } : {}) };
   } catch {
     return { commits: {}, branches: {} };
   }
@@ -254,7 +276,7 @@ function writeCiCache(file: string, cache: CiCache, now: number): void {
   try {
     mkdirSync(dirname(file), { recursive: true });
     const tmp = `${file}.${process.pid}.tmp`;
-    writeFileSync(tmp, JSON.stringify({ commits: keep(cache.commits), branches: keep(cache.branches) }, null, 1));
+    writeFileSync(tmp, JSON.stringify({ commits: keep(cache.commits), branches: keep(cache.branches), ...(cache.recent && now - cache.recent.at < FORGET_MS ? { recent: cache.recent } : {}) }, null, 1));
     renameSync(tmp, file);
   } catch {
     // a file that cannot be written just means asking again next time
@@ -269,22 +291,41 @@ const SAFE_BRANCH = /^[\w./-]+$/;
 const TRUNKS = new Set(["main", "master", "trunk", "develop", "HEAD"]);
 
 export interface Lookup {
-  sha: string;
+  /** Set for a finished step: the commit it ended with. */
+  sha?: string;
   branch?: string;
 }
 
+const DONE = new Set(["done", "released", "dropped"]);
+/** Whether a step is still open: not done, released or dropped. */
+export const isOpenStep = (t: Pick<CiTask, "status">) => !DONE.has(t.status);
+const safeBranch = (b: string | undefined) => (b && SAFE_BRANCH.test(b) && !b.startsWith("-") && !TRUNKS.has(b) ? b : undefined);
+
 const finishedTime = (t: CiTask) => (t.finishedAt ? Date.parse(t.finishedAt) || 0 : 0);
 
-/** The newest commit (and branch) of each of the most recently finished steps that have commits. */
-export function stepLookups(tasks: readonly CiTask[]): Lookup[] {
-  return tasks
+/**
+ * The newest commit (and branch) of each of the most recently finished steps that have commits, then the
+ * branch of each open step that links to one: the one recorded with its helper info, else, when the
+ * caller knows the repository's branches, one naming the step (stepSync.ts linkedBranch).
+ */
+export function stepLookups(tasks: readonly CiTask[], branches: readonly string[] = []): Lookup[] {
+  const finished = tasks
     .filter((t) => t.commits?.length && SAFE_SHA.test(t.commits[0]!))
     .sort((a, b) => finishedTime(b) - finishedTime(a))
     .slice(0, MAX_STEPS)
     .map((t) => {
-      const branch = t.branch && SAFE_BRANCH.test(t.branch) && !t.branch.startsWith("-") && !TRUNKS.has(t.branch) ? t.branch : undefined;
-      return { sha: t.commits![0]!, ...(branch ? { branch } : {}) };
+      const branch = safeBranch(t.branch);
+      return { sha: t.commits![0]!, ...(branch ? { branch } : {}) } as Lookup;
     });
+  const open = tasks
+    .filter(isOpenStep)
+    .flatMap((t) => {
+      const branch = safeBranch(linkedBranch({ id: t.id, helper: { branch: t.helperBranch } }, branches));
+      return branch ? [{ branch } as Lookup] : [];
+    })
+    .filter((l, i, all) => all.findIndex((o) => o.branch === l.branch) === i)
+    .slice(0, MAX_STEPS);
+  return [...finished, ...open];
 }
 
 // --- what a step and a goal show ------------------------------------------------------------------
@@ -341,6 +382,8 @@ interface Forge {
   prsFor(sha: string): Promise<PullRequest[] | undefined>;
   prsOnBranch(branch: string): Promise<PullRequest[] | undefined>;
   checksOf(sha: string): Promise<Checks | undefined>;
+  /** The repository's most recent pull requests, any state. */
+  recentPrs(): Promise<PullRequest[] | undefined>;
 }
 
 const parse = (text: string | undefined): unknown => {
@@ -361,6 +404,7 @@ function github(repo: Repo, deps: CiDeps, root: string): Forge {
   };
   return {
     prsFor: (sha) => pulls(`${at}/commits/${sha}/pulls`),
+    recentPrs: () => pulls(`${at}/pulls?state=all&per_page=${RECENT_PRS}`),
     prsOnBranch: (branch) => pulls(`${at}/pulls?state=all&head=${encodeURIComponent(`${repo.owner}:${branch}`)}&per_page=20`),
     async checksOf(sha) {
       const [runs, status] = await Promise.all([api(`${at}/commits/${sha}/check-runs`), api(`${at}/commits/${sha}/status`)]);
@@ -374,15 +418,21 @@ function gitea(repo: Repo, deps: CiDeps): Forge {
   const headers: Record<string, string> = { Accept: "application/json", ...(deps.token ? { Authorization: `token ${deps.token}` } : {}) };
   const get = (path: string) => deps.fetchJson(`${api}${path}`, headers).catch(() => undefined);
   let all: Promise<PullRequest[] | undefined> | undefined;
+  const recentAll = () => {
+    all ??= get("/pulls?state=all&limit=50").then((a) => (a && a.status >= 200 && a.status < 300 && Array.isArray(a.body) ? parsePulls(a.body) : undefined));
+    return all;
+  };
   return {
     async prsFor(sha) {
       const a = await get(`/commits/${sha}/pull`);
       if (a?.status === 404) return [];
       return a && a.status >= 200 && a.status < 300 ? parsePulls(a.body) : undefined;
     },
+    async recentPrs() {
+      return (await recentAll())?.slice(0, RECENT_PRS);
+    },
     async prsOnBranch(branch) {
-      all ??= get("/pulls?state=all&limit=50").then((a) => (a && a.status >= 200 && a.status < 300 && Array.isArray(a.body) ? parsePulls(a.body) : undefined));
-      return (await all)?.filter((p) => p.branch === branch);
+      return (await recentAll())?.filter((p) => p.branch === branch);
     },
     async checksOf(sha) {
       const a = await get(`/commits/${sha}/status`);
@@ -402,11 +452,12 @@ async function ask(forges: Forge[], q: (f: Forge) => Promise<PullRequest[] | und
  * Asks the project's git hosts about the steps' commits and branches that are not fresh, and keeps
  * the answers in `file`. True when something was kept.
  */
-export async function refreshCi(root: string, lookups: readonly Lookup[], deps: CiDeps, file: string): Promise<boolean> {
+export async function refreshCi(root: string, lookups: readonly Lookup[], deps: CiDeps, file: string, options: { recent?: boolean } = {}): Promise<boolean> {
   const cache = readCiCache(file);
   const now = deps.now();
-  const stale = lookups.filter((l) => !isFresh(cache.commits[l.sha], now) || (l.branch && !isFresh(cache.branches[l.branch], now))).slice(0, MAX_PER_REFRESH);
-  if (stale.length === 0) return false;
+  const stale = lookups.filter((l) => isStale(cache, l, now)).slice(0, MAX_PER_REFRESH);
+  const wantRecent = options.recent === true && !isFresh(cache.recent, now);
+  if (stale.length === 0 && !wantRecent) return false;
   const remotes = parseRemotes((await deps.run("git", ["remote", "-v"], root)) ?? "");
   if (remotes.length === 0) return false;
   const forges = remotes.map((r) => (r.kind === "github" ? github(r, deps, root) : gitea(r, deps)));
@@ -427,8 +478,17 @@ export async function refreshCi(root: string, lookups: readonly Lookup[], deps: 
       }),
     );
   let changed = false;
+  if (wantRecent) {
+    const prs = await ask(forges, (f) => f.recentPrs());
+    if (prs !== undefined) {
+      // Checks only for the open ones: a merged pull request's are no use to anyone.
+      const open = await withChecks(prs.filter((p) => p.state === "open"));
+      cache.recent = { at: now, prs: prs.map((p) => open.find((o) => o.url === p.url) ?? p) };
+      changed = true;
+    }
+  }
   for (const l of stale) {
-    if (!isFresh(cache.commits[l.sha], now)) {
+    if (l.sha && !isFresh(cache.commits[l.sha], now)) {
       const full = (await deps.run("git", ["rev-parse", `${l.sha}^{commit}`], root))?.trim();
       const sha = full && SAFE_SHA.test(full) ? full : l.sha;
       const prs = await ask(forges, (f) => f.prsFor(sha));
@@ -452,6 +512,9 @@ export async function refreshCi(root: string, lookups: readonly Lookup[], deps: 
   return changed;
 }
 
+const isStale = (cache: CiCache, l: Lookup, now: number) =>
+  (!!l.sha && !isFresh(cache.commits[l.sha], now)) || (!!l.branch && !isFresh(cache.branches[l.branch], now));
+
 /** When each project's file was last refreshed, and whether a refresh is running now. */
 const tried = new Map<string, { at: number; running: boolean }>();
 
@@ -460,7 +523,15 @@ const tried = new Map<string, { at: number; running: boolean }>();
  * minutes, or everything is fresh. `changed` is called when it kept something new. Returns the
  * running refresh, or undefined when none was started.
  */
-export function kickCiRefresh(root: string, tasks: () => readonly CiTask[], file: string, deps: CiDeps, changed: () => void): Promise<void> | undefined {
+export function kickCiRefresh(
+  root: string,
+  tasks: () => readonly CiTask[],
+  file: string,
+  deps: CiDeps,
+  changed: () => void,
+  /** The repository's branch names, when the caller knows them, so open steps are found by a branch naming them. */
+  branches: readonly string[] = [],
+): Promise<void> | undefined {
   const now = deps.now();
   const last = tried.get(file);
   if (last && (last.running || now - last.at < FRESH_MS)) return undefined;
@@ -468,15 +539,19 @@ export function kickCiRefresh(root: string, tasks: () => readonly CiTask[], file
   const entry = { at: now, running: false };
   tried.set(file, entry);
   let lookups: Lookup[];
+  let recent: boolean;
   try {
-    lookups = stepLookups(tasks());
+    const all = tasks();
+    lookups = stepLookups(all, branches);
+    // Pull requests that point at a step matter only while some step is open.
+    recent = all.some(isOpenStep);
   } catch {
     return undefined;
   }
   const cache = readCiCache(file);
-  if (!lookups.some((l) => !isFresh(cache.commits[l.sha], now) || (l.branch && !isFresh(cache.branches[l.branch], now)))) return undefined;
+  if (!lookups.some((l) => isStale(cache, l, now)) && !(recent && !isFresh(cache.recent, now))) return undefined;
   entry.running = true;
-  return refreshCi(root, lookups, deps, file)
+  return refreshCi(root, lookups, deps, file, { recent })
     .then((did) => {
       if (did) changed();
     })
