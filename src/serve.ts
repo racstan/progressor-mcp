@@ -7,14 +7,19 @@ import { chooseRoot } from "./root.js";
 import { appRoots, createServer } from "./server.js";
 import { announceServer, defaultServersDir, sessionOfProcess } from "./servers.js";
 import { endWithApp } from "./lifecycle.js";
+import { planRootFor } from "./worktree.js";
 
 // One server process serves one Agent conversation (and its sub-agents), so the
 // process is the Session: it gets a fresh ID, and its pid lets other Sessions
 // spot a Claim left behind by a process that crashed. The running servers' records
 // tell a Claim whose pid was reused by another Progressor Session from a live one.
 const serversDir = defaultServersDir();
+// A helper chat runs in a git worktree of the project: it serves the main folder's plan instead (worktree.ts),
+// unless PROGRESSOR_ROOT names the folder. `where` remembers the worktree for the dashboard.
+const placed = (root: string) => (process.env.PROGRESSOR_ROOT ? { root } : planRootFor(root));
+let where = placed(chooseRoot({ env: process.env, roots: undefined, cwd: process.cwd() }));
 const project = new Project({
-  root: chooseRoot({ env: process.env, roots: undefined, cwd: process.cwd() }),
+  root: where.root,
   session: { id: `s-${randomBytes(3).toString("hex")}`, pid: process.pid },
   sessionOf: (pid) => sessionOfProcess(serversDir, pid),
 });
@@ -54,7 +59,10 @@ await server.connect(new StdioServerTransport());
 await Promise.race([connected, new Promise((r) => setTimeout(r, 3000))]);
 if (!process.env.PROGRESSOR_ROOT) {
   const roots = await appRoots(server, 3000);
-  if (roots) project.moveTo(chooseRoot({ env: process.env, roots, cwd: process.cwd() }));
+  if (roots) {
+    where = placed(chooseRoot({ env: process.env, roots, cwd: process.cwd() }));
+    project.moveTo(where.root);
+  }
 }
 console.error(`progressor: serving ${project.root} as Session ${project.session.id}`);
 
@@ -79,6 +87,6 @@ if (process.env.PROGRESSOR_DASHBOARD !== "off") {
 
 // The dashboard lists this process and can ask it to stop (servers.ts).
 record = announceServer(
-  { kind: "session", root: project.root, session: project.session.id },
+  { kind: "session", root: project.root, session: project.session.id, worktree: where.worktree, branch: where.branch },
   { version: VERSION, onStop: () => releaseAndExit() },
 );

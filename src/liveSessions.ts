@@ -9,6 +9,9 @@ export interface LiveSession {
   /** The chat's session ID. */
   session: string;
   pid: number;
+  /** For a helper chat working in a git worktree of the project: that folder and its branch. */
+  worktree?: string;
+  branch?: string;
   /** When its server started. */
   since: string;
   /** Its last heartbeat. */
@@ -28,6 +31,8 @@ export function liveSessions(project: Project, records: readonly ServerRecord[])
     .map((r) => ({
       session: r.session!,
       pid: r.pid,
+      ...(r.worktree ? { worktree: r.worktree } : {}),
+      ...(r.branch ? { branch: r.branch } : {}),
       since: r.startedAt,
       seen: r.beatAt,
       goals: goals

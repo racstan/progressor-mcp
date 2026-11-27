@@ -36,6 +36,8 @@ import { SETTINGS_DEFAULTS } from "./settings.js";
 import { type MarkdownDoc, findSection, parseMarkdown } from "./markdown.js";
 import { gitBranches, orphanWarnings } from "./helperWork.js";
 import { type GitFacts, type GitRange, realGit } from "./gitFacts.js";
+import type { LiveSession } from "./liveSessions.js";
+import { type BranchFacts, linkedBranch, syncSteps } from "./stepSync.js";
 import { type GoalLookup, type Waiting, finishedState, parseWaitRef, waitCycle } from "./dependencies.js";
 import { type Origin } from "./origin.js";
 import { ResourceLocks } from "./resources.js";
@@ -59,6 +61,9 @@ export interface EstimateSettings {
 }
 /** Finished steps with an estimate and a time needed before estimates are adjusted. */
 export const MIN_SAMPLES = 5;
+
+/** The steps are checked against git at most this often by one chat. */
+export const GIT_SYNC_EVERY_MS = 30_000;
 
 export interface SessionIdentity {
   id: string;
@@ -1559,15 +1564,83 @@ export class Project {
     });
   }
 
+  /** The commits last seen ahead of HEAD on each branch, so a step is known to have had work once its branch is merged (syncWithGit). */
+  private readonly aheadSeen = new Map<string, string[]>();
+  private lastGitSync = 0;
+
   /**
-   * Marks a Task done, adding the files it touched and, optionally, the summary of what it changed.
-   * A released Task stays released.
+   * Keeps the steps of the goals this chat holds in step with local git: a step whose branch a live
+   * helper chat works on in a worktree becomes "with a helper", and a step whose branch has been merged
+   * becomes done, with the commits. At most once every 30 seconds; says nothing (and changes nothing)
+   * when git or the plan cannot be read. Returns the line to add to a reply, or undefined.
    */
+  syncWithGit(chats: readonly LiveSession[]): string | undefined {
+    try {
+      if (this.from || this.session.id === "dashboard") return undefined;
+      const held = this.claimedGoals();
+      if (held.length === 0) return undefined;
+      const at = this.now().getTime();
+      if (at - this.lastGitSync < GIT_SYNC_EVERY_MS && at >= this.lastGitSync) return undefined;
+      this.lastGitSync = at;
+      const said: string[] = [];
+      let known: ReturnType<NonNullable<GitFacts["branches"]>> | undefined;
+      let asked = false;
+      for (const goal of held) {
+        const steps = this.plan(goal.id).tasks.flatMap((t) => (t.id ? [{ id: t.id, status: t.status, helper: t.helper, startedAt: t.startedAt }] : []));
+        const open = steps.filter((s) => !FINISHED.includes(s.status));
+        if (open.length === 0) continue;
+        if (!asked) {
+          asked = true;
+          known = this.git.branches?.(this.root);
+        }
+        if (!known) return said.length > 0 ? `Kept in step with git: ${said.join("; ")}.` : undefined;
+        const branches = [...known.exists];
+        const facts: Record<string, BranchFacts> = {};
+        for (const s of open) {
+          const b = linkedBranch(s, branches);
+          if (!b || facts[b]) continue;
+          const exists = known.exists.has(b);
+          const merged = exists && known.merged.has(b);
+          const ahead = exists && !merged ? (this.git.ahead?.(this.root, b) ?? []) : [];
+          if (ahead.length > 0) this.aheadSeen.set(b, ahead);
+          facts[b] = { exists, merged, ahead };
+          // Merged with nothing seen ahead (nobody called Progressor while the helper worked): find the merge commit.
+          if (merged && !this.aheadSeen.get(b)?.length) {
+            const found = this.git.mergedInto?.(this.root, b);
+            if (found) facts[b]!.mergedInto = found;
+          }
+        }
+        const actions = syncSteps({ steps, sessions: [...chats], self: this.session.id, branches, facts, seen: Object.fromEntries(this.aheadSeen), since: goal.claim?.since });
+        for (const a of actions) {
+          try {
+            if (a.kind === "done") {
+              this.completeTask(a.task, [], undefined, goal.id);
+              this.recordEvidence(a.task, goal.id, { commits: a.commits, branch: a.branch });
+              said.push(`${a.task} is done (branch ${a.branch} merged, commits ${a.commits.join(", ")})`);
+            } else {
+              this.setTaskState(a.task, "with a helper", goal.id, { helper: { branch: a.branch, folder: a.folder, label: a.label } });
+              said.push(`${a.task} is with a helper (${a.label} on branch ${a.branch})`);
+            }
+          } catch {
+            // a step that cannot be changed now is tried again at the next sync
+          }
+        }
+      }
+      return said.length > 0 ? `Kept in step with git: ${said.join("; ")}.` : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   /** A claimed Goal's Task's status, without changing anything. */
   taskStatus(id: string, goalId?: string): Task["status"] {
     return this.taskIn(this.requireClaim(goalId).plan, id).status;
   }
 
+  /**
+   * Marks a Task done, adding the files it touched and, optionally, the summary of what it changed.
+   * A released Task stays released.
+   */
   completeTask(id: string, code: string[] = [], summary?: string, goalId?: string): Task {
     return this.change(goalId, (plan) => this.complete(plan, id, code, summary));
   }
@@ -1577,7 +1650,7 @@ export class Project {
    * branch, the test run given, and whether its files still have changes not saved in git. A Task not
    * done or released is left alone. Git knowing nothing leaves those lines out.
    */
-  recordEvidence(id: string, goalId?: string, given: { commits?: string[]; tests?: string } = {}): Task {
+  recordEvidence(id: string, goalId?: string, given: { commits?: string[]; tests?: string; branch?: string } = {}): Task {
     const commits = given.commits?.map((c) => c.trim()).filter(Boolean);
     if (commits?.some((c) => !/^[0-9a-f]{4,40}$/i.test(c))) throw new Error("Commits are short hashes, such as a1b2c3d.");
     return this.change(goalId, (plan) => {
@@ -1585,7 +1658,7 @@ export class Project {
       if (task.status !== "done" && task.status !== "released") return task;
       const found = commits?.length ? commits : this.git.commitsSince(this.root, task.startedAt, task.code);
       plan.setTaskDetail(id, TASK_COMMITS, found?.length ? found.map((c) => c.slice(0, 12)).join(" ") : undefined);
-      plan.setTaskDetail(id, TASK_BRANCH, this.git.branch(this.root));
+      plan.setTaskDetail(id, TASK_BRANCH, given.branch ?? this.git.branch(this.root));
       if (given.tests?.trim()) plan.setTaskDetail(id, TASK_TESTS, given.tests);
       // Only a step that lists its files is checked: the whole folder often has other work in it.
       plan.setTaskDetail(id, TASK_UNCOMMITTED, task.code.length > 0 && this.git.dirty(this.root, task.code) ? "yes" : undefined);

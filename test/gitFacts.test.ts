@@ -87,3 +87,28 @@ describe("commit links for each kind of remote", () => {
     expect(commitLinkBase("")).toBeUndefined();
   });
 });
+
+describe("finding a branch's merge", () => {
+  it("returns the branch's commits and the merge time for a merge commit on main", () => {
+    commit("a.txt", "2026-11-01T09:00:00Z");
+    git(["checkout", "-q", "-b", "t3-export"]);
+    const one = commit("b.txt", "2026-11-02T09:00:00Z");
+    const two = commit("c.txt", "2026-11-02T10:00:00Z");
+    git(["checkout", "-q", "main"]);
+    commit("d.txt", "2026-11-03T09:00:00Z");
+    git(["merge", "-q", "--no-ff", "-m", "merge", "t3-export"], "2026-11-04T12:00:00Z");
+    expect(realGit.mergedInto?.(root, "t3-export")).toEqual({ commits: [two, one], at: "2026-11-04T12:00:00.000Z" });
+  });
+
+  it("says nothing for a fast-forward, an unmerged branch or a bad name", () => {
+    commit("a.txt", "2026-11-01T09:00:00Z");
+    git(["checkout", "-q", "-b", "ff"]);
+    commit("b.txt", "2026-11-02T09:00:00Z");
+    expect(realGit.mergedInto?.(root, "ff")).toBeUndefined();
+    git(["checkout", "-q", "main"]);
+    git(["merge", "-q", "--ff-only", "ff"]);
+    expect(realGit.mergedInto?.(root, "ff")).toBeUndefined();
+    expect(realGit.mergedInto?.(root, "--bad")).toBeUndefined();
+    expect(realGit.mergedInto?.(root, "nope")).toBeUndefined();
+  });
+});

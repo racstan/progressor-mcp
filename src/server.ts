@@ -968,10 +968,19 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     respond(() => {
       const p = planOf(wanted);
       return p.transaction(toolName.getStore() ?? "tool", () => {
+        // Steps follow local git by themselves (stepSync.ts); a failure here never fails the tool.
+        let synced: string | undefined;
+        if (p === project) {
+          try {
+            synced = project.syncWithGit(chatsHere());
+          } catch {
+            synced = undefined;
+          }
+        }
         const text = body(p);
         if (p !== project) return text;
         const news = takeNews();
-        return news.length > 0 ? `${text}\n${news.join("\n")}` : text;
+        return [text, ...(synced ? [synced] : []), ...news].join("\n");
       });
     });
   const nameOf = (p: Project) => projectEntry(p.root).name;

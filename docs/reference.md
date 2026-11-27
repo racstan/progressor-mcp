@@ -340,3 +340,17 @@ get_status also warns about helper work that may have been forgotten, with a lin
 - A Task checked for more than a day and still not released.
 
 The branch check runs two read-only `git for-each-ref` commands in the project folder, each with a 2-second limit, only when some finished Task has a helper branch recorded. If git is missing, slow or the folder is not a repository, the check says nothing and get_status is unaffected. It covers every Goal on the Roadmap, not just the ones this Session holds.
+
+## Steps that follow local git
+
+A chat started in a linked git worktree (what Claude desktop makes for each helper chat) serves its main checkout's plan, when that has a `.progressor/`; `PROGRESSOR_ROOT` still wins. Its server record (`servers/<pid>.json`) carries `worktree` and `branch`, and `liveSessions` passes them on.
+
+A step links to a branch by `helper_branch` on the step, or else by a local branch whose name holds the step ID as a word of its own: `t3-export`, `feat/t3` and `x_t3` match `t3`; `t30` does not (first match in name order). Only the steps of goals a chat holds are looked at.
+
+On each tool call of a chat that holds goals (at most once every 30 seconds per chat, never in the dashboard or another project's plan), Progressor runs `git for-each-ref` twice (all branches, and those merged into HEAD) and, for linked unmerged branches, `git log HEAD..<branch>`, each with a 2-second limit:
+
+- A pending or in-progress step becomes **with a helper** (branch, the worktree folder and `chat <session>` recorded) while another live chat works in a worktree on its branch.
+- A step that is not finished becomes **done**, with the branch and commits, when its branch exists and is merged into HEAD. The commits are the ones last seen ahead of HEAD, kept in memory; a branch never seen with commits of its own is not taken for finished (a new branch is also "merged"), unless its merge commit is found: on HEAD's first-parent line, a merge whose second parent is the branch tip (`GitFacts.mergedInto`), which also gives the commits, so a merge made while this chat made no calls still closes the step. A branch linked only by its name must have been merged after the step started (or, with no start time, after the goal was claimed), so an old branch holding the step ID is not taken for its work; a branch recorded on the step by `helper_branch` has no such limit. A fast-forward leaves no merge commit, so it still needs its commits to have been seen.
+- Done, released and dropped steps are never touched.
+
+The tool's reply ends with one line, such as `Kept in step with git: t3 is done (branch t3-export merged, commits a1b2c3, d4e5f6); t4 is with a helper (chat s-1a2b3c on branch t4-docs).` Nothing to do means no line. If git or the plan cannot be read, nothing happens and the tool call is unaffected.

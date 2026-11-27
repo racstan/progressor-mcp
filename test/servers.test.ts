@@ -31,6 +31,15 @@ beforeEach(() => {
 afterEach(() => closers.splice(0).forEach((c) => c()));
 
 describe("running servers", () => {
+  it("keeps the worktree and branch of a helper chat on its record", () => {
+    const s = announceServer(
+      { kind: "session", root: "/work/app", session: "s-h", worktree: "/work/app/.claude/worktrees/x", branch: "t3-export" },
+      { dir, pid: 150, version: "9.9.9", onStop: () => {} },
+    );
+    closers.push(() => s.close());
+    expect(listServers(dir, { isAlive: () => true })[0]).toMatchObject({ worktree: "/work/app/.claude/worktrees/x", branch: "t3-export" });
+  });
+
   it("lists every server that announced itself, with its folder, Session, version and memory", () => {
     announce(101);
     announce(102);

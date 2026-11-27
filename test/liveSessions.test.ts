@@ -64,6 +64,13 @@ describe("the chats working on a project", () => {
     ]);
   });
 
+  it("shows a helper chat started in a worktree, with its folder and branch", () => {
+    const p = new Project({ root, session: { id: "s-a", pid: 100 }, isAlive: () => true });
+    p.addGoal("Login");
+    const live = liveSessions(p, [record({ pid: 500, session: "s-h", worktree: "/w/t3", branch: "t3-export" })]);
+    expect(live).toMatchObject([{ session: "s-h", worktree: "/w/t3", branch: "t3-export", goals: [] }]);
+  });
+
   it("shows a chat with no goal as looking around", () => {
     const p = new Project({ root, session: { id: "s-a", pid: 100 } });
     p.addGoal("Login");
