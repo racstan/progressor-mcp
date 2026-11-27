@@ -1,7 +1,8 @@
 // stepSync: which steps to move on, from the chats working in worktrees and the state of their branches.
 import { describe, expect, it } from "vitest";
 import type { LiveSession } from "../src/liveSessions.js";
-import { branchMatchesStep, linkedBranch, syncSteps, type BranchFacts, type SyncStep } from "../src/stepSync.js";
+import type { CiCache, PullRequest } from "../src/ci.js";
+import { branchMatchesStep, linkedBranch, syncFromPullRequests, syncSteps, type BranchFacts, type SyncStep } from "../src/stepSync.js";
 
 const step = (id: string, status: SyncStep["status"] = "pending", branch?: string, startedAt?: string): SyncStep => ({ id, status, ...(branch ? { helper: { branch } } : {}), ...(startedAt ? { startedAt } : {}) });
 const chat = (session: string, branch?: string, worktree = `/w/${session}`): LiveSession => ({
@@ -141,5 +142,74 @@ describe("a merge nobody saw coming", () => {
 
   it("still needs seen when no merge commit was found (fast-forward, or a branch just made)", () => {
     expect(sync({ ...base, steps: [step("t3", "pending", undefined, "2026-11-27T09:00:00Z")], facts: { "t3-export": facts({ merged: true }) } })).toEqual([]);
+  });
+});
+
+describe("steps and pull requests", () => {
+  const pr = (over: Partial<PullRequest> = {}): PullRequest => ({ number: 12, title: "x", url: "https://h/pull/12", state: "open", branch: "t3-export", headSha: "a1b2c3d4e5f6a1b2c3d4", ...over });
+  const cache = (prs: PullRequest[], where: "branch" | "recent" = "branch"): CiCache => ({
+    commits: {},
+    branches: where === "branch" ? { "t3-export": { at: 1, prs } } : {},
+    ...(where === "recent" ? { recent: { at: 1, prs } } : {}),
+  });
+  const run = (over: Partial<Parameters<typeof syncFromPullRequests>[0]> = {}) =>
+    syncFromPullRequests({ goal: "less", steps: [step("t3", "in progress", undefined, "2026-11-27T09:00:00Z")], branches: ["t3-export"], cache: cache([]), ...over });
+
+  it("closes a step whose pull request is merged, with the head and merge commits", () => {
+    const out = run({ cache: cache([pr({ state: "merged", mergeSha: "99887766554433", mergedAt: "2026-11-27T10:00:00Z" })]) });
+    expect(out).toEqual([{ task: "t3", kind: "done", pr: 12, commits: ["a1b2c3d", "9988776"] }]);
+  });
+
+  it("uses the head commit alone when the merge commit is not known, and skips a bad hash", () => {
+    expect(run({ cache: cache([pr({ state: "merged", mergedAt: "2026-11-27T10:00:00Z" })]) })[0]).toMatchObject({ commits: ["a1b2c3d"] });
+    expect(run({ cache: cache([pr({ state: "merged", headSha: "zzz", mergedAt: "2026-11-27T10:00:00Z" })]) })).toEqual([{ task: "t3", kind: "done", pr: 12, commits: [] }]);
+  });
+
+  it("marks a step checked, with evidence, when its open pull request's checks passed", () => {
+    expect(run({ cache: cache([pr({ checks: "passed", createdAt: "2026-11-27T09:30:00Z" })]) })).toEqual([{ task: "t3", kind: "checked", pr: 12, evidence: "CI passed on PR #12" }]);
+  });
+
+  it("does nothing for failed or running checks, no checks, or a closed pull request", () => {
+    for (const p of [pr({ checks: "failed" }), pr({ checks: "running" }), pr({}), pr({ state: "closed" })])
+      expect(run({ cache: cache([{ ...p, createdAt: "2026-11-27T09:30:00Z" }]) })).toEqual([]);
+  });
+
+  it("checks only a pending, in progress or with a helper step; a checked one is left", () => {
+    const c = cache([pr({ checks: "passed", createdAt: "2026-11-27T09:30:00Z" })]);
+    for (const s of ["pending", "in progress", "with a helper"] as const) expect(run({ steps: [step("t3", s, undefined, "2026-11-27T09:00:00Z")], cache: c })).toHaveLength(1);
+    for (const s of ["checked", "waiting on you", "done", "released", "dropped"] as const) expect(run({ steps: [step("t3", s, undefined, "2026-11-27T09:00:00Z")], cache: c }), s).toEqual([]);
+  });
+
+  it("closes a checked or waiting step when its pull request merges, but never a finished one", () => {
+    const c = cache([pr({ state: "merged", mergedAt: "2026-11-27T10:00:00Z" })]);
+    for (const s of ["pending", "checked", "waiting on you", "with a helper"] as const) expect(run({ steps: [step("t3", s, undefined, "2026-11-27T09:00:00Z")], cache: c }), s).toHaveLength(1);
+    for (const s of ["done", "released", "dropped"] as const) expect(run({ steps: [step("t3", s, undefined, "2026-11-27T09:00:00Z")], cache: c }), s).toEqual([]);
+  });
+
+  it("finds a pull request by a ref to the step, whatever its branch, and only for this goal", () => {
+    const c = cache([pr({ branch: "whatever", state: "merged", refs: ["less/t3"] }), pr({ number: 13, url: "https://h/pull/13", branch: "other", state: "merged", refs: ["other-goal/t3"] })], "recent");
+    expect(run({ branches: [], cache: c })).toEqual([{ task: "t3", kind: "done", pr: 12, commits: ["a1b2c3d"] }]);
+  });
+
+  it("finds a pull request in the recent list by the step's branch", () => {
+    expect(run({ cache: cache([pr({ state: "merged", mergedAt: "2026-11-27T10:00:00Z" })], "recent") })).toHaveLength(1);
+  });
+
+  it("does not take an old pull request of a branch linked only by name for this step", () => {
+    const old = cache([pr({ state: "merged", mergedAt: "2026-05-01T10:00:00Z" })]);
+    expect(run({ cache: old })).toEqual([]);
+    expect(run({ cache: cache([pr({ state: "merged" })]) })).toEqual([]); // no merge time known
+    expect(run({ cache: old, steps: [step("t3", "pending", "t3-export", "2026-11-27T09:00:00Z")] })).toHaveLength(1); // recorded branch
+    expect(run({ steps: [step("t3")], since: "2026-11-27T09:00:00Z", cache: cache([pr({ state: "merged", mergedAt: "2026-11-27T10:00:00Z" })]) })).toHaveLength(1);
+    expect(run({ steps: [step("t3")], cache: cache([pr({ state: "merged", mergedAt: "2026-11-27T10:00:00Z" })]) })).toEqual([]);
+  });
+
+  it("an old pull request pointed at by a ref still counts", () => {
+    expect(run({ branches: [], cache: cache([pr({ state: "merged", branch: "z", refs: ["less/t3"], mergedAt: "2026-05-01T10:00:00Z" })], "recent") })).toHaveLength(1);
+  });
+
+  it("merged beats open", () => {
+    const c = cache([pr({ checks: "passed", createdAt: "2026-11-27T09:30:00Z" }), pr({ number: 14, url: "https://h/pull/14", state: "merged", mergedAt: "2026-11-27T10:00:00Z" })]);
+    expect(run({ cache: c })[0]).toMatchObject({ kind: "done", pr: 14 });
   });
 });

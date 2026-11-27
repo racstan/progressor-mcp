@@ -1,6 +1,7 @@
 // Keeps steps in step with local git: which steps a live helper chat is working on (it has a worktree
 // on the step's branch) and which are finished (their branch has been merged). A pure function; the
 // caller (project.ts) reads git, remembers the commits seen, and applies the actions.
+import type { CiCache } from "./ci.js";
 import type { LiveSession } from "./liveSessions.js";
 import type { HelperInfo, TaskStatus } from "./planFile.js";
 
@@ -93,6 +94,70 @@ export function syncSteps(input: SyncInput): SyncAction[] {
     if (!STARTABLE.includes(step.status)) continue;
     const chat = input.sessions.find((s) => s.session !== input.self && s.branch === branch && s.worktree);
     if (chat) actions.push({ task: step.id, kind: "with a helper", branch, folder: chat.worktree!, label: `chat ${chat.session}` });
+  }
+  return actions;
+}
+
+// --- from pull requests -----------------------------------------------------------------------------
+
+/** What a pull request says about a step (what the kept answers of ci.ts hold). */
+export type PrAction =
+  | { task: string; kind: "done"; pr: number; commits: string[] }
+  | { task: string; kind: "checked"; pr: number; evidence: string };
+
+export interface PrSyncInput {
+  /** The goal the steps belong to: a ref to a step names it. */
+  goal: string;
+  steps: SyncStep[];
+  /** Every local branch name, for finding a step's branch by name. */
+  branches: string[];
+  cache: CiCache;
+  /** When the goal was claimed (an ISO time), for a step with no start time of its own. */
+  since?: string;
+}
+
+const SHORT_SHA = /^[0-9a-f]{4,40}$/i;
+const CHECKABLE: readonly TaskStatus[] = ["pending", "in progress", "with a helper"];
+
+/**
+ * The steps a pull request moves on. A step links to a pull request by a `progressor://<goal>/<step>`
+ * ref in its title or body, or by its branch (the one recorded on the step, else one naming it). A pull
+ * request found only through a branch linked by name must be newer than the step (merged, or opened,
+ * after it started, or after the goal was claimed), so an old branch holding the step ID is not taken
+ * for its work. Merged: the step is done. Open with checks passed: a pending, in progress or with-a-helper
+ * step is checked. Failed or running checks, and closed pull requests, change nothing.
+ */
+export function syncFromPullRequests(input: PrSyncInput): PrAction[] {
+  const { cache } = input;
+  const all = [...Object.values(cache.branches).flatMap((e) => e.prs), ...Object.values(cache.commits).flatMap((e) => e.prs), ...(cache.recent?.prs ?? [])];
+  const actions: PrAction[] = [];
+  for (const step of input.steps) {
+    if (!OPEN.includes(step.status)) continue;
+    const ref = `${input.goal}/${step.id}`;
+    const branch = linkedBranch(step, input.branches);
+    const recorded = !!step.helper?.branch?.trim();
+    const from = Date.parse(step.startedAt ?? input.since ?? "");
+    const newer = (t: string | undefined) => !Number.isNaN(from) && !!t && Date.parse(t) > from;
+    const seen = new Set<string>();
+    const linked = all.filter((p) => {
+      if (seen.has(p.url)) return false;
+      const byRef = p.refs?.includes(ref) === true;
+      const byBranch = !!branch && p.branch === branch && (recorded || newer(p.state === "merged" ? p.mergedAt : p.createdAt));
+      if (!byRef && !byBranch) return false;
+      seen.add(p.url);
+      return true;
+    });
+    const merged = linked.find((p) => p.state === "merged");
+    if (merged) {
+      const commits = [merged.headSha, merged.mergeSha].flatMap((c) => (c && SHORT_SHA.test(c) ? [c.slice(0, 7)] : []));
+      actions.push({ task: step.id, kind: "done", pr: merged.number, commits: [...new Set(commits)] });
+      continue;
+    }
+    if (!CHECKABLE.includes(step.status)) continue;
+    const open = linked.filter((p) => p.state === "open");
+    if (open.length > 0 && open.every((p) => p.checks === "passed")) {
+      actions.push({ task: step.id, kind: "checked", pr: open[0]!.number, evidence: `CI passed on PR #${open[0]!.number}` });
+    }
   }
   return actions;
 }
