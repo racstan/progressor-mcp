@@ -14,7 +14,7 @@ Progressor is free for personal and other noncommercial use (PolyForm Noncommerc
 
 ## Does it slow my AI down?
 
-Barely. Your AI makes a quick call to Progressor when it starts or finishes a step. In Claude Code, a one-line reminder of the current step is added to each message.
+Barely. Your AI makes a quick call to Progressor when it starts or finishes a step. In Claude Code, a one-line reminder of the current step is added to a message only when something changed since the last one.
 
 ## What's the difference between a goal and a step?
 

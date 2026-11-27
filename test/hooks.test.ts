@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { MAX_CONTEXT, STALE_AFTER_MINUTES, promptReminder, runHook, sessionStatus } from "../src/hooks.js";
+import { MAX_CONTEXT, promptReminder, runHook, sessionStatus } from "../src/hooks.js";
 import { Project } from "../src/project.js";
 import { mkdirSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -165,7 +165,7 @@ describe("promptReminder", () => {
   it("is one line with the Goal, current Task and next Task", () => {
     oauthInProgress();
     expect(remind()).toBe(
-      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Next: t3 End-to-end tests · updated just now",
+      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Next: t3 End-to-end tests",
     );
   });
 
@@ -173,64 +173,26 @@ describe("promptReminder", () => {
     const a = oauthInProgress();
     a.setTaskState("t3", "with a helper");
     expect(remind()).toBe(
-      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · With a helper: t3 (mark each checked once you check its work) · updated just now",
+      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · With a helper: t3",
     );
     a.setTaskState("t3", "waiting on you");
     expect(remind()).toBe(
-      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Waiting on the Developer: t3 · updated just now",
+      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Waiting on the Developer: t3",
     );
   });
 
   it("mentions an open Detour", () => {
     oauthInProgress().startDetour("Fix flaky CI test", "CI blocks every push");
     expect(remind()).toBe(
-      "[Progressor] Goal: Ship OAuth login · On Detour d1 Fix flaky CI test (from t2) · Next: t3 End-to-end tests · updated just now",
+      "[Progressor] Goal: Ship OAuth login · On Detour d1 Fix flaky CI test (from t2) · Next: t3 End-to-end tests",
     );
   });
 
-  it("says how long ago the plan last changed, and flags a reminder that may be out of date", () => {
+  it("never says how long ago the plan changed or that it may be out of date", () => {
     oauthInProgress();
-    const line = (minutes: number) => remind(minutes)!.split(" · ").slice(-1)[0];
-    expect(line(0.5)).toBe("updated just now");
-    expect(line(1)).toBe("updated 1 min ago");
-    expect(line(12)).toBe("updated 12 min ago");
-    expect(line(STALE_AFTER_MINUTES)).toBe(`updated ${STALE_AFTER_MINUTES} min ago`);
-    expect(line(STALE_AFTER_MINUTES + 1)).toBe("updated 31 min ago, may be out of date; call get_status");
-    expect(line(125)).toBe("updated 2 h ago, may be out of date; call get_status");
-    expect(line(60 * 24 * 3 + 30)).toBe("updated 3 days ago, may be out of date; call get_status");
-    expect(remind(125)!.split("\n")).toHaveLength(1);
-  });
-
-  it("says a plan may be out of date only once for each change, then just how old it is", () => {
-    oauthInProgress();
-    touch(125);
-    const overview = reader().overview();
-    const told = new Set<number>();
-    const first = promptReminder(overview, NOW, (at) => told.has(at));
-    expect(first).toMatch(/updated 2 h ago, may be out of date; call get_status$/);
-    told.add(overview.active[0]!.updatedAt!);
-    expect(promptReminder(overview, NOW, (at) => told.has(at))).toMatch(/· updated 2 h ago$/);
-  });
-
-  it("leaves the age out when the plan has no time, and counts a time in the future as just now", () => {
-    oauthInProgress();
-    const overview = reader().overview();
-    overview.active[0]!.updatedAt = undefined;
-    expect(promptReminder(overview, NOW)).not.toContain("updated");
-    overview.active[0]!.updatedAt = NOW.getTime() + 5000;
-    expect(promptReminder(overview, NOW)).toMatch(/· updated just now$/);
-  });
-
-  it("flags only the stale Goals when several are in progress", () => {
-    oauthInProgress();
-    const b = session("s-b", 200);
-    b.addGoal("Billing page", [{ title: "Checkout flow" }]);
-    b.claimGoal("billing-page");
-    touch(0);
-    utimesSync(join(root, ".progressor", "goals", "billing-page.md"), new Date(NOW.getTime() - 3 * 3_600_000), new Date(NOW.getTime() - 3 * 3_600_000));
-    expect(promptReminder(reader().overview(), NOW)).toBe(
-      "[Progressor] Goals in progress: Ship OAuth login (t2 Fix callback redirect loop), Billing page (no Task started; updated 3 h ago, may be out of date). Call get_status if unsure which is yours.",
-    );
+    for (const minutes of [0, 45, 125, 60 * 24 * 3]) {
+      expect(remind(minutes)).not.toMatch(/updated|out of date/);
+    }
   });
 
   it("lists each Goal briefly when several are in progress", () => {
@@ -245,24 +207,36 @@ describe("promptReminder", () => {
 });
 
 describe("runHook", () => {
+  let registry: string;
+  beforeEach(() => {
+    registry = join(tempDir("progressor-reg-"), "registry.json");
+  });
   const sessionStart = (source = "startup") =>
     JSON.stringify({ session_id: "abc", cwd: root, hook_event_name: "SessionStart", source });
   const prompt = () => JSON.stringify({ session_id: "abc", cwd: root, hook_event_name: "UserPromptSubmit", prompt: "carry on" });
   const run = (event: string | undefined, input: string, env: Record<string, string | undefined> = {}, canRun = (_: string) => true) =>
-    runHook({ event, input, env, isAlive: (p) => alive.has(p), canRun, now: () => NOW });
+    // A registry folder of the test's own, so what the hook remembers never reaches the real one.
+    runHook({ event, input, env: { PROGRESSOR_REGISTRY: registry, ...env }, isAlive: (p) => alive.has(p), canRun, now: () => NOW });
   const mcp = (command: string) =>
     writeFileSync(join(root, ".mcp.json"), JSON.stringify({ mcpServers: { progressor: { command, args: ["/c", "progressor-mcp"] } } }));
   const noCmd = (command: string) => command !== "cmd";
 
-  it("adds the out-of-date warning to one prompt, not every one, until the plan changes again", () => {
-    oauthInProgress();
-    touch(125);
+  it("prints the reminder only when it changed since this chat's last prompt", () => {
+    const a = oauthInProgress();
     const env = { PROGRESSOR_REGISTRY: join(tempDir("progressor-reg-"), "registry.json") };
-    expect(run("prompt", prompt(), env)).toContain("may be out of date");
-    expect(run("prompt", prompt(), env)).not.toContain("may be out of date");
-    expect(run("prompt", prompt(), env)).toContain("updated 2 h ago");
-    touch(90); // the plan changed, and has gone quiet again since
-    expect(run("prompt", prompt(), env)).toContain("may be out of date");
+    const chat = (id: string) => JSON.stringify({ session_id: id, cwd: root, hook_event_name: "UserPromptSubmit", prompt: "go" });
+    expect(run("prompt", chat("abc"), env)).toContain("Task: t2");
+    expect(run("prompt", chat("abc"), env)).toBe("");
+    // Another chat has not seen it yet.
+    expect(run("prompt", chat("def"), env)).toContain("Task: t2");
+    a.completeTask("t2");
+    a.startTask("t3");
+    expect(run("prompt", chat("abc"), env)).toContain("Task: t3");
+    expect(run("prompt", chat("abc"), env)).toBe("");
+    // Without a chat ID there is nothing to compare with, so it always prints.
+    const anon = JSON.stringify({ cwd: root, hook_event_name: "UserPromptSubmit" });
+    expect(run("prompt", anon, env)).toContain("Task: t3");
+    expect(run("prompt", anon, env)).toContain("Task: t3");
   });
 
   it("warns at session start when .mcp.json starts Progressor with a command this computer doesn't have", () => {
@@ -303,7 +277,7 @@ describe("runHook", () => {
     oauthInProgress();
     touch(0);
     expect(run("prompt", prompt())).toBe(
-      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Next: t3 End-to-end tests · updated just now",
+      "[Progressor] Goal: Ship OAuth login · Task: t2 Fix callback redirect loop · Next: t3 End-to-end tests",
     );
   });
 

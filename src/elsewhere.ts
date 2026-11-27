@@ -8,6 +8,7 @@
 //
 // B's Session hears about such changes once: get_status and Claude Code's hooks list the ones made
 // since it last looked, and remember when that was in `~/.progressor/seen.json`.
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { type ProjectEntry, defaultRegistryFile, listProjects, pathKey, projectEntry } from "./dashboard/registry.js";
@@ -103,38 +104,38 @@ export function lastSeen(root: string, file = seenFile()): number {
   return Number.isNaN(t) ? 0 : t;
 }
 
-/** Where the prompt hook remembers which plan times it already said "may be out of date" about. */
-export const staleFile = (registryFile = defaultRegistryFile()) => join(dirname(registryFile), "stale-told.json");
+/** Where the prompt hook remembers what it last told each chat (Claude Code's session_id). */
+export const promptToldFile = (registryFile?: string) => join(dirname(registryFile ?? defaultRegistryFile()), "prompt-told.json");
 
-/** The plan times already called out of date for this project. */
-export function toldStale(root: string, file = staleFile()): number[] {
+/** Chats not heard from for this long are forgotten. */
+const TOLD_FORGET_MS = 7 * 24 * 3_600_000;
+
+/**
+ * Whether `text` differs from what this chat was last told, remembering it when it does. Empty text
+ * is remembered too, so a reminder that comes back after a quiet spell is printed again. When the file
+ * cannot be read or written it says changed: at worst a reminder is repeated.
+ */
+export function toldChanged(file: string, chat: string, text: string, now: Date): boolean {
+  let data: Record<string, { hash: string; at: string }> = {};
   try {
-    const data = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
-    const v = data[pathKey(real(root) ?? root)];
-    return Array.isArray(v) ? v.filter((n): n is number => typeof n === "number") : [];
+    const read = JSON.parse(readFileSync(file, "utf8")) as unknown;
+    if (read && typeof read === "object" && !Array.isArray(read)) data = read as typeof data;
   } catch {
-    return [];
+    // nothing remembered yet
   }
-}
-
-/** Remembers that these plan times were called out of date; only the latest ones are kept. */
-export function markToldStale(root: string, times: number[], file = staleFile()): void {
+  const hash = createHash("sha256").update(text).digest("hex").slice(0, 16);
+  if (data[chat]?.hash === hash) return false;
+  data[chat] = { hash, at: now.toISOString() };
+  for (const [k, v] of Object.entries(data)) if (!(now.getTime() - Date.parse(v?.at ?? "") < TOLD_FORGET_MS)) delete data[k];
   try {
-    let data: Record<string, unknown> = {};
-    try {
-      const read = JSON.parse(readFileSync(file, "utf8")) as unknown;
-      if (read && typeof read === "object" && !Array.isArray(read)) data = read as Record<string, unknown>;
-    } catch {
-      // nothing remembered yet
-    }
-    data[pathKey(real(root) ?? root)] = times.slice(0, 20);
     mkdirSync(dirname(file), { recursive: true });
     const tmp = `${file}.${process.pid}.tmp`;
     writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`);
     renameSync(tmp, file);
   } catch {
-    // remembering is only to keep the reminder quiet
+    // only a reminder
   }
+  return true;
 }
 
 /** Remembers that the project's Session has seen the changes made from elsewhere up to `at`. */

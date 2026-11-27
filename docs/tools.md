@@ -22,7 +22,7 @@ Words: a **goal** is *Goal* in the tools, a **step** is *Task*, a **side trip** 
 | `update_goal` | Renames a goal or changes what finished looks like, its estimate or what it waits on. |
 | `move_goal` | Moves a goal before or after another. |
 | `claim_goal` | Takes a goal to work on (reopens a finished one). |
-| `release_goal` | Lets go of a goal; it is paused. Or hands it to another chat in one call (`to`: that chat's session, or `next`). |
+| `release_goal` | Lets go of a goal (paused), or hands it to another chat (`to`). |
 | `complete_goal` | Marks a goal finished; can add `hand_tests` and claim the `next` goal in the same call. |
 | `drop_goal` | Cancels a goal, with a reason. |
 

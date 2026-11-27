@@ -4,7 +4,7 @@
 import type { Task } from "./planFile.js";
 import { PROGRESSOR_DIR, Project, type ProjectOverview, type Status } from "./project.js";
 import { launcherWarning, onPath } from "./init.js";
-import { markToldStale, seenFile, staleFile, takeElsewhereLine, toldStale } from "./elsewhere.js";
+import { promptToldFile, seenFile, takeElsewhereLine, toldChanged } from "./elsewhere.js";
 import { hardFirst, hotfixLine, ruleText } from "./roadmap.js";
 import { type GlobalNotes, contextLines, defaultGlobalFile, globalFileFor, globalRuleText, notEverywhere, readGlobal } from "./globalRules.js";
 import { handTestLines } from "./handTestText.js";
@@ -120,29 +120,14 @@ function sessionText(o: ProjectOverview, global?: GlobalNotes): string {
   ].join("\n");
 }
 
-/** A plan that has not changed for longer than this may no longer match the work, so the reminder says so. */
-export const STALE_AFTER_MINUTES = 30;
-
-/** How long ago a plan last changed, such as "12 min ago" or "2 h ago". */
-function ago(minutes: number): string {
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${Math.floor(minutes)} min ago`;
-  if (minutes < 48 * 60) return `${Math.floor(minutes / 60)} h ago`;
-  return `${Math.floor(minutes / (24 * 60))} days ago`;
-}
-
-/** The plan's age in minutes, or undefined when it has no time. A time in the future counts as now. */
-const age = (s: Status, now: Date) => (s.updatedAt === undefined ? undefined : Math.max(0, (now.getTime() - s.updatedAt) / 60_000));
-const STALE = "may be out of date";
-
 /**
- * The one-line reminder added to every prompt; silent when no Goal is being worked on. It says when
- * the plan last changed, since a reminder naming a step a helper finished long ago misleads.
+ * The one-line reminder for a prompt; silent when no Goal is being worked on. The hook prints it only
+ * when it changed since the chat's last prompt (promptToldFile), so an unchanged plan costs nothing.
  */
-export function promptReminder(o: ProjectOverview, now = new Date(), told: (updatedAt: number) => boolean = () => false): string | undefined {
+export function promptReminder(o: ProjectOverview, _now = new Date()): string | undefined {
   // A waiting hotfix is said in every Session, even one with no Goal in progress, until one claims it.
   const hotfix = hotfixOf(o);
-  const plan = planReminder(o, now, told);
+  const plan = planReminder(o);
   const reminder = hotfix ? [`${PREFIX} ${hotfix}`, ...(plan ? [plan] : [])].join("\n") : plan;
   // What the Developer wrote on the dashboard for the Goals in progress; get_status marks it seen.
   // Messages to the whole project show even when no Goal is in progress: they can say what to start.
@@ -155,28 +140,13 @@ export function promptReminder(o: ProjectOverview, now = new Date(), told: (upda
   return reminder ? `${reminder}\n${PREFIX} ${news}` : `${PREFIX} ${news}`;
 }
 
-/** Whether a plan's age is past the point where the reminder may no longer match the work, and not said yet. */
-const staleUntold = (s: Status, now: Date, told: (updatedAt: number) => boolean) => {
-  const minutes = age(s, now);
-  return minutes !== undefined && minutes > STALE_AFTER_MINUTES && !told(s.updatedAt!);
-};
-
-/** The plan times the reminder warns are out of date (so the hook can say each one once). */
-export function staleTimes(o: ProjectOverview, now = new Date()): number[] {
-  return o.active.flatMap((s) => {
-    const minutes = age(s, now);
-    return minutes !== undefined && minutes > STALE_AFTER_MINUTES ? [s.updatedAt!] : [];
-  });
-}
-
-function planReminder(o: ProjectOverview, now: Date, told: (updatedAt: number) => boolean): string | undefined {
+function planReminder(o: ProjectOverview): string | undefined {
   const [only] = o.active;
   if (!only) return undefined;
   if (o.active.length > 1) {
     const each = o.active.map((s) => {
       const here = s.currentTask ? task(s.currentTask) : "no Task started";
-      const stale = staleUntold(s, now, told) ? `; updated ${ago(age(s, now)!)}, ${STALE}` : "";
-      return `${s.goal?.title} (${here}${s.waitingOnYou.length > 0 ? "; waiting on the Developer" : ""}${stale})`;
+      return `${s.goal?.title} (${here}${s.waitingOnYou.length > 0 ? "; waiting on the Developer" : ""})`;
     });
     return `${PREFIX} Goals in progress: ${each.join(", ")}. Call get_status if unsure which is yours.`;
   }
@@ -184,14 +154,12 @@ function planReminder(o: ProjectOverview, now: Date, told: (updatedAt: number) =
   const where = d
     ? `On Detour ${d.id} ${d.title}${d.branchedFrom ? ` (from ${d.branchedFrom})` : ""}`
     : `Task: ${only.currentTask ? task(only.currentTask) : "none started"}`;
-  const minutes = age(only, now);
   return [
     `${PREFIX} Goal: ${only.goal?.title}`,
     where,
     ...(only.nextTask ? [`Next: ${task(only.nextTask)}`] : []),
-    ...(only.withHelper.length > 0 ? [`With a helper: ${ids(only.withHelper)} (mark each checked once you check its work)`] : []),
+    ...(only.withHelper.length > 0 ? [`With a helper: ${ids(only.withHelper)}`] : []),
     ...(only.waitingOnYou.length > 0 ? [`Waiting on the Developer: ${ids(only.waitingOnYou)}`] : []),
-    ...(minutes === undefined ? [] : [`updated ${ago(minutes)}${staleUntold(only, now, told) ? `, ${STALE}; call get_status` : ""}`]),
   ].join(" · ");
 }
 
@@ -228,7 +196,7 @@ export interface HookRun {
  */
 export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, env, process.platform), now = () => new Date() }: HookRun): string {
   try {
-    const data = JSON.parse(input) as { cwd?: unknown; hook_event_name?: unknown; transcript_path?: unknown };
+    const data = JSON.parse(input) as { cwd?: unknown; hook_event_name?: unknown; transcript_path?: unknown; session_id?: unknown };
     const kind = EVENTS[event ?? String(data.hook_event_name)];
     const root = env.PROGRESSOR_ROOT ?? env.CLAUDE_PROJECT_DIR ?? (typeof data.cwd === "string" ? data.cwd : undefined);
     if (!kind || !root || !existsSync(join(root, PROGRESSOR_DIR))) return "";
@@ -246,14 +214,7 @@ export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, 
     }
     const warning = kind === "session-start" ? launcherWarning(root, canRun) : undefined;
     const global = readGlobal(env.PROGRESSOR_REGISTRY ? globalFileFor(env.PROGRESSOR_REGISTRY) : defaultGlobalFile());
-    // "May be out of date" is said once for each plan change, not on every prompt (staleFile).
-    const staleAt = env.PROGRESSOR_REGISTRY ? staleFile(env.PROGRESSOR_REGISTRY) : staleFile();
-    const told = kind === "prompt" ? toldStale(root, staleAt) : [];
-    const status = kind === "session-start" ? sessionStatus(overview, global) : promptReminder(overview, now(), (at) => told.includes(at));
-    if (kind === "prompt") {
-      const stale = staleTimes(overview, now());
-      if (stale.some((at) => !told.includes(at))) markToldStale(root, stale, staleAt);
-    }
+    const status = kind === "session-start" ? sessionStatus(overview, global) : promptReminder(overview, now());
     // Changes an AI chat in another project made to this plan, told once (elsewhere.ts).
     const elsewhere = takeElsewhereLine(project, env.PROGRESSOR_REGISTRY ? seenFile(env.PROGRESSOR_REGISTRY) : seenFile());
     // More helpers at work than the project allows: said on every message until one comes back.
@@ -267,12 +228,16 @@ export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, 
         // the reminder never fails the message
       }
     }
-    const text = [
+    let text = [
       ...(warning ? [`${PREFIX} ${warning}`] : []),
       ...(status ? [status] : []),
       ...(overLimit ? [`${PREFIX} ${overLimit}`] : []),
       ...(elsewhere ? [`${PREFIX} ${elsewhere}`] : []),
     ].join("\n");
+    // A prompt gets the reminder only when it changed since this chat's last one.
+    if (kind === "prompt" && typeof data.session_id === "string" && data.session_id) {
+      if (!toldChanged(promptToldFile(env.PROGRESSOR_REGISTRY), data.session_id, text, now())) text = "";
+    }
     return text.length <= MAX_CONTEXT ? text : text.slice(0, MAX_CONTEXT - CUT.length) + CUT;
   } catch {
     return "";
