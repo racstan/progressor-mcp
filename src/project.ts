@@ -50,7 +50,7 @@ import { type Routine, dueRoutines, formatEvery, nextAfter, nextDue, parseEvery,
 import { formatDuration, parseDuration } from "./estimate.js";
 import { type Readiness, readiness } from "./readiness.js";
 import { COST_DIR, COST_FILE, type CostBook, type CostFallback, collectChat, readBook, writeBook } from "./cost.js";
-import { type Claim, type Goal, GOAL_BUNDLES, GOAL_FOR_LAUNCH, GOAL_FROM_ROUTINE, GOAL_RELEASE, GOAL_WAITS_ON, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, Roadmap, type StandingInstruction, helperLimit } from "./roadmap.js";
+import { type Claim, type Goal, GOAL_BUNDLES, GOAL_FOR_LAUNCH, GOAL_FROM_ROUTINE, GOAL_RELEASE, GOAL_WAITS_ON, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, Roadmap, type StandingInstruction, helperLimit, ruleLimit } from "./roadmap.js";
 import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule, helperCount } from "./schedule.js";
 import { type Calibration, calibration } from "./stats.js";
@@ -2483,7 +2483,10 @@ export class Project {
     const busy = Math.max(marked, chats ? chats - 1 : 0);
     const own = helperLimit(roadmap.standingInstructions);
     let found: { limit: number; rule: { id: string; text: string } } | undefined = own ? { limit: own.limit, rule: { id: own.rule.id ?? "", text: own.rule.text } } : undefined;
-    for (const g of options.global ?? []) if (g.helpersAtOnce && (!found || g.helpersAtOnce < found.limit)) found = { limit: g.helpersAtOnce, rule: g };
+    for (const g of options.global ?? []) {
+      const limit = ruleLimit(g);
+      if (limit && (!found || limit < found.limit)) found = { limit, rule: g };
+    }
     return { busy, limit: found?.limit, rule: found?.rule, chats };
   }
 

@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { addGlobalRule, globalFileFor, readGlobal, updateGlobalRule } from "../src/globalRules.js";
 import { runHook } from "../src/hooks.js";
 import { Project } from "../src/project.js";
+import { helperLimit, limitFromWords } from "../src/roadmap.js";
 import { defaultServersDir, type ServerRecord } from "../src/servers.js";
 import { tempDir } from "./tmp.js";
 
@@ -62,6 +63,34 @@ describe("counting helpers from the chats at work", () => {
     // The limit can be set on a rule already there, and taken off with 0.
     expect(updateGlobalRule(file, "g1", { helpersAtOnce: 3 })).toMatchObject({ helpersAtOnce: 3 });
     expect(updateGlobalRule(file, "g1", { helpersAtOnce: 0 })?.helpersAtOnce).toBeUndefined();
+  });
+});
+
+describe("a limit said only in the rule's words", () => {
+  const g1 = "Only one helper session may work at a time, in every project. The main session orchestrates (brief, review, test, merge) and may also do tasks itself at the same time.";
+
+  it("reads the number from words like \"only one helper at a time\"", () => {
+    expect(limitFromWords(g1)).toBe(1);
+    expect(limitFromWords("At most 2 helpers")).toBe(2);
+    expect(limitFromWords("No more than three helper agents in parallel")).toBe(3);
+    expect(limitFromWords("Run up to four helpers at once")).toBe(4);
+    expect(limitFromWords("Helpers must write tests first")).toBeUndefined();
+    expect(limitFromWords("Give each helper one step")).toBeUndefined();
+    expect(limitFromWords("Two helpers reviewed it")).toBeUndefined();
+  });
+
+  it("uses it when the rule sets no number, here and for every project", () => {
+    const file = globalFileFor(registry);
+    addGlobalRule(file, g1, true);
+    const p = new Project({ root, session: { id: "s-a", pid: process.pid } });
+    const load = p.helperLoad({ global: readGlobal(file).rules });
+    expect(load.limit).toBe(1);
+    expect(load.rule?.id).toBe("g1");
+    p.addStandingInstruction("At most 2 helpers at once");
+    expect(helperLimit(p.roadmap().standingInstructions)?.limit).toBe(2);
+    // A number set on the rule wins over its words.
+    updateGlobalRule(file, "g1", { helpersAtOnce: 3 });
+    expect(p.helperLoad({ global: readGlobal(file).rules }).limit).toBe(2);
   });
 });
 

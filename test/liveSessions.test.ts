@@ -71,6 +71,23 @@ describe("the chats working on a project", () => {
     expect(live).toMatchObject([{ session: "s-h", worktree: "/w/t3", branch: "t3-export", goals: [] }]);
   });
 
+  it("shows a helper chat on the step its branch is for, in a goal another chat holds", () => {
+    const p = new Project({ root, session: { id: "s-a", pid: 100 }, isAlive: () => true });
+    p.addGoal("Login", [{ title: "Route" }, { title: "Callback" }, { title: "Export" }]);
+    p.addGoal("Billing", [{ title: "Checkout" }, { title: "Refunds" }]); // nobody holds it: its t2 is not meant
+    p.claimGoal("login");
+    p.setTaskState("t3", "with a helper", "login", { helper: { branch: "helper/csv" } });
+    const live = liveSessions(p, [
+      record({}),
+      record({ pid: 500, session: "s-h", worktree: "/w/t2", branch: "t2-callback" }),
+      record({ pid: 600, session: "s-i", worktree: "/w/csv", branch: "helper/csv" }),
+      record({ pid: 700, session: "s-j", worktree: "/w/x", branch: "misc" }),
+    ]);
+    expect(live[1]).toMatchObject({ session: "s-h", helper: true, goals: [{ id: "login", title: "Login", step: { id: "t2", title: "Callback" } }] });
+    expect(live[2]).toMatchObject({ session: "s-i", helper: true, goals: [{ id: "login", step: { id: "t3", title: "Export" } }] });
+    expect(live[3]).toMatchObject({ session: "s-j", goals: [] });
+  });
+
   it("shows a chat with no goal as looking around", () => {
     const p = new Project({ root, session: { id: "s-a", pid: 100 } });
     p.addGoal("Login");

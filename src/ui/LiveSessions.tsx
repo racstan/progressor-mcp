@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { getJson } from "./data.js";
 
 interface SessionsView {
-  sessions: { session: string; pid: number; since: string; seen: string; goals: { id: string; title: string; step?: { id: string; title: string } }[] }[];
+  sessions: { session: string; pid: number; since: string; seen: string; helper?: boolean; goals: { id: string; title: string; step?: { id: string; title: string } }[] }[];
   helpers: { busy: number; limit?: number };
 }
 
@@ -49,7 +49,7 @@ export function LiveSessions({ projectId, version, onOpenGoal }: { projectId: st
       <ul>
         {view.sessions.map((s) => (
           <li key={s.pid} className={s.goals.some((g) => g.step) ? "working" : ""}>
-            <span className="who">AI chat <small className="quiet">{sinceWords(s.since)}</small></span>
+            <span className="who">{s.helper ? "Helper chat" : "AI chat"} <small className="quiet">{sinceWords(s.since)}</small></span>
             {s.goals.length === 0 ? (
               <span className="quiet">Looking around, no goal yet</span>
             ) : (

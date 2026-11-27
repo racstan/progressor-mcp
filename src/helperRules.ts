@@ -2,7 +2,7 @@
 // git worktree of the project is told by itself at session start (hooks.ts). Kept apart from the
 // server, so the hook starts quickly.
 import { type GlobalNotes, contextLines } from "./globalRules.js";
-import { type StandingInstruction, hardFirst, helperLimit } from "./roadmap.js";
+import { type StandingInstruction, hardFirst, helperLimit, ruleLimit } from "./roadmap.js";
 
 /**
  * The rules as a block to paste into a helper agent's brief: hard rules first, then the others.
@@ -16,7 +16,7 @@ export function formatRules(instructions: StandingInstruction[], global?: Global
   const hard = instructions.filter((i) => i.hard);
   const other = instructions.filter((i) => !i.hard);
   const own = helperLimit(instructions)?.limit;
-  const everywhereLimit = global?.rules.reduce<number | undefined>((m, r) => (r.helpersAtOnce && (m === undefined || r.helpersAtOnce < m) ? r.helpersAtOnce : m), undefined);
+  const everywhereLimit = global?.rules.reduce<number | undefined>((m, r) => { const l = ruleLimit(r); return l && (m === undefined || l < m) ? l : m; }, undefined);
   const limit = own === undefined ? everywhereLimit : everywhereLimit === undefined ? own : Math.min(own, everywhereLimit);
   const globalBlock = [
     ...(everywhere.length > 0

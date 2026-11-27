@@ -1467,8 +1467,8 @@ button, a, .list-row, .step-row, .goal-row, .project-card, .tabs button, .btn, .
 .live-sessions ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
 .live-sessions li { display: flex; flex-direction: column; gap: 2px; padding-left: var(--s2); border-left: 2px solid var(--line); }
 .live-sessions li.working { border-left: var(--heavy); animation: pulse-edge 2.4s var(--ease) infinite; }
-.live-sessions .linkbtn { text-align: left; }
-.live-sessions .helpers { margin: var(--s2) 0 0; color: var(--muted); }
+.live-sessions .linkbtn { text-align: left; white-space: normal; }
+.live-sessions .helpers { margin: var(--s2) 0 0; color: var(--muted); white-space: normal; overflow-wrap: anywhere; }
 .live-sessions.over { border: var(--heavy); }
 .live-sessions .helpers.over { color: var(--ink); font-weight: 600; }
 @keyframes pulse-edge { 50% { border-left-color: var(--line); } }

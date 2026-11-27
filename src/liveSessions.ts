@@ -4,6 +4,7 @@
 import { pathKey } from "./dashboard/registry.js";
 import type { Project } from "./project.js";
 import type { ServerRecord } from "./servers.js";
+import { branchMatchesStep } from "./stepSync.js";
 
 export interface LiveSession {
   /** The chat's session ID. */
@@ -16,6 +17,8 @@ export interface LiveSession {
   since: string;
   /** Its last heartbeat. */
   seen: string;
+  /** A helper chat in a worktree, shown on the step its branch is for (in a goal another chat holds). */
+  helper?: boolean;
   /** The goals it holds, each with the step in progress when there is one. */
   goals: { id: string; title: string; step?: { id: string; title: string } }[];
 }
@@ -28,14 +31,8 @@ export function liveSessions(project: Project, records: readonly ServerRecord[])
   const goals = project.roadmap().goals.filter((g) => g.claim && g.status !== "done" && g.status !== "dropped");
   return [...mine]
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt) || a.pid - b.pid)
-    .map((r) => ({
-      session: r.session!,
-      pid: r.pid,
-      ...(r.worktree ? { worktree: r.worktree } : {}),
-      ...(r.branch ? { branch: r.branch } : {}),
-      since: r.startedAt,
-      seen: r.beatAt,
-      goals: goals
+    .map((r) => {
+      const held = goals
         .filter((g) => g.claim!.session === r.session)
         .map((g) => {
           let step: { id: string; title: string } | undefined;
@@ -46,6 +43,40 @@ export function liveSessions(project: Project, records: readonly ServerRecord[])
             // a plan file that can't be read shows the goal without its step
           }
           return { id: g.id, title: g.title, ...(step ? { step } : {}) };
-        }),
-    }));
+        });
+      const helping = held.length === 0 && r.worktree && r.branch ? helperStep(project, goals, r.branch) : undefined;
+      return {
+        session: r.session!,
+        pid: r.pid,
+        ...(r.worktree ? { worktree: r.worktree } : {}),
+        ...(r.branch ? { branch: r.branch } : {}),
+        since: r.startedAt,
+        seen: r.beatAt,
+        ...(helping ? { helper: true } : {}),
+        goals: helping ? [helping] : held,
+      };
+    });
+}
+
+/**
+ * The step a helper chat's branch is for, in one of the goals some chat holds: the unfinished step that
+ * records that branch, else the one the branch name names (t3-export is t3).
+ */
+function helperStep(project: Project, goals: { id: string; title: string }[], branch: string): LiveSession["goals"][number] | undefined {
+  let byName: LiveSession["goals"][number] | undefined;
+  for (const g of goals) {
+    let tasks;
+    try {
+      tasks = project.plan(g.id).tasks;
+    } catch {
+      continue;
+    }
+    for (const t of tasks) {
+      if (!t.id || t.status === "done" || t.status === "dropped") continue;
+      const found = { id: g.id, title: g.title, step: { id: t.id, title: t.title } };
+      if (t.helper?.branch === branch) return found;
+      if (!byName && !t.helper?.branch && branchMatchesStep(branch, t.id)) byName = found;
+    }
+  }
+  return byName;
 }

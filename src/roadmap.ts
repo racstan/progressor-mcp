@@ -153,10 +153,38 @@ export function hardFirst<T extends { hard: boolean }>(rules: T[]): T[] {
 export const ruleText = (r: Pick<StandingInstruction, "id" | "text" | "hard"> & { helpersAtOnce?: number }) =>
   (r.hard ? `HARD RULE ${r.id}: ${r.text}` : `${r.id} ${r.text}`) + (r.helpersAtOnce ? ` (limit: at most ${r.helpersAtOnce} Tasks with a helper at once)` : "");
 
+const NUMBER_WORDS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, a: 1, single: 1 };
+const LIMITING_BEFORE = /\b(only|at most|no more than|up to|max(?:imum)?(?: of)?)\s+$/i;
+const LIMITING_AFTER = /^[^.;]*?\b(at a time|at once|at the same time|in parallel|concurrently|simultaneously)\b/i;
+
+/**
+ * The helper limit a rule states in words when it sets no number ("Only one helper session may work
+ * at a time" is 1). The number needs a limiting word before it (only, at most, up to...) or after the
+ * helpers (at a time, at once, in parallel...), so "Two helpers reviewed it" sets nothing.
+ */
+export function limitFromWords(text: string): number | undefined {
+  const re = /\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|a|single)\s+(?:[a-z-]+\s+){0,2}?helpers?\b/gi;
+  for (const m of text.matchAll(re)) {
+    const word = m[1] ?? "";
+    const n = /^\d+$/.test(word) ? Number(word) : NUMBER_WORDS[word.toLowerCase()];
+    if (!n || n < 1) continue;
+    const before = text.slice(0, m.index);
+    const after = text.slice(m.index + m[0].length);
+    if (LIMITING_BEFORE.test(before) || LIMITING_AFTER.test(after)) return n;
+  }
+  return undefined;
+}
+
+/** A rule's helper limit: the number set on it, or else the one its words state. */
+export const ruleLimit = (r: { text: string; helpersAtOnce?: number }): number | undefined => r.helpersAtOnce ?? limitFromWords(r.text);
+
 /** The project's helper limit and the rule that sets it: the lowest, if several do. */
 export function helperLimit(rules: StandingInstruction[]): { limit: number; rule: StandingInstruction } | undefined {
   let found: { limit: number; rule: StandingInstruction } | undefined;
-  for (const rule of rules) if (rule.helpersAtOnce && (!found || rule.helpersAtOnce < found.limit)) found = { limit: rule.helpersAtOnce, rule };
+  for (const rule of rules) {
+    const limit = ruleLimit(rule);
+    if (limit && (!found || limit < found.limit)) found = { limit, rule };
+  }
   return found;
 }
 
