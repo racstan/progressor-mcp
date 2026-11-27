@@ -3,14 +3,13 @@
 // then Support, "Reset all settings to defaults", where settings are kept, and the free notice.
 import { useEffect, useRef, useState } from "react";
 import { FreeNotice } from "./FreeNotice.js";
+import { SUPPORT_URL } from "./feedback.js";
 import { Icon } from "./Icon.js";
 import { resetAll } from "./settings/reset.js";
 import { groupSections } from "./settings/groups.js";
 import { SETTINGS_SECTIONS, type SettingsContext, type SettingsSection } from "./settings/index.js";
 import { RESET_ALL, RESET_ALL_CONFIRM, RESET_ALL_DONE, RESET_SECTION, SETTINGS_WHERE } from "./words.js";
 
-/** The Developer's Buy Me a Coffee page, shown in Settings. */
-const SUPPORT_URL = "https://buymeacoffee.com/rachitasthana";
 /** Where a business asks for a commercial license (LICENSE.md). */
 const COMMERCIAL_URL = "https://github.com/racstan/progressor-mcp/issues/new?template=commercial_license.yml";
 

@@ -16,7 +16,7 @@ import { CalendarPage } from "./CalendarPage.js";
 import { PAGE_HASH, PAGE_TITLE, type Page, type Route, breadcrumbs, newHash, pageHeading, routeFromHash, tabTitle } from "./route.js";
 import { Breadcrumbs } from "./Breadcrumbs.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
-import { describeSystem, ISSUES_URL, issueUrl } from "./feedback.js";
+import { describeSystem, ISSUES_URL, SUPPORT_URL, issueUrl } from "./feedback.js";
 import { type Finished, type FinishedSort, type GroupBy, type Seen, FINISHED_SORT_DEFAULT, FINISHED_SORT_KEY, FINISHED_SORT_WORDS, GROUP_BY_DEFAULT, GROUP_BY_KEY, GROUP_BY_WORDS, addedOf, dayGroups, doneMark, finishedOf, groupGoals, groupOpen, hideAll, isFinishedSort, isGroupBy, seenOnFirstVisit, sortFinished } from "./goalList.js";
 import { GoalPage } from "./GoalPage.js";
 import { Home } from "./HomePage.js";
@@ -641,6 +641,11 @@ export function App() {
             : "Lost touch with Progressor. It comes back by itself once your AI chat is open again."
           }
           aria-label={connection === "live" ? "Live" : connection === "connecting" ? "Connecting" : "Reconnecting"} />
+        <a className="coffee-btn" href={SUPPORT_URL} target="_blank" rel="noopener noreferrer"
+          title="Progressor is free. If it keeps you on track, a coffee keeps it going." aria-label="Buy me a coffee (opens in a new tab)">
+          <Icon name="coffee" size={18} />
+          <span className="coffee-words">Buy me a coffee</span>
+        </a>
         <button className={`iconbtn menu-btn ${panel === "help" ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={panel === "help"}
           title={unseen ? "Help · What's new in this version" : "Help"} aria-label="Help" onClick={() => openPanel("help")}>
           <Icon name="help" size={18} />

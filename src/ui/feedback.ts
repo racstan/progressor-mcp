@@ -1,4 +1,6 @@
 /** Where Progressor's issues live; the Help panel links here. */
+/** The Developer's Buy Me a Coffee page: the top bar's button and Settings. */
+export const SUPPORT_URL = "https://buymeacoffee.com/rachitasthana";
 export const ISSUES_URL = "https://github.com/racstan/progressor-mcp/issues";
 
 /**

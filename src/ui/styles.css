@@ -79,6 +79,13 @@ code { font: .92em ui-monospace, "Cascadia Code", Consolas, monospace; backgroun
    updates live, red while it has lost touch with Progressor. */
 .live { width: 10px; height: 10px; border-radius: 50%; background: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18); flex: none; margin: 0 var(--s1); transition: background-color 0.3s ease, box-shadow 0.3s ease; }
 .live.off { background: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18); }
+/* Buy me a coffee, beside Help: an outlined call to action that fills on hover; the words drop on a narrow window. */
+.coffee-btn { display: inline-flex; align-items: center; gap: var(--s2); height: 32px; padding: 0 var(--s3); border: 2px solid var(--ink); border-radius: 999px;
+  color: var(--ink); background: var(--panel); font-weight: 600; font-size: var(--t-s); text-decoration: none; white-space: nowrap; flex: none; }
+.coffee-btn:hover, .coffee-btn:focus-visible { background: var(--ink); color: var(--bg); transform: translate(-1px, -1px); box-shadow: var(--lift); }
+[data-theme="vibrant"] .coffee-btn { border-color: var(--accent); color: var(--accent); }
+[data-theme="vibrant"] .coffee-btn:hover, [data-theme="vibrant"] .coffee-btn:focus-visible { background: var(--accent); color: var(--on-accent); }
+@media (max-width: 720px) { .coffee-btn { padding: 0; width: 32px; justify-content: center; } .coffee-words { display: none; } }
 .live.connecting { background: var(--faint); box-shadow: 0 0 0 3px var(--line); }
 .menu-btn-phone { display: none; }
 
