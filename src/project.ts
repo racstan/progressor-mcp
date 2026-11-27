@@ -39,6 +39,7 @@ import type { GlobalRule } from "./globalRules.js";
 import { type GitFacts, type GitRange, realGit } from "./gitFacts.js";
 import type { LiveSession } from "./liveSessions.js";
 import { type CiDeps, kickCiRefresh, readCiCache } from "./ci.js";
+import { type Report, listReports, readReport } from "./reports.js";
 import { type BranchFacts, type PrAction, type SyncAction, linkedBranch, syncFromPullRequests, syncSteps } from "./stepSync.js";
 import { type GoalLookup, type Waiting, finishedState, parseWaitRef, waitCycle } from "./dependencies.js";
 import { type Origin } from "./origin.js";
@@ -239,7 +240,8 @@ export interface ProjectOverview {
 
 export type FoundItem =
   | { kind: "goal"; ref: string; file: string; line: number; item: Goal; planFile: string; tasks: Task[] }
-  | { kind: "task"; ref: string; file: string; line: number; item: Task }
+  | { kind: "task"; ref: string; file: string; line: number; item: Task; reports: Report[] }
+  | { kind: "report"; ref: string; file: string; line: number; item: Report; text: string }
   | { kind: "detour"; ref: string; file: string; line: number; item: Detour }
   | { kind: "decision"; ref: string; file: string; line: number; item: Decision }
   | { kind: "note"; ref: string; file: string; line: number; item: Note }
@@ -2745,7 +2747,7 @@ export class Project {
     const plan = this.plan(goalId);
     const file = this.planFilePath(goalId);
     const task = plan.task(id);
-    if (task) return { kind: "task", ref, file, line: task.line, item: task };
+    if (task) return { kind: "task", ref, file, line: task.line, item: task, reports: listReports(this, goalId, id) };
     const detour = plan.detour(id);
     if (detour) return { kind: "detour", ref, file, line: detour.line, item: detour };
     const decision = plan.decision(id);
@@ -2754,6 +2756,10 @@ export class Project {
     if (note) return { kind: "note", ref, file, line: note.line, item: note };
     const handTest = plan.handTest(id);
     if (handTest) return { kind: "hand test", ref, file, line: handTest.line, item: handTest };
+    if (/^r\d+$/.test(id)) {
+      const { report, text } = readReport(this, goalId, id);
+      return { kind: "report", ref, file: `${PROGRESSOR_DIR}/reports/${goalId}/${id}.md`, line: 1, item: report, text };
+    }
     throw missing();
   }
 

@@ -52,6 +52,7 @@ Words: a **goal** is *Goal* in the tools, a **step** is *Task*, a **side trip** 
 | `reply_to_developer` | Answers a message you wrote on the dashboard. |
 | `save_hand_test` | Adds, rewords or removes something only you can try by hand. |
 | `attach_picture` | Shows you a screenshot or short recording. |
+| `attach_report` | Keeps a write-up on a step, from any chat in the project. |
 
 ## Notes, decisions and risks
 

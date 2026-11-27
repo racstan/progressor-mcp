@@ -379,6 +379,7 @@ describe("a helper chat in a git worktree", () => {
     expect(out).toContain("[Progressor] This chat is a helper working in a git worktree of");
     expect(out).toContain("branch claude/t3-e2e-1a2b3c");
     expect(out).toContain("Your step: t3 End-to-end tests (goal Ship OAuth login)");
+    expect(out).toMatch(/When your work is done, attach your report to your step with attach_report \(goal [\w-]+, task t3\) instead of writing it to a file\./);
     expect(out).toContain("HARD RULES: never break these.");
     expect(out).toContain("- Never push");
     expect(out).toContain("- Write tests first");
@@ -393,6 +394,7 @@ describe("a helper chat in a git worktree", () => {
     const out = hook("session-start", wt);
     expect(out).toContain("This chat is a helper");
     expect(out).not.toContain("Your step:");
+    expect(out).toContain("attach_report (goal <id>, task <id>)");
     expect(hook("prompt", wt)).toBe("");
   });
 

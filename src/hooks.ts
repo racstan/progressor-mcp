@@ -175,24 +175,29 @@ function planReminder(o: ProjectOverview): string | undefined {
  */
 export function helperStart(project: Project, folder: string, branch: string | undefined, global: GlobalNotes): string {
   let step: string | undefined;
+  let where = "goal <id>, task <id>";
   if (branch) {
-    const found: string[] = [];
+    const found: { text: string; where: string }[] = [];
     for (const g of project.roadmap().goals.filter((x) => x.status === "active" || x.status === "paused")) {
       try {
         for (const t of project.plan(g.id).tasks) {
           if (!t.id || t.status === "done" || t.status === "released" || t.status === "dropped") continue;
           if (linkedBranch({ id: t.id, helper: t.helper }, [branch]) === branch)
-            found.push(`Your step: ${t.id} ${t.title} (goal ${g.title})${t.summary ? `: ${t.summary}` : ""}`);
+            found.push({ text: `Your step: ${t.id} ${t.title} (goal ${g.title})${t.summary ? `: ${t.summary}` : ""}`, where: `goal ${g.id}, task ${t.id}` });
         }
       } catch {
         // a plan file that can't be read names no step
       }
     }
-    if (found.length === 1) step = found[0];
+    if (found.length === 1) {
+      step = found[0]!.text;
+      where = found[0]!.where;
+    }
   }
   return [
     `${PREFIX} This chat is a helper working in a git worktree of ${project.root}${branch ? ` (folder ${folder}, branch ${branch})` : ` (folder ${folder})`}. The main chat keeps the plan; follow your brief and these rules.`,
     ...(step ? [step] : []),
+    `When your work is done, attach your report to your step with attach_report (${where}) instead of writing it to a file.`,
     formatRules(project.roadmap().standingInstructions, global),
   ].join("\n");
 }

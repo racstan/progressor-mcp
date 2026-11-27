@@ -6,6 +6,7 @@ import * as z from "zod";
 import type { Dashboard } from "./dashboard/http.js";
 import { defaultRegistryFile, projectEntry } from "./dashboard/registry.js";
 import { type CiDeps, ciCacheFile, realCiDeps } from "./ci.js";
+import { attachReport, removeReport } from "./reports.js";
 import { resolveProject, sameFolder, seenFile, takeElsewhereLine } from "./elsewhere.js";
 import { type GoalLookup, waitsText } from "./dependencies.js";
 import { checkUp, checkupLine } from "./checkup.js";
@@ -504,8 +505,13 @@ export function formatItem(found: FoundItem, schedule?: Schedule, now = new Date
         ...(t.reason ? [`Reason: ${t.reason}`] : []),
         ...(t.helper ? [`Helper: ${helperText(t)}`] : []),
         ...(t.evidence ? [`Evidence: ${t.evidence}`] : []),
+        ...(found.reports.length > 0 ? ["Reports:", ...found.reports.map((r) => `- ${r.id} ${r.title} (${r.written}, ${sayBytes(r.bytes)}): progressor://${r.goal}/${r.id}`)] : []),
         ...timeLine(t, now),
       ].join("\n");
+    }
+    case "report": {
+      const r = found.item;
+      return [`Report ${r.id}: ${r.title} (step ${r.task}, written ${r.written}${r.session ? ` by ${r.session}` : ""})`, `Ref: ${found.ref}`, `File: ${found.file}`, "", found.text.trim()].join("\n");
     }
     case "detour":
       return [formatDetour(found.item), `Ref: ${found.ref}`, `Plan File: ${where}`].join("\n");
@@ -547,6 +553,9 @@ export function formatItem(found: FoundItem, schedule?: Schedule, now = new Date
       );
   }
 }
+
+/** "812 B" or "14 KB". */
+const sayBytes = (n: number) => (n < 1024 ? `${n} B` : `${Math.ceil(n / 1024)} KB`);
 
 /** A Goal's Tasks for get_item: the open ones with their summaries, then the finished and dropped ones by name. */
 function goalTaskLines(tasks: Task[]): string[] {
@@ -597,6 +606,7 @@ export const TOOL_EXAMPLES: Record<string, string> = {
   reply_to_developer: 'reply_to_developer({ message: "m2", reply: "Done: the button is bigger now." })',
   save_hand_test: 'save_hand_test({ text: "Open the login page and sign in", task: "t2" })',
   attach_picture: 'attach_picture({ path: "shot.png", caption: "The new login page" })',
+  attach_report: 'attach_report({ goal: "login", task: "t2", title: "Test run", text: "715 passed" })',
   save_standing_instruction: 'save_standing_instruction({ text: "Ask me before changing the plan" })',
   update_context: 'update_context({ text: "What the project is, in a few lines" })',
   plan_history: 'plan_history({ restore: "20261107T101500123Z-1" })',
@@ -1881,6 +1891,34 @@ Could not claim ${next}: ${(e as Error).message}`;
         const p = project.attachPicture(path, caption ?? "", { task, handTest: hand_test }, goal);
         const where = p.task ? `step ${p.task}` : p.handTest ? `hand test ${p.handTest}` : "the Goal";
         return withNow(`Attached ${p.id} to ${where}: ${p.caption}. The Developer sees it on the dashboard.`);
+      }),
+  );
+
+  server.registerTool(
+    "attach_report",
+    {
+      title: "Attach report",
+      description:
+        "Keep a write-up (a test run, a review, what you did) on a step, where the Developer and every chat can read it, instead of writing it to a file nobody finds. Works from any chat in the project, even one that holds no goal: then give goal. Give text (markdown) or the path of a .md or .txt file, up to 200 KB, and a short title. Read it with get_item progressor://<goal>/<id>. To take one back, pass remove with its ID (such as 'r2').",
+      inputSchema: {
+        goal: z.string().optional().describe("The Goal's ID; needed unless this chat holds exactly one Goal."),
+        task: z.string().optional().describe("The ID of the step it is about, such as 't3'."),
+        title: z.string().optional().describe("A short title for the report."),
+        text: z.string().optional().describe("The report, in markdown."),
+        path: z.string().optional().describe("Instead of text: a .md or .txt file, absolute or from the project's (or this chat's own worktree) folder."),
+        remove: z.string().optional().describe("The ID of a report to remove (such as 'r2'), instead of attaching one."),
+      },
+    },
+    ({ goal, task, title, text, path, remove }) =>
+      respondIn(undefined, () => {
+        if (remove) {
+          const id = goal ?? project.claimedGoals()[0]?.id;
+          if (!id) throw new Error("Say which goal the report is in (goal).");
+          return withNow(`Removed report ${removeReport(project, id, remove).id}.`);
+        }
+        if (!task) throw new Error("Say which step the report is about (task), with a title and its text or path.");
+        const r = attachReport(project, { task, title: title ?? "", text, path }, goal);
+        return withNow(`Attached report ${r.id} to step ${r.task}: ${r.title}. Read it with get_item progressor://${r.goal}/${r.id}; the Developer sees it on the step.`);
       }),
   );
 
