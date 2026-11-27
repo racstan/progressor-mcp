@@ -692,6 +692,35 @@ export class Project {
     this.writeText(this.path("handoffs", file), text);
   }
 
+  // --- reports on a step ---------------------------------------------------------
+
+  private worktree: string | undefined;
+
+  /** The folder this chat was started in when it is a git worktree of the project (a helper chat). */
+  get worktreeFolder(): string | undefined {
+    return this.worktree;
+  }
+
+  setWorktree(folder: string | undefined): void {
+    this.worktree = folder;
+  }
+
+  /** A goal's reports folder, `.progressor/reports/<goal>/` (reports.ts); `make` false only names it. */
+  reportsDir(goalId: string, make = true): string {
+    const dir = this.path("reports", goalId);
+    if (make) mkdirSync(dir, { recursive: true });
+    return dir;
+  }
+
+  /** Saves one report file; noted in the history like any plan write, and under the plan's own git rule. */
+  saveReportFile(goalId: string, file: string, text: string): void {
+    this.writeText(join(this.reportsDir(goalId), file), text);
+  }
+
+  removeReportFile(goalId: string, file: string): void {
+    rmSync(join(this.reportsDir(goalId, false), file), { force: true });
+  }
+
   /** Removes an old handoff the settings no longer keep. */
   removeHandoffFile(file: string): void {
     rmSync(this.path("handoffs", file), { force: true });
