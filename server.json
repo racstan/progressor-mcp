@@ -8,19 +8,19 @@
     "source": "github"
   },
   "websiteUrl": "https://github.com/racstan/progressor-mcp#readme",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "progressor-mcp",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "transport": {
         "type": "stdio"
       }
     },
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/racstan/progressor-mcp:1.4.0",
+      "identifier": "ghcr.io/racstan/progressor-mcp:1.5.0",
       "runtimeHint": "docker",
       "transport": {
         "type": "stdio"
@@ -29,7 +29,7 @@
     {
       "registryType": "pypi",
       "identifier": "progressor-mcp",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

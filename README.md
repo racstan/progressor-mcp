@@ -17,9 +17,9 @@
 <p align="center"><b>Free for personal use.</b> Using it in a business, or selling, hosting or building a product on it, needs a license from the author, which may come with a fee that we agree on together: <a href="https://github.com/racstan/progressor-mcp/issues/new?template=commercial_license.yml">ask for one</a>.</p>
 
 <p align="center">
-  <a href="https://youtu.be/Nf22yrT9Dwo"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail.png" alt="Watch the 6-minute video on YouTube" width="640"></a>
+  <a href="https://youtu.be/NwP0ZsM-MVI"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail.png" alt="Watch the 6-minute video on YouTube" width="640"></a>
   <br>
-  <sub><a href="https://youtu.be/Nf22yrT9Dwo">▶ Watch the 6-minute video on YouTube</a></sub>
+  <sub><a href="https://youtu.be/NwP0ZsM-MVI">▶ Watch the 6-minute video on YouTube</a></sub>
 </p>
 
 <p align="center">
@@ -78,7 +78,7 @@ It works with any app that supports [MCP](https://modelcontextprotocol.io) (the 
   Every step as a list or a map, a Dashboard of the numbers, a Calendar, search across all your projects, and four themes, from calm black and white to colourful.
 
 <p align="center">
-  <a href="https://youtu.be/Nf22yrT9Dwo"><img src="https://img.shields.io/badge/video-watch_on_YouTube-111111?style=for-the-badge" alt="Watch the video"></a>
+  <a href="https://youtu.be/NwP0ZsM-MVI"><img src="https://img.shields.io/badge/video-watch_on_YouTube-111111?style=for-the-badge" alt="Watch the video"></a>
   &nbsp;
   <a href="#set-it-up"><img src="https://img.shields.io/badge/set_it_up-2_minutes-111111?style=for-the-badge" alt="Set it up"></a>
 </p>

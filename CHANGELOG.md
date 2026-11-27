@@ -2,6 +2,41 @@
 
 All notable changes to progressor-mcp. Each release is a Goal on Progressor's own plan, which is kept on the maintainer's computer; from 0.2.0 on, one release bundles several finished Goals.
 
+## 1.5.0 · Less bookkeeping, plans on every computer, and an AI that tries things itself
+
+Plans made with earlier versions keep working as they are. Restart your AI's app after updating so it picks up the new tools.
+
+### Less bookkeeping
+
+- **Steps follow git and pull requests.** A step ticks itself off once its branch is merged, and a step whose pull request's checks passed shows as checked. Each step shows its pull request and whether its checks passed, on GitHub and on Gitea, while the pull request is still open too.
+- **Helpers show on their step.** A helper chat working in its own copy of the project (a git worktree) uses the main project's plan, gets the rules and its step by itself when it starts, and shows on the step its branch is for.
+- **The helper limit counts real chats.** It counts the chats at work, not steps marked as with a helper, and a rule that says it in words ("only one helper at a time") sets it too, in every project.
+- **Hand a goal to another chat in one call**, and when a change is refused, Progressor says which chat holds the goal.
+- **How long steps waited**, and on whom (you, CI, someone else), shown on the goal page and in a step's details.
+- **Reports on a step.** A helper's write-up is kept on its step, and opens on the dashboard as a page.
+
+### Your AI tries things itself
+
+- **Things to try are your AI's job first.** Your AI tries each one itself (the dashboard, its tools, the command line), marks it **Works**, **Doesn't work** or **Won't test** with a note on what it did and saw, and fixes what fails. Its marks show as **Tried by the AI**. Only what truly needs you, like your own accounts or another computer, waits for you. Your own mark always replaces the AI's.
+
+### Fewer calls, shorter answers
+
+- **About half the calls.** Your AI can finish a step and add its things to try and decisions in the same call, finish a goal and start the next in one call, and look up several items at once.
+- **Shorter answers.** Your AI's status leaves out the rules when nothing changed (in Claude Code with Progressor's hooks set up), and the line added to each of your messages only shows when something changed.
+
+### Plans on every computer
+
+- **Plan sync.** If you work on the same projects from more than one computer, Progressor can keep every plan in one private GitHub repository of yours. Turn it on with `npx progressor-mcp sync connect` (or ask your AI); it then syncs in the background, merging changes goal by goal. Off until you turn it on. See [docs/sync.md](docs/sync.md) and **Settings › Sync**.
+
+### Also new
+
+- **Install with Python.** `uvx progressor-mcp` runs Progressor with no Node installed.
+- **A note when a newer version is out**, on the dashboard.
+- **A Buy me a coffee button** beside Help in the top bar.
+- **Fixes from trying everything:** a group's empty box takes a dropped project, the live dot is grey while the page first connects (red only once it has lost touch), Sort opens a folded Finished list, steps recorded as done get their finished time, and the "Now" line names steps waiting on someone instead of calling everything done.
+- **License:** unchanged. It now says that a commercial license may come with a fee, agreed when you ask.
+- **A new video** of all of it, and new pictures in the README.
+
 ## 1.4.0 · A clearer Home, Ready to launch?, and fewer tools
 
 Plans made with earlier versions keep working as they are. Your AI's tools have new names in a few places (see **Fewer, clearer tools** below); your AI picks them up by itself when it restarts.
