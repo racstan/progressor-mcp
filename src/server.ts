@@ -28,6 +28,8 @@ import { everyWords, parseEvery } from "./routines.js";
 import { releaseFacts } from "./facts.js";
 import { offerHint, parseWait } from "./alternatives.js";
 import { registerFeatureTools } from "./tools/index.js";
+import { formatRules } from "./helperRules.js";
+export { formatRules };
 import { type ServerRecord, defaultServersDir, listServers } from "./servers.js";
 import { liveSessions } from "./liveSessions.js";
 import { type GlobalNotes, PART_TITLE, addGlobalRule, contextLines, globalFileFor, globalInstructions, globalStatusLines, notEverywhere, readGlobal, setGlobalContext, updateGlobalRule } from "./globalRules.js";
@@ -48,7 +50,7 @@ export const INSTRUCTIONS = `Progressor keeps the plan for this project in .prog
 8. A lasting rule ("always...", "never...") is saved with save_standing_instruction (with its id: change or remove); one that must never be broken ("never", "hard rule") with hard: true; one for all their projects ("in all my projects") with global: true. update_context keeps the project's Important context page; save_decision records a choice only if it would surprise a later session (small technical choices go in the commit message); save_note records something that belongs to a Goal instead of fixing it now.
 9. Anything only the Developer can try by hand goes in a hand test (hand_tests on update_tasks or complete_goal, or save_hand_test), not in your chat summary. Show a screenshot with attach_picture.
 10. The Developer can write to you on the dashboard: their messages and answers arrive at the end of your next Progressor reply under "New from the Developer". Act on each one and answer with reply_to_developer (whole_project: true for the whole project). For a product or UX choice, use ask_developer with 2 to 4 short choices instead of stopping in the chat.
-11. When you brief a helper agent, paste in get_status with for_helper: true; helpers don't see the Standing Instructions. Before using something only one can use at a time (a dev window, a port), claim it with resource; release it there.
+11. When you brief a helper agent, paste in get_status with for_helper: true (worktree helpers get it by themselves). Before using something only one can use at a time (a dev window, a port), claim it with resource; release it there.
 12. Work that belongs to another project using Progressor goes in that project's plan: pass project (its name on the dashboard) to get_status, add_goal and the other tools that take it.
 13. A * line in .progressor/.gitignore keeps the plan out of git; delete it to keep it in git.`;
 
@@ -126,7 +128,7 @@ const heldGoal = z
   .string()
   .optional()
   .describe("The claimed Goal's ID, such as 'ship-oauth-login'. Needed only when this Session holds several Goals.");
-const helperBranch = z.string().max(200).optional().describe("With state 'with a helper': the git branch the helper works on, such as 'feat/export'. Recorded so a branch left behind can be found later.");
+const helperBranch = z.string().max(200).optional().describe("With state 'with a helper': the git branch the helper works on, such as 'feat/export'. Not needed when the branch name holds the step's ID (t3-export): the step follows that branch by itself.");
 const helperFolder = z.string().max(500).optional().describe("With state 'with a helper': the helper's worktree folder (its path).");
 const helperLabel = z.string().max(100).optional().describe("With state 'with a helper': a label for the helper, such as the model it runs on ('Sonnet').");
 const evidence = z
@@ -425,40 +427,6 @@ export function formatStatus(
   ].join("\n");
 }
 
-/**
- * The rules as a block to paste into a helper agent's brief: hard rules first, then the others.
- * A helper does not see the Standing Instructions, but it is bound by them.
- */
-export function formatRules(instructions: StandingInstruction[], global?: GlobalNotes): string {
-  const everywhere = global ? hardFirst(global.rules) : [];
-  const everywhereContext = global ? contextLines(global) : [];
-  if (instructions.length === 0 && everywhere.length === 0 && everywhereContext.length === 0)
-    return "No Standing Instructions are set for this project, so there is no rules block to add to the brief.";
-  const hard = instructions.filter((i) => i.hard);
-  const other = instructions.filter((i) => !i.hard);
-  const limit = helperLimit(instructions);
-  const globalBlock = [
-    ...(everywhere.length > 0
-      ? [
-          "Rules from the Developer for everything (they apply in every project and anywhere Progressor is used on this computer):",
-          ...everywhere.map((r) => `- ${r.hard ? "HARD RULE, never break it: " : ""}${r.text}`),
-        ]
-      : []),
-    ...everywhereContext,
-  ];
-  if (instructions.length === 0)
-    return [...globalBlock, "This project has no rules of its own.", "Do not edit anything in .progressor/; the Agent that briefed you keeps the plan there."].join("\n");
-  return [
-    ...globalBlock,
-    "Project rules from the Developer. Follow all of them in this work.",
-    ...(hard.length > 0
-      ? ["HARD RULES: never break these. If the work seems to need breaking one, stop and report back instead.", ...hard.map((i) => `- ${i.text}`)]
-      : []),
-    ...(other.length > 0 ? [...(hard.length > 0 ? ["Other rules:"] : []), ...other.map((i) => `- ${i.text}`)] : []),
-    ...(limit ? [`Parallel limit: at most ${limit.limit} helper agents work on this project at once, counting you, so do not start helper agents of your own.`] : []),
-    "Do not edit anything in .progressor/; the Agent that briefed you keeps the plan there.",
-  ].join("\n");
-}
 
 /** A Goal's estimate and expected finish: "Estimate: 4 h from its open Tasks (2 not estimated); done in about 3 h". */
 function goalTime(g: Goal, s: GoalSchedule | undefined): string[] {
@@ -995,7 +963,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
     {
       title: "Get status",
       description:
-        "Compact summary of every Goal this Session holds (current Task, open Detour, Tasks with a helper or waiting on the Developer, next Task, decisions and open notes) and the Developer's Standing Instructions. Call it at the start of every conversation and after context compression. With project, another project's Goals and Tasks instead, to change them from here. With for_helper, only the Developer's rules as a block to paste into the brief of a helper agent you start (helpers don't see the Standing Instructions, so include it whenever you brief one).",
+        "Compact summary of every Goal this Session holds (current Task, open Detour, Tasks with a helper or waiting on the Developer, next Task, decisions and open notes) and the Developer's Standing Instructions. Call it at the start of every conversation and after context compression. With project, another project's Goals and Tasks instead, to change them from here. With for_helper, only the Developer's rules as a block for a helper agent's brief (a helper chat in a git worktree of the project gets it by itself in Claude Code).",
       inputSchema: {
         project: otherProject,
         check: z.boolean().optional().describe("Also run the plan check-up and list everything it found."),

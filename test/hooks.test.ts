@@ -347,3 +347,57 @@ describe("runHook", () => {
     expect(out).toMatch(/cut short; call get_status for the rest\]$/);
   });
 });
+
+describe("a helper chat in a git worktree", () => {
+  /** Fakes a linked worktree of `root` on `branch`, as `git worktree add` leaves it. */
+  function worktree(branch: string): string {
+    const gitdir = join(root, ".git", "worktrees", "helper");
+    mkdirSync(gitdir, { recursive: true });
+    writeFileSync(join(gitdir, "HEAD"), `ref: refs/heads/${branch}\n`);
+    writeFileSync(join(gitdir, "commondir"), "../..\n");
+    const wt = join(tempDir("progressor-wt-"), "helper");
+    mkdirSync(wt, { recursive: true });
+    writeFileSync(join(wt, ".git"), `gitdir: ${gitdir}\n`);
+    return wt;
+  }
+  const hook = (event: string, wt: string) =>
+    runHook({
+      event,
+      input: JSON.stringify({ session_id: "h1", cwd: wt, hook_event_name: event === "prompt" ? "UserPromptSubmit" : "SessionStart" }),
+      env: { CLAUDE_PROJECT_DIR: wt, PROGRESSOR_REGISTRY: join(tempDir("progressor-reg-"), "registry.json") },
+      isAlive: (p) => alive.has(p),
+      canRun: () => true,
+      now: () => NOW,
+    });
+
+  it("gets the rules and the step its branch is for at session start, without being asked", () => {
+    const a = oauthInProgress();
+    a.addStandingInstruction("Write tests first");
+    a.addStandingInstruction("Never push", true);
+    const wt = worktree("claude/t3-e2e-1a2b3c");
+    const out = hook("session-start", wt);
+    expect(out).toContain("[Progressor] This chat is a helper working in a git worktree of");
+    expect(out).toContain("branch claude/t3-e2e-1a2b3c");
+    expect(out).toContain("Your step: t3 End-to-end tests (goal Ship OAuth login)");
+    expect(out).toContain("HARD RULES: never break these.");
+    expect(out).toContain("- Never push");
+    expect(out).toContain("- Write tests first");
+    expect(out).toContain("Do not edit anything in .progressor/");
+    // The orchestrator's own status is not repeated to the helper.
+    expect(out).not.toContain("Current Task:");
+  });
+
+  it("says no step when the branch names none, and stays quiet on each message", () => {
+    oauthInProgress().addStandingInstruction("Write tests first");
+    const wt = worktree("helper/docs");
+    const out = hook("session-start", wt);
+    expect(out).toContain("This chat is a helper");
+    expect(out).not.toContain("Your step:");
+    expect(hook("prompt", wt)).toBe("");
+  });
+
+  it("says nothing in a worktree of a project without Progressor", () => {
+    const wt = worktree("t1-x");
+    expect(hook("session-start", wt)).toBe("");
+  });
+});

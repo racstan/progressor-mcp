@@ -10,6 +10,9 @@ import { type GlobalNotes, contextLines, defaultGlobalFile, globalFileFor, globa
 import { handTestLines } from "./handTestText.js";
 import { promptNewsLine, talkLines } from "./talkText.js";
 import { existsSync } from "node:fs";
+import { formatRules } from "./helperRules.js";
+import { linkedBranch } from "./stepSync.js";
+import { planRootFor } from "./worktree.js";
 import { liveSessions } from "./liveSessions.js";
 import { defaultServersDir, listServers } from "./servers.js";
 import { join } from "node:path";
@@ -165,6 +168,35 @@ function planReminder(o: ProjectOverview): string | undefined {
   ].join(" · ");
 }
 
+/**
+ * What a helper chat started in a git worktree of the project is told at session start (and after
+ * compaction): that it is a helper, the step its branch is for when one is (stepSync.ts), and the
+ * rules, so nobody has to paste them into its brief.
+ */
+export function helperStart(project: Project, folder: string, branch: string | undefined, global: GlobalNotes): string {
+  let step: string | undefined;
+  if (branch) {
+    const found: string[] = [];
+    for (const g of project.roadmap().goals.filter((x) => x.status === "active" || x.status === "paused")) {
+      try {
+        for (const t of project.plan(g.id).tasks) {
+          if (!t.id || t.status === "done" || t.status === "released" || t.status === "dropped") continue;
+          if (linkedBranch({ id: t.id, helper: t.helper }, [branch]) === branch)
+            found.push(`Your step: ${t.id} ${t.title} (goal ${g.title})${t.summary ? `: ${t.summary}` : ""}`);
+        }
+      } catch {
+        // a plan file that can't be read names no step
+      }
+    }
+    if (found.length === 1) step = found[0];
+  }
+  return [
+    `${PREFIX} This chat is a helper working in a git worktree of ${project.root}${branch ? ` (folder ${folder}, branch ${branch})` : ` (folder ${folder})`}. The main chat keeps the plan; follow your brief and these rules.`,
+    ...(step ? [step] : []),
+    formatRules(project.roadmap().standingInstructions, global),
+  ].join("\n");
+}
+
 /** Claude Code caps hook text added to context at 10,000 characters; stay under it. */
 export const MAX_CONTEXT = 9_500;
 const CUT = "\n[Progressor: cut short; call get_status for the rest]";
@@ -200,8 +232,19 @@ export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, 
   try {
     const data = JSON.parse(input) as { cwd?: unknown; hook_event_name?: unknown; transcript_path?: unknown; session_id?: unknown };
     const kind = EVENTS[event ?? String(data.hook_event_name)];
-    const root = env.PROGRESSOR_ROOT ?? env.CLAUDE_PROJECT_DIR ?? (typeof data.cwd === "string" ? data.cwd : undefined);
-    if (!kind || !root || !existsSync(join(root, PROGRESSOR_DIR))) return "";
+    const folder = env.PROGRESSOR_ROOT ?? env.CLAUDE_PROJECT_DIR ?? (typeof data.cwd === "string" ? data.cwd : undefined);
+    if (!kind || !folder) return "";
+    // A helper chat in a git worktree of the project reads the main folder's plan (worktree.ts).
+    const placed = env.PROGRESSOR_ROOT ? { root: folder } : planRootFor(folder);
+    const root = placed.root;
+    if (!existsSync(join(root, PROGRESSOR_DIR))) return "";
+    if (placed.worktree) {
+      if (kind !== "session-start") return "";
+      const global = readGlobal(env.PROGRESSOR_REGISTRY ? globalFileFor(env.PROGRESSOR_REGISTRY) : defaultGlobalFile());
+      const helper = new Project({ root, session: { id: "hook", pid: process.pid }, isAlive, now, clearStaleClaims: false });
+      const text = helperStart(helper, placed.worktree, placed.branch, global);
+      return text.length <= MAX_CONTEXT ? text : text.slice(0, MAX_CONTEXT - CUT.length) + CUT;
+    }
     // The hook only reads: tidying claims of chats that look closed is the server's job, under its lock.
     const project = new Project({ root, session: { id: "hook", pid: process.pid }, isAlive, now, clearStaleClaims: false });
     // Token use since the last message, added to the goal and step the chat was on (cost.ts).
