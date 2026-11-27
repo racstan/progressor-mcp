@@ -7,7 +7,8 @@
 // over the page, and every frame Chrome paints is kept, so the video is sharp.
 //
 // It writes to the output folder (default docs/media): progressor-showcase.mp4 (1080p, for YouTube),
-// youtube-thumbnail.png, demo.gif (a short loop for the README) and the README's screenshots.
+// youtube-thumbnail.png, demo.gif (a short loop for the README), answer-a-question.gif, try-by-hand.gif and
+// home-groups.gif (cut from the video by the `marks`) and the README's screenshots.
 // Needs playwright-core and Chrome (set PLAYWRIGHT_CORE to playwright-core's index.mjs if it is not
 // installed here, and CHROME to the browser; default /usr/bin/google-chrome) and ffmpeg. Works on
 // Windows too, e.g. CHROME="C:/Program Files/Google/Chrome/Application/chrome.exe". The sample
@@ -18,10 +19,11 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { startDashboard } from "../dist/dashboard/http.js";
 import { projectEntry, registerProject } from "../dist/dashboard/registry.js";
+import { ciCacheFile } from "../dist/ci.js";
 import { addGlobalRule, globalFileFor } from "../dist/globalRules.js";
 import { Project } from "../dist/project.js";
 
@@ -135,11 +137,12 @@ work(ai, dark.id, dark.steps.slice(0, 2));
 ai.addHandTest("Open the app on your phone with dark mode on. Every screen should be easy to read, including the recipe photos' captions.", dark.id, dark.steps[2].id);
 ai.addDecision("Dark colours follow the phone's setting; there is no switch in the app for now.", dark.id);
 ai.releaseGoal(dark.id);
-ai.addGoal("Meal planner", [
+const meal = ai.addGoal("Meal planner", [
   { title: "Week view", estimate: 60 },
   { title: "Drag a recipe onto a day", estimate: 45 },
   { title: "Shopping list for the week", estimate: 30 },
 ], { outcome: "Plan the week's meals on a calendar and shop for all of them at once." });
+const mealSteps = ai.plan(meal.id).tasks;
 
 // A second project, so Home has more than one.
 at(8, 14);
@@ -330,6 +333,7 @@ await click(page.getByRole("tab", { name: /Steps/ }));
 // 3. It asks when it needs you.
 await card("It tells you when it needs you.", "", "3", 2200);
 await demo("hideCard");
+mark("answer-start");
 ai.askDeveloper("Should ticked-off items stay on the list, or disappear?", ["Stay, greyed out", "Disappear"], { goal: list.id, task: list.steps[3].id });
 await pause(1200);
 await caption("A question for you waits right on the page. Answer with a click.", "Needs you");
@@ -337,6 +341,7 @@ await pause(3500);
 await click(page.getByRole("button", { name: "Stay, greyed out" }));
 await caption("Your AI reads your answer at its next step, and keeps it as a decision.", "Needs you");
 await pause(3000);
+mark("answer-end");
 await click(goalRow("Dark mode"));
 await caption("Things only you can try, like checking on your phone, are listed too.", "Needs you");
 await pause(3500);
@@ -344,14 +349,85 @@ await shot("needs-you");
 // Lift the thing to try above the caption, so the note being typed shows.
 await page.getByLabel("A note for your AI").first().evaluate((el) => el.scrollIntoView({ block: "center" }));
 await pause(600);
+mark("try-start");
 await type(page.getByLabel("A note for your AI").first(), "Looks right on my phone");
 await caption("Mark each one works, doesn't work or won't test, with a note or a screenshot if you like.", "Needs you");
 await pause(2500);
 await click(page.getByRole("button", { name: "Works" }).first());
 await pause(2500);
+mark("try-end");
 
-// 4. Talk to your AI.
-await card("Talk to your AI from the page.", "", "4", 2200);
+// 4. Your AI tries things itself. (The numbers of the cards after this one count on from here.)
+await card("Your AI tries things itself.", "", "4", 2200);
+await demo("hideCard");
+await click(goalRow("Shopping list from recipes"));
+const tries = [
+  ai.addHandTest("Add two recipes that both use flour. The list should show flour once, with the amounts added up.", list.id, list.steps[2].id),
+  ai.addHandTest("Tick an item off. It should stay on the list, greyed out.", list.id, list.steps[3].id),
+  ai.addHandTest("Open the shared link on your partner's phone. The same list should show.", list.id, list.steps[4].id),
+];
+await caption("Things to try by hand are for your AI first. It tries them itself and writes down what it saw.", "Your AI tries things itself");
+await pause(4000);
+ai.markHandTest(list.id, tries[0].id, "works", "Added two pasta recipes: flour showed once, as 300 g.", "AI");
+await pause(1800);
+ai.markHandTest(list.id, tries[1].id, "works", "Ticked off the milk: it stayed on the list, greyed out.", "AI");
+await pause(800);
+await click(page.getByRole("tab", { name: /Notes/ }));
+await page.locator(".hand-list").first().evaluate((el) => {
+  el.closest("section").scrollIntoView({ block: "start" });
+  window.scrollBy(0, -100);
+});
+await pause(500);
+await caption("Each one says \"Tried by the AI\", with its note. You can still mark any of them yourself.", "Your AI tries things itself");
+await pause(5000);
+await caption("Only what needs you, like a second phone, waits for you.", "Your AI tries things itself");
+await pause(4000);
+await shot("tried-by-the-ai");
+await click(page.getByRole("tab", { name: /Steps/ }));
+
+// 5. Less bookkeeping.
+await card("Less bookkeeping.", "", "5", 2200);
+await demo("hideCard");
+const week = mealSteps[0];
+const branch = `${week.id}-week-view`;
+const pull = (state, checks, extra = {}) => ({
+  number: 12,
+  title: "Week view for the meal planner",
+  url: "https://github.com/example/recipe-box/pull/12",
+  state,
+  branch,
+  checks,
+  refs: [`${meal.id}/${week.id}`],
+  ...extra,
+});
+const keepPull = (p) => {
+  mkdirSync(dirname(ciCacheFile(registryFile, root)), { recursive: true });
+  writeFileSync(ciCacheFile(registryFile, root), JSON.stringify({ commits: {}, branches: { [branch]: { at: Date.now(), prs: [p], ...(p.checks ? { checks: p.checks } : {}) } }, recent: { at: Date.now(), prs: [] } }));
+};
+keepPull(pull("open", "running"));
+ai.claimGoal(meal.id);
+ai.setTaskState(week.id, "with a helper", meal.id, { helper: { branch, label: "helper chat" } });
+await click(goalRow("Meal planner"));
+await caption("A helper chat is working on a step. The step shows its pull request, and whether its checks are passing.", "Less bookkeeping");
+await pause(5500);
+keepPull(pull("open", "passed"));
+await page.reload();
+await goalRow("Meal planner").waitFor();
+await caption("The checks pass. You don't have to ask your AI where things stand.", "Less bookkeeping");
+await pause(4500);
+keepPull(pull("merged", "passed", { mergedAt: new Date().toISOString() }));
+ai.completeTask(week.id, ["src/planner/WeekView.tsx"], undefined, meal.id);
+await page.reload();
+await goalRow("Meal planner").waitFor();
+await caption("Once the pull request is merged, its step is ticked off by itself.", "Less bookkeeping");
+await pause(5500);
+await shot("less-bookkeeping");
+ai.releaseGoal(meal.id);
+await caption("Less for your AI to write down, and less for you to check.", "Less bookkeeping");
+await pause(3500);
+
+// 6. Talk to your AI.
+await card("Talk to your AI from the page.", "", "6", 2200);
 await demo("hideCard");
 await click(goalRow("Shopping list from recipes"));
 await click(page.getByRole("tab", { name: /Conversation/ }));
@@ -365,8 +441,8 @@ await caption("Its reply shows up under your message. What you write stays on yo
 await pause(4500);
 await shot("conversation");
 
-// 5. Nothing is forgotten.
-await card("Nothing is forgotten.", "The chat's memory gets compacted, the chat closes, or you switch to another app. The plan stays.", "5", 5000);
+// 7. Nothing is forgotten.
+await card("Nothing is forgotten.", "The chat's memory gets compacted, the chat closes, or you switch to another app. The plan stays.", "7", 5000);
 await demo("hideCard");
 await click(page.getByRole("tab", { name: /Steps/ }));
 await demo("chat", "Your AI chat, an hour later");
@@ -405,8 +481,8 @@ await caption("In a new chat, even in another app or with another AI, it carries
 await pause(6500);
 await demo("hideChat");
 
-// 6. Private, and yours.
-await card("Private, and yours.", "Your plan is plain markdown files in your project, on your computer. Nothing is sent anywhere.", "6", 5500);
+// 8. Private, and yours.
+await card("Private, and yours.", "Your plan is plain markdown files in your project, on your computer. Nothing is sent anywhere.", "8", 5500);
 await demo("hideCard");
 await demo("file", "recipe-box/.progressor/", folderTree(join(root, ".progressor")));
 await caption("A folder of markdown files you can open and read in any editor.", "Private, and yours");
@@ -418,8 +494,8 @@ await demo("hideFile");
 await caption("No account, no cloud, no tracking. Delete the folder and it's gone.", "Private, and yours");
 await pause(4500);
 
-// 7. Rules.
-await card("Rules your AI keeps.", "", "7", 2200);
+// 9. Rules.
+await card("Rules your AI keeps.", "", "9", 2200);
 await demo("hideCard");
 await click(page.getByRole("button", { name: /Project notes/ }));
 await caption("Lasting rules and the project's background, read by every chat.", "Project notes");
@@ -440,8 +516,8 @@ await click(page.getByLabel(/Explain every change in plain English/));
 await click(page.getByRole("button", { name: /Copy 1 into this project/ }));
 await pause(3000);
 
-// 8. The project's Dashboard, Calendar and Settings, then Home.
-await card("See how it's going.", "", "8", 2200);
+// 10. The project's Dashboard, Calendar and Settings, then Home.
+await card("See how it's going.", "", "10", 2200);
 await demo("hideCard");
 await click(page.getByRole("button", { name: /^Dashboard$/ }).first());
 await caption("Each project's Dashboard: how long steps take against their estimates, and what got done each day.", "Dashboard");
@@ -475,6 +551,7 @@ await caption("Each project keeps its own plan. Switch between them with a click
 await pause(5000);
 await click(page.locator("[data-tour=home]"));
 await pause(800);
+mark("home-start");
 await caption("Put projects in groups, and drag them into any order.", "Every project on one page");
 await click(page.locator(".side-add-group"));
 await page.locator(".side-group-name").pressSequentially("Side projects", { delay: 45 });
@@ -494,9 +571,10 @@ await pause(4000);
 await page.mouse.wheel(0, 700);
 await caption("…with the numbers for all of them.", "Every project on one page");
 await pause(3500);
+mark("home-end");
 
-// 9. Themes.
-await card("Your look.", "", "9", 2000);
+// 11. Themes.
+await card("Your look.", "", "11", 2000);
 for (const [theme, words] of [
   ["dark", "Dark…"],
   ["vibrant", "…or Vibrant, if you like colour."],
@@ -517,7 +595,14 @@ await page.evaluate(() => localStorage.removeItem("progressor.theme"));
 await page.reload();
 await page.getByRole("tab", { name: /Steps/ }).waitFor();
 
-// The end.
+// The coffee button, then the end.
+{
+  const coffee = page.locator(".coffee-btn");
+  const box = await coffee.boundingBox();
+  await demo("pointer", box.x + box.width / 2, box.y + box.height / 2);
+  await caption("Free for personal use. If it helps, there's a coffee button up top.", "Free to use");
+  await pause(5000);
+}
 await card("Never lose track again.", "You and your AI always know what was planned, what's done and what's next, across every chat, every app and every project.", "Progressor", 7000);
 await card("Set it up in two minutes.", "Free for personal use. Works with Claude Code, Antigravity, opencode, pi, Cursor, VS Code, Codex, Windsurf and any app that supports MCP.", "github.com/racstan/progressor-mcp", 3500);
 await demo("cardCode", "npm install -g progressor-mcp");
@@ -556,6 +641,11 @@ const from = (marks["gif-start"] - frames[0].t).toFixed(2);
 const length = (marks["gif-end"] - marks["gif-start"]).toFixed(2);
 ff(["-ss", from, "-t", length, "-i", video, "-vf",
   "fps=8,scale=900:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle", join(out, "demo.gif")]);
+// The README's other GIFs, cut from the same video: the same size as demo.gif, a little faster.
+for (const [name, file] of [["answer", "answer-a-question"], ["try", "try-by-hand"], ["home", "home-groups"]]) {
+  ff(["-ss", (marks[`${name}-start`] - frames[0].t).toFixed(2), "-t", (marks[`${name}-end`] - marks[`${name}-start`]).toFixed(2), "-i", video, "-vf",
+    "fps=10,scale=900:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle", join(out, `${file}.gif`)]);
+}
 rmSync(framesDir, { recursive: true, force: true });
 for (const r of [root, root2]) rmSync(r, { recursive: true, force: true });
 rmSync(registryFile, { force: true });
@@ -691,6 +781,7 @@ function overlay() {
     hide(on) {
       get("d-card", () => el("div", "d-card"));
       layer.classList.toggle("hidden", on);
+      layer.style.display = on ? "none" : "";
     },
   };
 }

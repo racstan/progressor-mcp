@@ -17,14 +17,20 @@
 <p align="center"><b>Free for personal use.</b> Using it in a business, or selling, hosting or building a product on it, needs a license from the author: <a href="https://github.com/racstan/progressor-mcp/issues/new?template=commercial_license.yml">ask for one</a>.</p>
 
 <p align="center">
-  <a href="https://youtu.be/Nf22yrT9Dwo"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail.png" alt="Watch the 5-minute video on YouTube" width="640"></a>
+  <a href="https://youtu.be/Nf22yrT9Dwo"><img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/youtube-thumbnail.png" alt="Watch the 6-minute video on YouTube" width="640"></a>
   <br>
-  <sub><a href="https://youtu.be/Nf22yrT9Dwo">▶ Watch the 5-minute video on YouTube</a></sub>
+  <sub><a href="https://youtu.be/Nf22yrT9Dwo">▶ Watch the 6-minute video on YouTube</a></sub>
 </p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/racstan/progressor-mcp/main/docs/media/demo.gif" alt="An AI works through &quot;Shopping list from recipes&quot;: the step it is on is highlighted, steps tick off, a side trip opens and comes back" width="900">
 </p>
+
+**New in 1.5.0: less ceremony.**
+- Your AI now **tries the things to try itself**, and writes down what it saw. They show as "Tried by the AI"; only what truly needs you waits for you.
+- A **merged pull request ticks off its step** by itself, and each step shows its pull request and whether its checks passed.
+- **Helpers show on their step**, so you can see who is working on what.
+- Shorter answers from Progressor, and a **Buy me a coffee** button in the top bar if it helps you.
 
 It works with any app that supports [MCP](https://modelcontextprotocol.io) (the standard way AI apps add tools): Claude Code, Claude Desktop, VS Code with Copilot, Cursor, Windsurf, Codex and others.
 
