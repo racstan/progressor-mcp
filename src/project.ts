@@ -1594,7 +1594,7 @@ export class Project {
     }
     plan.now = this.now;
     const { handTest: tryIt, ...task } = fix;
-    const [added] = plan.addTasks([{ ...task, done: true }]);
+    const [added] = plan.addTasks([{ ...task, done: true }], undefined, { finishedNow: true });
     const test = tryIt?.trim() ? plan.addHandTest(tryIt, added!.id) : undefined;
     this.markItems(plan, [added!.id, test?.id]);
     if (!roadmap.goal(SMALL_FIXES_ID)!.claim) {
@@ -1614,7 +1614,7 @@ export class Project {
 
   addTasks(tasks: NewTask[], goalId?: string): Task[] {
     const { plan } = this.requireClaim(goalId);
-    const added = plan.addTasks(tasks);
+    const added = plan.addTasks(tasks, undefined, { finishedNow: true });
     this.markItems(plan, added.map((t) => t.id));
     this.savePlan(plan);
     return added.map((t) => plan.task(t.id!)!);

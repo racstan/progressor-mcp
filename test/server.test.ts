@@ -691,8 +691,25 @@ describe("update_tasks", () => {
     });
     expect(r.isError).toBe(false);
     expect(r.text).toBe(
-      ["Updated: t1 Record is done; t2 Transcribe is in progress; t3 Ship is with a helper.", "Now: t2 Transcribe · Next: complete_goal"].join("\n"),
+      ["Updated: t1 Record is done; t2 Transcribe is in progress; t3 Ship is with a helper.", "Now: t2 Transcribe · Waiting: t3 Ship (with a helper)"].join("\n"),
     );
+  });
+
+  it("says a step once when one call starts and finishes it", async () => {
+    const r = await call("update_tasks", { operations: [{ action: "complete", task: "t1" }, { action: "start", task: "t2" }, { action: "complete", task: "t2" }] });
+    expect(r.text.split("\n")[0]).toBe("Updated: t1 Record is done; t2 Transcribe is done.");
+  });
+
+  it("does not call every step done while one waits on someone", async () => {
+    const r = await call("update_tasks", {
+      operations: [
+        { action: "complete", task: "t1" },
+        { action: "state", task: "t2", state: "waiting on someone", person: "Priya", need: "Sign the contract" },
+        { action: "drop", task: "t3", reason: "Not needed" },
+      ],
+    });
+    expect(r.text).not.toContain("every Task is done");
+    expect(r.text).toContain("Now: no Task in progress · Waiting: t2 Transcribe (waiting on Priya)");
   });
 
   it("changes nothing when an operation fails, and says which", async () => {

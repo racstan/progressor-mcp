@@ -248,13 +248,13 @@ function plainNowLine(session: SessionStatus): string {
   const s = held[0]!;
   const next = s.currentTask ?? s.nextTask;
   if (s.openDetour) return `Now: side trip "${s.openDetour.title}" (end it with end_detour) · then ${next ? taskLine(next) : "complete_goal"}`;
-  if (s.currentTask) return `Now: ${taskLine(s.currentTask)} · Next: ${s.nextTask ? taskLine(s.nextTask) : "complete_goal"}`;
+  // Steps in other hands (a helper, the Developer, someone else) are named, never taken for done.
+  const waiting = [...elsewhere(s), ...s.waitingOnOthers.map((t) => [t, `waiting on ${t.waitingFor ?? "someone"}`] as const)];
+  const waitingWords = `Waiting: ${waiting.map(([t, state]) => `${taskLine(t)} (${state})`).join(", ")}`;
+  if (s.currentTask) return `Now: ${taskLine(s.currentTask)} · ${s.nextTask ? `Next: ${taskLine(s.nextTask)}` : waiting.length > 0 ? waitingWords : "Next: complete_goal"}`;
   if (s.nextTask)
     return `Now: no Task in progress · Next: ${taskLine(s.nextTask)} (start it with update_tasks, or complete it there if it is already built)`;
-  const waiting = elsewhere(s);
-  return waiting.length > 0
-    ? `Now: no Task in progress · Waiting: ${waiting.map(([t, state]) => `${taskLine(t)} (${state})`).join(", ")}`
-    : "Now: every Task is done or dropped · Next: complete_goal";
+  return waiting.length > 0 ? `Now: no Task in progress · ${waitingWords}` : "Now: every Task is done or dropped · Next: complete_goal";
 }
 
 /** A few words on where one of several Goals stands. */
@@ -1630,7 +1630,11 @@ Could not claim ${next}: ${(e as Error).message}`;
         return doneIn(
           p,
           [
-            changed.length === 1 ? one(changed[0]!, 0) : `Updated: ${changed.map((c, i) => `${name(c)} is ${c.task.status}${est(c.task, i)}`).join("; ")}.`,
+            // A step changed twice in one call (started, then finished) is said once, as it ends up.
+            ...(() => {
+              const last = changed.map((c, i) => ({ c, i })).filter(({ c }, j, all) => !all.slice(j + 1).some((o) => o.c.goal === c.goal && o.c.task.id === c.task.id));
+              return [last.length === 1 ? one(last[0]!.c, last[0]!.i) : `Updated: ${last.map(({ c, i }) => `${name(c)} is ${c.task.status}${est(c.task, i)}`).join("; ")}.`];
+            })(),
             ...tookLine(
               changed.filter((c, i) => operations[i]!.action === "complete" && !was[i]).map((c) => c.task),
               now,

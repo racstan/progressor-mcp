@@ -620,6 +620,15 @@ describe("recording finished work", () => {
     expect(agent.plan("login").task("t2")!.status).toBe("done");
     expect(agent.status().nextTask?.id).toBe("t1");
   });
+
+  it("gives a Task added already done its finished time, so the feed and Finished by day show it", () => {
+    const agent = session("s-a", 100);
+    agent.addGoal("Login", [{ title: "One" }]);
+    agent.claimGoal("login");
+    agent.addTasks([{ title: "Already fixed", done: true }]);
+    expect(agent.plan("login").task("t2")!.finishedAt).toBeDefined();
+    expect(agent.plan("login").task("t1")!.finishedAt).toBeUndefined();
+  });
 });
 
 describe("the project folder", () => {

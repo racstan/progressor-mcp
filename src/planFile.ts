@@ -608,7 +608,8 @@ export class PlanFile {
     for (const b of itemsIn(this.doc, QUESTIONS)) if (!b.id) b.id = nextId(this.allIds(), "q");
   }
 
-  addTasks(tasks: NewTask[], addedBy?: string): Task[] {
+  /** With finishedNow, steps added already done are stamped as finished now (work just done, not older work being recorded). */
+  addTasks(tasks: NewTask[], addedBy?: string, options: { finishedNow?: boolean } = {}): Task[] {
     this.assignMissingIds();
     const ids: string[] = [];
     if (tasks.some((t) => !oneLine(t.title))) throw new Error("Every step needs a title with words in it.");
@@ -621,6 +622,8 @@ export class PlanFile {
       if (t.estimate !== undefined) addDetail(b, ESTIMATE, formatDuration(t.estimate));
       if (addedBy) addDetail(b, "added by", `^${addedBy}`);
       if (t.fromHandTest) addDetail(b, "from hand test", `^${t.fromHandTest}`);
+      // A step just finished and recorded done gets its time, so the feed and Finished by day show it.
+      if (t.done && options.finishedNow) addDetail(b, FINISHED_AT, this.now().toISOString());
       return b;
     });
     appendToSection(this.doc, TASKS, blocks);
