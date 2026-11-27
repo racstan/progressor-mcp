@@ -159,3 +159,42 @@ describe("on the dashboard", () => {
     }
   });
 });
+
+describe("helpers and sub-agents", () => {
+  it("adds a sub-agent's tokens to the step its chat was on, and reads only what is new", async () => {
+    const { mkdirSync } = await import("node:fs");
+    const { collectChat } = await import("../src/cost.js");
+    const dir = tempDir("progressor-cost-sub-");
+    const main = join(dir, "abc.jsonl");
+    writeFileSync(main, [reply("m1", usage(1, 0), [tool("claim_goal", { goal: "login" }), tool("start_task", { task: "t2" })]), reply("m2", usage(5, 0))].map((l) => `${l}\n`).join(""));
+    mkdirSync(join(dir, "abc", "subagents"), { recursive: true });
+    const sub = join(dir, "abc", "subagents", "agent-x.jsonl");
+    writeFileSync(sub, `${reply("s1", usage(100, 10))}\n`);
+    const book = emptyBook();
+    collectChat(book, main);
+    expect(book.goals.login!.steps.t2).toEqual({ input: 105, output: 10, cacheWrite: 0, cacheRead: 0 });
+    collectChat(book, main);
+    expect(book.goals.login!.steps.t2!.input).toBe(105);
+  });
+
+  it("adds a helper chat's tokens to the step its branch is for, though it claims nothing", async () => {
+    const { mkdirSync } = await import("node:fs");
+    const { Project } = await import("../src/project.js");
+    const { runHook } = await import("../src/hooks.js");
+    const root = tempDir("progressor-cost-wt-");
+    const p = new Project({ root, session: { id: "s", pid: process.pid } });
+    p.addGoal("Login", [{ title: "Route" }, { title: "Docs" }]);
+    p.claimGoal("login");
+    const gitdir = join(root, ".git", "worktrees", "h");
+    mkdirSync(gitdir, { recursive: true });
+    writeFileSync(join(gitdir, "HEAD"), "ref: refs/heads/claude/t2-docs-abc\n");
+    writeFileSync(join(gitdir, "commondir"), "../..\n");
+    const wt = join(tempDir("progressor-wt-"), "h");
+    mkdirSync(wt, { recursive: true });
+    writeFileSync(join(wt, ".git"), `gitdir: ${gitdir}\n`);
+    const file = transcript([reply("m1", usage(40, 2))]);
+    const env = { CLAUDE_PROJECT_DIR: wt, PROGRESSOR_REGISTRY: join(tempDir("progressor-reg-"), "projects.json") };
+    runHook({ event: "stop", input: JSON.stringify({ transcript_path: file }), env, isAlive: () => true, canRun: () => true });
+    expect(p.costBook().goals.login!.steps.t2).toEqual({ input: 40, output: 2, cacheWrite: 0, cacheRead: 0 });
+  });
+});

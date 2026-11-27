@@ -3,8 +3,8 @@
 // tool calls (claim_goal, update_tasks...; older chats used start_task and complete_task) say which goal and step it was on. The hooks
 // read what is new in the transcript on each message (collectTranscript) and add it up in
 // .progressor/cost/tokens.json. Nothing needs setting up; a price in Settings turns tokens into money.
-import { closeSync, existsSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { closeSync, existsSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 /** The book is .progressor/cost/tokens.json: a folder, so .progressor/.gitignore can keep it on this computer. */
 export const COST_DIR = "cost";
@@ -111,7 +111,13 @@ function follow(place: ChatPlace, tool: string, input: Record<string, unknown>):
 }
 
 /** Adds one transcript line to the book; lines that are not AI replies, or cannot be read, add nothing. */
-function addLine(book: CostBook, place: ChatPlace, line: string): void {
+/** Where a chat's tokens go while its own tool calls name no goal: a helper's step, or the step its parent chat is on. */
+export interface CostFallback {
+  goal?: string | undefined;
+  task?: string | undefined;
+}
+
+function addLine(book: CostBook, place: ChatPlace, line: string, fallback?: CostFallback): void {
   let entry: { type?: unknown; message?: { id?: unknown; usage?: Record<string, unknown>; content?: unknown } };
   try {
     entry = JSON.parse(line);
@@ -128,9 +134,10 @@ function addLine(book: CostBook, place: ChatPlace, line: string): void {
       cacheWrite: num(m.usage.cache_creation_input_tokens),
       cacheRead: num(m.usage.cache_read_input_tokens),
     };
-    if (place.goal) {
-      const g = (book.goals[place.goal] ??= { usage: noUsage(), steps: {} });
-      add(place.task ? (g.steps[place.task] ??= noUsage()) : g.usage, u);
+    const at = place.goal ? place : fallback?.goal ? fallback : undefined;
+    if (at?.goal) {
+      const g = (book.goals[at.goal] ??= { usage: noUsage(), steps: {} });
+      add(at.task ? (g.steps[at.task] ??= noUsage()) : g.usage, u);
     } else add(book.other, u);
   }
   if (id) place.lastId = id;
@@ -143,7 +150,7 @@ function addLine(book: CostBook, place: ChatPlace, line: string): void {
 }
 
 /** Reads what is new in one chat's transcript since the last time, up to its last whole line. */
-export function collectTranscript(book: CostBook, file: string): void {
+export function collectTranscript(book: CostBook, file: string, fallback?: CostFallback): void {
   if (!existsSync(file)) return;
   const place = (book.chats[file] ??= { offset: 0 });
   let fd: number | undefined;
@@ -156,13 +163,32 @@ export function collectTranscript(book: CostBook, file: string): void {
     readSync(fd, buf, 0, buf.length, place.offset);
     const end = buf.lastIndexOf(0x0a);
     if (end < 0) return; // no whole line yet
-    for (const line of buf.subarray(0, end).toString("utf8").split("\n")) if (line.trim()) addLine(book, place, line);
+    for (const line of buf.subarray(0, end).toString("utf8").split("\n")) if (line.trim()) addLine(book, place, line, fallback);
     place.offset += end + 1;
   } catch {
     // a transcript that cannot be read adds nothing
   } finally {
     if (fd !== undefined) closeSync(fd);
   }
+}
+
+/**
+ * Reads what is new in a chat's transcript and in its sub-agents' (Claude Code keeps those in
+ * `<transcript>/subagents/*.jsonl`): a sub-agent's tokens go to the step the chat is on, unless its
+ * own Progressor calls say otherwise. `fallback` is where the chat's go while it names no goal itself.
+ */
+export function collectChat(book: CostBook, file: string, fallback?: CostFallback): void {
+  collectTranscript(book, file, fallback);
+  const place = book.chats[file];
+  const parent: CostFallback = place?.goal ? { goal: place.goal, task: place.task } : (fallback ?? {});
+  const dir = join(file.replace(/\.jsonl$/i, ""), "subagents");
+  let subs: string[] = [];
+  try {
+    subs = readdirSync(dir).filter((n) => n.endsWith(".jsonl"));
+  } catch {
+    return; // no sub-agents
+  }
+  for (const name of subs) collectTranscript(book, join(dir, name), parent);
 }
 
 /** The book in .progressor/cost/tokens.json; an empty one when there is none or it cannot be read. */

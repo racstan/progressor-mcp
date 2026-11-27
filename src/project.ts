@@ -47,7 +47,7 @@ import { unsafeRoot } from "./root.js";
 import { type Routine, dueRoutines, formatEvery, nextAfter, nextDue, parseEvery, splitStep } from "./routines.js";
 import { formatDuration, parseDuration } from "./estimate.js";
 import { type Readiness, readiness } from "./readiness.js";
-import { COST_DIR, COST_FILE, type CostBook, collectTranscript, readBook, writeBook } from "./cost.js";
+import { COST_DIR, COST_FILE, type CostBook, type CostFallback, collectChat, readBook, writeBook } from "./cost.js";
 import { type Claim, type Goal, GOAL_BUNDLES, GOAL_FOR_LAUNCH, GOAL_FROM_ROUTINE, GOAL_RELEASE, GOAL_WAITS_ON, GOALS, IDEAS, type Idea, ROADMAP_REF, STANDING_INSTRUCTIONS, Roadmap, type StandingInstruction, helperLimit } from "./roadmap.js";
 import { type Actor, type DateScope, stampDates } from "./dates.js";
 import { type Schedule, computeSchedule, helperCount } from "./schedule.js";
@@ -811,13 +811,13 @@ export class Project {
    * Adds what is new in a chat's transcript to the cost book (the hooks call it on each message). Under
    * the plan's lock but not a plan change: no history entry. Never throws: counting must not get in the way.
    */
-  collectCost(transcript: string): void {
+  collectCost(transcript: string, fallback?: CostFallback): void {
     try {
       withLock(
         this.root,
         () => {
           const book = this.costBook();
-          collectTranscript(book, transcript);
+          collectChat(book, transcript, fallback);
           writeBook(this.path(COST_DIR, COST_FILE), book);
           this.ignoreLocal(COST_DIR, "How many tokens each goal used, counted on this computer");
         },

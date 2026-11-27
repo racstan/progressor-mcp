@@ -168,6 +168,20 @@ function planReminder(o: ProjectOverview): string | undefined {
   ].join(" · ");
 }
 
+/** The one open step a branch is for (stepSync.ts linkedBranch), across the goals in progress; undefined when none or several. */
+export function stepForBranch(project: Project, branch: string): { goal: string; task: string } | undefined {
+  const found: { goal: string; task: string }[] = [];
+  for (const g of project.roadmap().goals.filter((x) => x.status === "active" || x.status === "paused")) {
+    try {
+      for (const t of project.plan(g.id).tasks)
+        if (t.id && !["done", "released", "dropped"].includes(t.status) && linkedBranch({ id: t.id, helper: t.helper }, [branch]) === branch) found.push({ goal: g.id, task: t.id });
+    } catch {
+      // a plan file that can't be read names no step
+    }
+  }
+  return found.length === 1 ? found[0] : undefined;
+}
+
 /**
  * What a helper chat started in a git worktree of the project is told at session start (and after
  * compaction): that it is a helper, the step its branch is for when one is (stepSync.ts), and the
@@ -239,6 +253,11 @@ export function runHook({ event, input, env, isAlive, canRun = (c) => onPath(c, 
     const root = placed.root;
     if (!existsSync(join(root, PROGRESSOR_DIR))) return "";
     if (placed.worktree) {
+      // A helper chat claims nothing: its tokens go to the step its branch is for.
+      if (typeof data.transcript_path === "string" && data.transcript_path) {
+        const reader = new Project({ root, session: { id: "hook", pid: process.pid }, isAlive, now, clearStaleClaims: false });
+        reader.collectCost(data.transcript_path, placed.branch ? stepForBranch(reader, placed.branch) : undefined);
+      }
       if (kind !== "session-start") return "";
       const global = readGlobal(env.PROGRESSOR_REGISTRY ? globalFileFor(env.PROGRESSOR_REGISTRY) : defaultGlobalFile());
       const helper = new Project({ root, session: { id: "hook", pid: process.pid }, isAlive, now, clearStaleClaims: false });
