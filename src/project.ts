@@ -918,8 +918,8 @@ export class Project {
    * `.progressor/pictures/<goal>/` under a safe name (p3.png) and lists it. `source` is a path,
    * absolute or from the project root.
    */
-  attachPicture(source: string, caption: string, about: { task?: string; handTest?: string } = {}, goalId?: string): Picture {
-    const { goal, plan } = this.requireClaim(goalId);
+  attachPicture(source: string, caption: string, about: { task?: string; handTest?: string } = {}, goalId?: string, anyGoal = false): Picture {
+    const { goal, plan } = anyGoal && goalId ? this.goalAndPlan(goalId) : this.requireClaim(goalId);
     const words = cutText(caption, MAX_CAPTION);
     if (!words) throw new Error("A picture needs a caption: say in a few words what it shows.");
     if (about.task && !plan.task(about.task)) throw new Error(`No step ${about.task} in Goal ${goal.id}.`);
@@ -955,6 +955,21 @@ export class Project {
     write(join(dir, picture.file));
     this.writeText(join(dir, "index.json"), `${JSON.stringify([...list, picture], null, 2)}\n`);
     return picture;
+  }
+
+  /** The ID of the Goal a tool means: the one named, or the only one this Session holds. */
+  goalIdFor(goalId?: string): string {
+    return this.requireClaim(goalId).goal.id;
+  }
+
+  /** Any Goal on the Roadmap that is not dropped, with its plan, whether or not a chat holds it. */
+  private goalAndPlan(goalId: string) {
+    const goal = this.roadmap().goal(goalId);
+    if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
+    if (goal.status === "dropped") throw new Error(`Goal ${goalId} is dropped; nothing can be added to it.`);
+    const plan = this.plan(goalId);
+    plan.assignMissingIds();
+    return { goal, plan };
   }
 
   /**
@@ -2021,12 +2036,13 @@ export class Project {
   }
 
   /**
-   * Records the Developer's mark on a hand test (this is what the dashboard calls), needing no Claim:
-   * the Developer, not the Agent, makes it. "doesn't work" adds a pending Task to the Goal, titled
+   * Records a mark on a hand test (the dashboard calls it for the Developer; the AI's `save_hand_test`
+   * passes by "AI"), needing no Claim and working on any Goal on the Roadmap. The AI's mark records who made it,
+   * keeps its note for every result and is already seen; the Developer's mark replaces it. "doesn't work" adds a pending Task to the Goal, titled
    * from the test and summarising the note, and reopens a finished Goal so the next Session sees it.
    * Marking again or clearing (`pending`) drops that Task if nobody has started it.
    */
-  markHandTest(goalId: string, id: string, result: HandResult, note?: string): HandTest {
+  markHandTest(goalId: string, id: string, result: HandResult, note?: string, by?: "AI"): HandTest {
     const roadmap = this.roadmap();
     const goal = roadmap.goal(goalId);
     if (!goal) throw new Error(`No Goal ${goalId} on the Roadmap.`);
@@ -2036,7 +2052,7 @@ export class Project {
     const test = plan.handTest(id);
     if (!test) throw new Error(`No hand test ${id} in Goal ${goalId}.`);
     const text = note?.trim().slice(0, MAX_HAND_NOTE);
-    plan.markHandTest(id, result, text, this.now());
+    plan.markHandTest(id, result, text, this.now(), by);
     let reopen = false;
     const added = test.taskAdded ? plan.task(test.taskAdded) : undefined;
     if (result !== "doesn't work") {

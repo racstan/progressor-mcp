@@ -202,6 +202,7 @@ Facts about an item are indented list lines under it, in the form `key: value`:
 | Note     | `from`         | The ref of the Goal being worked on when the note was made, if another one. |
 | Hand test | `task`        | The Task the test is about (`^t3`), if the Agent said.                   |
 | Hand test | `note`        | What the Developer typed when it did not work, on one line.              |
+| Hand test | `by`          | `AI` when the AI tried the test and marked it; left out for the Developer's mark, which replaces it. The AI's mark is already seen and keeps its `note` for every result. |
 | Hand test | `marked`      | The ISO time the Developer marked it.                                    |
 | Hand test | `task added`  | The Task a failed result added (`^t7`); written by the tools.            |
 | Hand test | `seen`        | `yes` once the Agent has been shown the mark in a status; written by the tools. |

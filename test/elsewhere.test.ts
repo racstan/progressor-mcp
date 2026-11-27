@@ -298,7 +298,7 @@ describe("the tools", () => {
     expect(withProject.sort()).toEqual(
       [
         "add_goal", "add_hotfix", "add_small_fix", "add_tasks", "complete_goal", "get_item", "get_status", "launch_readiness", "move_goal",
-        "save_decision", "save_note", "save_risk", "set_task_state", "update_goal", "update_task", "update_tasks",
+        "save_decision", "save_hand_test", "save_note", "save_risk", "set_task_state", "update_goal", "update_task", "update_tasks",
       ].sort(),
     );
   });

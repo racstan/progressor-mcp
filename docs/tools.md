@@ -50,7 +50,7 @@ Words: a **goal** is *Goal* in the tools, a **step** is *Task*, a **side trip** 
 | --- | --- |
 | `ask_developer` | Asks you a question on the dashboard, with choices or alternatives. |
 | `reply_to_developer` | Answers a message you wrote on the dashboard. |
-| `save_hand_test` | Adds, rewords or removes something only you can try by hand. |
+| `save_hand_test` | Adds, rewords, removes or marks a hand test the AI tried itself. |
 | `attach_picture` | Shows you a screenshot or short recording. |
 | `attach_report` | Keeps a write-up on a step, from any chat in the project. |
 

@@ -804,7 +804,7 @@ describe("a call with the wrong shape", () => {
     expect(r.isError).toBe(true);
     expect(r.text).toContain("get_item takes: ref, refs, project.");
     const h = await call("save_hand_test", { title: "Try it", steps: "Open the page" });
-    expect(h.text).toContain("save_hand_test takes: goal, id, text, task.");
+    expect(h.text).toContain("save_hand_test takes: goal, project, id, text, task, result, note, picture.");
   });
 
   it("has an example for every tool", async () => {
