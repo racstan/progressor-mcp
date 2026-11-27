@@ -8,7 +8,7 @@ import { connectSync, defaultPlansDir, syncOff, syncSettings } from "./sync/conn
 import { readSyncState, syncOnce, syncStateFileFor } from "./sync/run.js";
 import { linkProject, syncKey, unlinkProject } from "./sync/identity.js";
 
-const USAGE = `Usage: progressor-mcp sync <connect [owner/repo | URL] | off | status | link <key> | unlink>
+const USAGE = `Usage: progressor-mcp sync <connect [owner/repo | URL] | now | off | status | link <key> | unlink>
 
 Keeps every project's plan in one private GitHub repo, the same on each of your computers.
   connect [repo]  turn sync on for this computer. With no repo, finds or makes your private
