@@ -6,6 +6,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Project } from "../src/project.js";
 import { createServer, INSTRUCTIONS } from "../src/server.js";
+import { applyChanges, launchFor, planInit } from "../src/init.js";
 import { tempDir } from "./tmp.js";
 
 let root: string;
@@ -17,16 +18,16 @@ beforeEach(() => {
   registry = join(tempDir("progressor-reg-"), "registry.json");
 });
 
-async function connect() {
+async function connect(app = "t") {
   project = new Project({ root, session: { id: "s", pid: process.pid } });
   project.addGoal("Login", [{ title: "Route" }, { title: "Form" }]);
   project.addGoal("Billing", [{ title: "Checkout" }]);
   project.addStandingInstruction("Write tests first");
   project.setContext("A web app in TypeScript.");
-  const server = createServer(project, { registryFile: registry, settingsFile: join(tempDir("progressor-settings-"), "settings.json") });
+  const server = createServer(project, { registryFile: registry, settingsFile: join(tempDir("progressor-settings-"), "settings.json"), claudeHome: tempDir("progressor-home-") });
   const [a, b] = InMemoryTransport.createLinkedPair();
   await server.connect(a);
-  const client = new Client({ name: "t", version: "1" });
+  const client = new Client({ name: app, version: "1" });
   await client.connect(b);
   return async (name: string, args: Record<string, unknown> = {}) => {
     const r = (await client.callTool({ name, arguments: args })) as { content: { text: string }[]; isError?: boolean };
@@ -134,7 +135,8 @@ describe("get_item with several refs", () => {
 
 describe("shorter replies", () => {
   it("get_status repeats the rules in full only the first time, or when they change, or with full", async () => {
-    const call = await connect();
+    const call = await connect("claude-code");
+    applyChanges(planInit(root, launchFor({ viaNpx: false, platform: "linux" }), { server: false }));
     const first = await call("get_status");
     expect(first).toContain("- s1 Write tests first");
     const second = await call("get_status");
@@ -144,6 +146,14 @@ describe("shorter replies", () => {
     await call("save_standing_instruction", { text: "Use British English" });
     expect(await call("get_status")).toContain("Use British English");
   });
+
+  for (const app of ["cursor", "claude-code"]) {
+    it(`get_status always repeats the rules in ${app} without hooks, where nothing gives them back after compaction`, async () => {
+      const call = await connect(app);
+      await call("get_status");
+      expect(await call("get_status")).toContain("- s1 Write tests first");
+    });
+  }
 
   it("add_goal without claim answers with the goal's id, title, steps and estimate only", async () => {
     const call = await connect();

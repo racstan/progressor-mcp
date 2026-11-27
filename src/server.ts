@@ -759,7 +759,7 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         .map((id) => ({ goal: id, from: project.takeNewFromDeveloper(id) })),
     );
   // The rules, context and wishlist this chat was last sent; tools that end with a status leave them
-  // out while they are unchanged. get_status always sends them, as it is called after compaction.
+  // out while they are unchanged. get_status leaves them out too, but only in Claude Code with the hooks set up.
   let sentInstructions: string | undefined;
   const status = (brief = false) => {
     const news = takeNews();
@@ -1001,9 +1001,9 @@ export function createServer(project: Project, options: ServerOptions = {}): Mcp
         const hooks = hooksLine();
         let now: string;
         try {
-          // The rules are repeated in full only the first time, when they changed, or when asked; without the
-          // hooks nothing puts them back after context compression, so then always.
-          now = status(!full && !hooksMissing);
+          // The rules are repeated in full only the first time, when they changed, or when asked. Only Claude Code
+          // with the hooks set up gets them back after context compression; every other app always gets them in full.
+          now = status(!full && !hooksMissing && isClaudeCode(server));
         } catch (e) {
           // A plan that can't be read still gets what the check-up found, which says why.
           throw checked.length > 0 ? new Error(`${(e as Error).message}\n${checked.join("\n")}`) : e;
