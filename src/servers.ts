@@ -16,6 +16,9 @@ export interface ServerRecord {
   root: string;
   /** The Session ID, for a Session's server. */
   session?: string;
+  /** For a chat started in a git worktree of the project (a helper chat): that folder and its branch. */
+  worktree?: string;
+  branch?: string;
   version: string;
   startedAt: string;
   /** When the record was last refreshed. */
@@ -52,7 +55,7 @@ function remove(file: string): void {
 
 /** Writes this process's record and keeps it fresh until `close()`. */
 export function announceServer(
-  info: Pick<ServerRecord, "kind" | "root" | "session">,
+  info: Pick<ServerRecord, "kind" | "root" | "session" | "worktree" | "branch">,
   options: AnnounceOptions,
 ): { close(): void } {
   const dir = options.dir ?? defaultServersDir();
