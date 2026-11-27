@@ -18,6 +18,7 @@ A project can have several goals. **Your goals** on the dashboard lists them all
 Your AI keeps a little more in the plan than a list of ticks, so that you can see what is going on:
 
 - **Helpers.** Your AI may hand a step to a helper, another AI that works on it on the side. The step shows as **With a helper**. When your AI has looked over the helper's work and it holds up, the step is **Checked**. Once it's merged and out (shipped, installed or published) it's **Released**.
+- **Following your git work.** Your AI doesn't have to mark steps by hand when you use git branches. Name a branch after its step (for example `t3-export`): while a helper chat works on that branch the step shows as **With a helper**, and once the branch is merged the step is marked done, with its commits.
 - **Waiting on you.** If a step needs you, for example to try something out by hand, your AI marks it **Waiting on you** and tells you in the chat. The dashboard shows the goal in amber until you've done it, so you don't have to hunt for what's holding things up. When you're done, tell your AI and it carries on.
 - **Decisions.** When a choice is made that's worth remembering (*"Sessions end after 30 minutes"*), your AI records it under the goal, so a later conversation doesn't reopen it.
 - **Notes.** When your AI spots something along the way, such as a bug in a part it isn't working on, it adds a note to the goal that it belongs to and carries on with what it was doing. The note says where it was found, and your AI crosses it off when it's dealt with.
