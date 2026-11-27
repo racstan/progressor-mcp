@@ -4,6 +4,7 @@
 // It only ever reads, each command with a short timeout. If git is missing, slow, or the folder is not
 // a repository, every question answers undefined instead of failing, so finishing a step never breaks.
 import { execFileSync } from "node:child_process";
+import { type Branches, gitBranches } from "./helperWork.js";
 
 const GIT_TIMEOUT_MS = 2000;
 /** At most this many commits are recorded on a step: the newest. */
@@ -23,6 +24,10 @@ export interface GitFacts {
   range?(root: string, range: GitRange, max: number): { total: number; lines: string[]; files: string[] } | undefined;
   /** When a commit was made (ISO); undefined when git doesn't know `ref`. */
   timeOf?(root: string, ref: string): string | undefined;
+  /** The local branches, and which are merged into HEAD (stepSync.ts); undefined when git cannot say. */
+  branches?(root: string): Branches | undefined;
+  /** Short hashes of the commits in HEAD..branch, newest first; undefined when git cannot say. */
+  ahead?(root: string, branch: string): string[] | undefined;
 }
 
 /** Which commits: those named, or those after `from` (a commit or tag) and between `since` and `until` (ISO times). */
@@ -96,6 +101,12 @@ export function commitLinkBase(remote: string): string | undefined {
 }
 
 export const realGit: GitFacts = {
+  branches: gitBranches,
+  ahead(root, branch) {
+    if (!safeRef(branch)) return undefined;
+    const out = run(root, ["log", "--format=%h", "--abbrev=7", `--max-count=${MAX_COMMITS}`, `HEAD..${branch}`, "--"]);
+    return out === undefined ? undefined : out.split("\n").map((l) => l.trim()).filter(Boolean);
+  },
   commitsSince(root, since, files) {
     if (!since) return undefined;
     const specs = pathspecs(files);
