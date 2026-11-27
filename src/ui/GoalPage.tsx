@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { type DetourNode, type GoalGraph, type TaskNode, withoutDropped } from "../dashboard/graph.js";
 import { copyAsPrompt } from "../dashboard/prompt.js";
 import type { GoalSchedule } from "../schedule.js";
-import { type GoalView, type RoadmapView, useCi, useCost, useStored } from "./data.js";
+import { type GoalView, type RoadmapView, getReport, useCi, useCost, useReports, useStored } from "./data.js";
 import { costWords } from "../costWords.js";
 import { GoalCiRow } from "./CiBadges.js";
 import { GoalNotes } from "./GoalNotes.js";
@@ -79,6 +79,9 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
   const notes = view.decisions.length + view.notes.filter((n) => !n.resolved).length + view.handTests.length + view.pictures.length;
   // Pull requests and CI checks for the steps' commits (ci.ts); empty until something is known.
   const ci = useCi(projectId, goal.id, view);
+  // The write-ups attached to its steps (reports.ts).
+  const reports = useReports(projectId, goal.id, view);
+  const readReport = useCallback((id: string) => getReport(projectId, goal.id, id), [projectId, goal.id]);
 
   return (
     <div className="page">
@@ -187,7 +190,7 @@ export function GoalPage({ projectId, view, goals, state, schedule, fileLink, on
         <TabButton id="notes" tab={tab} setTab={setTab}>Notes {notes > 0 && <span className="n">{notes}</span>}</TabButton>
       </div>
       <div className="tab-body" role="tabpanel">
-        {tab === "steps" && <Steps view={view} cost={cost?.steps} ci={ci.steps} fileLink={fileLink} onCopy={onCopy} onReveal={() => onReveal(goal.planFile)} />}
+        {tab === "steps" && <Steps view={view} cost={cost?.steps} ci={ci.steps} reports={reports} readReport={readReport} fileLink={fileLink} onCopy={onCopy} onReveal={() => onReveal(goal.planFile)} />}
         {tab === "map" && (
           mapGraph.nodes.length === 0 ? <p className="quiet">No steps yet, so nothing to draw.</p> : (
             <>

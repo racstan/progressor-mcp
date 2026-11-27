@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { DetourNode, TaskNode } from "../dashboard/graph.js";
 import { parseCodeRef } from "../dashboard/editor.js";
 import { copyAsPrompt } from "../dashboard/prompt.js";
-import { type GoalView, type StepCiView, useStored } from "./data.js";
+import { type GoalView, type ReportItem, type StepCiView, useStored } from "./data.js";
 import { ChecksBadge, PullRequestLinks } from "./CiBadges.js";
 import type { CostLine } from "../dashboard/routes/cost.js";
 import { costWords } from "../costWords.js";
@@ -10,6 +10,7 @@ import { STEPS_VIEW_DEFAULT, STEPS_VIEW_KEY, type StepsView, isStepsView, stepDa
 import { Dates } from "./Dates.js";
 import { Icon } from "./Icon.js";
 import { type PictureItem, Pictures } from "./Pictures.js";
+import { Reports } from "./Reports.js";
 import { RichText } from "./RichText.js";
 import { waitingLine } from "./others.js";
 import { plainText } from "./text.js";
@@ -34,7 +35,7 @@ export function StepIcon({ status }: { status: string }) {
  * A goal's steps in plan order, each a row that opens to show what it does, what was checked and the
  * files it changed. Side trips sit under the step they left from. Cancelled steps wait behind a link.
  */
-export function Steps({ view, cost, ci = {}, fileLink, onCopy, onReveal }: { view: GoalView; cost?: Record<string, CostLine>; ci?: Record<string, StepCiView>; fileLink: FileLink; onCopy: (text: string) => void; onReveal: () => void }) {
+export function Steps({ view, cost, ci = {}, reports = [], readReport, fileLink, onCopy, onReveal }: { view: GoalView; cost?: Record<string, CostLine>; ci?: Record<string, StepCiView>; reports?: ReportItem[]; readReport?: (id: string) => Promise<string | undefined>; fileLink: FileLink; onCopy: (text: string) => void; onReveal: () => void }) {
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [cancelled, setCancelled] = useState(false);
   const rows = checklistRows(view.graph);
@@ -53,7 +54,7 @@ export function Steps({ view, cost, ci = {}, fileLink, onCopy, onReveal }: { vie
   const items = (list: typeof rows) =>
     list.flatMap((row) => [
       ...(row.task && (cancelled || row.task.status !== "dropped")
-        ? [<Step key={row.task.id} task={row.task} open={open.has(row.task.id)} onToggle={() => toggle(row.task!.id)} pictures={view.pictures.filter((p) => p.task === row.task!.id)} cost={cost?.[row.task.id]} fileLink={fileLink} onCopy={() => copy(row.task!)} onReveal={onReveal} commitLink={view.commitLink} ci={ci[row.task.id]} />]
+        ? [<Step key={row.task.id} task={row.task} open={open.has(row.task.id)} onToggle={() => toggle(row.task!.id)} pictures={view.pictures.filter((p) => p.task === row.task!.id)} cost={cost?.[row.task.id]} fileLink={fileLink} onCopy={() => copy(row.task!)} onReveal={onReveal} commitLink={view.commitLink} ci={ci[row.task.id]} reports={reports.filter((r) => r.task === row.task!.id)} readReport={readReport} />]
         : []),
       ...row.detours.map((d) => <SideTrip key={d.id} detour={d} open={open.has(d.id)} onToggle={() => toggle(d.id)} onCopy={() => copy(d)} />),
     ]);
@@ -110,7 +111,7 @@ function GitFacts({ task: t, commitLink, ci }: { task: TaskNode; commitLink: str
   );
 }
 
-function Step({ task: t, open, onToggle, pictures, cost, fileLink, onCopy, onReveal, commitLink, ci }: { task: TaskNode; open: boolean; onToggle: () => void; pictures: PictureItem[]; cost?: CostLine; fileLink: FileLink; onCopy: () => void; onReveal: () => void; commitLink?: string; ci?: StepCiView | undefined }) {
+function Step({ task: t, open, onToggle, pictures, cost, fileLink, onCopy, onReveal, commitLink, ci, reports = [], readReport }: { task: TaskNode; open: boolean; onToggle: () => void; pictures: PictureItem[]; cost?: CostLine; fileLink: FileLink; onCopy: () => void; onReveal: () => void; commitLink?: string; ci?: StepCiView | undefined; reports?: ReportItem[]; readReport?: ((id: string) => Promise<string | undefined>) | undefined }) {
   const elsewhere = elsewhereTag(t.updatedFrom);
   const meta = [stepTime(t), helperLine(t.helper), t.fromDetour && "Added after a side trip", elsewhere?.label].filter(Boolean).join(" · ");
   const cls = t.status === "in progress" ? "now" : t.status === "waiting on you" ? "you" : statusClass(t.status);
@@ -146,6 +147,7 @@ function Step({ task: t, open, onToggle, pictures, cost, fileLink, onCopy, onRev
             </div>
           )}
           <Pictures pictures={pictures} />
+          {readReport && <Reports reports={reports} read={readReport} />}
           <div className="actions">
             <button className="btn ghost small" onClick={onCopy} title="Copies a short pointer to this step; paste it into your AI chat and say what you want"><Icon name="copy" size={14} /> Copy for your AI</button>
             <button className="btn ghost small" onClick={onReveal} title="Opens the folder this step's plan is saved in"><Icon name="folder" size={14} /> Show in folder</button>

@@ -765,3 +765,8 @@ export const ALT_OFFERS: [value: string, label: string][] = [["off", "Never"], [
 //
 //
 //
+
+/** The write-ups attached to a step (Reports.tsx). */
+export const REPORTS_HEADING = "Reports";
+export const REPORT_HINT = "Opens or closes this report";
+export const REPORT_UNREADABLE = "This report could not be read.";
